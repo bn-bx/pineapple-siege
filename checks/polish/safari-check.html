@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>Pineapple Siege Safari checks</title><style>body{margin:0;background:#111;color:white;font:14px monospace}iframe{width:1920px;height:1080px;border:0}#start,#status{position:fixed;top:10px;left:10px;z-index:99}button{padding:15px}</style><button id="start">Start Safari checks</button><div id="status" hidden></div><iframe src="/#debug"></iframe><script>
+const frame=document.querySelector('iframe'),checks=[],label=document.getElementById('status'),button=document.getElementById('start');
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const until=async fn=>{for(let i=0;i<600;i++){if(fn())return;await wait(100)}throw Error('Check timed out')};
+const check=(name,passed,detail)=>checks.push({name,passed:!!passed,detail});
+button.onclick=async()=>{
+ button.remove();label.hidden=false;label.textContent='Running Safari checks';
+ const w=frame.contentWindow,errors=[];let g;
+ try{
+ await until(()=>w.lanternVale?.state.ready);g=w.lanternVale;w.addEventListener('error',e=>errors.push(e.message));
+ check('Pineapple Siege loads in Safari',w.document.title==='Pineapple Siege');
+ await g.enter();await wait(400);g.cinematic();await wait(1200);
+ check('Cinematic remains live',g.state.cameraMode==='cinematic'&&g.state.active);
+ g.photo();await until(()=>g.state.cameraMode==='photo');let tick=g.state.snapshot.tick,time=g.state.render.effectTime;await wait(800);
+ check('Photo freezes physics and effects',g.state.snapshot.tick===tick&&g.state.render.effectTime===time&&!g.state.active);
+ w.document.getElementById('photoFov').value='42';w.document.getElementById('photoFov').dispatchEvent(new w.Event('input'));await wait(100);check('Photo FOV',g.camera.fov===42);
+ g.photo();await wait(300);check('Photo resumes cinematic',g.state.active&&g.state.cameraMode==='cinematic');g.pause();check('Pause restores chase',g.state.cameraMode==='chase');
+ for(const id of ['mute','reduceEffects','reduceShake','holdTime']){w.document.getElementById(id).checked=true;w.document.getElementById(id).dispatchEvent(new w.Event('change'));}
+ g.blast(g.world.castle,'castle');await g.step(120);const save=await g.save();check('Destroyed world saves',save.removed.length>0&&save.terrain.length>0);
+ await g.reset();await wait(200);g.pause();check('Reset preserves preferences',w.document.getElementById('mute').checked&&w.document.getElementById('holdTime').checked);
+ check('No WebGL or page errors',g.renderer.getContext().getError()===0&&errors.length===0,errors);
+ window.report={userAgent:w.navigator.userAgent,checks};
+ }catch(e){checks.push({name:'Harness',passed:false,detail:String(e)});window.report={checks};}
+ await fetch('/result/safari-functional.json',{method:'POST',body:JSON.stringify(window.report)});label.textContent='Safari checks complete: '+checks.filter(c=>c.passed).length+'/'+checks.length;
+};
+</script>

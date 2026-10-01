@@ -1,0 +1,70 @@
+{
+  "browser": "153.0.8010.54",
+  "checks": [
+    {
+      "name": "Settings persist across reload",
+      "passed": true
+    },
+    {
+      "name": "World reset preserves experimental preferences",
+      "passed": true
+    },
+    {
+      "name": "Defaults restore all settings",
+      "passed": true
+    },
+    {
+      "name": "No cooldown releases eight nukes while queue remains bounded",
+      "passed": true
+    },
+    {
+      "name": "Amplified pending blast is saved with resolved limits",
+      "passed": true
+    },
+    {
+      "name": "Extreme render/physics remain within chosen caps",
+      "passed": true,
+      "detail": {
+        "bodies": 1186,
+        "cosmetics": 3491,
+        "ruins": 11439,
+        "jobs": 0,
+        "physicsMS": 34.09703197507505
+      }
+    },
+    {
+      "name": "Extreme blast creates more than the old physical cap",
+      "passed": true
+    },
+    {
+      "name": "Amplified damage reloads without recovery dialog",
+      "passed": true
+    },
+    {
+      "name": "No page errors",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "No WebGL errors",
+      "passed": true
+    }
+  ],
+  "perf": {
+    "samples": 1498,
+    "median": 16.69999999999891,
+    "p95": 16.700000000000728,
+    "worst": 316.6
+  },
+  "maxima": {
+    "bodies": 1186,
+    "cosmetics": 3491,
+    "ruins": 11439,
+    "jobs": 0,
+    "physicsMS": 34.09703197507505
+  },
+  "simulationTiming": {
+    "wallSeconds": 22.498899999976157,
+    "simulatedSeconds": 16.716666666666864
+  }
+}

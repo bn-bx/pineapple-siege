@@ -1,0 +1,61 @@
+{
+  "browser": "153.0.8010.54",
+  "viewport": [
+    1440,
+    900
+  ],
+  "renderResolution": [
+    1440,
+    900
+  ],
+  "forest": {
+    "x": 185,
+    "z": 251,
+    "nearbyTrunks": 61
+  },
+  "views": [
+    {
+      "name": "Densest forest route section",
+      "x": 185,
+      "z": 251,
+      "yaw": 0.4,
+      "pitch": 0,
+      "hour": 12,
+      "frames": 1750,
+      "medianMS": 16.699999999999818,
+      "p95MS": 16.799999999999272,
+      "glError": 0,
+      "durationSeconds": 30.091,
+      "fps": 58.156923997208466
+    },
+    {
+      "name": "Broad reflective river",
+      "x": 247.2,
+      "z": 185,
+      "yaw": 1.35,
+      "pitch": -0.07,
+      "hour": 15.5,
+      "frames": 1738,
+      "medianMS": 16.69999999999709,
+      "p95MS": 16.80000000000291,
+      "glError": 0,
+      "durationSeconds": 30.058,
+      "fps": 57.821545012974916
+    },
+    {
+      "name": "Illuminated fort",
+      "x": 339,
+      "z": 233,
+      "yaw": 0.65,
+      "pitch": 0.19,
+      "hour": 22,
+      "frames": 1801,
+      "medianMS": 16.69999999999709,
+      "p95MS": 16.79999999998836,
+      "glError": 0,
+      "durationSeconds": 30.009,
+      "fps": 60.01532873471292
+    }
+  ],
+  "concurrentExploration": false
+}

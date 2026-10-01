@@ -1,0 +1,380 @@
+{
+  "browser": "153.0.8010.54",
+  "viewport": [
+    1920,
+    1080
+  ],
+  "durationSeconds": 302.309,
+  "maxBodies": 47,
+  "maxJobs": 1,
+  "maxClouds": 3,
+  "maxHeap": 198288643,
+  "maxDestructionMS": 5.300000011920929,
+  "checkpoints": [
+    {
+      "elapsed": 30.103,
+      "stats": {
+        "physicsMS": 1.7090570737390247,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 0,
+        "ruins": 0,
+        "removed": 0,
+        "shots": 2,
+        "revision": 0
+      },
+      "render": {
+        "fps": 52.00018290051066,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 491,
+        "triangles": 293424,
+        "geometries": 863,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 0
+      },
+      "p": [
+        1055.1350651154971,
+        320,
+        845.9476299304383
+      ],
+      "active": true,
+      "heap": 69697565,
+      "nukes": 1,
+      "simTime": 31.3499999999995
+    },
+    {
+      "elapsed": 60.32,
+      "stats": {
+        "physicsMS": 3.7292471370377656,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 24,
+        "ruins": 3908,
+        "removed": 5690,
+        "shots": 35,
+        "revision": 5768
+      },
+      "render": {
+        "fps": 53.72544147034111,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 429,
+        "triangles": 161492,
+        "geometries": 858,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        918.2500440061732,
+        320,
+        1066.0785696899661
+      ],
+      "active": true,
+      "heap": 75223967,
+      "nukes": 4,
+      "simTime": 61.54999999999779
+    },
+    {
+      "elapsed": 90.323,
+      "stats": {
+        "physicsMS": 4.350784458892269,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 22,
+        "ruins": 4775,
+        "removed": 6721,
+        "shots": 68,
+        "revision": 7042
+      },
+      "render": {
+        "fps": 47.36409612793277,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 537,
+        "triangles": 247758,
+        "geometries": 854,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1036.7443765349017,
+        320,
+        1283.6266761748097
+      ],
+      "active": true,
+      "heap": 64655512,
+      "nukes": 7,
+      "simTime": 91.53333333332942
+    },
+    {
+      "elapsed": 120.277,
+      "stats": {
+        "physicsMS": 5.055694550782475,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 32,
+        "ruins": 4974,
+        "removed": 6941,
+        "shots": 98,
+        "revision": 7501
+      },
+      "render": {
+        "fps": 51.70835174345399,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 545,
+        "triangles": 274726,
+        "geometries": 849,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1190.309224347392,
+        320,
+        1320.9600632869226
+      ],
+      "active": true,
+      "heap": 74935456,
+      "nukes": 9,
+      "simTime": 119.91666666666114
+    },
+    {
+      "elapsed": 150.153,
+      "stats": {
+        "physicsMS": 4.257274499840049,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 21,
+        "ruins": 5088,
+        "removed": 7065,
+        "shots": 129,
+        "revision": 7860
+      },
+      "render": {
+        "fps": 39.168147795572494,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 570,
+        "triangles": 260350,
+        "geometries": 843,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1317.4670225789087,
+        320,
+        1274.0757095057668
+      ],
+      "active": true,
+      "heap": 126819683,
+      "nukes": 12,
+      "simTime": 147.91666666667652
+    },
+    {
+      "elapsed": 180.327,
+      "stats": {
+        "physicsMS": 4.93463002412549,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 11,
+        "ruins": 5181,
+        "removed": 7160,
+        "shots": 159,
+        "revision": 8129
+      },
+      "render": {
+        "fps": 35.84308531317336,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 598,
+        "triangles": 291636,
+        "geometries": 860,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1373.1874806442854,
+        320,
+        1218.6884853241725
+      ],
+      "active": true,
+      "heap": 141159975,
+      "nukes": 15,
+      "simTime": 174.96666666669805
+    },
+    {
+      "elapsed": 210.225,
+      "stats": {
+        "physicsMS": 4.150848714788266,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 16,
+        "ruins": 5213,
+        "removed": 7199,
+        "shots": 187,
+        "revision": 8369
+      },
+      "render": {
+        "fps": 36.13454102587827,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 609,
+        "triangles": 292698,
+        "geometries": 845,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1395.9863943598057,
+        320,
+        1181.0115648156566
+      ],
+      "active": true,
+      "heap": 108321459,
+      "nukes": 17,
+      "simTime": 201.45000000005246
+    },
+    {
+      "elapsed": 240.035,
+      "stats": {
+        "physicsMS": 5.529029452230356,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 31,
+        "ruins": 5243,
+        "removed": 7246,
+        "shots": 218,
+        "revision": 8613
+      },
+      "render": {
+        "fps": 36.282113024974116,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 543,
+        "triangles": 226670,
+        "geometries": 843,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1420.3483562038577,
+        320,
+        1096.816385002372
+      ],
+      "active": true,
+      "heap": 86129247,
+      "nukes": 20,
+      "simTime": 228.6500000000741
+    },
+    {
+      "elapsed": 270.087,
+      "stats": {
+        "physicsMS": 2.8947916635241864,
+        "destructionMS": 0.09999996423721313,
+        "pendingJobs": 0,
+        "bodies": 1,
+        "ruins": 5289,
+        "removed": 7263,
+        "shots": 248,
+        "revision": 8789
+      },
+      "render": {
+        "fps": 31.05796435944756,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 685,
+        "triangles": 301212,
+        "geometries": 858,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1416.6335314072132,
+        320,
+        1019.3510203046591
+      ],
+      "active": true,
+      "heap": 89304519,
+      "nukes": 23,
+      "simTime": 255.68333333342895
+    },
+    {
+      "elapsed": 300.277,
+      "stats": {
+        "physicsMS": 3.354940986530901,
+        "destructionMS": 0,
+        "pendingJobs": 0,
+        "bodies": 7,
+        "ruins": 5293,
+        "removed": 7273,
+        "shots": 278,
+        "revision": 8971
+      },
+      "render": {
+        "fps": 36.401408750038506,
+        "width": 1920,
+        "height": 1080,
+        "drawCalls": 598,
+        "triangles": 229754,
+        "geometries": 856,
+        "textures": 11,
+        "quality": 1080,
+        "clouds": 2
+      },
+      "p": [
+        1387.9986409472106,
+        320,
+        944.0237700844235
+      ],
+      "active": true,
+      "heap": 97198587,
+      "nukes": 26,
+      "simTime": 282.76666666673816
+    }
+  ],
+  "final": {
+    "normal": {
+      "frames": 1535,
+      "medianMS": 16.69999999999891,
+      "p95MS": 16.80000000000291,
+      "p99MS": 33.400000000001455,
+      "maxMS": 66.70000000000073,
+      "over100MS": 0
+    },
+    "destruction": {
+      "frames": 10232,
+      "medianMS": 16.700000000004366,
+      "p95MS": 50,
+      "p99MS": 200,
+      "maxMS": 316.5999999999767,
+      "over100MS": 190
+    },
+    "stats": {
+      "physicsMS": 3.756092526030663,
+      "destructionMS": 0,
+      "pendingJobs": 0,
+      "bodies": 7,
+      "ruins": 5293,
+      "removed": 7273,
+      "shots": 278,
+      "revision": 8971
+    },
+    "nukes": 26,
+    "saveBytes": 6264670,
+    "pendingSaved": 0,
+    "glError": 0
+  },
+  "errors": [],
+  "bounded": true,
+  "performanceTarget": false
+}

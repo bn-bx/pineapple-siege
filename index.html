@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E🍍%3C/text%3E%3C/svg%3E"
+    />
+    <meta name="theme-color" content="#15282c" />
+    <title>Pineapple Siege</title>
+  </head>
+  <body>
+    <canvas
+      id="world"
+      aria-label="A fighter jet flying over a destructible medieval valley"
+    ></canvas>
+    <header>
+      <a class="brand" href="#" aria-label="Open menu"
+        ><span class="crest">✦</span> PINEAPPLE SIEGE
+      </a>
+      <div class="header-right">
+        <span id="clock">15:30</span
+        ><button id="pauseButton" hidden>ESC <span>MENU</span></button>
+      </div>
+    </header>
+    <main id="overlay">
+      <section class="menu">
+        <div class="menu-heading">
+          <div>
+            <h1 id="title">Pineapple Siege</h1>
+            <p class="intro" id="intro">Changes are saved locally.</p>
+          </div>
+          <div class="actions">
+            <button class="primary" id="enter" disabled>
+              <span id="enterLabel">Loading world…</span><span>↗</span></button
+            ><button class="secondary" id="newWorld" hidden>
+              Start a new world
+            </button>
+          </div>
+        </div>
+        <div class="controls">
+          <span><kbd>MOUSE</kbd> Steer</span
+          ><span><kbd>W / S</kbd> Throttle</span
+          ><span><kbd>CLICK / SPACE</kbd> Fire</span
+          ><span><kbd>1 / 2 / 3</kbd> Select weapon</span
+          ><span><kbd>SHIFT</kbd> Boost</span><span><kbd>R</kbd> Respawn</span
+          ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
+          ><span><kbd>P</kbd> Photo</span>
+        </div>
+        <div class="settings-heading">
+          <h2>Settings</h2>
+          <button id="defaultSettings" class="secondary" type="button" disabled>
+            Reset settings to defaults
+          </button>
+        </div>
+        <div id="settings">
+          <section
+            class="settings-section settings-flight"
+            aria-labelledby="heading-flight"
+          >
+            <h3 id="heading-flight">Flight</h3>
+            <div class="settings-grid">
+              <label
+                >Steering sensitivity<input
+                  id="sensitivity"
+                  type="range"
+                  min="0.3"
+                  max="2.5"
+                  step="0.1"
+                  value="1"
+              /></label>
+              <label class="check"
+                >Reverse horizontal steering<input
+                  id="reverseX"
+                  type="checkbox"
+              /></label>
+              <label class="check"
+                >Reverse vertical steering<input id="invert" type="checkbox"
+              /></label>
+              <label class="check"
+                >Reduce camera shake<input id="reduceShake" type="checkbox"
+              /></label>
+            </div>
+          </section>
+          <section
+            class="settings-section settings-destruction"
+            aria-labelledby="heading-destruction"
+          >
+            <h3 id="heading-destruction">Destruction</h3>
+            <div class="settings-grid">
+              <label
+                >Nuke strength<select id="nukeYield">
+                  <option value="local">Local</option>
+                  <option value="castle">Castle-leveling</option>
+                  <option value="valley" selected>Valley-scale</option>
+                </select></label
+              >
+              <label class="check"
+                >No cooldown · all weapons<input
+                  id="noCooldown"
+                  type="checkbox"
+              /></label>
+              <label
+                >Nuke blast scale <output id="nukeScaleValue">1×</output
+                ><input
+                  id="nukeScale"
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.25"
+                  value="1"
+                />
+                <small
+                  >Increases damage radius and crater size. Bedrock stays at 25
+                  m.</small
+                ></label
+              >
+              <label
+                >Physics bodies <output id="bodiesValue"></output
+                ><input
+                  id="bodies"
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value="1"
+                /><small
+                  >Slim → Extreme · Maximum moving, collidable fragments.</small
+                ></label
+              >
+              <label
+                >Fragments per blast <output id="fragmentsValue"></output
+                ><input
+                  id="fragments"
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value="1"
+                /><small
+                  >Slim → Extreme · Limited by the physics-body budget.</small
+                ></label
+              >
+              <label
+                >Cosmetic chunks <output id="cosmeticsValue"></output
+                ><input
+                  id="cosmetics"
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value="1"
+                /><small
+                  >Slim → Extreme · Visual fragments; reduced effects can lower
+                  output.</small
+                ></label
+              >
+              <label
+                >Persistent rubble <output id="rubbleValue"></output
+                ><input
+                  id="rubble"
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="1"
+                  value="1"
+                /><small
+                  >Slim → Extreme · More individual pieces; consolidated rubble
+                  retains material in lasting piles.</small
+                ></label
+              ><button id="defaultDestruction" class="secondary" type="button">
+                Restore destruction defaults
+              </button>
+            </div>
+          </section>
+          <section
+            class="settings-section settings-laser"
+            aria-labelledby="heading-laser"
+          >
+            <h3 id="heading-laser">Space Laser</h3>
+            <div class="settings-grid">
+              <label
+                >Strike size <output id="laserSizeValue"></output>
+                <input
+                  id="laserSize"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value="0"
+                />
+                <small
+                  >Enlarges destruction, crater, and beam. Maximum covers the
+                  entire map.</small
+                >
+              </label>
+              <label
+                >Crater depth <output id="laserDepthValue"></output>
+                <input
+                  id="laserDepth"
+                  type="range"
+                  min="25"
+                  max="500"
+                  step="25"
+                  value="500"
+                />
+                <small
+                  >Below original terrain. Existing craters never refill.</small
+                >
+              </label>
+              <label
+                >Beam brightness <output id="laserBrightnessValue"></output>
+                <input
+                  id="laserBrightness"
+                  type="range"
+                  min="0.25"
+                  max="2"
+                  step="0.05"
+                  value="1"
+                />
+                <small
+                  >Visual intensity. Settings apply to your next strike.</small
+                >
+              </label>
+            </div>
+          </section>
+          <section
+            class="settings-section settings-graphics"
+            aria-labelledby="heading-graphics"
+          >
+            <h3 id="heading-graphics">Graphics</h3>
+            <div class="settings-grid">
+              <label
+                >Render quality<select id="quality">
+                  <option value="auto">Auto · HD</option>
+                  <option value="720">Balanced · 720p</option>
+                  <option value="1080">High · 1080p</option>
+                  <option value="1440">Ultra · 1440p</option>
+                </select></label
+              >
+              <label class="check"
+                >Reduce effects<input id="reduceEffects" type="checkbox"
+              /></label>
+              <label class="check"
+                >Show performance<input id="showPerf" type="checkbox"
+              /></label>
+            </div>
+          </section>
+          <section
+            class="settings-section settings-audio"
+            aria-labelledby="heading-audio"
+          >
+            <h3 id="heading-audio">Audio</h3>
+            <div class="settings-grid">
+              <label
+                >Sound volume<input
+                  id="volume"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value="0.35"
+              /></label>
+              <label class="check"
+                >Mute<input id="mute" type="checkbox"
+              /></label>
+            </div>
+          </section>
+          <section
+            class="settings-section settings-world"
+            aria-labelledby="heading-world"
+          >
+            <h3 id="heading-world">World</h3>
+            <div class="settings-grid">
+              <label>Pineapple monsters<select id="monsterCount">
+                <option value="0">Off</option><option value="3">3</option>
+                <option value="8" selected>8</option><option value="20">20</option>
+              </select></label>
+              <label
+                >Time of day<input
+                  id="time"
+                  type="range"
+                  min="0"
+                  max="23.99"
+                  step="0.1"
+                  value="15.5"
+              /></label>
+              <label class="check"
+                >Hold time<input id="holdTime" type="checkbox" /></label
+              ><button id="reset" class="danger">Reset world</button>
+            </div>
+          </section>
+        </div>
+        <p id="status" role="status">Loading world…</p>
+      </section>
+    </main>
+    <div id="flightHUD" hidden>
+      <div id="reticle"><i></i></div>
+      <div class="telemetry">
+        <div><strong id="speed">62</strong><span>M / S</span></div>
+        <div><strong id="altitude">115</strong><span>HEIGHT AGL M</span></div>
+        <div class="throttle"><span id="throttleFill"></span></div>
+      </div>
+      <div class="weapon">
+        <span class="weapon-icon">◈</span>
+        <div>
+          <small id="weaponName">PINEAPPLE CANNON</small
+          ><strong id="weaponStatus">READY</strong>
+        </div>
+        <span id="ammo">∞</span>
+        <div class="weapon-select">
+          <button id="select-cannon" aria-pressed="true">1 Cannon</button
+          ><button id="select-nuke" aria-pressed="false">2 Nuke</button
+          ><button id="select-laser" aria-pressed="false">3 Space Laser</button>
+          <div class="cooldown-bar"><span id="cooldownFill"></span></div>
+        </div>
+      </div>
+      <div class="world-status">
+        <span id="region">VALLEY</span
+        ><span id="damage">Objects destroyed: 0</span
+        ><span id="monstersRemaining">Monsters: 8</span>
+      </div>
+    </div>
+    <aside id="photoToolbar" hidden aria-label="Photo controls">
+      <strong>Photo mode</strong
+      ><span
+        >Drag to look · WASD move · Q/E up/down · Shift faster · H controls · P
+        return</span
+      >
+      <label
+        >Field of view<input
+          id="photoFov"
+          type="range"
+          min="25"
+          max="100"
+          value="64"
+      /></label>
+      <button id="savePhoto">Save PNG</button
+      ><button id="hidePhoto">Hide controls</button
+      ><button id="exitPhoto">Exit photo mode</button
+      ><span id="photoStatus" role="status"></span>
+    </aside>
+    <div id="warning" hidden></div>
+    <div id="hint" hidden>
+      Mouse steers · W/S throttle · 1/2/3 weapon · Click/Space fire · Shift
+      boost
+    </div>
+    <div id="saveStatus" role="status"></div>
+    <pre id="perf" hidden></pre>
+    <dialog id="confirm">
+      <p class="eyebrow">RESET WORLD</p>
+      <h2>Reset this world?</h2>
+      <p>
+        This resets the craters, ruins, and saved destruction in this browser.
+      </p>
+      <div>
+        <button id="cancelReset" class="secondary">Cancel</button
+        ><button id="confirmReset" class="primary">Reset world</button>
+      </div>
+    </dialog>
+    <dialog id="recovery">
+      <p class="eyebrow">SAVE NEEDS ATTENTION</p>
+      <h2>This world is from another version.</h2>
+      <p>
+        Your existing save will stay untouched unless you choose to start a new
+        world.
+      </p>
+      <div>
+        <button id="temporary" class="secondary">Play without saving</button
+        ><button id="replaceSave" class="primary">Start a new world</button>
+      </div>
+    </dialog>
+    <section id="fatal" hidden>
+      <div>
+        <p class="eyebrow">ERROR</p>
+        <h2 id="fatalTitle">The game could not load.</h2>
+        <p id="fatalMessage"></p>
+        <button id="reload" class="primary">Reload</button>
+        <details>
+          <summary>Technical details</summary>
+          <pre id="fatalDetails"></pre>
+        </details>
+      </div>
+    </section>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

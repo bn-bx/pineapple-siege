@@ -1,0 +1,80 @@
+{
+  "browser": "154.0.8037.58",
+  "checks": [
+    {
+      "name": "Version-5 fortress, twelve towers and third weapon selector",
+      "passed": true
+    },
+    {
+      "name": "Key 3 and Space lock a charging strike with independent cooldown",
+      "passed": true
+    },
+    {
+      "name": "HUD reports charge and spatial laser audio is active",
+      "passed": true
+    },
+    {
+      "name": "Pause freezes charge clock and fixed target",
+      "passed": true
+    },
+    {
+      "name": "Charging strike and recharge restore at their saved time",
+      "passed": true
+    },
+    {
+      "name": "Beam progressively excavates before its completion",
+      "passed": true
+    },
+    {
+      "name": "Burning strike and deep edits recover before play resumes",
+      "passed": true
+    },
+    {
+      "name": "Photo mode freezes laser, simulation and effect clocks",
+      "passed": true
+    },
+    {
+      "name": "Completed crater reaches baseline minus 500m and has no active strike",
+      "passed": true
+    },
+    {
+      "name": "Completed deep dry crater persists across reload",
+      "passed": true
+    },
+    {
+      "name": "Reset clears laser edits, dry mask, strikes and audio",
+      "passed": true
+    },
+    {
+      "name": "Unrestricted laser releases sixty independent strikes in sixty ticks",
+      "passed": true,
+      "detail": {
+        "shots": 60,
+        "strikes": 60,
+        "cooldown": 0
+      }
+    },
+    {
+      "name": "Overlapping strikes finish, drain work and keep the 500m limit",
+      "passed": true
+    },
+    {
+      "name": "No WebGL error",
+      "passed": true
+    },
+    {
+      "name": "Temporary play preserves the old save and disables world saving",
+      "passed": true
+    },
+    {
+      "name": "Explicit new-world choice restores saving and keeps preferences",
+      "passed": true
+    },
+    {
+      "name": "No page errors",
+      "passed": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}

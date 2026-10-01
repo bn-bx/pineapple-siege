@@ -1,0 +1,70 @@
+{
+  "browser": "153.0.8010.54",
+  "tests": [
+    {
+      "name": "Promotional copy removed",
+      "passed": true
+    },
+    {
+      "name": "Control and strength preferences survive reload",
+      "passed": true
+    },
+    {
+      "name": "Default pointer motion turns right and climbs",
+      "passed": true
+    },
+    {
+      "name": "Key 2 drops one nuke on its ten-second cooldown",
+      "passed": true
+    },
+    {
+      "name": "Key 1 selects cannon with independent cooldown",
+      "passed": true
+    },
+    {
+      "name": "Pause freezes cooldown",
+      "passed": true
+    },
+    {
+      "name": "Save includes unfinished destruction",
+      "passed": true
+    },
+    {
+      "name": "Reload completes saved damage before enabling entry",
+      "passed": true
+    },
+    {
+      "name": "Nuke crater restores at bedrock",
+      "passed": true
+    },
+    {
+      "name": "World reset preserves preferences",
+      "passed": true
+    },
+    {
+      "name": "Reset clears weapon cooldowns",
+      "passed": true
+    },
+    {
+      "name": "Detailed pineapple clouds capped at three",
+      "passed": true
+    },
+    {
+      "name": "Quick Space tap fires between render frames",
+      "passed": true
+    },
+    {
+      "name": "Quick click fires between render frames",
+      "passed": true
+    },
+    {
+      "name": "No graphics errors",
+      "passed": true
+    },
+    {
+      "name": "No page errors",
+      "passed": true,
+      "detail": []
+    }
+  ]
+}

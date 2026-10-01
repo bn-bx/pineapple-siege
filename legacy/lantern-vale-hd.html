@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172522">
+<title>Lantern Vale — Take the long way</title>
+<style>
+:root{color-scheme:dark;--paper:#f1efdb;--muted:#b8c1ac;--gold:#ddc28a;--line:#b7c3ad30;--panel:#111e1ceF;font-family:Menlo,Consolas,monospace}*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#152622;color:var(--paper)}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:5px}canvas#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 48%,#08161333)}#branding{position:fixed;left:30px;top:26px;display:flex;align-items:center;gap:12px;pointer-events:none}.mark{width:27px;height:27px;border:1px solid #f1efdb90;display:grid;place-items:center;font-size:21px}.wordmark{font-size:11px;letter-spacing:3px;text-shadow:0 1px 5px #000}#hud{position:fixed;right:26px;top:25px;display:flex;gap:19px;align-items:center;font-size:10px;letter-spacing:1px;text-shadow:0 1px 5px #000}#pauseButton{background:#10242180;border:1px solid #eef5df55;color:var(--paper);border-radius:3px;padding:9px 12px;font-size:10px;letter-spacing:1px}#reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;margin:-2px;border:1px solid #ffffff9c;border-radius:50%;box-shadow:0 0 2px #000;pointer-events:none}#overlay{position:fixed;inset:0;background:linear-gradient(90deg,#081613d9,#08161350 45%,transparent 80%);display:flex;align-items:center;padding:84px 6vw 36px;overflow:auto}#overlay[hidden], [hidden]{display:none!important}#panel{width:420px;max-width:100%}.eyebrow{font-size:10px;letter-spacing:3px;color:var(--gold);margin:0 0 22px;text-transform:uppercase}h1{font-family:Georgia,serif;font-size:clamp(48px,6.8vw,91px);font-weight:400;letter-spacing:-4px;line-height:.99;margin:0 0 26px}#intro{font:13px/1.85 Menlo,monospace;color:#d1d8c5;max-width:350px;margin:0 0 25px}.primary{width:100%;background:var(--paper);color:#172923;border:0;border-radius:3px;padding:17px 21px;display:flex;justify-content:space-between;align-items:center;text-align:left;font-size:12px;letter-spacing:1px;transition:background .15s}.primary:hover{background:white}.primary:disabled{opacity:.45;cursor:wait}.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;border-top:1px solid var(--line);padding-top:21px;margin-top:24px;color:#c5cebd;font-size:10px}.controls span{display:flex;align-items:center;gap:9px}kbd{font:10px Menlo,monospace;min-width:27px;padding:4px 6px;border:1px solid #b7c3ad50;border-radius:3px;text-align:center;color:var(--paper)}details{margin-top:23px;border-top:1px solid var(--line);padding-top:17px}summary{font-size:11px;color:var(--paper);cursor:pointer;letter-spacing:1px}.settings{display:grid;gap:15px;margin-top:18px;padding:18px;background:#0c1b19b5;border:1px solid var(--line);border-radius:4px}.setting{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:10px;color:var(--muted)}select{background:#22352f;border:1px solid var(--line);padding:7px;color:var(--paper);border-radius:3px;font-size:10px}input[type=range]{width:155px;accent-color:var(--gold)}input[type=checkbox]{accent-color:var(--gold)}.secondary{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:10px;font-size:10px}.secondary:hover{border-color:var(--gold);color:var(--paper)}#status{margin-top:15px;color:var(--muted);font-size:10px;line-height:1.7}#hint{position:fixed;bottom:31px;left:50%;transform:translateX(-50%);white-space:nowrap;color:#e0e6d6;background:#10231db0;padding:11px 17px;border:1px solid #cedac128;border-radius:4px;font-size:10px;transition:opacity 1s;pointer-events:none}#location{position:fixed;bottom:29px;left:30px;font-size:10px;letter-spacing:2px;color:#e0e6d6;text-shadow:0 1px 5px #000;pointer-events:none}#perf{position:fixed;bottom:25px;right:26px;background:#071612b5;padding:10px;font-size:10px;line-height:1.7;white-space:pre;color:#dddfbc;pointer-events:none}#fatal{position:fixed;inset:0;display:grid;place-items:center;background:#12241f;z-index:10;padding:30px}#fatal>div{max-width:520px}#fatal h2{font:38px Georgia,serif}#fatal p{font-size:13px;line-height:1.8;color:var(--muted)}#fatal pre{max-height:200px;overflow:auto;font-size:10px;white-space:pre-wrap}body.paused #reticle{display:none}body.paused #location{display:none}@media(max-height:800px){#overlay{padding-top:76px;align-items:flex-start}h1{font-size:59px;margin-bottom:18px}.eyebrow{margin-bottom:14px}#intro{margin-bottom:17px}.controls{margin-top:17px;padding-top:16px}details{margin-top:16px;padding-top:12px}.settings{gap:10px;padding:12px}}@media(max-width:650px){#branding{left:20px;top:20px}#hud{right:18px;top:18px}#headingTime{display:none}#overlay{padding:86px 25px 25px;background:#081613a6}h1{font-size:61px}#location{left:20px;bottom:20px}#hint{max-width:90vw;white-space:normal;text-align:center;bottom:50px}#perf{bottom:15px;right:15px}}
+</style>
+</head>
+<body class="paused">
+<canvas id="world" aria-label="An explorable high-definition landscape"></canvas><div id="vignette"></div>
+<div id="branding"><span class="mark" aria-hidden="true">⁙</span><span class="wordmark">LANTERN VALE</span></div>
+<div id="hud"><span id="headingTime">WEST REACH · 15:30</span><button id="pauseButton" aria-label="Pause and open settings" hidden>ESC &nbsp; MENU</button></div>
+<div id="reticle" aria-hidden="true"></div>
+<div id="overlay"><section id="panel" aria-labelledby="title"><p class="eyebrow" id="eyebrow">An open-world study</p><h1 id="title">Take the<br>long way.</h1><p id="intro">Beyond the river, a lantern waits.<br>Wander through forests, climb the ridge,<br>and watch the daylight turn to stars.</p><button class="primary" id="enter" disabled><span id="enterLabel">Growing the landscape…</span><span aria-hidden="true">↗</span></button><div class="controls"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>SHIFT</kbd> Sprint</span><span><kbd>SPACE</kbd> Jump</span><span><kbd>ESC</kbd> Pause</span><span>~ &nbsp; Swim across the river</span></div><details id="settingsDetails"><summary>WORLD &amp; CONTROLS</summary><div class="settings"><label class="setting">Render quality<select id="quality"><option value="auto">Auto · HD</option><option value="720">Balanced · 720p</option><option value="1080">High · 1080p</option><option value="1440">Ultra · 1440p</option></select></label><label class="setting">Look sensitivity<input id="sensitivity" type="range" min="0.3" max="2.5" value="1" step="0.1"></label><label class="setting">Invert vertical look<input id="invert" type="checkbox"></label><label class="setting">Time <span id="timeLabel">15:30</span><input id="time" aria-label="Time of day" type="range" min="0" max="23.99" value="15.5" step="0.05"></label><label class="setting">Hold the sun in place<input id="holdTime" type="checkbox"></label><label class="setting">Show performance<input id="showPerf" type="checkbox"></label><label class="setting" id="debugRow" hidden>Diagnostic view<select id="diagnostic"><option value="0">Landscape</option><option value="1">Materials</option><option value="2">Hit distance</option><option value="3">Surface normals</option></select></label><button class="secondary" id="reset">Return to start</button></div></details><p id="status" role="status">One valley. No destination required.</p></section></div>
+<div id="location">WEST REACH</div><div id="hint" hidden>WASD to wander · Mouse to look · Escape to pause</div><div id="perf" hidden></div>
+<div id="fatal" hidden><div><p class="eyebrow">Unable to open the world</p><h2 id="fatalTitle">A graphics connection is needed.</h2><p id="fatalText"></p><pre id="fatalDetail"></pre><button class="primary" onclick="location.reload()">Try again <span>↗</span></button></div></div>
+<script>
+'use strict';
+(() => {
+const $=id=>document.getElementById(id), canvas=$('world');
+const DEBUG=location.hash.includes('debug');
+const SIZE=512, GRID=513, MACRO=8, MG=64, WATER=0, SEED=41729;
+const MAT={GRASS:1,PATH:2,ROCK:3,WOOD:4,LEAF:5,STONE:6,LAMP:7,WATER:8};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mix=(a,b,t)=>a+(b-a)*t;
+const smooth=(a,b,x)=>{let t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+const hash=(x,z)=>{let n=Math.imul(x,374761393)^Math.imul(z,668265263)^SEED;n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295};
+function noise(x,z){let ix=Math.floor(x),iz=Math.floor(z),fx=x-ix,fz=z-iz;fx=fx*fx*(3-2*fx);fz=fz*fz*(3-2*fz);return mix(mix(hash(ix,iz),hash(ix+1,iz),fx),mix(hash(ix,iz+1),hash(ix+1,iz+1),fx),fz)}
+function fbm(x,z){return noise(x,z)*.57+noise(x*2.03+19,z*2.03+9)*.28+noise(x*4.07,z*4.07)*.15}
+const riverX=z=>248+30*Math.sin(z*.014)+13*Math.sin(z*.033+.7);
+const riverW=z=>10.5+2.8*Math.sin(z*.023+1.4);
+const BZ=220,BX=riverX(BZ),FX=350,FZ=276,FLOOR=10;
+const route=[[210,166],[BX-45,202],[BX-34,BZ],[BX+34,BZ],[322,222],[350,234],[350,260]];
+const ridgeRoute=[[350,238],[398,232],[413,270],[418,329],[390,392],[365,425]];
+const paths=[route,ridgeRoute,[[BX-42,220],[185,251],[170,298],[194,338],[238,343]]];
+function segDist(x,z,a,b){let dx=b[0]-a[0],dz=b[1]-a[1],t=clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)}
+function pathDist(x,z){let d=1e6;for(const p of paths)for(let i=1;i<p.length;i++)d=Math.min(d,segDist(x,z,p[i-1],p[i]));return d}
+function rawHeight(x,z){
+ let edge=Math.max(Math.abs(x-256),Math.abs(z-256));
+ let base=3.7+fbm(x*.017,z*.017)*7+Math.sin(x*.025+z*.009)*2;
+ let mountains=smooth(175,251,edge)*(17+48*fbm(x*.025+12,z*.026));
+ let north=smooth(330,435,z)*(23+21*fbm(x*.03,z*.03))* (1-smooth(440,502,z));
+ let h=base+mountains+north;
+ let rd=Math.abs(x-riverX(z)), rw=riverW(z);
+ let bed=-3.4+smooth(0,rw,rd)*2.35+.16*noise(x*.3,z*.3);
+ h=mix(bed,h,smooth(rw,rw+17,rd));
+ let fort=Math.max(Math.abs(x-FX),Math.abs(z-FZ));h=mix(h,FLOOR,1-smooth(35,51,fort));
+ let bridgeBand=1-smooth(5,20,Math.abs(z-BZ));
+ let bx=Math.abs(x-BX);let approach=bridgeBand*(1-smooth(40,58,bx));let bridgeGround=mix(Math.min(h,1.9),2.2,smooth(28,32,bx));h=mix(h,bridgeGround,approach);
+ return h;
+}
+let heights,materials,bounds,objects=[],cellLists,meta,refs,objectData,lights=[];
+function terrain(x,z){x=clamp(x,0,SIZE-.0001);z=clamp(z,0,SIZE-.0001);let ix=Math.floor(x),iz=Math.floor(z),u=x-ix,v=z-iz,i=iz*GRID+ix;let a=heights[i],b=heights[i+1],c=heights[i+GRID],d=heights[i+GRID+1];return u+v<=1?a+(b-a)*u+(c-a)*v:d+(c-d)*(1-u)+(b-d)*(1-v)}
+function addObject(type,x,y,z,sx,sy,sz,mat,solid=true,angle=0){let co=Math.cos(angle),si=Math.sin(angle);let ex=type===0?Math.abs(co)*sx+Math.abs(si)*sz:sx,ez=type===0?Math.abs(si)*sx+Math.abs(co)*sz:sx;objects.push({type,x,y,z,sx,sy,sz,mat,solid,co,si,minX:x-ex,maxX:x+ex,minZ:z-ez,maxZ:z+ez});return objects.length-1}
+function box(x,y,z,sx,sy,sz,mat=MAT.STONE,solid=true,angle=0){return addObject(0,x,y,z,sx,sy,sz,mat,solid,angle)}
+function generateWorld(){
+ heights=new Float32Array(GRID*GRID);materials=new Uint8Array(SIZE*SIZE);
+ for(let z=0;z<GRID;z++)for(let x=0;x<GRID;x++)heights[z*GRID+x]=rawHeight(x,z);
+ for(let z=0;z<SIZE;z++)for(let x=0;x<SIZE;x++){
+  let h=heights[z*GRID+x],slope=Math.max(Math.abs(h-heights[z*GRID+x+1]),Math.abs(h-heights[(z+1)*GRID+x]));
+  let pd=pathDist(x,z);let mat=slope>.95||h>41?MAT.ROCK:MAT.GRASS;
+  if(pd<2.5||h<.6||Math.max(Math.abs(x-FX),Math.abs(z-FZ))<30)mat=MAT.PATH;
+  materials[z*SIZE+x]=mat;
+ }
+ objects=[];lights=[];
+ // The fort uses the same solid primitive dimensions for rendering and collision.
+ const wallY=FLOOR+5, half=32, front=FZ-half;
+ box(FX-half,wallY,FZ,1.5,5,half);box(FX+half,wallY,FZ,1.5,5,half);box(FX,wallY,FZ+half,half,5,1.5);
+ box(FX-18,wallY,front,14,5,1.5);box(FX+18,wallY,front,14,5,1.5);
+ for(let y=4;y<8;y+=.4){let inner=Math.sqrt(Math.max(0,16-(y+.2-4)**2)),w=4-inner;if(w>.015){box(FX-inner-w/2,FLOOR+y+.2,front,w/2,.2,1.5);box(FX+inner+w/2,FLOOR+y+.2,front,w/2,.2,1.5)}}
+ box(FX,FLOOR+9,front,4,1,1.5);
+ for(let q=-29;q<=29;q+=4){box(FX+q,FLOOR+11,FZ-half,1,1,1.55);box(FX+q,FLOOR+11,FZ+half,1,1,1.55);box(FX-half,FLOOR+11,FZ+q,1.55,1,1);box(FX+half,FLOOR+11,FZ+q,1.55,1,1)}
+ for(let a of [-1,1])for(let b of [-1,1]){let x=FX+a*half,z=FZ+b*half;box(x,FLOOR+7,z,4,7,4);for(let k=-3;k<=3;k+=3){box(x+k,FLOOR+15,z-3.5,.8,1,.8);box(x+k,FLOOR+15,z+3.5,.8,1,.8);if(k===0){box(x-3.5,FLOOR+15,z,.8,1,.8);box(x+3.5,FLOOR+15,z,.8,1,.8)}}}
+ // Narrow dark inset slits are thin visible primitives in front of solid walls.
+ for(let q=-24;q<=24;q+=12){if(Math.abs(q)>6)box(FX+q,FLOOR+5.8,front-1.515,.16,1.4,.018,MAT.WOOD,false);box(FX+32+1.515,FLOOR+5.8,FZ+q,.018,1.4,.16,MAT.WOOD,false)}
+ for(const [x,z] of [[FX-6,front-3],[FX+6,front-3],[FX-13,FZ+14],[FX+13,FZ+14]]){
+  box(x,FLOOR+1.25,z,.12,1.25,.12,MAT.WOOD);box(x,FLOOR+2.65,z,.32,.38,.32,MAT.LAMP,false);box(x,FLOOR+3.08,z,.43,.07,.43,MAT.WOOD,false);lights.push([x,FLOOR+2.65,z]);
+ }
+ // Bridge deck is a solid walking surface; rails leave the ends open.
+ box(BX,1.95,BZ,32,.25,3.25,MAT.WOOD);
+ for(let side of [-1,1]){box(BX,3.25,BZ+side*3.12,32,.14,.14,MAT.WOOD);for(let x=-30;x<=30;x+=6)box(BX+x,2.75,BZ+side*3.12,.16,.8,.16,MAT.WOOD)}
+ // Clustered, deterministic forest. Paths and landmarks have explicit clearances.
+ for(let z=12;z<502;z+=5)for(let x=12;x<502;x+=5){
+  let px=x+(hash(x+3,z+5)-.5)*3.6,pz=z+(hash(x+8,z+2)-.5)*3.6,h=terrain(px,pz);
+  let cluster=fbm(px*.024+33,pz*.023+71);let chance=cluster>.57?.80:cluster>.49?.20:.012;
+  if(Math.hypot(px-365,pz-425)<45||(px>190&&px<318&&pz>140&&pz<247)||hash(x,z)>chance||h<2||h>32||pathDist(px,pz)<5.5||Math.max(Math.abs(px-FX),Math.abs(pz-FZ))<43||Math.abs(pz-BZ)<7&&Math.abs(px-BX)<58)continue;
+  let tall=10+hash(x+2,z+6)*12,r=1.9+hash(x+7,z+9)*1.7;
+  addObject(1,px,h+tall*.36,pz,.25+tall*.01,tall*.36,0,MAT.WOOD,true);
+  for(let k=0;k<3;k++){let hh=tall*(.26-k*.025),cy=h+tall*(.50+k*.20);addObject(2,px,cy,pz,r*(1-k*.23),hh,.08,MAT.LEAF,false)}
+ }
+ for(let i=0;i<220;i++){let x=12+hash(i,904)*488,z=12+hash(i,917)*488,h=terrain(x,z);if(Math.hypot(x-365,z-425)<45||h<2||h>32||pathDist(x,z)<5||Math.max(Math.abs(x-FX),Math.abs(z-FZ))<42)continue;addObject(2,x,h+.75,z,1.3,.95,.55,MAT.LEAF,false)}
+ // Macro cells carry exact conservative bounds and variable-length object references.
+ bounds=new Float32Array(MG*MG*2);cellLists=Array.from({length:MG*MG},()=>[]);
+ for(let z=0;z<MG;z++)for(let x=0;x<MG;x++){let lo=1e6,hi=-1e6;for(let j=0;j<=MACRO;j++)for(let i=0;i<=MACRO;i++){let h=heights[(z*MACRO+j)*GRID+x*MACRO+i];lo=Math.min(lo,h);hi=Math.max(hi,h)}let k=(z*MG+x)*2;bounds[k]=lo;bounds[k+1]=hi}
+ objects.forEach((o,i)=>{let x0=clamp(Math.floor(o.minX/MACRO),0,MG-1),x1=clamp(Math.floor(o.maxX/MACRO),0,MG-1),z0=clamp(Math.floor(o.minZ/MACRO),0,MG-1),z1=clamp(Math.floor(o.maxZ/MACRO),0,MG-1);for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)cellLists[z*MG+x].push(i)});
+ let total=cellLists.reduce((n,l)=>n+l.length,0);refs=new Uint32Array(Math.ceil(total/1024)*1024);meta=new Uint32Array(MG*MG*2);let cursor=0,maxList=0;
+ cellLists.forEach((l,i)=>{meta[i*2]=cursor;meta[i*2+1]=l.length;refs.set(l,cursor);cursor+=l.length;maxList=Math.max(maxList,l.length)});
+ if(maxList>256)throw Error('Scene spatial cell overflow: '+maxList);
+ objectData=new Float32Array(objects.length*12);
+ objects.forEach((o,i)=>objectData.set([o.x,o.y,o.z,o.type,o.sx,o.sy,o.sz,o.mat,o.co,o.si,o.solid?1:0,0],i*12));
+}
+// CPU scene queries use the same grid and terrain triangulation as the GPU.
+function nearObjects(x,z,r=.45){let set=new Set;for(let zz=clamp(Math.floor((z-r)/MACRO),0,MG-1);zz<=clamp(Math.floor((z+r)/MACRO),0,MG-1);zz++)for(let xx=clamp(Math.floor((x-r)/MACRO),0,MG-1);xx<=clamp(Math.floor((x+r)/MACRO),0,MG-1);xx++)for(let i of cellLists[zz*MG+xx])set.add(i);return set}
+function overlaps(o,x,z,r=.35){let dx=x-o.x,dz=z-o.z,lx=o.co*dx+o.si*dz,lz=-o.si*dx+o.co*dz;if(o.type===1)return dx*dx+dz*dz<(o.sx+r)**2;return Math.hypot(Math.max(Math.abs(lx)-o.sx,0),Math.max(Math.abs(lz)-o.sz,0))<r}
+function support(x,z,feet){let y=terrain(x,z);for(let i of nearObjects(x,z)){let o=objects[i];if(o.solid&&o.type===0&&overlaps(o,x,z,.26)&&o.y+o.sy<=feet+.43)y=Math.max(y,o.y+o.sy)}return y}
+function blocked(x,z,feet){for(let i of nearObjects(x,z)){let o=objects[i];if(!o.solid||o.type===2)continue;if(feet+1.65>o.y-o.sy+.03&&feet<o.y+o.sy-.02&&overlaps(o,x,z))return true}return false}
+let player={x:210,z:166,y:0,vy:0,yaw:.93,pitch:-.035,grounded:true,swimming:false};
+function resetPlayer(){Object.assign(player,{x:210,z:166,y:terrain(210,166),vy:0,yaw:.93,pitch:-.035,grounded:true,swimming:false})}
+let keys=new Set,active=false,everEntered=false,dragging=false,fallbackLook=false,jumpQueued=false;
+let hour=15.5,animationTime=0,holdTime=false,sensitivity=1,invert=false,diag=0,showPerf=DEBUG;
+function moveAxis(axis,delta){if(!delta)return;let x=player.x,z=player.z;x=axis==='x'?clamp(x+delta,2,510):x;z=axis==='z'?clamp(z+delta,2,510):z;let ground=support(x,z,player.y),oldGround=support(player.x,player.z,player.y);if(ground-player.y>.43)return;if(player.grounded&&!player.swimming&&ground-oldGround>Math.abs(delta)*1.15+.02&&ground<=terrain(x,z)+.001)return;let feet=Math.max(player.y,ground);if(blocked(x,z,feet))return;player.x=x;player.z=z;if(player.grounded&&ground>player.y)player.y=ground}
+function simulate(dt){
+ const p=player;let ax=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0),az=(keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0),len=Math.hypot(ax,az);if(len){ax/=len;az/=len}
+ let ground=terrain(p.x,p.z),floor=support(p.x,p.z,p.y);let inRiver=ground<-.1&&floor<.1;
+ p.swimming=inRiver&&ground<-1.35&&p.y<.3;
+ let speed=p.swimming?2.5:(inRiver&&p.y<.1?2.7:(keys.has('ShiftLeft')||keys.has('ShiftRight')?7:4));
+ if(jumpQueued&&p.grounded&&!p.swimming){p.vy=Math.sqrt(2*18*.8);p.grounded=false}jumpQueued=false;
+ let vx=(Math.sin(p.yaw)*az+Math.cos(p.yaw)*ax)*speed*dt,vz=(Math.cos(p.yaw)*az-Math.sin(p.yaw)*ax)*speed*dt;
+ moveAxis('x',vx);moveAxis('z',vz);
+ floor=support(p.x,p.z,p.y);ground=terrain(p.x,p.z);
+ if(ground<-1.35&&floor<.1&&p.y<.3){p.swimming=true;p.vy=0;p.y=mix(p.y,-1.05,Math.min(1,dt*8));p.grounded=false}
+ else{p.swimming=false;let oldY=p.y;p.vy-=18*dt;p.y+=p.vy*dt;if(p.vy>0){for(let i of nearObjects(p.x,p.z)){let o=objects[i];if(o.solid&&o.type===0&&overlaps(o,p.x,p.z)&&oldY+1.65<=o.y-o.sy+.01&&p.y+1.65>o.y-o.sy){p.y=o.y-o.sy-1.65;p.vy=0}}}if(p.grounded&&oldY-floor<.4&&p.vy<=0)p.y=floor;if(p.y<=floor){p.y=floor;p.vy=0;p.grounded=true}else p.grounded=false}
+ if(!Number.isFinite(p.y)||p.y<-30)resetPlayer();
+}
+const vertex=`#version 300 es
+precision highp float;
+const vec2 POS[3]=vec2[3](vec2(-1,-1),vec2(3,-1),vec2(-1,3));
+void main(){gl_Position=vec4(POS[gl_VertexID],0,1);}`;
+// Native-resolution mesh rendering. The world and collision model remain shared.
+const commonGLSL=`
+precision highp float;
+precision highp int;
+precision highp usampler2D;
+precision highp sampler2DShadow;
+uniform vec3 uEye,uForward,uRight,uUp,uSun,uMoon;
+uniform vec3 uLights[4];
+uniform vec2 uGrid;
+uniform float uAspect,uTime,uDay,uNight;
+uniform int uDiagnostic;
+uniform sampler2D uHeight;
+uniform highp usampler2D uMaterial;
+uniform sampler2DShadow uShadow;
+uniform mat4 uLightVP;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
+float fbm(vec2 p){return noise(p)*.57+noise(p*2.03+19.)*.28+noise(p*4.07+7.)*.15;}
+float heightAt(vec2 p){p=clamp(p,vec2(0),vec2(511.999));ivec2 c=ivec2(floor(p));vec2 f=fract(p);float a=texelFetch(uHeight,c,0).r,b=texelFetch(uHeight,c+ivec2(1,0),0).r,d=texelFetch(uHeight,c+ivec2(1,1),0).r,e=texelFetch(uHeight,c+ivec2(0,1),0).r;return f.x+f.y<=1.?a+(b-a)*f.x+(e-a)*f.y:d+(e-d)*(1.-f.x)+(b-d)*(1.-f.y);}
+vec3 sky(vec3 d){
+ float horizon=pow(1.-max(d.y,0.),2.);vec3 day=mix(vec3(.12,.29,.53),vec3(.60,.71,.76),horizon);vec3 night=mix(vec3(.012,.022,.052),vec3(.065,.085,.12),horizon);vec3 col=mix(night,day,uDay);
+ float sunset=pow(1.-abs(uSun.y),9.)*smoothstep(-.20,.02,uSun.y);float toward=dot(normalize(vec3(d.x,.001,d.z)),normalize(vec3(uSun.x,.001,uSun.z)));col+=vec3(.50,.18,.055)*sunset*pow(max(toward,0.),4.)*(.4+horizon);
+ float cloud=0.;if(d.y>.025){vec2 cp=d.xz/d.y*.65+vec2(uTime*.0016,0);float f=fbm(cp*2.4);cloud=smoothstep(.53,.69,f)*smoothstep(.025,.12,d.y);vec3 cc=mix(vec3(.10,.12,.17),mix(vec3(.52,.58,.62),vec3(.98,.96,.88),smoothstep(.53,.76,f)),uDay);cc+=sunset*vec3(.32,.11,.025);col=mix(col,cc,cloud*.95);}
+ col+=vec3(1.,.81,.46)*pow(max(dot(d,uSun),0.),1800.)*smoothstep(-.04,.03,uSun.y);
+ col+=vec3(.55,.63,.77)*pow(max(dot(d,uMoon),0.),3200.)*uNight;
+ float star=step(.9984,hash(floor(d.xz/(abs(d.y)+.25)*850.)))*pow(max(d.y,0.),.3);col+=vec3(.57,.64,.70)*star*uNight*(1.-cloud);return col;
+}
+vec3 materialColor(int mat,vec3 p,vec3 n){
+ float detail=1.-smoothstep(25.,180.,distance(p,uEye));float grain=noise(p.xz*13.7+p.y)*detail;float variation=fbm(p.xz*.17),broad=fbm(p.xz*.024);vec3 c=vec3(.26,.40,.11);
+ if(mat==1){c=mix(vec3(.16,.29,.075),vec3(.39,.47,.15),variation*.7+broad*.3);c*=.86+.24*noise(p.xz*1.9)+grain*.09;}
+ if(mat==2){c=mix(vec3(.29,.24,.16),vec3(.50,.42,.29),variation);c*=.9+grain*.17;}
+ if(mat==3){float strata=noise(vec2(p.y*.75+p.x*.07,p.z*.12));c=mix(vec3(.30,.32,.30),vec3(.52,.51,.45),variation*.7+strata*.3);c*=.91+grain*.17;}
+ if(mat==4){vec2 uv=abs(n.y)>.5?p.xz:p.xy;float fibers=noise(uv*vec2(17.,.48));c=mix(vec3(.18,.105,.048),vec3(.37,.25,.12),fibers*.5+variation*.5);float board=abs(n.y)>.5?smoothstep(.94,.99,fract(p.x*1.5)):0.;c*=1.-board*.42;}
+ if(mat==5){float needles=noise(p.xz*7.+p.y*2.);c=mix(vec3(.055,.15,.085),vec3(.23,.34,.12),noise(p.xz*.72+p.y*.37));c*=.90+needles*.20*detail;}
+ if(mat==6){vec2 uv=abs(n.z)>.5?p.xy:p.zy;float row=floor(uv.y*1.5);vec2 brick=vec2(uv.x*.7+mod(row,2.)*.5,uv.y*1.5);vec2 f=fract(brick),aa=max(fwidth(brick),vec2(.001));float mortar=max(smoothstep(.91-aa.y,.91+aa.y,f.y),smoothstep(.95-aa.x,.95+aa.x,f.x));c=mix(vec3(.39,.40,.36),vec3(.63,.61,.54),hash(floor(brick)));c=mix(c,vec3(.24,.26,.23),mortar*.75);c*=.92+grain*.12;}
+ if(mat==7)c=vec3(1.,.68,.22);return c;
+}
+float sunlight(vec3 p,vec3 n,vec3 ld){vec4 q=uLightVP*vec4(p+n*.18,1);vec3 uv=q.xyz/q.w*.5+.5;if(min(uv.x,uv.y)<0.||max(uv.x,uv.y)>1.||uv.z>1.)return 1.;float bias=max(.00065*(1.-dot(n,ld)),.00015),sum=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++)sum+=texture(uShadow,vec3(uv.xy+vec2(x,y)/2048.,uv.z-bias));return sum/9.;}
+// Exact planar intersections with the fort walls, including the arched entrance.
+float lanternVisible(vec3 p,vec3 light){vec3 d=light-p;for(int k=0;k<4;k++){bool front=k<2;float plane=front?(k==0?244.:308.):(k==2?318.:382.);float den=front?d.z:d.x;if(abs(den)<.0001)continue;float t=(plane-(front?p.z:p.x))/den;if(t<.002||t>.998)continue;vec3 q=p+d*t;if(q.y<10.||q.y>20.)continue;if(front){if(q.x<318.||q.x>382.)continue;if(k==0&&abs(q.x-350.)<4.&&q.y<14.+sqrt(max(0.,16.-(q.x-350.)*(q.x-350.))))continue;}else if(q.z<244.||q.z>308.)continue;return 0.;}return 1.;}
+vec3 surfaceColor(int mat,vec3 p,vec3 n,float pathWeight){
+ vec3 base=materialColor(mat,p,n);if(pathWeight>=0.&&mat<=3&&mat!=3)base=mix(materialColor(1,p,n),materialColor(2,p,n),pathWeight);
+ if(mat==7)return mix(vec3(.75,.55,.20),vec3(1.,.86,.40),uNight);
+ vec3 ld=uSun.y>0.?uSun:uMoon;float nl=max(dot(n,ld),0.);vec3 light=mix(vec3(.17,.21,.30),vec3(.43,.47,.43),uDay)*(.65+.35*max(n.y,0.));
+ if(nl>.005)light+=mix(vec3(.16,.20,.30),vec3(.98,.89,.67),uDay)*nl*sunlight(p,n,ld)*(uSun.y>0.?smoothstep(0.,.12,uSun.y):1.);
+ if(uNight>.015)for(int i=0;i<4;i++){vec3 delta=uLights[i]-p;float ds=dot(delta,delta);if(ds<625.){float dist=sqrt(ds),diff=max(dot(n,delta/dist),0.);light+=vec3(1.,.43,.10)*diff*lanternVisible(p+n*.08,uLights[i])*(24./(2.+ds))*uNight;}}
+ float distanceToEye=distance(p,uEye);vec3 fog=sky(normalize(vec3(p.x-uEye.x,.025*distanceToEye,p.z-uEye.z)));return mix(base*light,fog,min(.83,1.-exp(-distanceToEye*(.0018+.0006*uNight))));
+}
+vec3 diagnostic(int mat,vec3 p,vec3 n,vec3 c){if(uDiagnostic==1)return vec3(fract(float(mat)*.37),fract(float(mat)*.63),fract(float(mat)*.19));if(uDiagnostic==2)return vec3(1.-exp(-distance(p,uEye)*.008));if(uDiagnostic==3)return n*.5+.5;return c;}
+`;
+const meshVertex=`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPosition;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in float aPath;
+layout(location=3) in float aInstance;
+uniform sampler2D uObjects;
+uniform int uShape;
+uniform mat4 uVP;
+out vec3 vPosition,vNormal;
+out float vPath;
+flat out int vMaterial;
+void main(){
+ vec3 p=aPosition,n=aNormal;vPath=aPath;vMaterial=0;
+ if(uShape>=0){int id=int(aInstance);vec4 a=texelFetch(uObjects,ivec2(0,id),0),b=texelFetch(uObjects,ivec2(1,id),0),c=texelFetch(uObjects,ivec2(2,id),0);vMaterial=int(b.w);vPath=-1.;
+  if(uShape==0)p*=b.xyz;
+  else{float rt=uShape==1?b.x:b.z;float radius=mix(b.x,rt,(p.y+1.)*.5);float theta=atan(p.z,p.x);float rough=uShape==2?1.+.055*sin(theta*7.+a.x*.6+a.z)+.045*cos(theta*11.+p.y*7.+a.z):1.;p.xz*=radius*rough;p.y*=b.y;if(uShape==2&&abs(aNormal.y)<.9)p.y+=sin(theta*5.+a.x)*.055*b.y;if(abs(n.y)<.9)n=normalize(vec3(n.x,(b.x-rt)/(2.*b.y),n.z));}
+  p=vec3(c.x*p.x-c.y*p.z,p.y,c.y*p.x+c.x*p.z)+a.xyz;n=vec3(c.x*n.x-c.y*n.z,n.y,c.y*n.x+c.x*n.z);
+ }
+ vPosition=p;vNormal=n;gl_Position=uVP*vec4(p,1);
+}`;
+const meshFragment='#version 300 es\n'+commonGLSL+`
+in vec3 vPosition,vNormal;
+in float vPath;
+flat in int vMaterial;
+uniform float uClip;
+out vec4 color;
+void main(){if(uClip!=0.&&vPosition.y*uClip<-.035)discard;int mat=vMaterial==0?int(texelFetch(uMaterial,ivec2(clamp(floor(vPosition.xz),vec2(0),vec2(511))),0).r):vMaterial;vec3 n=normalize(vNormal);vec3 c=surfaceColor(mat,vPosition,n,vPath);color=vec4(pow(clamp(diagnostic(mat,vPosition,n,c),0.,1.),vec3(.85)),1);}`;
+const shadowFragment=`#version 300 es
+precision highp float;
+void main(){}`;
+const skyFragment='#version 300 es\n'+commonGLSL+`
+out vec4 color;
+uniform bool uUnderwater;
+void main(){vec2 uv=gl_FragCoord.xy/uGrid*2.-1.;vec3 d=normalize(uForward+uRight*uv.x*uAspect*.65+uUp*uv.y*.65);vec3 c=uUnderwater?vec3(.025,.12,.19)*(.3+.7*uDay):sky(d);if(uDiagnostic==1)c=vec3(.1);if(uDiagnostic==2)c=vec3(1);if(uDiagnostic==3)c=vec3(0);color=vec4(pow(clamp(c,0.,1.),vec3(.85)),1);}`;
+const waterVertex=`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPosition;
+uniform mat4 uVP;
+out vec3 vPosition;
+void main(){vPosition=aPosition;gl_Position=uVP*vec4(aPosition,1);}`;
+const waterFragment='#version 300 es\n'+commonGLSL+`
+in vec3 vPosition;
+uniform sampler2D uReflection,uRefraction,uRefractionDepth;
+out vec4 color;
+float linearDepth(float d){float z=d*2.-1.;return .2*900./(900.1-z*899.9);}
+void main(){vec3 p=vPosition,rd=normalize(p-uEye);float dist=distance(p,uEye),atten=mix(1.,.4,smoothstep(30.,220.,dist));vec2 w=p.xz;vec3 n=normalize(vec3((.024*cos(w.x*.38+w.y*.21+uTime*1.1)+.010*sin(w.x*1.3-uTime*.8))*atten,1.,(.026*sin(w.y*.43+w.x*.12+uTime*.9)+.010*cos(w.y*1.2+uTime*.6))*atten));
+ vec2 uv=gl_FragCoord.xy/uGrid;float depth=max(.01,linearDepth(texture(uRefractionDepth,uv).r)-linearDepth(gl_FragCoord.z));vec2 bend=vec2(dot(n-vec3(0,1,0),uRight),dot(n-vec3(0,1,0),uUp))*.12*min(1.,depth*.5);vec2 ruv=clamp(uv+bend,vec2(.002),vec2(.998));
+ vec3 rc=pow(texture(uReflection,clamp(uv+bend*1.35,vec2(.002),vec2(.998))).rgb,vec3(1./.85));vec3 tc=pow(texture(uRefraction,ruv).rgb,vec3(1./.85));vec3 trans=exp(-vec3(.32,.16,.09)*depth);tc=tc*trans+vec3(.025,.12,.19)*(1.-trans)*(.3+.7*uDay);
+ float fresnel=.0204+.9796*pow(1.-max(dot(-rd,n),0.),5.);vec3 c=mix(tc,rc,fresnel);float spec=pow(max(dot(reflect(-uSun,n),-rd),0.),220.);c+=vec3(.95,.78,.47)*spec*uDay*sunlight(p,vec3(0,1,0),uSun);
+ float shore=1.-smoothstep(.03,.35,depth);c=mix(c,vec3(.57,.64,.56)*(.35+.65*uDay),shore*.18);color=vec4(pow(clamp(diagnostic(8,p,n,c),0.,1.),vec3(.85)),1);}`;
+const displayFragment=`#version 300 es
+precision highp float;
+uniform sampler2D uScene;
+uniform vec2 uResolution,uGrid;
+uniform int uDiagnostic;
+out vec4 color;
+float luma(vec3 c){return dot(c,vec3(.299,.587,.114));}
+void main(){vec2 uv=gl_FragCoord.xy/uResolution,pixel=1./uGrid;vec3 center=texture(uScene,uv).rgb;if(uDiagnostic!=0){color=vec4(center,1);return;}vec3 nw=texture(uScene,uv+vec2(-1,1)*pixel).rgb,ne=texture(uScene,uv+pixel).rgb,sw=texture(uScene,uv-pixel).rgb,se=texture(uScene,uv+vec2(1,-1)*pixel).rgb;float a=luma(nw),b=luma(ne),c=luma(sw),d=luma(se),m=luma(center),lo=min(m,min(min(a,b),min(c,d))),hi=max(m,max(max(a,b),max(c,d)));if(hi-lo<max(.025,hi*.1)){color=vec4(center,1);return;}vec2 dir=vec2(-((a+b)-(c+d)),(a+c)-(b+d));float reduce=max((a+b+c+d)*.03125,.0078125);dir=clamp(dir/(min(abs(dir.x),abs(dir.y))+reduce),vec2(-6),vec2(6))*pixel;vec3 rA=.5*(texture(uScene,uv+dir*(1./3.-.5)).rgb+texture(uScene,uv+dir*(2./3.-.5)).rgb);vec3 rB=rA*.5+.25*(texture(uScene,uv-dir*.5).rgb+texture(uScene,uv+dir*.5).rgb);float lb=luma(rB);color=vec4(lb<lo||lb>hi?rA:rB,1);}`;
+let gl,framebuffer,vao,meshProgram,shadowProgram,skyProgram,waterProgram,displayProgram;
+let terrainMesh,primitiveMeshes,waterMesh,worldTextures,shadowTarget,mainTarget,reflectionTarget,refractionTarget,lightVP,lastShadowHour=-100;
+let renderHeight=1080,columns=1440,rows=900,quality='auto',resourcesValid=false;
+const normalize=a=>{let len=Math.hypot(...a);return a.map(x=>x/len)},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+function multiply(a,b){let out=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)out[c*4+r]+=a[k*4+r]*b[c*4+k];return out}
+function viewMatrix(eye,f,r,u){return new Float32Array([r[0],u[0],-f[0],0,r[1],u[1],-f[1],0,r[2],u[2],-f[2],0,-dot(r,eye),-dot(u,eye),dot(f,eye),1])}
+function perspective(aspect){let n=.1,f=900,a=1/.65;return new Float32Array([a/aspect,0,0,0,0,a,0,0,0,0,(f+n)/(n-f),-1,0,0,2*f*n/(n-f),0])}
+function fatal(title,message,detail=''){active=false;$('fatalTitle').textContent=title;$('fatalText').textContent=message;$('fatalDetail').textContent=detail;$('fatal').hidden=false;}
+function compile(type,source){let shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader));return shader}
+function program(fragment,vert=vertex){let p=gl.createProgram(),vs=compile(gl.VERTEX_SHADER,vert),fs=compile(gl.FRAGMENT_SHADER,fragment);gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);gl.deleteShader(vs);gl.deleteShader(fs);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));let uniforms={};for(let i=0;i<gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);i++){let info=gl.getActiveUniform(p,i);uniforms[info.name.replace('[0]','')]=gl.getUniformLocation(p,info.name)}return {p,u:uniforms}}
+function texture(unit,w,h,internal,format,type,data,linear=false){let tex=gl.createTexture();gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,linear?gl.LINEAR:gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,linear?gl.LINEAR:gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.texImage2D(gl.TEXTURE_2D,0,internal,w,h,0,format,type,data);return tex}
+function target(w,h,shadow=false){let fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);let color=shadow?null:texture(7,w,h,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,null,true);if(color)gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,color,0);let depth=texture(7,w,h,gl.DEPTH_COMPONENT24,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);if(shadow){gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL)}gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,depth,0);gl.drawBuffers(shadow?[gl.NONE]:[gl.COLOR_ATTACHMENT0]);gl.readBuffer(shadow?gl.NONE:gl.COLOR_ATTACHMENT0);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('HD render target is incomplete');return {fbo,color,depth,w,h}}
+function disposeTarget(t){if(!t)return;gl.deleteFramebuffer(t.fbo);if(t.color)gl.deleteTexture(t.color);gl.deleteTexture(t.depth)}
+function makeMesh(vertices,indices,instances){let v=gl.createVertexArray();gl.bindVertexArray(v);let vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);for(const [index,size,offset]of [[0,3,0],[1,3,12],[2,1,24]]){gl.enableVertexAttribArray(index);gl.vertexAttribPointer(index,size,gl.FLOAT,false,28,offset)}let ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(indices),gl.STATIC_DRAW);if(instances){let inst=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,inst);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(instances),gl.STATIC_DRAW);gl.enableVertexAttribArray(3);gl.vertexAttribPointer(3,1,gl.FLOAT,false,4,0);gl.vertexAttribDivisor(3,1)}return {vao:v,count:indices.length,instances:instances?instances.length:0}}
+function buildMeshes(){
+ let tv=new Float32Array(GRID*GRID*7),ti=new Uint32Array(SIZE*SIZE*6);let c=0;
+ for(let z=0;z<GRID;z++)for(let x=0;x<GRID;x++){let n=normalize([heights[z*GRID+Math.max(0,x-1)]-heights[z*GRID+Math.min(SIZE,x+1)],2,heights[Math.max(0,z-1)*GRID+x]-heights[Math.min(SIZE,z+1)*GRID+x]]);let path=0,total=0;for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){let weight=(dx===0?2:1)*(dz===0?2:1);path+=(materials[clamp(z+dz,0,511)*512+clamp(x+dx,0,511)]===2?weight:0);total+=weight}tv.set([x,heights[z*GRID+x],z,...n,path/total],(z*GRID+x)*7);if(x<SIZE&&z<SIZE){let a=z*GRID+x;ti.set([a,a+GRID,a+1,a+GRID+1,a+1,a+GRID],c);c+=6}}
+ terrainMesh=makeMesh(tv,ti);
+ primitiveMeshes=[];
+ for(let shape=0;shape<3;shape++){let vs=[],ids=[];const add=(p,n)=>{vs.push(...p,...n,-1);return vs.length/7-1};
+  if(shape===0){for(let axis=0;axis<3;axis++)for(let sign of [-1,1]){let n=[0,0,0];n[axis]=sign;let a=(axis+1)%3,b=(axis+2)%3,start=vs.length/7;for(const [u,v] of [[-1,-1],[1,-1],[1,1],[-1,1]]){let p=[0,0,0];p[axis]=sign;p[a]=u;p[b]=v;add(p,n)}ids.push(start,start+1,start+2,start,start+2,start+3)}}
+  else{let sides=shape===2?24:14,rings=shape===2?4:1;for(let r=0;r<=rings;r++)for(let i=0;i<=sides;i++){let a=i/sides*Math.PI*2,x=Math.cos(a),z=Math.sin(a);add([x,-1+r/rings*2,z],[x,0,z])}for(let r=0;r<rings;r++)for(let i=0;i<sides;i++){let a=r*(sides+1)+i,b=a+sides+1;ids.push(a,b,a+1,a+1,b,b+1)}for(let side of [-1,1]){let center=add([0,side,0],[0,side,0]);for(let i=0;i<=sides;i++){let a=i/sides*Math.PI*2;add([Math.cos(a),side,Math.sin(a)],[0,side,0]);if(i>0)ids.push(center,center+i,center+i+1)}}}
+  primitiveMeshes.push(makeMesh(vs,ids,objects.map((o,i)=>o.type===shape?i:-1).filter(i=>i>=0)));
+ }
+ waterMesh=makeMesh([0,0,0,0,1,0,-1,512,0,0,0,1,0,-1,512,0,512,0,1,0,-1,0,0,512,0,1,0,-1],[0,1,2,0,2,3]);
+}
+function initGL(){
+ gl=canvas.getContext('webgl2',{alpha:false,antialias:false,depth:true,stencil:false,preserveDrawingBuffer:false,powerPreference:'high-performance'});if(!gl)throw Error('WebGL 2 is not available in this browser.');
+ meshProgram=program(meshFragment,meshVertex);shadowProgram=program(shadowFragment,meshVertex);skyProgram=program(skyFragment);waterProgram=program(waterFragment,waterVertex);displayProgram=program(displayFragment);vao=gl.createVertexArray();
+ worldTextures=[texture(0,GRID,GRID,gl.R32F,gl.RED,gl.FLOAT,heights),texture(1,SIZE,SIZE,gl.R8UI,gl.RED_INTEGER,gl.UNSIGNED_BYTE,materials),texture(2,3,objects.length,gl.RGBA32F,gl.RGBA,gl.FLOAT,objectData)];buildMeshes();shadowTarget=target(2048,2048,true);mainTarget=reflectionTarget=refractionTarget=null;lastShadowHour=-100;resourcesValid=true;resize();
+}
+function resize(){if(!resourcesValid)return;let dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*dpr);canvas.height=Math.round(innerHeight*dpr);let scale=Math.min(1,renderHeight/canvas.height,renderHeight*16/9/canvas.width);columns=Math.max(320,Math.round(canvas.width*scale));rows=Math.max(180,Math.round(canvas.height*scale));disposeTarget(mainTarget);disposeTarget(reflectionTarget);disposeTarget(refractionTarget);mainTarget=target(columns,rows);reflectionTarget=target(Math.round(columns*.5),Math.round(rows*.5));refractionTarget=target(Math.round(columns*.5),Math.round(rows*.5));framebuffer=mainTarget.fbo;gl.bindFramebuffer(gl.FRAMEBUFFER,null)}
+function bindTexture(unit,t){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t)}
+function common(pr,eye,basis,sun,w,h){gl.useProgram(pr.p);let u=pr.u;gl.uniform3fv(u.uEye,eye);gl.uniform3fv(u.uForward,basis.f);gl.uniform3fv(u.uRight,basis.r);gl.uniform3fv(u.uUp,basis.u);gl.uniform3fv(u.uSun,sun);gl.uniform3fv(u.uMoon,sun.map(v=>-v));gl.uniform2f(u.uGrid,w,h);gl.uniform1f(u.uAspect,innerWidth/innerHeight);gl.uniform1f(u.uTime,animationTime);gl.uniform1f(u.uDay,smooth(-.16,.20,sun[1]));gl.uniform1f(u.uNight,1-smooth(-.12,.22,sun[1]));gl.uniform1i(u.uDiagnostic,diag);gl.uniform3fv(u.uLights,lights.flat());gl.uniformMatrix4fv(u.uLightVP,false,lightVP);gl.uniform1i(u.uHeight,0);gl.uniform1i(u.uMaterial,1);gl.uniform1i(u.uObjects,2);gl.uniform1i(u.uShadow,3)}
+function drawWorld(pr,vp){gl.useProgram(pr.p);gl.uniformMatrix4fv(pr.u.uVP,false,vp);gl.uniform1i(pr.u.uShape,-1);gl.bindVertexArray(terrainMesh.vao);gl.drawElements(gl.TRIANGLES,terrainMesh.count,gl.UNSIGNED_INT,0);for(let k=0;k<3;k++){let m=primitiveMeshes[k];gl.uniform1i(pr.u.uShape,k);gl.bindVertexArray(m.vao);gl.drawElementsInstanced(gl.TRIANGLES,m.count,gl.UNSIGNED_INT,0,m.instances)}}
+function render(){
+ if(!resourcesValid)return;for(let i=0;i<3;i++)bindTexture(i,worldTextures[i]);for(let i=3;i<8;i++)bindTexture(i,null);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);
+ let p=player,cp=Math.cos(p.pitch),sp=Math.sin(p.pitch),sy=Math.sin(p.yaw),cy=Math.cos(p.yaw);let eye=[p.x,p.y+1.7,p.z],basis={f:[sy*cp,sp,cy*cp],r:[cy,0,-sy],u:[-sy*sp,cp,-cy*sp]},projection=perspective(innerWidth/innerHeight),vp=multiply(projection,viewMatrix(eye,basis.f,basis.r,basis.u));let a=(hour-6)/24*Math.PI*2,sun=normalize([Math.cos(a)*.85,Math.sin(a),Math.cos(a)*.527]);
+ if(Math.abs(hour-lastShadowHour)>.012){let ld=sun[1]>=0?sun:sun.map(v=>-v),f=ld.map(v=>-v),r=normalize(cross(f,Math.abs(f[1])>.97?[0,0,1]:[0,1,0])),u=cross(r,f),se=[256+ld[0]*600,30+ld[1]*600,256+ld[2]*600];let ortho=new Float32Array([1/390,0,0,0,0,1/390,0,0,0,0,-2/1300,0,0,0,-1,1]);lightVP=multiply(ortho,viewMatrix(se,f,r,u));gl.bindFramebuffer(gl.FRAMEBUFFER,shadowTarget.fbo);gl.viewport(0,0,2048,2048);gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(2,4);gl.useProgram(shadowProgram.p);gl.uniform1i(shadowProgram.u.uObjects,2);drawWorld(shadowProgram,lightVP);gl.disable(gl.POLYGON_OFFSET_FILL);lastShadowHour=hour;}
+ bindTexture(3,shadowTarget.depth);
+ function pass(t,e,b,m,clip,underwater=false){gl.bindFramebuffer(gl.FRAMEBUFFER,t.fbo);gl.viewport(0,0,t.w,t.h);gl.depthMask(true);gl.clear(gl.DEPTH_BUFFER_BIT);gl.disable(gl.DEPTH_TEST);gl.depthMask(false);common(skyProgram,e,b,sun,t.w,t.h);gl.uniform1i(skyProgram.u.uUnderwater,underwater);gl.bindVertexArray(vao);gl.drawArrays(gl.TRIANGLES,0,3);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);common(meshProgram,e,b,sun,t.w,t.h);gl.uniform1f(meshProgram.u.uClip,clip);drawWorld(meshProgram,m);}
+ let re=[eye[0],-eye[1],eye[2]],rb={f:[basis.f[0],-basis.f[1],basis.f[2]],r:basis.r,u:[basis.u[0],-basis.u[1],basis.u[2]]};let rvp=multiply(projection,viewMatrix(re,rb.f,rb.r,rb.u));
+ pass(reflectionTarget,re,rb,rvp,1);pass(refractionTarget,eye,basis,vp,-1,true);pass(mainTarget,eye,basis,vp,0);
+ common(waterProgram,eye,basis,sun,columns,rows);gl.uniformMatrix4fv(waterProgram.u.uVP,false,vp);bindTexture(4,reflectionTarget.color);bindTexture(5,refractionTarget.color);bindTexture(6,refractionTarget.depth);gl.uniform1i(waterProgram.u.uReflection,4);gl.uniform1i(waterProgram.u.uRefraction,5);gl.uniform1i(waterProgram.u.uRefractionDepth,6);gl.bindVertexArray(waterMesh.vao);gl.drawElements(gl.TRIANGLES,waterMesh.count,gl.UNSIGNED_INT,0);
+ gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.DEPTH_TEST);gl.useProgram(displayProgram.p);bindTexture(7,mainTarget.color);gl.uniform1i(displayProgram.u.uScene,7);gl.uniform2f(displayProgram.u.uGrid,columns,rows);gl.uniform2f(displayProgram.u.uResolution,canvas.width,canvas.height);gl.uniform1i(displayProgram.u.uDiagnostic,diag);gl.bindVertexArray(vao);gl.drawArrays(gl.TRIANGLES,0,3);
+}
+function timeString(){let h=Math.floor(hour),m=Math.floor((hour-h)*60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+function region(){let p=player;if(Math.max(Math.abs(p.x-FX),Math.abs(p.z-FZ))<37)return 'THE LANTERN FORT';if(p.z>370)return 'HIGH RIDGE';if(Math.abs(p.z-BZ)<8&&Math.abs(p.x-BX)<34)return 'OLD TIMBER CROSSING';if(Math.abs(p.x-riverX(p.z))<24)return p.swimming?'THE RIVER · SWIMMING':'RIVERBANK';if(p.x<200&&p.z>240)return 'WHISPERING WOOD';return p.x<riverX(p.z)?'WEST REACH':'EAST MEADOW'}
+let hintTimer;
+function hint(text,delay=7000){$('hint').textContent=text;$('hint').hidden=false;$('hint').style.opacity='1';clearTimeout(hintTimer);hintTimer=setTimeout(()=>{$('hint').style.opacity='0'},delay)}
+function pause(){if(!everEntered)return;active=false;keys.clear();jumpQueued=false;dragging=false;document.body.classList.add('paused');$('overlay').hidden=false;$('pauseButton').hidden=true;$('title').innerHTML='Stay a<br>little longer.';$('eyebrow').textContent='A moment to pause';$('intro').textContent='The valley will be here when you’re ready.';$('enterLabel').textContent='Resume exploring';$('hint').hidden=true;$('time').value=hour;$('timeLabel').textContent=timeString();if(document.pointerLockElement===canvas)document.exitPointerLock();$('enter').focus({preventScroll:true})}
+function enter(){if(!resourcesValid)return;everEntered=true;active=true;document.body.classList.remove('paused');$('overlay').hidden=true;$('pauseButton').hidden=false;$('settingsDetails').open=false;$('enterLabel').textContent='Resume exploring';lastTime=performance.now();accumulator=0;hint('WASD to wander · Shift to sprint · Space to jump · Escape to pause');try{let result=canvas.requestPointerLock();if(result&&result.catch)result.catch(()=>enableDrag())}catch(e){enableDrag()}}
+function enableDrag(){fallbackLook=true;if(active)hint('Mouse capture unavailable · Hold and drag to look · WASD to move',14000);$('status').textContent='Drag-to-look is available when the browser cannot capture the mouse.'}
+$('enter').onclick=enter;$('pauseButton').onclick=pause;
+$('reset').onclick=()=>{resetPlayer();hour=15.5;$('time').value=hour;$('timeLabel').textContent=timeString();$('status').textContent='Returned to the path in West Reach.';render()};
+$('quality').onchange=e=>{quality=e.target.value;renderHeight=quality==='auto'?1080:+quality;resize();qualityChanged=performance.now();render()};
+$('sensitivity').oninput=e=>sensitivity=+e.target.value;$('invert').onchange=e=>invert=e.target.checked;
+$('time').oninput=e=>{hour=+e.target.value;$('timeLabel').textContent=timeString();render()};$('holdTime').onchange=e=>holdTime=e.target.checked;
+$('showPerf').checked=showPerf;$('showPerf').onchange=e=>{showPerf=e.target.checked;$('perf').hidden=!showPerf};$('perf').hidden=!showPerf;
+$('debugRow').hidden=!DEBUG;$('diagnostic').onchange=e=>{diag=+e.target.value;render()};
+window.addEventListener('keydown',e=>{if(e.code==='Escape'){pause();return}if(!active)return;if(['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);if(e.code==='Space'&&!e.repeat)jumpQueued=true}});
+window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{keys.clear();pause()});document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===canvas){fallbackLook=false}else if(active&&!fallbackLook)pause()});document.addEventListener('pointerlockerror',enableDrag);
+canvas.addEventListener('pointerdown',e=>{if(active){dragging=true;canvas.setPointerCapture(e.pointerId)}});canvas.addEventListener('pointerup',()=>dragging=false);
+window.addEventListener('mousemove',e=>{if(!active)return;if(document.pointerLockElement!==canvas&&!dragging)return;player.yaw+=e.movementX*.0022*sensitivity;player.pitch=clamp(player.pitch-e.movementY*.0022*sensitivity*(invert?-1:1),-1.42,1.42)});
+window.addEventListener('resize',()=>{try{resize();render()}catch(e){fatal('The view could not resize.','Try reopening the world.',e.message)}});
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();resourcesValid=false;pause();$('status').textContent='Graphics connection interrupted. Waiting to restore…';$('enter').disabled=true});
+canvas.addEventListener('webglcontextrestored',()=>{try{initGL();$('enter').disabled=false;$('status').textContent='Graphics restored. Your position has been preserved.'}catch(e){fatal('Graphics could not be restored.','Reload to return to the valley.',e.message)}});
+let lastTime=0,accumulator=0,lastHUD=0,avgMS=16.7,qualityChanged=0,lowSince=0,highSince=0,frameCounter=0;
+let samples=[],lastFrameCPU=0;
+function frame(now){requestAnimationFrame(frame);if(!resourcesValid||document.hidden){lastTime=now;return}let elapsed=lastTime?Math.min((now-lastTime)/1000,.1):1/60,raw=lastTime?now-lastTime:16.7;lastTime=now;avgMS=mix(avgMS,raw,.04);let start=performance.now();
+ if(active){accumulator+=elapsed;for(let i=0;i<8&&accumulator>=1/120;i++){simulate(1/120);accumulator-=1/120}if(accumulator>1/30)accumulator=0;animationTime+=elapsed;if(!holdTime)hour=(hour+elapsed/60)%24;}
+ render();lastFrameCPU=performance.now()-start;frameCounter++;if(DEBUG&&active){samples.push(raw);if(samples.length>6000)samples.shift()}
+ if(now-lastHUD>300){$('headingTime').textContent=region()+' · '+timeString();$('location').textContent=region();$('perf').textContent=Math.round(1000/avgMS)+' FPS · '+columns+' × '+rows+'\n'+(player.swimming?'swimming':player.grounded?'grounded':'airborne')+' · '+timeString()+(DEBUG?'\nxyz '+player.x.toFixed(1)+' '+player.y.toFixed(1)+' '+player.z.toFixed(1)+'\n'+objects.length+' primitives · CPU '+lastFrameCPU.toFixed(1)+' ms':'');lastHUD=now}
+ if(active&&quality==='auto'&&now-qualityChanged>8000){if(avgMS>35){if(!lowSince)lowSince=now;if(now-lowSince>2200&&renderHeight>720){renderHeight=renderHeight>1080?1080:720;resize();qualityChanged=now;lowSince=0}}else lowSince=0;if(avgMS<18){if(!highSince)highSince=now;if(now-highSince>6000&&renderHeight<1080){renderHeight=1080;resize();qualityChanged=now;highSince=0}}else highSince=0;}
+}
+// Debug-only inspection hooks support repeatable render and simulation acceptance checks.
+if(DEBUG)window.lanternVale=window.asciiWorld={get state(){return {player:{...player},hour,columns,rows,renderHeight,active,objects:objects.length,avgMS,frameCounter,resourcesValid,quality}},terrain,rawHeight,pathDist,riverX,riverW,support,blocked,simulate,render,reset:resetPlayer,pause,enter,setView(x,z,yaw=0,pitch=0,y){player.x=x;player.z=z;player.y=y===undefined?terrain(x,z):y;player.yaw=yaw;player.pitch=pitch;player.vy=0;player.grounded=true;player.swimming=false;render()},turn(yaw,pitch=player.pitch){player.yaw=yaw;player.pitch=pitch},setHour(h){hour=h;render()},setQuality(n){quality=String(n);renderHeight=n<720?1080:n;resize();render()},setDiagnostic(n){diag=n;render()},setKeys(codes){keys=new Set(codes)},jump(){jumpQueued=true},get samples(){return samples.slice()},get data(){return {heights,materials,bounds,objects,cellLists,meta,refs,paths,lights}},readCell(x,y){gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.readBuffer(gl.COLOR_ATTACHMENT0);let out=new Uint8Array(4);gl.readPixels(x,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,out);gl.bindFramebuffer(gl.FRAMEBUFFER,null);return Array.from(out)},loseContext(){return gl.getExtension('WEBGL_lose_context')},getError(){return gl.getError()}};
+try{generateWorld();resetPlayer();initGL();$('enter').disabled=false;$('enterLabel').textContent='Enter world';$('status').textContent='Follow the path. Find your own pace.';render();requestAnimationFrame(frame)}catch(e){console.error(e);fatal('The valley could not open.','This world needs a browser with WebGL 2 graphics enabled. Try a current version of Safari or Chrome.',e.message)}
+})();
+</script>
+</body>
+</html>

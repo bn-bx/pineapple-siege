@@ -1,0 +1,94 @@
+{
+  "browser": "153.0.8010.54",
+  "checks": [
+    {
+      "name": "Brand and fresh Valley-scale default",
+      "passed": true
+    },
+    {
+      "name": "All settings reload and chosen strength survives migration",
+      "passed": true
+    },
+    {
+      "name": "C enters live cinematic mode",
+      "passed": true
+    },
+    {
+      "name": "Photo freezes tick, time, effects, and aircraft while camera moves",
+      "passed": true,
+      "detail": {
+        "frozen": {
+          "tick": 97,
+          "time": 1.4000000000000004,
+          "hour": 15.5,
+          "p": [
+            1038.0297357842494,
+            221.61120719723877,
+            898.9652570448931
+          ],
+          "cam": [
+            993.1834165921474,
+            236.7268544192228,
+            906.8106986574253
+          ]
+        },
+        "after": {
+          "tick": 97,
+          "time": 1.4000000000000004,
+          "hour": 15.5,
+          "p": [
+            1038.0297357842494,
+            221.61120719723877,
+            898.9652570448931
+          ],
+          "cam": [
+            1009.4697154131446,
+            231.18931796150477,
+            903.6138763378968
+          ]
+        }
+      }
+    },
+    {
+      "name": "Photo FOV applies",
+      "passed": true
+    },
+    {
+      "name": "PNG export",
+      "passed": true
+    },
+    {
+      "name": "H hides photo toolbar",
+      "passed": true
+    },
+    {
+      "name": "P restores live cinematic mode",
+      "passed": true
+    },
+    {
+      "name": "C returns to chase",
+      "passed": true
+    },
+    {
+      "name": "Escape exits photo into paused chase",
+      "passed": true
+    },
+    {
+      "name": "Reset preserves preferences",
+      "passed": true
+    },
+    {
+      "name": "Ruined world restores without recovery",
+      "passed": true
+    },
+    {
+      "name": "No page errors",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "name": "No WebGL error",
+      "passed": true
+    }
+  ]
+}

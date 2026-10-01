@@ -1,0 +1,37 @@
+{
+  "apex_domain": {
+    "id": "ab65b5a5-6a89-483e-88fa-a108caf4846b",
+    "domain_id": "ab65b5a5-6a89-483e-88fa-a108caf4846b",
+    "name": "sweetpickledpineapple.com",
+    "status": "initializing",
+    "verification_data": {
+      "status": "pending"
+    },
+    "validation_data": {
+      "status": "initializing",
+      "method": "http"
+    },
+    "certificate_authority": "google",
+    "zone_tag": "783fb7d3e500514afeb3e6ed40c60ec9",
+    "created_on": "2026-09-28T00:33:46.710633Z"
+  },
+  "apex_dns": {
+    "id": "4658a81886da136784d22a0610d15a27",
+    "name": "sweetpickledpineapple.com",
+    "type": "CNAME",
+    "content": "pineapple-siege.pages.dev",
+    "proxiable": true,
+    "proxied": true,
+    "ttl": 1,
+    "settings": {
+      "flatten_cname": false
+    },
+    "meta": {},
+    "comment": null,
+    "tags": [],
+    "created_on": "2026-09-17T02:04:48.87581Z",
+    "modified_on": "2026-09-28T00:33:47.143908Z"
+  },
+  "siege_deployment_id": "56e588ce-4e79-4c03-8794-7cb4968a2f99",
+  "siege_deployment_url": "https://56e588ce.pineapple-siege.pages.dev"
+}

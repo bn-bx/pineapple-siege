@@ -1,0 +1,1012 @@
+{
+  "browser": "154.0.8037.58",
+  "checks": [
+    {
+      "name": "Default controls",
+      "passed": true
+    },
+    {
+      "name": "Entire-map diameter label",
+      "passed": true
+    },
+    {
+      "name": "Preferences and charging strike survive reload",
+      "passed": true
+    },
+    {
+      "name": "Reset defaults preserves launched strike settings",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 12, brightness 0.25",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 12, brightness 1",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 12, brightness 2",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 0, brightness 0.25",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 0, brightness 1",
+      "passed": true
+    },
+    {
+      "name": "Beam at hour 0, brightness 2",
+      "passed": true
+    },
+    {
+      "name": "Pause freezes strike age",
+      "passed": true
+    },
+    {
+      "name": "Photo mode freezes strike age",
+      "passed": true
+    },
+    {
+      "name": "Reset clears strikes",
+      "passed": true
+    },
+    {
+      "name": "Whole-map strike and overlapping cleanup complete",
+      "passed": true,
+      "detail": {
+        "removed": 11916,
+        "entities": 11916,
+        "dry": 1050625
+      }
+    },
+    {
+      "name": "Whole-map save reload retains crater and removes all structures",
+      "passed": true
+    },
+    {
+      "name": "Mobile controls fit without horizontal overflow",
+      "passed": true
+    },
+    {
+      "name": "No browser errors",
+      "passed": true,
+      "detail": []
+    }
+  ],
+  "stress": {
+    "done": true,
+    "wallSeconds": 31.201100000023843,
+    "phases": {
+      "baseline": {
+        "frames": 240,
+        "median": 16.69999999999891,
+        "p95": 16.799999999999272,
+        "worst": 16.80000000000109
+      },
+      "maximum single": {
+        "frames": 780,
+        "median": 16.69999999999891,
+        "p95": 16.700000000000728,
+        "worst": 16.80000000000291
+      },
+      "maximum overlap": {
+        "frames": 841,
+        "median": 16.69999999999709,
+        "p95": 16.799999999995634,
+        "worst": 16.80000000000291
+      }
+    },
+    "peakLasers": 13,
+    "peakJobs": 1117,
+    "peakMainThreadHeap": 106561287,
+    "peakDestructionMS": 1.699999988079071,
+    "saveBytes": 12728654,
+    "drySamples": 1050625,
+    "removed": 11916,
+    "entityCount": 11916,
+    "settings": {
+      "laserSize": 100,
+      "laserDepth": 500,
+      "laserBrightness": 1,
+      "bodies": 1,
+      "fragments": 1,
+      "cosmetics": 1,
+      "rubble": 1,
+      "noCooldown": false,
+      "nukeScale": 1
+    },
+    "render": {
+      "cameraMode": "chase",
+      "effectTime": 32.1486999999994,
+      "fps": 60.01346203584412,
+      "width": 1920,
+      "height": 1080,
+      "drawCalls": 135,
+      "triangles": 118604,
+      "geometries": 886,
+      "textures": 18,
+      "quality": 1080,
+      "clouds": 0,
+      "fragments": 0,
+      "projectiles": 0
+    },
+    "ruins": 0,
+    "remainingStrikes": 0,
+    "remainingWork": 0,
+    "center": -499.3807678222656,
+    "samples": [
+      {
+        "elapsed": 0.251,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 105720495
+      },
+      {
+        "elapsed": 0.5003999999761581,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 105065219
+      },
+      {
+        "elapsed": 0.7511000000238418,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 54642138
+      },
+      {
+        "elapsed": 1.000899999976158,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 66910146
+      },
+      {
+        "elapsed": 1.2506000000238418,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 53198886
+      },
+      {
+        "elapsed": 1.5016000000238419,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 65508254
+      },
+      {
+        "elapsed": 1.7513999999761583,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 78214510
+      },
+      {
+        "elapsed": 2.0013000000119208,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 63985754
+      },
+      {
+        "elapsed": 2.250800000011921,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 76746630
+      },
+      {
+        "elapsed": 2.501199999988079,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 62637194
+      },
+      {
+        "elapsed": 2.7513000000119208,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 75691174
+      },
+      {
+        "elapsed": 3.0008999999761583,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 61217874
+      },
+      {
+        "elapsed": 3.250699999988079,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 74412254
+      },
+      {
+        "elapsed": 3.5013000000119208,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 60751942
+      },
+      {
+        "elapsed": 3.751,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 74483694
+      },
+      {
+        "elapsed": 4.000800000011921,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 60804582
+      },
+      {
+        "elapsed": 4.250399999976159,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 73497438
+      },
+      {
+        "elapsed": 4.500800000011921,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 59126625
+      },
+      {
+        "elapsed": 4.750300000011921,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 71700029
+      },
+      {
+        "elapsed": 5.001399999976158,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 56607589
+      },
+      {
+        "elapsed": 5.250699999988079,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 69300145
+      },
+      {
+        "elapsed": 5.5015,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 55122669
+      },
+      {
+        "elapsed": 5.7511000000238415,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 67843413
+      },
+      {
+        "elapsed": 6.000600000023842,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 80429185
+      },
+      {
+        "elapsed": 6.251399999976158,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 67564697
+      },
+      {
+        "elapsed": 6.5005,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 54801457
+      },
+      {
+        "elapsed": 6.751199999988079,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 69196369
+      },
+      {
+        "elapsed": 7.001699999988079,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 56872617
+      },
+      {
+        "elapsed": 7.250399999976159,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 71832305
+      },
+      {
+        "elapsed": 7.5015,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 59899925
+      },
+      {
+        "elapsed": 7.7505,
+        "lasers": 1,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 75382389
+      },
+      {
+        "elapsed": 8.00119999998808,
+        "lasers": 1,
+        "jobs": 1016,
+        "destructionMS": 1.100000023841858,
+        "heap": 64322137
+      },
+      {
+        "elapsed": 8.251100000023841,
+        "lasers": 1,
+        "jobs": 1054,
+        "destructionMS": 1.300000011920929,
+        "heap": 58697185
+      },
+      {
+        "elapsed": 8.5005,
+        "lasers": 1,
+        "jobs": 1049,
+        "destructionMS": 1,
+        "heap": 75495345
+      },
+      {
+        "elapsed": 8.750699999988079,
+        "lasers": 1,
+        "jobs": 1055,
+        "destructionMS": 1.100000023841858,
+        "heap": 65218048
+      },
+      {
+        "elapsed": 9.001,
+        "lasers": 1,
+        "jobs": 1049,
+        "destructionMS": 1.2000000476837158,
+        "heap": 81485980
+      },
+      {
+        "elapsed": 9.251300000011922,
+        "lasers": 1,
+        "jobs": 1055,
+        "destructionMS": 1,
+        "heap": 73486024
+      },
+      {
+        "elapsed": 9.500800000011921,
+        "lasers": 1,
+        "jobs": 1052,
+        "destructionMS": 1.100000023841858,
+        "heap": 63196608
+      },
+      {
+        "elapsed": 9.751,
+        "lasers": 1,
+        "jobs": 1058,
+        "destructionMS": 1.699999988079071,
+        "heap": 79488560
+      },
+      {
+        "elapsed": 10.000899999976157,
+        "lasers": 1,
+        "jobs": 1051,
+        "destructionMS": 1.300000011920929,
+        "heap": 69068444
+      },
+      {
+        "elapsed": 10.250399999976159,
+        "lasers": 1,
+        "jobs": 1067,
+        "destructionMS": 1,
+        "heap": 89415576
+      },
+      {
+        "elapsed": 10.500899999976157,
+        "lasers": 1,
+        "jobs": 1061,
+        "destructionMS": 1.399999976158142,
+        "heap": 78672640
+      },
+      {
+        "elapsed": 10.751300000011922,
+        "lasers": 1,
+        "jobs": 1070,
+        "destructionMS": 1.100000023841858,
+        "heap": 67873208
+      },
+      {
+        "elapsed": 11.001300000011922,
+        "lasers": 1,
+        "jobs": 1062,
+        "destructionMS": 1.0999999642372131,
+        "heap": 83302504
+      },
+      {
+        "elapsed": 11.2505,
+        "lasers": 1,
+        "jobs": 1089,
+        "destructionMS": 1.399999976158142,
+        "heap": 76940703
+      },
+      {
+        "elapsed": 11.50119999998808,
+        "lasers": 1,
+        "jobs": 1091,
+        "destructionMS": 1.2000000476837158,
+        "heap": 91258911
+      },
+      {
+        "elapsed": 11.751300000011922,
+        "lasers": 1,
+        "jobs": 1102,
+        "destructionMS": 1.100000023841858,
+        "heap": 78834727
+      },
+      {
+        "elapsed": 12.00119999998808,
+        "lasers": 1,
+        "jobs": 1098,
+        "destructionMS": 1.100000023841858,
+        "heap": 92828675
+      },
+      {
+        "elapsed": 12.250699999988079,
+        "lasers": 1,
+        "jobs": 1110,
+        "destructionMS": 1.399999976158142,
+        "heap": 64113117
+      },
+      {
+        "elapsed": 12.5015,
+        "lasers": 1,
+        "jobs": 1107,
+        "destructionMS": 1.199999988079071,
+        "heap": 78493653
+      },
+      {
+        "elapsed": 12.750399999976159,
+        "lasers": 1,
+        "jobs": 1113,
+        "destructionMS": 1.600000023841858,
+        "heap": 66486513
+      },
+      {
+        "elapsed": 13.000899999976157,
+        "lasers": 1,
+        "jobs": 1117,
+        "destructionMS": 1.399999976158142,
+        "heap": 81688473
+      },
+      {
+        "elapsed": 13.251399999976158,
+        "lasers": 1,
+        "jobs": 1090,
+        "destructionMS": 1.300000011920929,
+        "heap": 78714696
+      },
+      {
+        "elapsed": 13.500800000011921,
+        "lasers": 1,
+        "jobs": 1063,
+        "destructionMS": 1.199999988079071,
+        "heap": 94054632
+      },
+      {
+        "elapsed": 13.751100000023841,
+        "lasers": 1,
+        "jobs": 1035,
+        "destructionMS": 1.0999999642372131,
+        "heap": 83873060
+      },
+      {
+        "elapsed": 14.001399999976158,
+        "lasers": 1,
+        "jobs": 1006,
+        "destructionMS": 1.399999976158142,
+        "heap": 72561440
+      },
+      {
+        "elapsed": 14.250600000023843,
+        "lasers": 1,
+        "jobs": 983,
+        "destructionMS": 1.4000000357627869,
+        "heap": 64853051
+      },
+      {
+        "elapsed": 14.500600000023843,
+        "lasers": 1,
+        "jobs": 956,
+        "destructionMS": 1.5,
+        "heap": 83173019
+      },
+      {
+        "elapsed": 14.751300000011922,
+        "lasers": 1,
+        "jobs": 932,
+        "destructionMS": 1.300000011920929,
+        "heap": 76054955
+      },
+      {
+        "elapsed": 15.00119999998808,
+        "lasers": 1,
+        "jobs": 903,
+        "destructionMS": 1.300000011920929,
+        "heap": 69454951
+      },
+      {
+        "elapsed": 15.250699999988079,
+        "lasers": 1,
+        "jobs": 875,
+        "destructionMS": 1.4000000357627869,
+        "heap": 100427327
+      },
+      {
+        "elapsed": 15.500600000023843,
+        "lasers": 1,
+        "jobs": 846,
+        "destructionMS": 1.0999999642372131,
+        "heap": 94253731
+      },
+      {
+        "elapsed": 15.75119999998808,
+        "lasers": 1,
+        "jobs": 820,
+        "destructionMS": 1,
+        "heap": 87667611
+      },
+      {
+        "elapsed": 16.00060000002384,
+        "lasers": 1,
+        "jobs": 791,
+        "destructionMS": 1.300000011920929,
+        "heap": 77680843
+      },
+      {
+        "elapsed": 16.25019999998808,
+        "lasers": 1,
+        "jobs": 761,
+        "destructionMS": 1.399999976158142,
+        "heap": 105654139
+      },
+      {
+        "elapsed": 16.50060000002384,
+        "lasers": 1,
+        "jobs": 733,
+        "destructionMS": 1.100000023841858,
+        "heap": 79503664
+      },
+      {
+        "elapsed": 16.75069999998808,
+        "lasers": 1,
+        "jobs": 701,
+        "destructionMS": 1.300000011920929,
+        "heap": 66355424
+      },
+      {
+        "elapsed": 17.00130000001192,
+        "lasers": 1,
+        "jobs": 670,
+        "destructionMS": 1,
+        "heap": 81053140
+      },
+      {
+        "elapsed": 17.26310000002384,
+        "lasers": 13,
+        "jobs": 637,
+        "destructionMS": 1.300000011920929,
+        "heap": 86291311
+      },
+      {
+        "elapsed": 17.501,
+        "lasers": 13,
+        "jobs": 609,
+        "destructionMS": 1,
+        "heap": 100649247
+      },
+      {
+        "elapsed": 17.751100000023843,
+        "lasers": 13,
+        "jobs": 573,
+        "destructionMS": 1.2999999523162842,
+        "heap": 90384787
+      },
+      {
+        "elapsed": 18.001800000011922,
+        "lasers": 13,
+        "jobs": 534,
+        "destructionMS": 1.300000011920929,
+        "heap": 106561287
+      },
+      {
+        "elapsed": 18.251100000023843,
+        "lasers": 13,
+        "jobs": 498,
+        "destructionMS": 1.2999999523162842,
+        "heap": 96170875
+      },
+      {
+        "elapsed": 18.50060000002384,
+        "lasers": 13,
+        "jobs": 465,
+        "destructionMS": 1,
+        "heap": 79102400
+      },
+      {
+        "elapsed": 18.7515,
+        "lasers": 13,
+        "jobs": 426,
+        "destructionMS": 1.300000011920929,
+        "heap": 67998432
+      },
+      {
+        "elapsed": 19.001199999988078,
+        "lasers": 13,
+        "jobs": 389,
+        "destructionMS": 1,
+        "heap": 83669864
+      },
+      {
+        "elapsed": 19.25069999998808,
+        "lasers": 13,
+        "jobs": 353,
+        "destructionMS": 1,
+        "heap": 73073576
+      },
+      {
+        "elapsed": 19.501,
+        "lasers": 13,
+        "jobs": 318,
+        "destructionMS": 1.399999976158142,
+        "heap": 100576404
+      },
+      {
+        "elapsed": 19.75060000002384,
+        "lasers": 13,
+        "jobs": 280,
+        "destructionMS": 1.100000023841858,
+        "heap": 88697648
+      },
+      {
+        "elapsed": 20.00080000001192,
+        "lasers": 13,
+        "jobs": 243,
+        "destructionMS": 1.199999988079071,
+        "heap": 103083088
+      },
+      {
+        "elapsed": 20.251399999976158,
+        "lasers": 13,
+        "jobs": 205,
+        "destructionMS": 1.2000000476837158,
+        "heap": 91461364
+      },
+      {
+        "elapsed": 20.501,
+        "lasers": 13,
+        "jobs": 167,
+        "destructionMS": 1.100000023841858,
+        "heap": 77716684
+      },
+      {
+        "elapsed": 20.75080000001192,
+        "lasers": 13,
+        "jobs": 124,
+        "destructionMS": 1,
+        "heap": 93310484
+      },
+      {
+        "elapsed": 21.00130000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 78048912
+      },
+      {
+        "elapsed": 21.251199999988078,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 89394852
+      },
+      {
+        "elapsed": 21.50080000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 89104648
+      },
+      {
+        "elapsed": 21.75089999997616,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 101816928
+      },
+      {
+        "elapsed": 22.00080000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 86455252
+      },
+      {
+        "elapsed": 22.25080000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 96822456
+      },
+      {
+        "elapsed": 22.501,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 71940432
+      },
+      {
+        "elapsed": 22.7505,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 82351576
+      },
+      {
+        "elapsed": 23.001199999988078,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 92605616
+      },
+      {
+        "elapsed": 23.251399999976158,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 76606936
+      },
+      {
+        "elapsed": 23.50130000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 100533172
+      },
+      {
+        "elapsed": 23.75130000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 85588132
+      },
+      {
+        "elapsed": 24.00130000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1.100000023841858,
+        "heap": 95817336
+      },
+      {
+        "elapsed": 24.251,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 106408404
+      },
+      {
+        "elapsed": 24.50060000002384,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 76579148
+      },
+      {
+        "elapsed": 24.7505,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 86816228
+      },
+      {
+        "elapsed": 25.001100000023843,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 71228152
+      },
+      {
+        "elapsed": 25.25080000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 81143124
+      },
+      {
+        "elapsed": 25.501,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 104616856
+      },
+      {
+        "elapsed": 25.751399999976158,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 90215628
+      },
+      {
+        "elapsed": 26.001600000023842,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 100085032
+      },
+      {
+        "elapsed": 26.2515,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 59871016
+      },
+      {
+        "elapsed": 26.50080000001192,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 83069836
+      },
+      {
+        "elapsed": 26.751600000023842,
+        "lasers": 12,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 92683016
+      },
+      {
+        "elapsed": 27.00169999998808,
+        "lasers": 9,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 78154568
+      },
+      {
+        "elapsed": 27.25060000002384,
+        "lasers": 9,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 53730336
+      },
+      {
+        "elapsed": 27.50080000001192,
+        "lasers": 9,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 76384216
+      },
+      {
+        "elapsed": 27.751199999988078,
+        "lasers": 9,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 85717032
+      },
+      {
+        "elapsed": 28.001800000011922,
+        "lasers": 6,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 70072956
+      },
+      {
+        "elapsed": 28.25069999998808,
+        "lasers": 6,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 53684348
+      },
+      {
+        "elapsed": 28.50130000001192,
+        "lasers": 6,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 76091320
+      },
+      {
+        "elapsed": 28.750100000023842,
+        "lasers": 6,
+        "jobs": 1024,
+        "destructionMS": 1,
+        "heap": 85242432
+      },
+      {
+        "elapsed": 29.0015,
+        "lasers": 3,
+        "jobs": 887,
+        "destructionMS": 1,
+        "heap": 68909960
+      },
+      {
+        "elapsed": 29.25069999998808,
+        "lasers": 3,
+        "jobs": 658,
+        "destructionMS": 1,
+        "heap": 77845708
+      },
+      {
+        "elapsed": 29.5005,
+        "lasers": 3,
+        "jobs": 404,
+        "destructionMS": 1,
+        "heap": 67299600
+      },
+      {
+        "elapsed": 29.751600000023842,
+        "lasers": 3,
+        "jobs": 74,
+        "destructionMS": 1,
+        "heap": 76233172
+      },
+      {
+        "elapsed": 30.0015,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 84482552
+      },
+      {
+        "elapsed": 30.251600000023842,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 92662832
+      },
+      {
+        "elapsed": 30.5005,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 87215180
+      },
+      {
+        "elapsed": 30.75130000001192,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 95376996
+      },
+      {
+        "elapsed": 31.001800000011922,
+        "lasers": 0,
+        "jobs": 0,
+        "destructionMS": 0,
+        "heap": 103378388
+      }
+    ]
+  },
+  "errors": []
+}

@@ -1,0 +1,794 @@
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #f0eedc;
+  background: #152b2e;
+  font-synthesis: none;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid #efc76b;
+  outline-offset: 4px;
+}
+[hidden] {
+  display: none !important;
+}
+#world {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+header {
+  position: fixed;
+  inset: 25px 30px auto;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.brand {
+  color: #f1f0da;
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 3px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  pointer-events: auto;
+  text-shadow: 0 1px 7px #0006;
+}
+.crest {
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #ececd65c;
+  width: 30px;
+  height: 30px;
+  font-size: 21px;
+}
+.edition {
+  color: #f6efd1a8;
+  border-left: 1px solid #eee5;
+  padding-left: 14px;
+  letter-spacing: 1.5px;
+  font-size: 9px;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 4px #000;
+}
+#pauseButton {
+  pointer-events: auto;
+  background: #172c3280;
+  border: 1px solid #e0e9d840;
+  color: #f1f0da;
+  padding: 10px 13px;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+#pauseButton span {
+  padding-left: 12px;
+  color: #efefcba0;
+}
+#overlay {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: #10282ff5;
+  z-index: 4;
+  padding: 82px 4vw 32px;
+  scrollbar-width: thin;
+}
+.menu {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+.menu-heading,
+.settings-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.menu-heading .actions {
+  display: flex;
+  gap: 12px;
+}
+.menu-heading .primary {
+  min-width: 200px;
+  gap: 24px;
+}
+.menu h1 {
+  font-size: clamp(32px, 3vw, 48px);
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin: 0;
+}
+.menu .intro {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.menu .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 20px 0;
+  padding: 14px 0;
+}
+.settings-heading {
+  margin-bottom: 16px;
+}
+.settings-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+#settings {
+  display: grid;
+  grid-template-columns: 1fr 1.55fr 1fr;
+  grid-template-areas: "flight destruction graphics" "audio destruction world" "laser laser laser";
+  gap: 16px;
+  align-items: stretch;
+}
+.settings-flight {
+  grid-area: flight;
+}
+.settings-destruction {
+  grid-area: destruction;
+}
+.settings-graphics {
+  grid-area: graphics;
+}
+.settings-audio {
+  grid-area: audio;
+}
+.settings-laser {
+  grid-area: laser;
+}
+.settings-world {
+  grid-area: world;
+}
+.eyebrow {
+  color: #edc472;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  margin: 0 0 23px;
+}
+h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(55px, 6.9vw, 102px);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -5px;
+  margin: 0 0 28px;
+}
+h1 em {
+  font-style: italic;
+  color: #edc777;
+}
+.intro {
+  font-size: 14px;
+  line-height: 1.9;
+  color: #d9e1cd;
+  margin-bottom: 28px;
+}
+.actions {
+  display: grid;
+  gap: 9px;
+}
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f1edda;
+  color: #203136;
+  border: 0;
+  border-radius: 2px;
+  padding: 17px 21px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  min-height: 50px;
+}
+.primary:hover {
+  background: #f6cc77;
+}
+.secondary {
+  background: #12292b70;
+  color: #dedfca;
+  border: 1px solid #d6e4d52e;
+  padding: 12px 18px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border-radius: 2px;
+}
+.secondary:hover {
+  background: #314941;
+}
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px 22px;
+  font-size: 11px;
+  color: #d5dfce;
+  padding: 23px 0;
+  margin-top: 18px;
+  border-top: 1px solid #e5edd524;
+  border-bottom: 1px solid #e5edd524;
+}
+.controls span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+kbd {
+  font: 9px monospace;
+  letter-spacing: 1px;
+  padding: 4px 5px;
+  border: 1px solid #dce6cc40;
+  border-radius: 2px;
+  min-width: 51px;
+  text-align: center;
+  color: #f3eedb;
+}
+details {
+  margin-top: 17px;
+}
+summary {
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 1.7px;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+}
+summary span {
+  font-size: 17px;
+  color: #e7c784;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 21px;
+  margin-top: 20px;
+  font-size: 11px;
+}
+.settings-grid label {
+  display: grid;
+  gap: 8px;
+  color: #d4dccb;
+}
+.settings-grid .check {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+select {
+  background: #152b2e;
+  border: 1px solid #e5edd537;
+  border-radius: 2px;
+  color: #ecebd9;
+  padding: 8px;
+  font-size: 11px;
+  width: 100%;
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: #ebc06f;
+  margin: 0;
+}
+input[type="checkbox"] {
+  accent-color: #ebc06f;
+}
+.danger {
+  background: none;
+  border: 1px solid #dbb77d61;
+  color: #e9cc9a;
+  padding: 8px;
+  font-size: 11px;
+}
+#status {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #c5d4bf;
+  min-height: 16px;
+  margin: 20px 0 0;
+}
+.save-note {
+  font-size: 10px;
+  color: #bdccba75;
+  margin: 8px 0 0;
+}
+.menu-aside {
+  position: absolute;
+  bottom: 8%;
+  right: 6%;
+  text-align: right;
+  text-shadow: 0 2px 15px #142c32;
+}
+.menu-aside .tag {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: #f0d8a9;
+}
+.menu-aside p {
+  font-family: Georgia, serif;
+  font-size: 42px;
+  line-height: 1.1;
+  margin: 15px 0 20px;
+}
+.menu-aside > span:last-child {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #e8edcdaf;
+}
+#reticle {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ffffdc7a;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 7px #0003;
+}
+#reticle:after,
+#reticle:before {
+  content: "";
+  position: absolute;
+  background: #fff8d3b0;
+}
+#reticle:before {
+  left: 13px;
+  top: 10px;
+  width: 2px;
+  height: 8px;
+}
+#reticle:after {
+  left: 10px;
+  top: 13px;
+  width: 8px;
+  height: 2px;
+}
+.telemetry {
+  position: fixed;
+  left: 32px;
+  bottom: 68px;
+  display: flex;
+  gap: 30px;
+  align-items: end;
+  text-shadow: 0 1px 4px #0008;
+}
+.telemetry > div:not(.throttle) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.telemetry strong {
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: -1px;
+}
+.telemetry span {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #eff2d8b0;
+}
+.throttle {
+  width: 3px;
+  height: 40px;
+  background: #dce9df29;
+  position: relative;
+}
+.throttle span {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 50%;
+  background: #e6c270;
+}
+.weapon {
+  position: fixed;
+  right: 32px;
+  bottom: 72px;
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  text-shadow: 0 1px 4px #0008;
+}
+.weapon > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.weapon small {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #e4e9d0b0;
+}
+.weapon strong {
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: 400;
+  color: #eaca81;
+}
+.weapon-icon {
+  font-size: 35px;
+  color: #eaca81;
+}
+#ammo {
+  font-size: 26px;
+  color: #eef0d6a0;
+}
+.world-status {
+  position: fixed;
+  inset: auto 32px 28px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #f0efceca;
+  text-shadow: 0 1px 4px #000;
+}
+#warning {
+  position: fixed;
+  left: 50%;
+  top: 19%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #f3d18b;
+  background: #18282fc4;
+  border: 1px solid #e9ca7b4a;
+  padding: 13px 22px;
+}
+#hint {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 12px 19px;
+  background: #18312ba8;
+  border: 1px solid #e2edd525;
+  color: #eeeed9;
+  white-space: nowrap;
+  transition: opacity 1s;
+}
+#saveStatus {
+  position: fixed;
+  right: 31px;
+  bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #e5ecd085;
+  z-index: 5;
+}
+#perf {
+  position: fixed;
+  right: 30px;
+  top: 85px;
+  padding: 12px 15px;
+  background: #102329c9;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #e9eacb;
+  z-index: 8;
+  pointer-events: none;
+}
+dialog {
+  background: #142e31;
+  color: #e7e9d6;
+  border: 1px solid #d6dbb744;
+  border-radius: 4px;
+  padding: 34px;
+  max-width: 460px;
+}
+dialog::backdrop {
+  background: #0b1d24b8;
+  backdrop-filter: blur(8px);
+}
+dialog h2,
+#fatal h2 {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  margin: 0 0 18px;
+}
+dialog p:not(.eyebrow) {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #ccd6c7;
+}
+dialog > div {
+  display: flex;
+  gap: 10px;
+  margin-top: 23px;
+}
+#fatal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #10232cee;
+  z-index: 20;
+}
+#fatal > div {
+  max-width: 540px;
+  padding: 35px;
+}
+#fatal p {
+  line-height: 1.8;
+  font-size: 14px;
+}
+#fatal pre {
+  white-space: pre-wrap;
+  font-size: 11px;
+  color: #ceba97;
+  max-height: 220px;
+  overflow: auto;
+}
+#fatal .primary {
+  width: 100%;
+  margin: 20px 0;
+}
+@media (max-height: 760px) {
+  h1 {
+    font-size: 65px;
+  }
+  .eyebrow {
+    margin-bottom: 14px;
+  }
+  .intro {
+    margin-bottom: 19px;
+  }
+  .controls {
+    padding: 15px 0;
+    gap: 9px;
+  }
+}
+@media (max-width: 800px) {
+  .menu-aside,
+  .edition {
+    display: none;
+  }
+  header {
+    inset: 16px 20px auto;
+  }
+  .telemetry {
+    left: 20px;
+  }
+  .weapon {
+    right: 20px;
+  }
+  .world-status {
+    left: 20px;
+    right: 20px;
+  }
+  #hint {
+    max-width: 90vw;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+.destruction-settings {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 16px;
+  border-top: 1px solid #ffffff25;
+  padding-top: 18px;
+}
+.destruction-settings h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.destruction-settings p,
+.settings-grid small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #b7c8c8;
+  margin: 0;
+}
+.settings-grid output {
+  color: #f0cd7b;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.settings-grid input[type="range"] {
+  width: 100%;
+}
+
+.settings-section {
+  border: 1px solid #ffffff20;
+  border-radius: 6px;
+  padding: 20px;
+  background: #19343ac4;
+  min-width: 0;
+}
+.settings-section h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #f0cd7b;
+}
+.settings-section .settings-grid {
+  margin-top: 20px;
+  grid-template-columns: 1fr;
+  font-size: 13px;
+  gap: 20px;
+}
+.settings-laser .settings-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+.settings-destruction .settings-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.settings-grid label {
+  min-width: 0;
+}
+.settings-grid .check {
+  gap: 12px;
+}
+.settings-grid .check input {
+  flex-shrink: 0;
+}
+.settings-grid button {
+  align-self: end;
+}
+#saveStatus {
+  transition: opacity 0.4s;
+}
+.weapon {
+  flex-wrap: wrap;
+  max-width: 340px;
+}
+.weapon > .weapon-select {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 10px;
+  pointer-events: auto;
+}
+.weapon-select button {
+  font-size: 11px;
+  padding: 6px 10px;
+  color: #b7c8c8;
+  background: #162e36c9;
+  border: 1px solid #ffffff25;
+  border-radius: 4px;
+}
+.weapon-select button.selected {
+  color: #ffdc87;
+  border-color: #ffdc8770;
+}
+.cooldown-bar {
+  width: 100%;
+  height: 3px;
+  background: #ffffff25;
+  overflow: hidden;
+}
+#cooldownFill {
+  display: block;
+  height: 100%;
+  background: #ffdc87;
+  transition: width 0.15s linear;
+}
+body.cinematic #flightHUD,
+body.cinematic header,
+body.cinematic #saveStatus:not(.save-error) {
+  display: none;
+}
+body.photo #flightHUD,
+body.photo header,
+body.photo #saveStatus:not(.save-error),
+body.photo #warning,
+body.photo #hint,
+body.photo #perf {
+  display: none;
+}
+#photoToolbar {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(900px, 92vw);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #102730eb;
+  border: 1px solid #ffffff30;
+  border-radius: 10px;
+}
+#photoToolbar[hidden] {
+  display: none;
+}
+#photoToolbar > span {
+  font-size: 12px;
+  color: #b7c8c8;
+}
+#photoToolbar label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+#photoToolbar button {
+  padding: 8px 12px;
+  border: 1px solid #ffffff35;
+  border-radius: 4px;
+  background: #26424b;
+  color: #edf2e9;
+  cursor: pointer;
+}
+
+.weapon > .weapon-select {
+  flex-direction: row;
+}
+
+@media (max-width: 1100px) {
+  #settings {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "flight graphics" "destruction destruction" "audio world" "laser laser";
+  }
+}
+@media (max-width: 600px) {
+  #overlay {
+    padding: 72px 20px 32px;
+  }
+  .menu-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .menu-heading .actions {
+    flex-wrap: wrap;
+  }
+  .settings-heading {
+    gap: 12px;
+  }
+  #settings {
+    grid-template-columns: 1fr;
+    grid-template-areas: "flight" "destruction" "graphics" "audio" "world" "laser";
+  }
+  .settings-laser .settings-grid,
+  .settings-destruction .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "browser": "153.0.8010.54",
+  "checks": [
+    {
+      "name": "Fullscreen menu, all sections visible at 1440×900, no accordions or horizontal overflow",
+      "passed": true,
+      "detail": {
+        "sections": [
+          {
+            "name": "Flight",
+            "visible": true
+          },
+          {
+            "name": "Destruction",
+            "visible": true
+          },
+          {
+            "name": "Graphics",
+            "visible": true
+          },
+          {
+            "name": "Audio",
+            "visible": true
+          },
+          {
+            "name": "World",
+            "visible": true
+          }
+        ],
+        "accordion": 0,
+        "width": 1440,
+        "overflow": false
+      }
+    },
+    {
+      "name": "Reset restores all preferences",
+      "passed": true,
+      "detail": {
+        "checks": true,
+        "values": {
+          "quality": "auto",
+          "nukeYield": "valley",
+          "volume": "0.35",
+          "sensitivity": "1",
+          "bodies": "1",
+          "fragments": "1",
+          "cosmetics": "1",
+          "rubble": "1",
+          "nukeScale": "1"
+        }
+      }
+    },
+    {
+      "name": "Reset preserves all damaged world state and resets afternoon time",
+      "passed": true,
+      "detail": {
+        "removed": 78,
+        "hour": 15.5,
+        "keys": [
+          "destruction",
+          "version",
+          "worldVersion",
+          "seed",
+          "revision",
+          "hour",
+          "terrain",
+          "removed",
+          "ruins",
+          "pendingJobs"
+        ]
+      }
+    },
+    {
+      "name": "Defaults persist after reload",
+      "passed": true,
+      "detail": {
+        "checks": true,
+        "values": {
+          "quality": "auto",
+          "nukeYield": "valley",
+          "volume": "0.35",
+          "sensitivity": "1",
+          "bodies": "1",
+          "fragments": "1",
+          "cosmetics": "1",
+          "rubble": "1",
+          "nukeScale": "1"
+        }
+      }
+    },
+    {
+      "name": "Destroyed world survives reload",
+      "passed": true
+    },
+    {
+      "name": "Compact menu scrolls without horizontal overflow",
+      "passed": true
+    },
+    {
+      "name": "World reset retains confirmation",
+      "passed": true
+    },
+    {
+      "name": "Pause opens all settings without expansion",
+      "passed": true
+    },
+    {
+      "name": "No browser errors",
+      "passed": true,
+      "detail": []
+    }
+  ]
+}

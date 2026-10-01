@@ -1,0 +1,182 @@
+import { CONFIG, MONSTER_SCALE, clamp } from "../config";
+import type { MonsterSpike, MonsterState, Vec3, WorldData } from "../types";
+import { Terrain } from "./terrain";
+
+const hash = (n: number) => {
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+  return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+};
+const distanceXZ = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2]);
+export const MONSTER_BODY_HEIGHT = 14 * MONSTER_SCALE;
+export const MONSTER_BODY_RADIUS = 12 * MONSTER_SCALE;
+
+export class Monsters {
+  readonly states: MonsterState[] = [];
+  readonly spikes: MonsterSpike[] = [];
+  count: 0 | 3 | 8 | 20 = 8;
+  private cooldowns = Array(20).fill(1) as number[];
+  private wander = Array(20).fill(0) as number[];
+  constructor(
+    private world: WorldData,
+    private terrain: Terrain,
+    saved?: MonsterState[],
+  ) {
+    for (let id = 0; id < 20; id++) {
+      const p = this.spawn(id);
+      const old = saved?.find((m) => m?.id === id);
+      this.states.push(old ? { ...old, p: this.restorePosition(old.p, p), windup: 0, stagger: 0 } : {
+        id, p, yaw: hash(id + 300) * Math.PI * 2, health: 3,
+        defeated: false, phase: 0, windup: 0, stagger: 0,
+      });
+      this.wander[id] = hash(id + 700) * Math.PI * 2;
+    }
+  }
+  private restorePosition(saved: Vec3, fallback: Vec3): Vec3 {
+    const clear = (x: number, z: number) => this.walkable(x, z) &&
+      this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= 115);
+    if (clear(saved[0], saved[2]))
+      return [saved[0], this.terrain.sample(saved[0], saved[2]), saved[2]];
+    for (let radius = 40; radius <= 320; radius += 40)
+      for (let i = 0; i < 16; i++) {
+        const a = i * Math.PI / 8;
+        const x = saved[0] + Math.sin(a) * radius;
+        const z = saved[2] + Math.cos(a) * radius;
+        if (clear(x, z)) return [x, this.terrain.sample(x, z), z];
+      }
+    return fallback;
+  }
+  private spawn(id: number): Vec3 {
+    for (let attempt = 0; attempt < 250; attempt++) {
+      const x = 105 + hash(id * 887 + attempt * 31 + this.world.seed) * 1838;
+      const z = 105 + hash(id * 997 + attempt * 47 + this.world.seed) * 1838;
+      if (!this.walkable(x, z)) continue;
+      if (this.states.some((m) => Math.hypot(m.p[0] - x, m.p[2] - z) < 145)) continue;
+      return [x, this.terrain.sample(x, z), z];
+    }
+    const x = 180 + (id % 5) * 400;
+    const z = 180 + Math.floor(id / 5) * 400;
+    return [x, this.terrain.sample(x, z), z];
+  }
+  private walkable(x: number, z: number): boolean {
+    if (x < 75 || x > CONFIG.worldSize - 75 || z < 75 || z > CONFIG.worldSize - 75) return false;
+    if (this.terrain.water(x, z)) return false;
+    const h = this.terrain.sample(x, z);
+    if (!Number.isFinite(h)) return false;
+    for (const [dx, dz] of [[36, 0], [-36, 0], [0, 36], [0, -36]])
+      if (this.terrain.water(x + dx, z + dz) || Math.abs(this.terrain.sample(x + dx, z + dz) - h) > 12) return false;
+    if (x > this.world.castleBounds.min[0] - 75 && x < this.world.castleBounds.max[0] + 75 && z > this.world.castleBounds.min[1] - 75 && z < this.world.castleBounds.max[1] + 75) return false;
+    if (distanceXZ([x, h, z], this.world.spawn) < 120) return false;
+    return !this.world.sites.some((s) => Math.hypot(s.p[0] - x, s.p[2] - z) < s.radius + 60);
+  }
+  setCount(value: number) {
+    if ([0, 3, 8, 20].includes(value)) this.count = value as 0 | 3 | 8 | 20;
+    this.spikes.length = 0;
+  }
+  active() { return this.states.slice(0, this.count).filter((m) => !m.defeated); }
+  damage(m: MonsterState, amount: number) {
+    if (m.defeated || m.id >= this.count) return false;
+    m.health = Math.max(0, m.health - amount);
+    m.stagger = 0.45;
+    m.windup = 0;
+    if (m.health === 0) m.defeated = true;
+    return true;
+  }
+  blast(p: Vec3, radius: number, amount: number) {
+    const hit: MonsterState[] = [];
+    for (const m of this.active()) {
+      const d = Math.hypot(m.p[0] - p[0], m.p[1] + MONSTER_BODY_HEIGHT - p[1], m.p[2] - p[2]);
+      if (d < radius + MONSTER_BODY_RADIUS && this.damage(m, amount)) hit.push(m);
+    }
+    return hit;
+  }
+  burn(p: Vec3, radius: number, amount: number) {
+    const hit: MonsterState[] = [];
+    for (const m of this.active()) {
+      if (distanceXZ(m.p, p) < radius + MONSTER_BODY_RADIUS && this.damage(m, amount)) hit.push(m);
+    }
+    return hit;
+  }
+  // Earliest intersection with the body envelope, including projectile radius.
+  intersect(a: Vec3, b: Vec3, radius = 0) {
+    let best: { monster: MonsterState; t: number; p: Vec3 } | null = null;
+    for (const m of this.active()) {
+      const center: Vec3 = [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]];
+      const d = b.map((v, i) => v - a[i]) as Vec3;
+      const o = a.map((v, i) => v - center[i]) as Vec3;
+      const r = MONSTER_BODY_RADIUS + radius;
+      const aa = d[0] ** 2 + d[1] ** 2 + d[2] ** 2;
+      const bb = 2 * (o[0] * d[0] + o[1] * d[1] + o[2] * d[2]);
+      const cc = o[0] ** 2 + o[1] ** 2 + o[2] ** 2 - r * r;
+      const disc = bb * bb - 4 * aa * cc;
+      if (aa < 1e-8 || disc < 0) continue;
+      const t = cc <= 0 ? 0 : (-bb - Math.sqrt(disc)) / (2 * aa);
+      if (t >= 0 && t <= 1 && (!best || t < best.t))
+        best = { monster: m, t, p: a.map((v, i) => v + d[i] * t) as Vec3 };
+    }
+    return best;
+  }
+  step(dt: number, plane: Vec3, crashed: boolean, obstacle: (a: Vec3, b: Vec3) => boolean, disco = false) {
+    let swipe = false;
+    if (disco) this.spikes.length = 0;
+    for (const m of this.active()) {
+      m.p[1] = this.terrain.sample(m.p[0], m.p[2]);
+      m.stagger = Math.max(0, m.stagger - dt);
+      this.cooldowns[m.id] = Math.max(0, this.cooldowns[m.id] - dt);
+      if (disco) {
+        m.windup = 0;
+        this.cooldowns[m.id] = Math.max(this.cooldowns[m.id], 0.7);
+        m.phase += dt * 12;
+        continue;
+      }
+      if (m.windup > 0) {
+        m.windup -= dt;
+        if (m.windup <= 0 && !crashed && !m.stagger) {
+          const horizontal = distanceXZ(m.p, plane);
+          if (horizontal < 54 && plane[1] - m.p[1] < 68) swipe = true;
+          else if (horizontal < 300 && plane[1] - m.p[1] < 250) {
+            const origin: Vec3 = [m.p[0], m.p[1] + 38, m.p[2]];
+            const target = plane.map((v, i) => v + (i === 1 ? 0 : (v - origin[i]) * 0.12)) as Vec3;
+            const delta = target.map((v, i) => v - origin[i]) as Vec3;
+            const length = Math.hypot(...delta) || 1;
+            this.spikes.push({ p: origin, v: delta.map((v, i) => (v / length) * 85 + (i === 1 ? 10 : 0)) as Vec3 });
+          }
+          this.cooldowns[m.id] = 3.2;
+        }
+      }
+      if (m.stagger > 0 || m.windup > 0) continue;
+      const near = !crashed && distanceXZ(m.p, plane) < 300 && plane[1] - m.p[1] < 250;
+      if (near && this.cooldowns[m.id] <= 0) {
+        m.windup = 0.85;
+        continue;
+      }
+      const desired = near ? Math.atan2(plane[0] - m.p[0], plane[2] - m.p[2]) : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;
+      const turn = Math.atan2(Math.sin(desired - m.yaw), Math.cos(desired - m.yaw));
+      m.yaw += clamp(turn, -dt * 1.1, dt * 1.1);
+      const speed = near ? 8 : 4.5;
+      const x = m.p[0] + Math.sin(m.yaw) * speed * dt;
+      const z = m.p[2] + Math.cos(m.yaw) * speed * dt;
+      const next: Vec3 = [x, this.terrain.sample(x, z), z];
+      if (this.walkable(x, z) && !obstacle(m.p, next)) m.p = next;
+      else {
+        this.wander[m.id] += 1.7;
+        m.yaw += dt * 2;
+      }
+      m.phase += dt * speed;
+    }
+    for (let i = this.spikes.length - 1; i >= 0; i--) {
+      const s = this.spikes[i];
+      const next = s.p.map((v, k) => v + s.v[k] * dt) as Vec3;
+      const d = next.map((v, k) => v - s.p[k]) as Vec3;
+      const rel = s.p.map((v, k) => v - plane[k]) as Vec3;
+      const t = clamp(-d.reduce((sum, v, k) => sum + v * rel[k], 0) / (d.reduce((sum, v) => sum + v * v, 0) || 1), 0, 1);
+      const closest = next.map((_, k) => s.p[k] + d[k] * t) as Vec3;
+      if (!crashed && Math.hypot(...closest.map((v, k) => v - plane[k])) < 5) {
+        swipe = true;
+        this.spikes.splice(i, 1);
+      } else if (next[1] < this.terrain.sample(next[0], next[2]) || next[0] < 0 || next[0] > 2048 || next[2] < 0 || next[2] > 2048) this.spikes.splice(i, 1);
+      else { s.p = next; s.v[1] -= 12 * dt; }
+    }
+    return swipe;
+  }
+}

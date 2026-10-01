@@ -1,0 +1,295 @@
+{
+  "dns_records": [
+    {
+      "id": "f78b5d37894af4e2f39e41d824f0e892",
+      "name": "kuma.sweetpickledpineapple.com",
+      "type": "A",
+      "content": "100.85.44.64",
+      "proxiable": false,
+      "proxied": false,
+      "ttl": 1,
+      "settings": {},
+      "meta": {},
+      "comment": null,
+      "tags": [],
+      "created_on": "2026-09-17T01:28:32.094522Z",
+      "modified_on": "2026-09-17T01:28:32.094522Z"
+    },
+    {
+      "id": "f63faa4221403f347ecf44fc1e18fe90",
+      "name": "nfty.sweetpickledpineapple.com",
+      "type": "A",
+      "content": "100.85.44.64",
+      "proxiable": false,
+      "proxied": false,
+      "ttl": 1,
+      "settings": {},
+      "meta": {},
+      "comment": null,
+      "tags": [],
+      "created_on": "2026-09-17T01:28:01.465711Z",
+      "modified_on": "2026-09-17T01:28:01.465711Z"
+    },
+    {
+      "id": "bb96a859f76e969305482ea1f8235abd",
+      "name": "blocks.sweetpickledpineapple.com",
+      "type": "CNAME",
+      "content": "blocks-sweet-pickled-pineapple.pages.dev",
+      "proxiable": true,
+      "proxied": true,
+      "ttl": 1,
+      "settings": {
+        "flatten_cname": false
+      },
+      "meta": {},
+      "comment": null,
+      "tags": [],
+      "created_on": "2026-09-24T16:23:17.485418Z",
+      "modified_on": "2026-09-24T16:23:17.485418Z"
+    },
+    {
+      "id": "4658a81886da136784d22a0610d15a27",
+      "name": "sweetpickledpineapple.com",
+      "type": "CNAME",
+      "content": "sweet-pickled-pineapple.pages.dev",
+      "proxiable": true,
+      "proxied": true,
+      "ttl": 1,
+      "settings": {
+        "flatten_cname": false
+      },
+      "meta": {},
+      "comment": null,
+      "tags": [],
+      "created_on": "2026-09-17T02:04:48.87581Z",
+      "modified_on": "2026-09-17T02:04:48.87581Z"
+    },
+    {
+      "id": "b25c44c4935ca8d99b81bd8204621f0e",
+      "name": "tipcalc.sweetpickledpineapple.com",
+      "type": "CNAME",
+      "content": "sweet-pickled-pineapple-tipcalc.pages.dev",
+      "proxiable": true,
+      "proxied": false,
+      "ttl": 1,
+      "settings": {
+        "flatten_cname": false
+      },
+      "meta": {},
+      "comment": null,
+      "tags": [],
+      "created_on": "2026-09-26T17:11:40.553995Z",
+      "modified_on": "2026-09-26T17:13:17.569696Z"
+    }
+  ],
+  "hoops_project": {
+    "id": "258a3631-6763-47f0-bf08-08d8ce77df73",
+    "name": "sweet-pickled-pineapple",
+    "subdomain": "sweet-pickled-pineapple.pages.dev",
+    "domains": [
+      "sweet-pickled-pineapple.pages.dev",
+      "sweetpickledpineapple.com"
+    ],
+    "build_config": {
+      "web_analytics_tag": null,
+      "web_analytics_token": null
+    },
+    "deployment_configs": {
+      "preview": {
+        "env_vars": null,
+        "fail_open": true,
+        "always_use_latest_compatibility_date": false,
+        "compatibility_date": "2026-09-17",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": "standard"
+      },
+      "production": {
+        "env_vars": null,
+        "fail_open": true,
+        "always_use_latest_compatibility_date": false,
+        "compatibility_date": "2026-09-17",
+        "compatibility_flags": [],
+        "build_image_major_version": 3,
+        "usage_model": "standard"
+      }
+    },
+    "latest_deployment": {
+      "id": "734cbcf3-9a25-43de-a8d5-a6d332095c7a",
+      "short_id": "734cbcf3",
+      "project_id": "258a3631-6763-47f0-bf08-08d8ce77df73",
+      "project_name": "sweet-pickled-pineapple",
+      "environment": "production",
+      "url": "https://734cbcf3.sweet-pickled-pineapple.pages.dev",
+      "created_on": "2026-09-25T20:40:20.004261Z",
+      "modified_on": "2026-09-25T20:40:21.369081Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-09-25T20:40:21.369081Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "",
+          "commit_message": "",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-09-25T20:40:20.004261Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-09-25T20:40:21.369081Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": null,
+        "destination_dir": null,
+        "build_caching": null,
+        "root_dir": null,
+        "web_analytics_tag": null,
+        "web_analytics_token": null
+      },
+      "env_vars": {},
+      "compatibility_date": "2026-09-17",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": null,
+      "aliases": [
+        "https://sweetpickledpineapple.com"
+      ],
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": false
+    },
+    "canonical_deployment": {
+      "id": "734cbcf3-9a25-43de-a8d5-a6d332095c7a",
+      "short_id": "734cbcf3",
+      "project_id": "258a3631-6763-47f0-bf08-08d8ce77df73",
+      "project_name": "sweet-pickled-pineapple",
+      "environment": "production",
+      "url": "https://734cbcf3.sweet-pickled-pineapple.pages.dev",
+      "created_on": "2026-09-25T20:40:20.004261Z",
+      "modified_on": "2026-09-25T20:40:21.369081Z",
+      "latest_stage": {
+        "name": "deploy",
+        "started_on": null,
+        "ended_on": "2026-09-25T20:40:21.369081Z",
+        "status": "success"
+      },
+      "deployment_trigger": {
+        "type": "ad_hoc",
+        "metadata": {
+          "branch": "main",
+          "commit_hash": "",
+          "commit_message": "",
+          "commit_dirty": false
+        }
+      },
+      "stages": [
+        {
+          "name": "queued",
+          "started_on": "2026-09-25T20:40:20.004261Z",
+          "ended_on": null,
+          "status": "active"
+        },
+        {
+          "name": "initialize",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "clone_repo",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "build",
+          "started_on": null,
+          "ended_on": null,
+          "status": "idle"
+        },
+        {
+          "name": "deploy",
+          "started_on": null,
+          "ended_on": "2026-09-25T20:40:21.369081Z",
+          "status": "success"
+        }
+      ],
+      "build_config": {
+        "build_command": null,
+        "destination_dir": null,
+        "build_caching": null,
+        "root_dir": null,
+        "web_analytics_tag": null,
+        "web_analytics_token": null
+      },
+      "env_vars": {},
+      "compatibility_date": "2026-09-17",
+      "compatibility_flags": [],
+      "build_image_major_version": 3,
+      "usage_model": null,
+      "aliases": [
+        "https://sweetpickledpineapple.com"
+      ],
+      "is_skipped": false,
+      "production_branch": "main",
+      "uses_functions": false
+    },
+    "created_on": "2026-09-17T02:01:17.186507Z",
+    "production_branch": "main",
+    "production_script_name": "pages-worker--19524892-production",
+    "preview_script_name": "pages-worker--19524892-preview",
+    "uses_functions": false,
+    "framework": "",
+    "framework_version": ""
+  },
+  "hoops_domains": [
+    {
+      "id": "5c228a20-8451-44f7-8ebb-ef7caddfa38b",
+      "domain_id": "5c228a20-8451-44f7-8ebb-ef7caddfa38b",
+      "name": "sweetpickledpineapple.com",
+      "status": "active",
+      "verification_data": {
+        "status": "active"
+      },
+      "validation_data": {
+        "status": "active",
+        "method": "http"
+      },
+      "certificate_authority": "google",
+      "zone_tag": "783fb7d3e500514afeb3e6ed40c60ec9",
+      "created_on": "2026-09-17T02:04:49.241207Z"
+    }
+  ]
+}

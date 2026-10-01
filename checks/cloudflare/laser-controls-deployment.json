@@ -1,0 +1,45 @@
+{
+  "domain": "https://sweetpickledpineapple.com/",
+  "deployment": "https://d812940f.pineapple-siege.pages.dev",
+  "assets": {
+    "index.html": {
+      "status": 200,
+      "matches_build": false,
+      "bytes": 13970,
+      "matches_after_cloudflare_analytics_removal": true,
+      "cloudflare_beacons": 1
+    },
+    "assets/index-B5OQ9KBZ.css": {
+      "status": 200,
+      "matches_build": true,
+      "bytes": 10785
+    },
+    "assets/worker-vFHFwOyV.js": {
+      "status": 200,
+      "matches_build": true,
+      "bytes": 2276268
+    },
+    "assets/index-B_oWUFAd.js": {
+      "status": 200,
+      "matches_build": true,
+      "bytes": 620940
+    },
+    "world.json": {
+      "status": 200,
+      "matches_build": true,
+      "bytes": 2799685
+    },
+    "world.bin": {
+      "status": 200,
+      "matches_build": true,
+      "bytes": 4202500
+    }
+  },
+  "browser": {
+    "ready": true,
+    "worldVersion": 5,
+    "laserControls": true,
+    "weapon3": true,
+    "errors": []
+  }
+}

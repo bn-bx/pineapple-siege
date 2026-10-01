@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "name": "Legacy preference migration preserves controls and unrestricted fire",
+      "passed": true
+    },
+    {
+      "name": "Migration is one-time",
+      "passed": true
+    },
+    {
+      "name": "Twenty unfinished blasts are committed",
+      "passed": true,
+      "detail": {
+        "jobs": 20,
+        "version": 4,
+        "revision": 20
+      }
+    },
+    {
+      "name": "Restoration finishes pending work before enabling flight",
+      "passed": true,
+      "detail": {
+        "jobs": 0,
+        "removed": 4573,
+        "ready": true,
+        "version": 4,
+        "loadSeconds": 2.124
+      }
+    },
+    {
+      "name": "Reset clears transient sounds and camera mode",
+      "passed": true
+    }
+  ]
+}

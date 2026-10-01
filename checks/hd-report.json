@@ -1,0 +1,42 @@
+{
+  "browser": "153.0.8010.54",
+  "tests": [
+    {
+      "name": "720p preset uses requested pixel resolution",
+      "passed": true,
+      "resolution": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "1080p preset uses requested pixel resolution",
+      "passed": true,
+      "resolution": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "name": "1440p preset uses requested pixel resolution",
+      "passed": true,
+      "resolution": [
+        2560,
+        1440
+      ]
+    },
+    {
+      "name": "Actual keyboard input moves the player in HD",
+      "passed": true
+    },
+    {
+      "name": "Return to start restores spawn",
+      "passed": true
+    },
+    {
+      "name": "HD quality changes and movement have no graphics or console errors",
+      "passed": true,
+      "errors": []
+    }
+  ]
+}

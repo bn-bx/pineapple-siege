@@ -1,0 +1,16 @@
+node_modules/
+dist/
+public/world.bin
+public/world.json
+*.tsbuildinfo
+.DS_Store
+
+.pnpm-store/
+.wrangler/
+
+# Local verification captures are reproducible and too large for source control.
+checks/**/*.png
+checks/**/*.jpg
+checks/**/*.jpeg
+checks/**/*.webp
+checks/**/*.wav

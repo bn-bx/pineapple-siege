@@ -1,0 +1,28 @@
+{
+  "name": "lantern-vale",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "world": "node scripts/generate-world.mjs",
+    "dev": "node scripts/generate-world.mjs && vite --host 127.0.0.1",
+    "build": "node scripts/generate-world.mjs && tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node scripts/generate-world.mjs && vitest run"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.19.3",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/three": "0.180.0",
+    "prettier": "3.6.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
