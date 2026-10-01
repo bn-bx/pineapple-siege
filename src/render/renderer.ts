@@ -1,6 +1,7 @@
 import { isRoof } from "../debris-shape";
 import { MAX_BODY_LIMIT } from "../destruction-settings";
 import { CameraRig } from "./camera-rig";
+import { GooglyEyes } from "./googly-eyes";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
 import { makeMonster, makeDistantMonster } from "./monster";
@@ -52,6 +53,7 @@ export class GameRenderer {
   readonly effects = new Effects();
   readonly disco = new DiscoScene();
   readonly jet = makeJet();
+  readonly eyes = new GooglyEyes();
   readonly materials: ReturnType<typeof createMaterials>["materials"];
   private sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   private sun = new THREE.DirectionalLight("#fff0d2", 2.8);
@@ -450,6 +452,13 @@ export class GameRenderer {
   }
   setReducedEffects(value: boolean) {
     this.effects.reduced = value;
+  }
+  setGooglyEyes(value: boolean) {
+    this.eyes.setEnabled(value);
+    for (const monster of this.monsterMeshes) {
+      const nativeEyes = monster.getObjectByName("native-eyes");
+      if (nativeEyes) nativeEyes.visible = !value;
+    }
   }
   setQuality(q: string) {
     this.quality = q;
@@ -1250,6 +1259,19 @@ export class GameRenderer {
       this.camera,
       this.effects.reduced,
     );
+    this.eyes.update(
+      [
+        this.jet, this.flagGroup, this.disco.ball,
+        ...this.batches.flatMap((batch) => batch.low ? [batch.mesh, batch.low] : [batch.mesh]),
+        this.fallenPines, this.fallenTrunks,
+        ...this.bodyMeshes.values(), ...this.ruinGroups.values(),
+        ...this.monsterMeshes, ...this.distantMonsters,
+        ...this.shotMeshes, ...this.spikeMeshes,
+        ...this.lanterns.map(({ lamp }) => lamp),
+        this.effects.fragments.mesh, ...this.effects.cloudFaces,
+      ],
+      snap, this.jet.position,
+    );
     this.renderer.render(this.scene, this.camera);
     if (
       this.quality === "auto" &&
@@ -1344,6 +1366,7 @@ export class GameRenderer {
       clouds: this.effects.cloudCount,
       fragments: this.effects.fragments.count,
       projectiles: this.shotMeshes.filter((s) => s.visible).length,
+      googlyFaces: this.eyes.count,
     };
   }
 }

@@ -44,6 +44,7 @@ export class DiscoScene {
     const map = new THREE.CanvasTexture(canvas);
     map.colorSpace = THREE.SRGBColorSpace;
     this.ball = new THREE.Group();
+    this.ball.userData.googlyBounds = [0, 0, 0, 125, 125, 125];
     this.ball.position.set(1024, 1100, 1024);
     const mirror = new THREE.Mesh(
       new THREE.SphereGeometry(125, 48, 32),

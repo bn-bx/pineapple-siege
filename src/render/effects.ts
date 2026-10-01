@@ -166,6 +166,9 @@ export class Effects {
   get cloudCount() {
     return this.clouds.length;
   }
+  get cloudFaces() {
+    return this.clouds.map((cloud) => cloud.face);
+  }
   update(dt: number) {
     this.fragments.update(dt);
     for (let i = this.clouds.length - 1; i >= 0; i--) {

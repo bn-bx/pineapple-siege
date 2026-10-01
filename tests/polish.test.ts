@@ -35,6 +35,31 @@ it("normalizes every persistent setting independently", () => {
   });
   expect(normalizePreferences({ ...p, volume: 9 }).volume).toBe(1);
 });
+it("defaults to eyes on and 20 monsters, migrating the old default only once", () => {
+  expect(normalizePreferences()).toMatchObject({
+    googlyEyes: true,
+    monsterCount: 20,
+  });
+  const migrated = normalizePreferences({
+    revision: 1,
+    monsterCount: 8,
+    nukeYield: "local",
+  });
+  expect(migrated).toMatchObject({
+    googlyEyes: true,
+    monsterCount: 20,
+    nukeYield: "local",
+  });
+  expect(
+    normalizePreferences({ ...migrated, monsterCount: 8, googlyEyes: false }),
+  ).toMatchObject({
+    monsterCount: 8,
+    googlyEyes: false,
+  });
+  expect(normalizePreferences({ revision: 1, monsterCount: 3 })).toMatchObject({
+    monsterCount: 3,
+  });
+});
 it("cinematic shots remain finite and cycle with a level target", () => {
   const r = new CameraRig();
   r.toggle();

@@ -14,7 +14,7 @@ export const MONSTER_BODY_RADIUS = 12 * MONSTER_SCALE;
 export class Monsters {
   readonly states: MonsterState[] = [];
   readonly spikes: MonsterSpike[] = [];
-  count: 0 | 3 | 8 | 20 = 8;
+  count: 0 | 3 | 8 | 20 = 20;
   private cooldowns = Array(20).fill(1) as number[];
   private wander = Array(20).fill(0) as number[];
   constructor(

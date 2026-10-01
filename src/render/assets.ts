@@ -252,6 +252,7 @@ export function makeJet() {
     flame.rotation.x = -Math.PI / 2;
     flame.name = "flame";
   }
+  g.userData.googlyBounds = [0, 1, 1.5, 1.4, 0.9, 3];
   return g;
 }
 let pineappleTemplate: THREE.Group | undefined;
@@ -301,6 +302,7 @@ export function makePineapple(length = 6): THREE.Group {
     group.add(leaf);
   }
   for (const child of group.children) child.position.y -= 0.45;
+  group.userData.googlyBounds = [0, -0.45, 0, 0.85, 1.1, 0.85];
   pineappleTemplate = group;
   return makePineapple(length);
 }

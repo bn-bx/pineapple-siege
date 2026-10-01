@@ -45,6 +45,7 @@ export interface Preferences {
   revision?: number;
   quality?: string;
   reduceEffects?: boolean;
+  googlyEyes?: boolean;
   reduceShake?: boolean;
   volume?: number;
   mute?: boolean;

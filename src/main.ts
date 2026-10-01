@@ -64,7 +64,7 @@ let steerX = 0,
   inverted = false,
   reversedX = false,
   nukeYield: NukeYield = "valley",
-  monsterCount: 0 | 3 | 8 | 20 = 8,
+  monsterCount: 0 | 3 | 8 | 20 = 20,
   destruction = { ...DEFAULT_DESTRUCTION },
   lastShots = 0,
   lastTime = 0,
@@ -112,7 +112,8 @@ function applyPreferences(p: Preferences) {
   inverted = p.reverseY;
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
-  monsterCount = extras.monsterCount ?? 8;
+  monsterCount = extras.monsterCount ?? 20;
+  view?.setGooglyEyes(extras.googlyEyes !== false);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
   $<HTMLInputElement>("reverseX").checked = reversedX;
@@ -122,6 +123,7 @@ function applyPreferences(p: Preferences) {
   $<HTMLSelectElement>("monsterCount").value = String(monsterCount);
   for (const id of [
     "reduceEffects",
+    "googlyEyes",
     "reduceShake",
     "mute",
     "showPerf",
@@ -485,6 +487,7 @@ async function load() {
     view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
     view.setQuality(extras.quality!);
     view.setReducedEffects(!!extras.reduceEffects);
+    view.setGooglyEyes(extras.googlyEyes !== false);
     view.setShake(!extras.reduceShake);
     audio.setVolume(extras.volume!);
     audio.setMute(!!extras.mute);
@@ -722,6 +725,7 @@ $<HTMLSelectElement>("nukeYield").onchange = (e) => {
 };
 for (const id of [
   "reduceEffects",
+  "googlyEyes",
   "reduceShake",
   "mute",
   "showPerf",
@@ -730,6 +734,7 @@ for (const id of [
   $<HTMLInputElement>(id).onchange = (e) => {
     extras[id] = (e.target as HTMLInputElement).checked;
     view?.setReducedEffects(!!extras.reduceEffects);
+    view?.setGooglyEyes(extras.googlyEyes !== false);
     view?.setShake(!extras.reduceShake);
     audio.setMute(!!extras.mute);
     $("perf").hidden = !extras.showPerf;

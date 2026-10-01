@@ -55,7 +55,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       debug = !!m.debug;
       await initializePhysics();
       sim = new Simulation(world, base, send, m.save);
-      sim.setMonsterCount(m.monsterCount ?? 8);
+      sim.setMonsterCount(m.monsterCount ?? 20);
       while (
         sim.pendingJobs.length ||
         sim.laserWork.size ||

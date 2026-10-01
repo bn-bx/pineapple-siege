@@ -87,9 +87,15 @@ The world layout and save format are now version 6. Version-5 and older saves pr
 
 The surrounding map contains four five-building hamlets, three farmsteads, three windmills, two watermills with docks and warehouses, four watchtowers, two additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
 
+## Googly eyes
+
+The castle parts, trees, rocks, banners, lanterns, jet, cannon/nuke pineapples, monsters and their spikes, moving and settled wreckage, and cosmetic fragments all wear googly eyes. Even the orbital disco ball and pineapple smoke clouds get a face. The matte, bone-white eyes have tiny black pupils that independently lock onto the rendered jet, with no random wobble or distractions. Settings → Graphics → Googly eyes switches the decoration on or off immediately; it defaults to on and remembers your choice. Eyes follow the rendered transforms, disappear with destroyed/vaporized objects, and return with world resets; their animation freezes during pause and photo mode.
+
+Eye pairs use shared procedural billboard geometry and reuse each source batch's instance buffer, adding no physics bodies or per-fragment CPU animation. They are visual decoration and require no save migration.
+
 ## Giant pineapple monsters
 
-Eight giant, angry pineapple monsters crawl across the valley by default. They wander around passable ground, pursue nearby low-flying jets, wind up before throwing visible crown spikes, and swipe aircraft that fly close to their arms. Cannon blasts stagger them; three hits defeat one. Nukes defeat monsters in their damage radius, and a sustained space laser also destroys them. The HUD shows how many remain.
+Twenty giant, angry pineapple monsters crawl across the valley by default. They wander around passable ground, pursue nearby low-flying jets, wind up before throwing visible crown spikes, and swipe aircraft that fly close to their arms. Cannon blasts stagger them; three hits defeat one. Nukes defeat monsters in their damage radius, and a sustained space laser also destroys them. The HUD shows how many remain.
 
 Monsters are now twice their original size, including their hitboxes and swipe reach. Their speed and three-hit health stay the same. While any space laser charges or burns, living monsters stop attacking and dance across the map; laser damage still affects monsters near the strike.
 
