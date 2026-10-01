@@ -239,6 +239,7 @@ export interface SimulationSnapshot {
     destructionMS: number;
     pendingJobs: number;
     bodies: number;
+    ballistic: number;
     ruins: number;
     removed: number;
     shots: number;

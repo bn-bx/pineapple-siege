@@ -68,6 +68,9 @@ export class GameRenderer {
   private dirtyRuinBatches = new Set<number>();
   private bodyMeshes = new Map<Material, THREE.InstancedMesh>();
   private syncedBodies?: BodyView[];
+  private previousBodies = new Map<number, BodyView>();
+  private syncedBodyAlpha = -1;
+  private debrisRotation = new THREE.Quaternion();
   private fallenPines: THREE.InstancedMesh;
   private fallenTrunks: THREE.InstancedMesh;
   private shotMeshes: THREE.Group[] = [];
@@ -470,6 +473,9 @@ export class GameRenderer {
   }
   receive(snapshot: SimulationSnapshot) {
     this.previous = this.last;
+    this.previousBodies.clear();
+    for (const body of this.previous?.bodies || [])
+      this.previousBodies.set(body.id, body);
     this.last = snapshot;
     this.lastArrival = performance.now();
   }
@@ -522,6 +528,8 @@ export class GameRenderer {
     for (const s of this.spikeMeshes) s.visible = false;
     this.readyCamera = false;
     this.previous = undefined;
+    this.previousBodies.clear();
+    this.syncedBodies = undefined;
     this.renderer.shadowMap.needsUpdate = true;
   }
   private hideEntity(id: number) {
@@ -688,16 +696,59 @@ export class GameRenderer {
       Math.floor(Math.floor(cell / 32) / 2) * 16 + Math.floor((cell % 32) / 2)
     );
   }
-  private syncBodies(bodies: BodyView[]) {
-    if (bodies === this.syncedBodies) return;
+  private growDebrisMesh(mesh: THREE.InstancedMesh, required: number) {
+    if (required <= mesh.instanceMatrix.count) return mesh;
+    const grown = new THREE.InstancedMesh(
+      mesh.geometry,
+      mesh.material,
+      Math.max(required, mesh.instanceMatrix.count * 2),
+    );
+    grown.frustumCulled = false;
+    grown.castShadow = mesh.castShadow;
+    grown.receiveShadow = mesh.receiveShadow;
+    grown.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.scene.remove(mesh);
+    mesh.dispose();
+    this.scene.add(grown);
+    return grown;
+  }
+  private syncBodies(bodies: BodyView[], alpha: number) {
+    if (bodies === this.syncedBodies && alpha === this.syncedBodyAlpha) return;
+    const changed = bodies !== this.syncedBodies;
     this.syncedBodies = bodies;
+    this.syncedBodyAlpha = alpha;
+    if (changed) {
+      const needed = new Map<Material, number>();
+      let treeCount = 0;
+      for (const b of bodies) {
+        if (b.kind === "tree") treeCount++;
+        else needed.set(b.material, (needed.get(b.material) || 0) + 1);
+      }
+      this.fallenTrunks = this.growDebrisMesh(this.fallenTrunks, treeCount);
+      this.fallenPines = this.growDebrisMesh(this.fallenPines, treeCount);
+      for (const [material, count] of needed)
+        this.bodyMeshes.set(
+          material,
+          this.growDebrisMesh(this.bodyMeshes.get(material)!, count),
+        );
+    }
     const counts = new Map<Material, number>();
     let trees = 0;
     for (const b of bodies) {
-      if (b.kind === "tree" && trees < MAX_BODY_LIMIT) {
+      dummy.position.fromArray(b.p);
+      dummy.quaternion.fromArray(b.q);
+      const previous = this.previousBodies.get(b.id);
+      if (previous && alpha < 1) {
+        dummy.position.set(
+          THREE.MathUtils.lerp(previous.p[0], b.p[0], alpha),
+          THREE.MathUtils.lerp(previous.p[1], b.p[1], alpha),
+          THREE.MathUtils.lerp(previous.p[2], b.p[2], alpha),
+        );
+        this.debrisRotation.fromArray(previous.q).slerp(dummy.quaternion, alpha);
+        dummy.quaternion.copy(this.debrisRotation);
+      }
+      if (b.kind === "tree") {
         const e = this.world.entities[b.source];
-        dummy.position.fromArray(b.p);
-        dummy.quaternion.fromArray(b.q);
         dummy.scale.set(b.s[0], b.s[1] * 2, b.s[2]);
         dummy.updateMatrix();
         this.fallenTrunks.setMatrixAt(trees, dummy.matrix);
@@ -717,16 +768,14 @@ export class GameRenderer {
       }
       let mesh = this.bodyMeshes.get(b.material)!,
         index = counts.get(b.material) || 0;
-      if (index >= MAX_BODY_LIMIT) continue;
-      dummy.position.fromArray(b.p);
-      dummy.quaternion.fromArray(b.q);
       dummy.scale.fromArray(b.s);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
-      mesh.setColorAt(
-        index,
-        this.fragmentColor.setScalar(0.86 + (b.id % 19) / 70),
-      );
+      if (changed)
+        mesh.setColorAt(
+          index,
+          this.fragmentColor.setScalar(0.86 + (b.id % 19) / 70),
+        );
       counts.set(b.material, index + 1);
     }
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
@@ -744,7 +793,7 @@ export class GameRenderer {
       if (mesh.count) {
         mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
         mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) {
+        if (changed && mesh.instanceColor) {
           mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
           mesh.instanceColor.needsUpdate = true;
         }
@@ -868,7 +917,8 @@ export class GameRenderer {
         this.wreckRotation.fromArray(r.q),
         this.unitScale,
       );
-      const local = this.wreckRay.copy(this.cameraRay.ray)
+      const local = this.wreckRay
+        .copy(this.cameraRay.ray)
         .applyMatrix4(this.wreckInverse.copy(transform).invert());
       box.min.set(-r.s[0], -r.s[1], -r.s[2]);
       box.max.fromArray(r.s);
@@ -916,7 +966,7 @@ export class GameRenderer {
       this.rig.applyPhoto(this.camera, (x, z) => this.terrain.sample(x, z));
     this.sky.position.copy(this.camera.position);
     this.updateRuins();
-    this.syncBodies(snap.bodies);
+    this.syncBodies(snap.bodies, alpha);
     for (let i = 0; i < this.monsterMeshes.length; i++) {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];

@@ -3,6 +3,11 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { DEFAULT_DESTRUCTION } from "../src/destruction-settings";
 import { unpackBodies } from "../src/sim/body-buffer";
 import { Fragments } from "../src/render/fragments";
+import { Terrain } from "../src/sim/terrain";
+import {
+  advanceDebris,
+  type BallisticDebris,
+} from "../src/sim/ballistic-debris";
 const world = JSON.parse(readFileSync("public/world.json", "utf8"));
 const bytes = readFileSync("public/world.bin");
 const base = new Float32Array(
@@ -49,8 +54,10 @@ for (const count of [1024, 2048, 8192]) {
     });
     const sent = performance.now();
     const decodedBodies = sentSnapshot.packedBodies
-      ? unpackBodies(sentSnapshot.packedBodies) : sentSnapshot.bodies;
-    if (decodedBodies.length !== sim.moving.size) throw new Error("Incomplete body snapshot");
+      ? unpackBodies(sentSnapshot.packedBodies)
+      : sentSnapshot.bodies;
+    if (decodedBodies.length !== sim.moving.size + sim.ballistic.size)
+      throw new Error("Incomplete body snapshot");
     const decoded = performance.now();
     if (i >= 30) {
       step.push(stepped - start);
@@ -69,6 +76,32 @@ for (const count of [1024, 2048, 8192]) {
     }),
   );
   sim.dispose();
+}
+for (const count of [4096, 16384]) {
+  const terrain = new Terrain(base);
+  const debris: BallisticDebris[] = Array.from({ length: count }, (_, id) => ({
+    view: {
+      id,
+      source: -1,
+      kind: "chunk",
+      material: "stone",
+      p: [700 + (id % 64) * 3, 350, 700 + (Math.floor(id / 64) % 64) * 3],
+      s: [1, 1, 1],
+      q: [0, 0, 0, 1],
+    },
+    velocity: [30, 45, 10],
+    angular: [1, 2, 1],
+    grounded: 0,
+  }));
+  const times: number[] = [];
+  for (let tick = 0; tick < 180; tick++) {
+    const start = performance.now();
+    for (const m of debris) advanceDebris(m, terrain, 1 / 60);
+    if (tick >= 30) times.push(performance.now() - start);
+  }
+  console.log(
+    JSON.stringify({ ballisticPieces: count, updateMS: summary(times) }),
+  );
 }
 for (const count of [16384, 65536]) {
   const f = new Fragments(() => 0);

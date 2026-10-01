@@ -635,7 +635,7 @@ function frame(now: number) {
     }
     const r = view.stats;
     $("perf").textContent =
-      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.stats.bodies}/${BODY_LIMITS[destruction.bodies]} active bodies · ${snapshot.stats.ruins} rubble\n${r.fragments}/${COSMETIC_LIMITS[destruction.cosmetics]} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
+      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.stats.bodies}/${BODY_LIMITS[destruction.bodies]} active bodies · ${snapshot.stats.ruins} rubble · ${snapshot.stats.ballistic} ballistic pieces\n${r.fragments}/${COSMETIC_LIMITS[destruction.cosmetics]} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
     lastHUD = now;
   }
 }

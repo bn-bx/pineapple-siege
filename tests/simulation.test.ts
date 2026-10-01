@@ -202,7 +202,7 @@ it("preserves supported neighbors, breaches bridge collision, and reactivates ne
   sim.dispose();
 }, 30000);
 
-it("keeps trees horizontal when the debris budget forces them to settle", () => {
+it("preserves airborne tree transforms when the debris budget demotes them", () => {
   const sim = new Simulation(world, base, () => {});
   const tree = world.entities.find((e) => e.kind === "tree")!;
   sim.explode([tree.p[0], tree.p[1] - tree.s[1] + 1, tree.p[2]]);
@@ -210,11 +210,14 @@ it("keeps trees horizontal when the debris budget forces them to settle", () => 
     (m) => m.view.source === tree.id && m.view.kind === "tree",
   )!;
   expect(moving).toBeDefined();
+  const p = [...moving.view.p],
+    q = [...moving.view.q];
+  const v = moving.body.linvel();
   (sim as any).settle(moving, true);
-  const ruin = sim.ruins.get(moving.view.id)!;
-  expect(ruin.q[2]).toBeCloseTo(Math.SQRT1_2);
-  expect(ruin.p[1]).toBeCloseTo(
-    sim.terrain.sample(ruin.p[0], ruin.p[2]) + Math.max(ruin.s[0], ruin.s[2]),
-  );
+  const debris = sim.ballistic.get(moving.view.id)!;
+  expect(sim.ruins.has(moving.view.id)).toBe(false);
+  for (let i = 0; i < 3; i++) expect(debris.view.p[i]).toBeCloseTo(p[i], 3);
+  for (let i = 0; i < 4; i++) expect(debris.view.q[i]).toBeCloseTo(q[i], 5);
+  expect(debris.velocity).toEqual([v.x, v.y, v.z]);
   sim.dispose();
 });

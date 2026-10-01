@@ -17,6 +17,11 @@ import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
 import { consolidateRubble } from "./rubble";
 import { packBodies } from "./body-buffer";
+import {
+  advanceDebris,
+  orientedSize,
+  type BallisticDebris,
+} from "./ballistic-debris";
 import type {
   Vec3,
   Quat,
@@ -103,6 +108,7 @@ export class Simulation {
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
   readonly moving = new Map<number, Moving>();
+  readonly ballistic = new Map<number, BallisticDebris>();
   private collisionLOD = false;
   private majorBodies = 0;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
@@ -144,7 +150,7 @@ export class Simulation {
     this.destruction = normalizeDestruction(value);
     if (this.destruction.noCooldown)
       this.cooldowns = { cannon: 0, nuke: 0, laser: 0 };
-    // Lower budgets settle gradually in step(), rather than blocking the settings UI.
+    // Lower budgets demote bodies gradually in step(), preserving their motion.
   }
   cooldowns = { cannon: 0, nuke: 0, laser: 0 };
   readonly lasers: LaserStrike[] = [];
@@ -529,15 +535,27 @@ export class Simulation {
   }
   private staticFragment(e: Entity, origin?: Vec3, force = 0) {
     if (this.vaporized.has(e.id)) return;
-    let x = e.p[0],
-      z = e.p[2];
     if (origin && force > 0) {
-      const v = this.scatterVelocity(e.p, origin, force, e.id),
-        flight = (2 * v[1]) / 18;
-      // Cheap authoritative landing approximation for excess distant wreckage.
-      x = clamp(x + v[0] * flight * 0.72, 8, 2040);
-      z = clamp(z + v[2] * flight * 0.72, 8, 2040);
+      const tree = e.kind === "tree";
+      const size: Vec3 = tree
+        ? [Math.min(1, e.s[0] * 0.25), e.s[1], Math.min(1, e.s[2] * 0.25)]
+        : [...e.s];
+      const yaw = e.kind === "block" ? 0 : e.variant * Math.PI;
+      const view: BodyView = {
+        id: this.nextBody++,
+        p: [...e.p],
+        s: size,
+        q: [0, Math.sin(yaw), 0, Math.cos(yaw)],
+        material: tree ? "wood" : e.material,
+        kind: tree ? "tree" : e.kind === "rock" ? "rock" : "chunk",
+        source: e.id,
+      };
+      if (!this.inBeam(view.p, this.orientedSize(view.s, view.q)))
+        this.addBallistic(view, this.scatterVelocity(e.p, origin, force, e.id));
+      return;
     }
+    const x = e.p[0],
+      z = e.p[2];
     const size: Vec3 = e.kind === "tree" ? [e.s[1], 0.8, 0.8] : [...e.s];
     const p: Vec3 = [x, this.terrain.sample(x, z) + size[1], z];
     const r: Ruin = {
@@ -592,6 +610,17 @@ export class Simulation {
         m.body.enableCcd(ccd);
         m.ccd = ccd;
       }
+    }
+    for (const m of this.ballistic.values()) {
+      const d = distance(m.view.p, p);
+      if (d >= radius) continue;
+      m.velocity = this.scatterVelocity(
+        m.view.p,
+        p,
+        speed * (1 - (0.65 * d) / radius),
+        m.view.id,
+      );
+      m.grounded = 0;
     }
     for (const r of this.nearbyRuins(p, radius).slice(
       0,
@@ -724,20 +753,31 @@ export class Simulation {
       p: arr(m.body.translation()),
       q: [q.x, q.y, q.z, q.w],
     };
-    if (force) {
-      r.p[0] = clamp(r.p[0], 8, 2040);
-      r.p[2] = clamp(r.p[2], 8, 2040);
-      const ground = this.terrain.sample(r.p[0], r.p[2]);
-      // A time/budget-forced tree must remain a fallen trunk, not stand back up.
-      if (r.kind === "tree") r.q = [0, 0, Math.SQRT1_2, Math.SQRT1_2];
-      r.p[1] = ground + this.orientedSize(r.s, r.q)[1];
-    }
+    const velocity = force ? arr(m.body.linvel()) : null;
+    const angular = force ? arr(m.body.angvel()) : null;
     this.colliderMoving.delete(m.collider.handle);
     this.physics.removeRigidBody(m.body);
     this.moving.delete(m.view.id);
     if (m.major) this.majorBodies--;
-    this.insertRuin(r);
+    if (velocity && angular) this.addBallistic(r, velocity, angular);
+    else this.insertRuin(r);
     this.bump();
+  }
+  private addBallistic(view: BodyView, velocity: Vec3, angular?: Vec3) {
+    this.ballistic.set(view.id, {
+      view,
+      velocity,
+      grounded: 0,
+      angular: angular ?? [
+        (rand(view.id) - 0.5) * 3,
+        (rand(view.id + 1) - 0.5) * 3,
+        (rand(view.id + 2) - 0.5) * 3,
+      ],
+    });
+  }
+  private *debrisViews() {
+    for (const m of this.moving.values()) yield m.view;
+    for (const m of this.ballistic.values()) yield m.view;
   }
   private resolveSupport(
     origin: Vec3,
@@ -1030,7 +1070,8 @@ export class Simulation {
   }
   explode(p: Vec3, power = 1, kind: Explosion["kind"] = "blast") {
     this.bump();
-    if (kind === "blast") this.damageMonsters(p, CONFIG.damageRadius * power, 1);
+    if (kind === "blast")
+      this.damageMonsters(p, CONFIG.damageRadius * power, 1);
     const water = this.terrain.water(p[0], p[2]) && p[1] < 4;
     this.emit({
       type: "explosion",
@@ -1344,18 +1385,7 @@ export class Simulation {
     }
   }
   private orientedSize(s: Vec3, q: Quat): Vec3 {
-    const [x, y, z, w] = q;
-    return [
-      Math.abs(1 - 2 * (y * y + z * z)) * s[0] +
-        Math.abs(2 * (x * y - z * w)) * s[1] +
-        Math.abs(2 * (x * z + y * w)) * s[2],
-      Math.abs(2 * (x * y + z * w)) * s[0] +
-        Math.abs(1 - 2 * (x * x + z * z)) * s[1] +
-        Math.abs(2 * (y * z - x * w)) * s[2],
-      Math.abs(2 * (x * z - y * w)) * s[0] +
-        Math.abs(2 * (y * z + x * w)) * s[1] +
-        Math.abs(1 - 2 * (x * x + y * y)) * s[2],
-    ];
+    return orientedSize(s, q);
   }
   private intersects(p: Vec3, s: Vec3, center: Vec3, radius: number) {
     return (
@@ -1405,8 +1435,10 @@ export class Simulation {
     const b = a.map((v, i) => v + f[i] * length) as Vec3;
     const worldHit = this.sweep(a, b, 0);
     const monsterHit = this.monsters.intersect(a, b);
-    return monsterHit && (!worldHit || distance(a, monsterHit.p) < distance(a, worldHit))
-      ? monsterHit.p : worldHit;
+    return monsterHit &&
+      (!worldHit || distance(a, monsterHit.p) < distance(a, worldHit))
+      ? monsterHit.p
+      : worldHit;
   }
   startLaser(p: Vec3) {
     if (
@@ -1510,6 +1542,19 @@ export class Simulation {
           this.physics.removeRigidBody(m.body);
           this.moving.delete(m.view.id);
           if (m.major) this.majorBodies--;
+          this.bump();
+        }
+    if (section === undefined)
+      for (const m of this.ballistic.values())
+        if (
+          this.intersects(
+            m.view.p,
+            this.orientedSize(m.view.s, m.view.q),
+            p,
+            radius,
+          )
+        ) {
+          this.ballistic.delete(m.view.id);
           this.bump();
         }
     if (section === undefined)
@@ -1672,7 +1717,8 @@ export class Simulation {
       let b = a.map((x, i) => x + v[i] * 0.16) as Vec3;
       let hit = this.sweep(a, b, tuning.radius, tuning.length / 2);
       const monsterHit = this.monsters.intersect(a, b, tuning.radius);
-      if (monsterHit && (!hit || distance(a, monsterHit.p) < distance(a, hit))) hit = monsterHit.p;
+      if (monsterHit && (!hit || distance(a, monsterHit.p) < distance(a, hit)))
+        hit = monsterHit.p;
       if (hit) {
         this.aim = hit;
         break;
@@ -1780,7 +1826,8 @@ export class Simulation {
     }
     const laserMS = this.processLaserWork(1);
     if (this.tick % 60 === 0)
-      for (const z of this.burnZones) this.damageMonsters(z.p, z.radius, 1, true);
+      for (const z of this.burnZones)
+        this.damageMonsters(z.p, z.radius, 1, true);
     this.processDestruction(Math.max(0.25, 2 - laserMS));
     this.destructionMS += laserMS;
     if (this.tick % 20 === 0) this.ensureTerrain();
@@ -1905,6 +1952,18 @@ export class Simulation {
       )
         this.settle(m, true);
     }
+    for (const m of this.ballistic.values()) {
+      const resting = advanceDebris(m, this.terrain, dt);
+      if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
+        this.ballistic.delete(m.view.id);
+        this.bump();
+      } else if (resting) {
+        this.ballistic.delete(m.view.id);
+        this.contact(m.view.p, m.view.material, 0.5, "settle");
+        this.insertRuin(m.view);
+        this.bump();
+      }
+    }
     if (this.tick % 12 === 0) this.updateAim();
     this.flush();
   }
@@ -1934,7 +1993,7 @@ export class Simulation {
       monsterCount: this.monsterCount,
       bodies: packed
         ? []
-        : Array.from(this.moving.values(), ({ view: b }) => ({
+        : Array.from(this.debrisViews(), (b) => ({
             ...b,
             p: [...b.p],
             q: [...b.q],
@@ -1943,10 +2002,8 @@ export class Simulation {
       ...(packed
         ? {
             packedBodies: packBodies(
-              (function* (moving: Map<number, Moving>) {
-                for (const m of moving.values()) yield m.view;
-              })(this.moving),
-              this.moving.size,
+              this.debrisViews(),
+              this.moving.size + this.ballistic.size,
             ),
           }
         : {}),
@@ -1958,6 +2015,7 @@ export class Simulation {
           this.laserWork.size +
           this.laserSupport.size,
         bodies: this.moving.size,
+        ballistic: this.ballistic.size,
         ruins: this.ruins.size,
         removed: this.removed.size,
         shots: this.shots,
@@ -1978,23 +2036,19 @@ export class Simulation {
       if (!ids) cells.set(k, (ids = new Set()));
       ids.add(r.id);
     }
-    for (const m of this.moving.values()) {
-      const p: Vec3 = [
-        clamp(m.view.p[0], 8, 2040),
-        0,
-        clamp(m.view.p[2], 8, 2040),
-      ];
-      const s: Vec3 = [...m.view.s];
-      let q: Quat = [...m.view.q];
-      if (m.view.kind === "tree") {
-        s[0] = m.view.s[1];
+    for (const view of this.debrisViews()) {
+      const p: Vec3 = [clamp(view.p[0], 8, 2040), 0, clamp(view.p[2], 8, 2040)];
+      const s: Vec3 = [...view.s];
+      let q: Quat = [...view.q];
+      if (view.kind === "tree") {
+        s[0] = view.s[1];
         s[1] = 0.8;
         s[2] = 0.8;
         q = [0, 0, 0, 1];
       }
       p[1] = this.terrain.sample(p[0], p[2]) + this.orientedSize(s, q)[1];
       if (this.inBeam(p, this.orientedSize(s, q))) continue;
-      let r: Ruin = { ...m.view, p, s, q, kind: "chunk" };
+      let r: Ruin = { ...view, p, s, q, kind: "chunk" };
       const k = this.cell(p);
       let ids = cells.get(k);
       if (!ids) cells.set(k, (ids = new Set()));

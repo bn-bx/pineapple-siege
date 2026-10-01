@@ -128,9 +128,10 @@ it("keeps 8192 independent physical castle pieces and evicts only the oldest at 
     expect(sim.moving.size).toBe(MAX_BODY_LIMIT);
     expect(sim.moving.has(first)).toBe(false);
     expect(sim.moving.has(last)).toBe(true);
-    expect(sim.ruins.has(first)).toBe(true);
+    expect(sim.ruins.has(first)).toBe(false);
+    expect(sim.ballistic.get(first)!.view.p).toEqual([600, 300, 600]);
     expect(unpackBodies(sim.snapshot(true).packedBodies!)).toHaveLength(
-      MAX_BODY_LIMIT,
+      MAX_BODY_LIMIT + 1,
     );
   } finally {
     sim.dispose();
