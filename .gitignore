@@ -8,9 +8,13 @@ public/world.json
 .pnpm-store/
 .wrangler/
 
-# Local verification captures are reproducible and too large for source control.
-checks/**/*.png
-checks/**/*.jpg
-checks/**/*.jpeg
-checks/**/*.webp
-checks/**/*.wav
+# Historical prototypes, inspiration frames, and one-off verification artifacts
+# remain in Git history and may stay in a developer's local checkout.
+checks/
+legacy/
+reference-frames/
+ascii_fort_notes.md
+
+# Local credentials are never needed for the static build.
+.env
+.env.*

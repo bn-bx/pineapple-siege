@@ -21,7 +21,7 @@ npm run preview
 
 `npm run build` generates the world, checks TypeScript, and creates the complete static application in `dist/`. The production build needs no backend and makes no requests to external asset services. Directly opening the source `index.html` from Finder is no longer supported.
 
-The previous self-contained HD walking prototype is preserved at `legacy/lantern-vale-hd.html`. Original notes and extracted video frames remain untouched.
+The source tree contains the current game, its world generator, and automated tests. Earlier prototypes and verification captures remain in Git history.
 
 ## Controls
 
@@ -118,32 +118,9 @@ Pause and photo mode freeze the laser. Saves retain locked targets, remaining ch
 
 Saves belong to this browser and website origin. Clearing site data, using private browsing, browser eviction, or changing domains can remove or separate saves. There is no account or cloud synchronization. Closing a tab before an in-progress transaction finishes can lose the latest unsaved second; save status indicates when the write completes.
 
-## Cloudflare Pages
+## Deployment
 
-1. Use the repository root as the project root.
-2. Set the Node version to **22.12 or newer**.
-3. Build command: `npm run build`.
-4. Output directory: `dist`.
-
-Commit `package-lock.json`. The generated `world.bin` and `world.json` are produced during the build; they are not source-controlled. `public/_headers` caches hashed assets while revalidating the world manifest and terrain. There are no Pages Functions, external CDNs, authentication requirements, or paid services.
-
-### Live deployment
-
-The private source repository is [bn-bx/pineapple-siege](https://github.com/bn-bx/pineapple-siege). Cloudflare Pages builds the `main` branch automatically in the `pineapple-siege-git` project:
-
-- Production: <https://sweetpickledpineapple.com>
-- Pages address: <https://pineapple-siege-git.pages.dev>
-- Pineapple Hoops: <https://hoops.sweetpickledpineapple.com>, served by the existing `sweet-pickled-pineapple` Pages project.
-
-To deploy an update, commit and push to `main`:
-
-```sh
-git add <changed-files>
-git commit -m "Describe the change"
-git push origin main
-```
-
-Cloudflare runs `npm run build` and publishes `dist/` after each push. Branches and pull requests get preview deployments. Check the deployment status in the `pineapple-siege-git` Pages dashboard before treating a push as live. The previous direct-upload project, `pineapple-siege`, remains available as a fallback at <https://pineapple-siege.pages.dev>; it is not connected to this Git repository. Keep credentials out of source files.
+The private [bn-bx/pineapple-siege](https://github.com/bn-bx/pineapple-siege) repository is connected to Cloudflare Pages. A push to `main` automatically builds and deploys [sweetpickledpineapple.com](https://sweetpickledpineapple.com). See [the deployment guide](docs/DEPLOYMENT.md) for the full account, SSH, Pages, DNS, verification, and recovery setup.
 
 ## Development architecture
 
@@ -153,11 +130,7 @@ The TypeScript source separates rendering, simulation, generation, persistence, 
 
 Open with `#debug` to enable the `window.lanternVale` inspection API and performance display. Debug hooks expose controlled blasts, aircraft placement, fixed-step advancement, snapshots, save requests, and inspection-camera views. They are absent from the normal game URL.
 
-The earlier destruction build passed 69 automated assertions/scenarios (24 simulation/render tests, 16 browser interaction checks, 21 recovery checks, and eight failure checks). In separate ten-minute 1080p runs, Chrome measured 18.6/29.7 ms median/p95 during destruction; Safari measured 23/38 ms. Chrome met the destruction p95 target, while Safari did not. Worst destruction frames were 103 ms and 506 ms respectively, so occasional stalls remain.
-
-Current measurements and limitations are recorded in [polish verification](checks/polish/VERIFICATION.md). [Destruction verification](checks/destruction/VERIFICATION.md) and reports in `checks/upgrade/` describe earlier builds and remain as historical comparisons.
-
-For the native-browser timed test, run `python3 checks/destruction/serve.py` after building, then open `http://127.0.0.1:4175/benchmark.html?browser=safari&seconds=600`. This loopback-only test server serves `dist`, records reports under `checks/destruction`, and uses a separate site origin so it does not replace saves on the normal preview. The harness is not shipped in `dist`.
+Run `npm test` for the automated simulation, weapons, monster, rendering, and persistence checks. Older browser and performance reports are retained in Git history; their measurements do not describe the current build.
 
 ## Nuke presentation and sound
 
@@ -176,4 +149,4 @@ Photo mode waits for the simulation worker's pause acknowledgement. World effect
 
 Engine audio now layers turbine and airflow with the existing engine body. Material-specific fracture, impact, and settling sounds share generated buffers, with up to 24 ordinary voices and four nuke voices. Craters expose soil and rock strata, fragments show contrasting cut faces, and pooled low dust lingers over impacts. These presentation changes do not alter permanent damage or remove unrestricted firing.
 
-Current polish checks, screenshots, and performance reports are under `checks/polish/`. Older reports describe previous builds.
+Earlier screenshots and performance reports are available in Git history.
