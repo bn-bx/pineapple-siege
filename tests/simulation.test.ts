@@ -183,7 +183,9 @@ it("preserves supported neighbors, breaches bridge collision, and reactivates ne
     sim.plane.p = [900, 450, 700];
     sim.step();
   }
-  const rubble = [...sim.ruins.values()].find((r) => r.material === "stone")!;
+  const rubble = [...sim.ruins.values()].find(
+    (r) => r.material === "sandstone",
+  )!;
   expect(rubble).toBeDefined();
   const priorIDs = new Set(sim.ruins.keys());
   sim.explode(rubble.p);

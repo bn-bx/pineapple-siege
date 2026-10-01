@@ -1,3 +1,4 @@
+import { unpackBodies } from "./sim/body-buffer";
 import { normalizePreferences } from "./preferences";
 import { discoActive } from "./disco";
 import {
@@ -314,6 +315,16 @@ async function resetWorld() {
   send({ type: "reset" });
 }
 function handle(message: WorkerMessage) {
+  const received =
+    message.type === "snapshot"
+      ? message
+      : message.type === "paused"
+        ? message.snapshot
+        : undefined;
+  if (received?.packedBodies) {
+    received.bodies = unpackBodies(received.packedBodies);
+    delete received.packedBodies;
+  }
   switch (message.type) {
     case "paused":
       if (photoPending) {

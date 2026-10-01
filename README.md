@@ -47,19 +47,23 @@ The menu contains independent horizontal/vertical steering reversal, sensitivity
 
 ## Experimental destruction settings
 
-Four independent sliders in Settings → Destruction expose five levels. Standard preserves the prior limits. These preferences survive reloads and world resets. Restore destruction defaults resets these controls without resetting the world.
+Four independent sliders in Settings → Destruction expose five levels. Standard preserves the prior limits; Heavy through Extreme now have larger budgets. These preferences survive reloads and world resets. Restore destruction defaults resets these controls without resetting the world.
 
 | Limit                                      |    Slim | Standard |     Heavy |   Massive |     Extreme |
 | ------------------------------------------ | ------: | -------: | --------: | --------: | ----------: |
-| Active physics bodies                      |      64 |      256 |       512 |     1,024 |       2,048 |
-| Cannon / nuke fragments per blast          | 16 / 32 | 64 / 128 | 128 / 256 | 256 / 512 | 512 / 1,024 |
-| Cosmetic chunk pool                        |   1,024 |    4,096 |     8,192 |    12,288 |      16,384 |
-| Cosmetic chunks per blast multiplier       |   0.25× |       1× |      1.5× |        2× |          3× |
+| Active physics bodies                      |      64 |      256 |     1,024 |     4,096 |       8,192 |
+| Cannon / nuke fragments per blast          | 16 / 32 | 64 / 128 | 256 / 512 | 1,024 / 2,048 | 2,048 / 4,096 |
+| Cosmetic chunk pool                        |   1,024 |    4,096 |    16,384 |    32,768 |      65,536 |
+| Cosmetic chunks per blast multiplier       |   0.25× |       1× |        3× |        6× |         12× |
 | Persistent rubble records per 64 m section |      12 |       36 |        96 |       192 |         384 |
 
 Raise both physics bodies and fragments to keep more building pieces in motion. Higher physics levels also extend the maximum moving lifetime from 12 seconds at Standard to 30 seconds at Extreme. Substantial building modules retain their original dimensions at every level. The rubble slider controls how many individual records remain per section; overflow consolidates into rough, material-specific piles that retain accumulated volume. Tiny cosmetic chips and dust remain transient. This is prepared destruction rather than exact preservation of every brick. Existing saved ruins are not erased when lowering retention; the new budget guides subsequent compaction. Lowering the body cap settles excess pieces in batches on subsequent simulation ticks.
 
 Nuke blast scale ranges from **1× to 3×** and multiplies the selected yield's damage radius, crater radius, and depth (still capped at 25 meters below the baseline). A 3× radius covers roughly 9× the ground area. Each airborne nuke captures its resolved profile when released; changing settings affects later drops. No cooldown applies to all three weapons, clears their timers, and bypasses the in-flight projectile and pending-damage admission limits. Holding fire launches once per simulation tick (60 shots per simulated second). Fragment budgets still follow the sliders, and detailed clouds remain capped at three.
+
+Moving-body snapshots use a transferable packed buffer instead of cloning nested objects. Cosmetic chunks use a dense typed-array pool, and the renderer uploads only occupied instance ranges. Airborne terrain sweeps skip sample work only when a conservative terrain bound proves the complete path is clear.
+
+For collapses above 512 moving bodies, the 128 largest sections retain mutual collision detail. Smaller chunks still hit terrain, surviving structures, settled rubble, and those major sections, but pass through each other. Full mutual collision returns once fewer than 257 bodies remain. This avoids dense chip-to-chip contact storms while keeping castle damage and substantial wreckage physical.
 
 Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation now interpolate together; the chase camera smooths its aim, and camera shake no longer accumulates into its following position.
 
@@ -75,9 +79,9 @@ Nuke strength in Settings affects future drops:
 | Castle-leveling | 180 m         | 70 m          | 20 m        | 240 m        |
 | Valley-scale    | 420 m         | 160 m         | 25 m        | 400 m        |
 
-Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, 42-meter outer walls, a roughly 200-meter keep, layered inner walls, multiple courtyards, enlarged halls, a rear palace, buttresses, roofs, and banners. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
+Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
 
-The world layout and save format are now version 5. Version-4 and older saves prompt for a new world or temporary play without overwriting the old save. They cannot be mapped safely onto the new castle's component IDs.
+The world layout and save format are now version 6. Version-5 and older saves prompt for a new world or temporary play without overwriting the old save. They cannot be mapped safely onto the revised castle's component IDs.
 
 The surrounding map contains four five-building hamlets, three farmsteads, three windmills, two watermills with docks and warehouses, four watchtowers, two additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
 

@@ -94,7 +94,10 @@ export type Material =
   | "earth"
   | "rock"
   | "plaster"
-  | "roof";
+  | "roof"
+  | "sandstone"
+  | "slate"
+  | "window";
 export interface Entity {
   id: number;
   kind: "block" | "tree" | "rock";
@@ -230,6 +233,7 @@ export interface SimulationSnapshot {
   monsterSpikes: MonsterSpike[];
   monsterCount: number;
   bodies: BodyView[];
+  packedBodies?: PackedBodies;
   stats: {
     physicsMS: number;
     destructionMS: number;
@@ -240,6 +244,10 @@ export interface SimulationSnapshot {
     shots: number;
     revision: number;
   };
+}
+export interface PackedBodies {
+  count: number;
+  buffer: ArrayBuffer;
 }
 export interface SaveSnapshot {
   destruction?: DestructionSettings;
@@ -295,7 +303,11 @@ export interface ContactSound {
 }
 export type WorkerMessage =
   | { type: "vaporize"; p: Vec3; radius: number }
-  | { type: "monsterEvent"; p: Vec3; kind: "hit" | "defeat" | "throw" | "swipe" }
+  | {
+      type: "monsterEvent";
+      p: Vec3;
+      kind: "hit" | "defeat" | "throw" | "swipe";
+    }
   | ContactSound
   | { type: "paused"; snapshot: SimulationSnapshot }
   | WorldDelta

@@ -1,3 +1,4 @@
+import { MAX_BODY_LIMIT } from "../destruction-settings";
 import { CameraRig } from "./camera-rig";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
@@ -66,6 +67,7 @@ export class GameRenderer {
   private ruinGroups = new Map<number, THREE.Group>();
   private dirtyRuinBatches = new Set<number>();
   private bodyMeshes = new Map<Material, THREE.InstancedMesh>();
+  private syncedBodies?: BodyView[];
   private fallenPines: THREE.InstancedMesh;
   private fallenTrunks: THREE.InstancedMesh;
   private shotMeshes: THREE.Group[] = [];
@@ -96,6 +98,13 @@ export class GameRenderer {
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
   private cameraRay = new THREE.Raycaster();
+  private wreckTransform = new THREE.Matrix4();
+  private wreckInverse = new THREE.Matrix4();
+  private wreckRay = new THREE.Ray();
+  private wreckHit = new THREE.Vector3();
+  private wreckPosition = new THREE.Vector3();
+  private wreckRotation = new THREE.Quaternion();
+  private unitScale = new THREE.Vector3(1, 1, 1);
   constructor(
     readonly canvas: HTMLCanvasElement,
     readonly world: WorldData,
@@ -197,9 +206,14 @@ export class GameRenderer {
     this.sky.frustumCulled = false;
     this.sky.material.uniforms.discoAmount = this.disco.skyAmount;
     this.sky.material.fragmentShader = this.sky.material.fragmentShader
-      .replace("uniform float day,time,laserDim;", "uniform float day,time,laserDim,discoAmount;")
-      .replace("gl_FragColor=vec4(c*(1.-laserDim),1.);",
-        "gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);");
+      .replace(
+        "uniform float day,time,laserDim;",
+        "uniform float day,time,laserDim,discoAmount;",
+      )
+      .replace(
+        "gl_FragColor=vec4(c*(1.-laserDim),1.);",
+        "gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);",
+      );
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
     this.buildBatches();
@@ -277,12 +291,12 @@ export class GameRenderer {
     this.fallenPines = new THREE.InstancedMesh(
       pineGeometry(),
       this.materials.foliage,
-      2048,
+      MAX_BODY_LIMIT,
     );
     this.fallenTrunks = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.8, 1, 1, 6),
       this.materials.wood,
-      2048,
+      MAX_BODY_LIMIT,
     );
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
       mesh.count = 0;
@@ -314,7 +328,7 @@ export class GameRenderer {
       let mesh = new THREE.InstancedMesh(
         this.fractureBox,
         this.fragmentMaterials[material],
-        2048,
+        MAX_BODY_LIMIT,
       );
       mesh.count = 0;
       mesh.frustumCulled = false;
@@ -404,7 +418,11 @@ export class GameRenderer {
         add(trunk, this.materials.wood, "trunk");
       } else
         add(
-          e.kind === "rock" ? rock : e.material === "roof" ? roof : this.box,
+          e.kind === "rock"
+            ? rock
+            : e.material === "roof" || e.material === "slate"
+              ? roof
+              : this.box,
           this.materials[e.material],
           e.kind,
         );
@@ -671,10 +689,12 @@ export class GameRenderer {
     );
   }
   private syncBodies(bodies: BodyView[]) {
+    if (bodies === this.syncedBodies) return;
+    this.syncedBodies = bodies;
     const counts = new Map<Material, number>();
     let trees = 0;
     for (const b of bodies) {
-      if (b.kind === "tree" && trees < 2048) {
+      if (b.kind === "tree" && trees < MAX_BODY_LIMIT) {
         const e = this.world.entities[b.source];
         dummy.position.fromArray(b.p);
         dummy.quaternion.fromArray(b.q);
@@ -697,7 +717,7 @@ export class GameRenderer {
       }
       let mesh = this.bodyMeshes.get(b.material)!,
         index = counts.get(b.material) || 0;
-      if (index >= 2048) continue;
+      if (index >= MAX_BODY_LIMIT) continue;
       dummy.position.fromArray(b.p);
       dummy.quaternion.fromArray(b.q);
       dummy.scale.fromArray(b.s);
@@ -711,12 +731,24 @@ export class GameRenderer {
     }
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
       mesh.count = trees;
-      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (trees) {
+        mesh.instanceMatrix.addUpdateRange(0, trees * 16);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
     }
     for (const [mat, mesh] of this.bodyMeshes) {
       mesh.count = counts.get(mat) || 0;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceColor?.clearUpdateRanges();
+      if (mesh.count) {
+        mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) {
+          mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
+          mesh.instanceColor.needsUpdate = true;
+        }
+      }
     }
   }
   render(dt: number, active: boolean) {
@@ -726,9 +758,13 @@ export class GameRenderer {
     const snap = this.last;
     if (!snap) return;
     const dancing = discoActive(snap.lasers);
-    this.disco.update(dancing,
+    this.disco.update(
+      dancing,
       active ? dt : dancing && this.disco.amount.value === 0 ? 0.75 : 0,
-      snap.time, (x, z) => this.terrain.sample(x, z), this.effects.reduced);
+      snap.time,
+      (x, z) => this.terrain.sample(x, z),
+      this.effects.reduced,
+    );
     const p = snap.plane;
     const interval = this.previous
       ? Math.max(1 / 60, snap.time - this.previous.time)
@@ -827,19 +863,16 @@ export class GameRenderer {
         Math.abs(r.p[2] - position.z) > 100
       )
         continue;
-      const transform = new THREE.Matrix4().compose(
-        new THREE.Vector3(...r.p),
-        new THREE.Quaternion(...r.q),
-        new THREE.Vector3(1, 1, 1),
+      const transform = this.wreckTransform.compose(
+        this.wreckPosition.fromArray(r.p),
+        this.wreckRotation.fromArray(r.q),
+        this.unitScale,
       );
-      const local = this.cameraRay.ray
-        .clone()
-        .applyMatrix4(transform.clone().invert());
-      box.set(
-        new THREE.Vector3(-r.s[0], -r.s[1], -r.s[2]),
-        new THREE.Vector3(...r.s),
-      );
-      const hit = local.intersectBox(box, new THREE.Vector3());
+      const local = this.wreckRay.copy(this.cameraRay.ray)
+        .applyMatrix4(this.wreckInverse.copy(transform).invert());
+      box.min.set(-r.s[0], -r.s[1], -r.s[2]);
+      box.max.fromArray(r.s);
+      const hit = local.intersectBox(box, this.wreckHit);
       if (hit)
         limit = Math.min(
           limit,
@@ -885,7 +918,8 @@ export class GameRenderer {
     this.updateRuins();
     this.syncBodies(snap.bodies);
     for (let i = 0; i < this.monsterMeshes.length; i++) {
-      const mesh = this.monsterMeshes[i], distant = this.distantMonsters[i];
+      const mesh = this.monsterMeshes[i],
+        distant = this.distantMonsters[i];
       const m = snap.monsters[i];
       mesh.visible = distant.visible = !!m && !m.defeated;
       if (!m || m.defeated) continue;
@@ -912,36 +946,63 @@ export class GameRenderer {
       const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23);
       const left = mesh.getObjectByName("leftArm");
       const right = mesh.getObjectByName("rightArm");
-      if (left) left.rotation.z = dancing ? -0.65 - beat * 0.45 : m.windup > 0 ? -0.6 : crawl;
-      if (right) right.rotation.z = dancing ? 0.65 - beat * 0.45 : m.windup > 0 ? 0.6 : -crawl;
+      if (left)
+        left.rotation.z = dancing
+          ? -0.65 - beat * 0.45
+          : m.windup > 0
+            ? -0.6
+            : crawl;
+      if (right)
+        right.rotation.z = dancing
+          ? 0.65 - beat * 0.45
+          : m.windup > 0
+            ? 0.6
+            : -crawl;
       const crown = mesh.getObjectByName("crown");
       if (crown) crown.rotation.z = Math.sin(m.phase * 0.09) * 0.08;
-      mesh.scale.setScalar(MONSTER_SCALE * (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1));
+      mesh.scale.setScalar(
+        MONSTER_SCALE *
+          (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1),
+      );
       if (this.frame % 15 === 0)
-        mesh.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = this.camera.position.distanceTo(mesh.position) < 300; });
+        mesh.traverse((o) => {
+          if (o instanceof THREE.Mesh)
+            o.castShadow = this.camera.position.distanceTo(mesh.position) < 300;
+        });
     }
     while (this.spikeMeshes.length < snap.monsterSpikes.length) {
       const spike = new THREE.Mesh(
         new THREE.ConeGeometry(0.75, 5, 5),
-        new THREE.MeshStandardMaterial({ color: "#518329", emissive: "#163909", emissiveIntensity: 0.6 }),
+        new THREE.MeshStandardMaterial({
+          color: "#518329",
+          emissive: "#163909",
+          emissiveIntensity: 0.6,
+        }),
       );
       spike.scale.setScalar(MONSTER_SCALE);
       this.spikeMeshes.push(spike);
       this.scene.add(spike);
     }
     for (let i = 0; i < this.spikeMeshes.length; i++) {
-      const spike = this.spikeMeshes[i], s = snap.monsterSpikes[i];
+      const spike = this.spikeMeshes[i],
+        s = snap.monsterSpikes[i];
       spike.visible = !!s;
       if (s) {
         spike.position.fromArray(s.p);
-        spike.quaternion.setFromUnitVectors(up, new THREE.Vector3(...s.v).normalize());
+        spike.quaternion.setFromUnitVectors(
+          up,
+          new THREE.Vector3(...s.v).normalize(),
+        );
       }
     }
     // No-cooldown mode has no in-flight cap. Grow the shared-asset pool to show every shot.
     while (this.shotMeshes.length < snap.projectiles.length) {
       const shot = makePineapple();
       shot.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshStandardMaterial)
+        if (
+          object instanceof THREE.Mesh &&
+          object.material instanceof THREE.MeshStandardMaterial
+        )
           this.disco.decorate(object.material);
       });
       this.shotMeshes.push(shot);
@@ -1015,17 +1076,35 @@ export class GameRenderer {
     this.sun.color.set(day > 0.2 ? "#ffe6ba" : "#9ebdeb");
     this.ambient.intensity = 0.38 + day * 1.5;
     this.ambient.color.set(day > 0.2 ? "#c5e5f4" : "#5873a2");
-    this.sun.intensity = THREE.MathUtils.lerp(this.sun.intensity, 0.55, this.disco.skyAmount.value);
+    this.sun.intensity = THREE.MathUtils.lerp(
+      this.sun.intensity,
+      0.55,
+      this.disco.skyAmount.value,
+    );
     this.sun.color.lerp(new THREE.Color("#b9c3ff"), this.disco.skyAmount.value);
-    this.ambient.intensity = THREE.MathUtils.lerp(this.ambient.intensity, 1.25, this.disco.skyAmount.value);
-    this.ambient.color.lerp(new THREE.Color("#d9dcff"), this.disco.skyAmount.value);
+    this.ambient.intensity = THREE.MathUtils.lerp(
+      this.ambient.intensity,
+      1.25,
+      this.disco.skyAmount.value,
+    );
+    this.ambient.color.lerp(
+      new THREE.Color("#d9dcff"),
+      this.disco.skyAmount.value,
+    );
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.copy(
       new THREE.Color("#192c43").lerp(new THREE.Color("#a3bdbb"), day),
     );
     fog.color.multiplyScalar(1 - laserDim * 0.5);
-    fog.color.lerp(new THREE.Color("#101021"), this.disco.skyAmount.value * 0.88);
-    fog.density = THREE.MathUtils.lerp(0.00065, 0.00035, this.disco.skyAmount.value);
+    fog.color.lerp(
+      new THREE.Color("#101021"),
+      this.disco.skyAmount.value * 0.88,
+    );
+    fog.density = THREE.MathUtils.lerp(
+      0.00065,
+      0.00035,
+      this.disco.skyAmount.value,
+    );
     for (const { light, lamp, owner } of this.lanterns) {
       const alive = !this.removed.has(owner);
       light.intensity = alive ? night * 150 : 0;

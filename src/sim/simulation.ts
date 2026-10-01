@@ -16,6 +16,7 @@ import { Monsters } from "./monsters";
 import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
 import { consolidateRubble } from "./rubble";
+import { packBodies } from "./body-buffer";
 import type {
   Vec3,
   Quat,
@@ -43,6 +44,11 @@ import type {
 const vec = (p: Vec3) => ({ x: p[0], y: p[1], z: p[2] });
 const arr = (p: { x: number; y: number; z: number }): Vec3 => [p.x, p.y, p.z];
 const identity = { x: 0, y: 0, z: 0, w: 1 };
+// Membership in the upper 16 bits, permitted partners in the lower 16 bits.
+const WORLD_COLLISIONS = 0x00010007;
+const MAJOR_COLLISIONS = 0x00040007;
+const CHIP_COLLISIONS = 0x00020005;
+const MAJOR_CONTACT_LIMIT = 128;
 const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 function rand(n: number) {
@@ -57,6 +63,9 @@ interface Moving {
   age: number;
   lastImpact: number;
   ccd: boolean;
+  minSize: number;
+  maxSize: number;
+  major: boolean;
 }
 interface Shot {
   profile?: BlastProfile;
@@ -94,6 +103,8 @@ export class Simulation {
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
   readonly moving = new Map<number, Moving>();
+  private collisionLOD = false;
+  private majorBodies = 0;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
   private colliderMoving = new Map<number, number>();
   private colliderEntities = new Map<number, number>();
@@ -243,7 +254,10 @@ export class Simulation {
       e.kind === "tree"
         ? RAPIER.ColliderDesc.cylinder(e.s[1], Math.min(2.2, e.s[0] * 0.65))
         : RAPIER.ColliderDesc.cuboid(...e.s);
-    d.setTranslation(...e.p).setFriction(0.8);
+    d.setTranslation(...e.p)
+      .setFriction(0.8)
+      .setCollisionGroups(WORLD_COLLISIONS)
+      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
     const c = this.physics.createCollider(d);
     this.entityColliders.set(e.id, c);
     this.colliderEntities.set(c.handle, e.id);
@@ -252,7 +266,8 @@ export class Simulation {
     const d = RAPIER.ColliderDesc.cuboid(...r.s)
       .setTranslation(...r.p)
       .setRotation({ x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] })
-      .setFriction(0.95);
+      .setFriction(0.95)
+      .setCollisionGroups(WORLD_COLLISIONS);
     this.ruinColliders.set(r.id, this.physics.createCollider(d));
   }
   private buildTerrainCollider(id: number) {
@@ -274,7 +289,8 @@ export class Simulation {
       RAPIER.HeightFieldFlags.FIX_INTERNAL_EDGES,
     )
       .setTranslation(cx * 64 + 32, 0, cz * 64 + 32)
-      .setFriction(0.85);
+      .setFriction(0.85)
+      .setCollisionGroups(WORLD_COLLISIONS);
     this.terrainColliders.set(id, this.physics.createCollider(descriptor));
   }
   private ensureTerrain() {
@@ -344,9 +360,8 @@ export class Simulation {
   }
   private makeRoom() {
     if (this.moving.size < this.bodyLimit) return;
-    let chosen: Moving | undefined;
-    for (const m of this.moving.values())
-      if (!chosen || m.age > chosen.age) chosen = m;
+    // Insertion order is birth order: all bodies age by the same fixed step.
+    const chosen = this.moving.values().next().value;
     if (chosen) this.settle(chosen, true);
   }
   private spawnBody(
@@ -365,6 +380,10 @@ export class Simulation {
     )
       return -1;
     this.makeRoom();
+    const ccd = Math.hypot(...impulse) * CONFIG.dt > Math.min(...s) * 0.7;
+    const major =
+      !this.collisionLOD ||
+      (this.majorBodies < MAJOR_CONTACT_LIMIT && 8 * s[0] * s[1] * s[2] >= 64);
     const id = this.nextBody++,
       desc = RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(...p)
@@ -372,14 +391,19 @@ export class Simulation {
         .setLinearDamping(0.06)
         .setAngularDamping(0.45)
         .setCanSleep(true)
-        .setCcdEnabled(true);
+        .setCcdEnabled(ccd);
     const body = this.physics.createRigidBody(desc);
     const collider = this.physics.createCollider(
       RAPIER.ColliderDesc.cuboid(...s)
+        .setCollisionGroups(major ? MAJOR_COLLISIONS : CHIP_COLLISIONS)
         .setFriction(0.85)
         .setRestitution(0.16)
         .setDensity(material === "wood" || material === "foliage" ? 0.5 : 1.8)
-        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+        .setActiveEvents(
+          major
+            ? RAPIER.ActiveEvents.COLLISION_EVENTS
+            : RAPIER.ActiveEvents.NONE,
+        ),
       body,
     );
     body.setLinvel(vec(impulse), true);
@@ -407,9 +431,43 @@ export class Simulation {
       collider,
       age: 0,
       lastImpact: -10,
-      ccd: true,
+      ccd,
+      minSize: Math.min(...s),
+      maxSize: Math.max(...s),
+      major,
     });
+    if (major) this.majorBodies++;
     return id;
+  }
+  private updateDebrisCollisions() {
+    // Hysteresis prevents repeated contact graph rebuilds near the threshold.
+    const enabled = this.collisionLOD
+      ? this.moving.size > 256
+      : this.moving.size > 512;
+    if (enabled === this.collisionLOD) return;
+    this.collisionLOD = enabled;
+    const ordered = [...this.moving.values()];
+    if (enabled)
+      ordered.sort(
+        (a, b) =>
+          b.view.s[0] * b.view.s[1] * b.view.s[2] -
+          a.view.s[0] * a.view.s[1] * a.view.s[2],
+      );
+    this.majorBodies = 0;
+    for (const m of ordered) {
+      m.major = !enabled || this.majorBodies < MAJOR_CONTACT_LIMIT;
+      if (m.major) this.majorBodies++;
+      m.collider.setCollisionGroups(
+        m.major ? MAJOR_COLLISIONS : CHIP_COLLISIONS,
+      );
+      // Surviving entity colliders request their own events, so chips still
+      // cause damage cascades without flooding the queue on rubble/ground.
+      m.collider.setActiveEvents(
+        m.major
+          ? RAPIER.ActiveEvents.COLLISION_EVENTS
+          : RAPIER.ActiveEvents.NONE,
+      );
+    }
   }
   private scatterVelocity(
     p: Vec3,
@@ -527,6 +585,9 @@ export class Simulation {
           m.view.id,
         );
         m.body.setLinvel(vec(v), true);
+        const ccd = Math.hypot(...v) * CONFIG.dt > Math.min(...m.view.s) * 0.7;
+        m.body.enableCcd(ccd);
+        m.ccd = ccd;
       }
     }
     for (const r of this.nearbyRuins(p, radius).slice(
@@ -671,6 +732,7 @@ export class Simulation {
     this.colliderMoving.delete(m.collider.handle);
     this.physics.removeRigidBody(m.body);
     this.moving.delete(m.view.id);
+    if (m.major) this.majorBodies--;
     this.insertRuin(r);
     this.bump();
   }
@@ -1303,12 +1365,21 @@ export class Simulation {
   private inBeam(p: Vec3, s: Vec3) {
     return this.burnZones.some((z) => this.intersects(p, s, z.p, z.radius));
   }
-  private damageMonsters(p: Vec3, radius: number, amount: number, laserColumn = false) {
+  private damageMonsters(
+    p: Vec3,
+    radius: number,
+    amount: number,
+    laserColumn = false,
+  ) {
     for (const m of laserColumn
       ? this.monsters.burn(p, radius, amount)
       : this.monsters.blast(p, radius, amount)) {
       this.bump();
-      this.emit({ type: "monsterEvent", p: [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]], kind: m.defeated ? "defeat" : "hit" });
+      this.emit({
+        type: "monsterEvent",
+        p: [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]],
+        kind: m.defeated ? "defeat" : "hit",
+      });
     }
   }
   private laserAim(): Vec3 | null {
@@ -1435,6 +1506,7 @@ export class Simulation {
           this.colliderMoving.delete(m.collider.handle);
           this.physics.removeRigidBody(m.body);
           this.moving.delete(m.view.id);
+          if (m.major) this.majorBodies--;
           this.bump();
         }
     if (section === undefined)
@@ -1620,19 +1692,34 @@ export class Simulation {
     const wasCrashed = this.plane.crashed > 0;
     this.fly(dt);
     const previousSpikeCount = this.monsters.spikes.length;
-    const struck = this.monsters.step(dt, this.plane.p, this.plane.crashed > 0, (_a, b) =>
-      this.nearbyEntities(b, 36).some((id) => {
-        const e = this.world.entities[id];
-        return !this.removed.has(id) && e.kind !== "tree" &&
-          Math.abs(e.p[0] - b[0]) < e.s[0] + 30 &&
-          Math.abs(e.p[2] - b[2]) < e.s[2] + 30 &&
-          e.p[1] + e.s[1] > b[1] + 2;
-      }),
+    const struck = this.monsters.step(
+      dt,
+      this.plane.p,
+      this.plane.crashed > 0,
+      (_a, b) =>
+        this.nearbyEntities(b, 36).some((id) => {
+          const e = this.world.entities[id];
+          return (
+            !this.removed.has(id) &&
+            e.kind !== "tree" &&
+            Math.abs(e.p[0] - b[0]) < e.s[0] + 30 &&
+            Math.abs(e.p[2] - b[2]) < e.s[2] + 30 &&
+            e.p[1] + e.s[1] > b[1] + 2
+          );
+        }),
       discoActive(this.lasers),
     );
     if (this.monsters.spikes.length > previousSpikeCount)
-      this.emit({ type: "monsterEvent", p: [...this.monsters.spikes.at(-1)!.p], kind: "throw" });
-    const bodyHit = this.monsters.intersect(wasCrashed ? this.plane.p : previousPlanePosition, this.plane.p, 2.2);
+      this.emit({
+        type: "monsterEvent",
+        p: [...this.monsters.spikes.at(-1)!.p],
+        kind: "throw",
+      });
+    const bodyHit = this.monsters.intersect(
+      wasCrashed ? this.plane.p : previousPlanePosition,
+      this.plane.p,
+      2.2,
+    );
     if ((struck || bodyHit) && this.plane.crashed <= 0) {
       this.plane.crashed = CONFIG.respawnDelay;
       this.explode(this.plane.p, 0.65, "crash");
@@ -1660,8 +1747,16 @@ export class Simulation {
           WEAPONS[s.weapon].radius,
           WEAPONS[s.weapon].length / 2,
         );
-      const monsterHit = this.monsters.intersect(s.p, next, WEAPONS[s.weapon].radius);
-      if (monsterHit && (!hit || distance(s.p, monsterHit.p) < distance(s.p, hit))) hit = monsterHit.p;
+      const monsterHit = this.monsters.intersect(
+        s.p,
+        next,
+        WEAPONS[s.weapon].radius,
+      );
+      if (
+        monsterHit &&
+        (!hit || distance(s.p, monsterHit.p) < distance(s.p, hit))
+      )
+        hit = monsterHit.p;
       s.age += dt;
       if (hit) {
         this.projectiles.splice(i, 1);
@@ -1686,6 +1781,7 @@ export class Simulation {
     this.processDestruction(Math.max(0.25, 2 - laserMS));
     this.destructionMS += laserMS;
     if (this.tick % 20 === 0) this.ensureTerrain();
+    this.updateDebrisCollisions();
     const start = performance.now();
     this.physics.step(this.events);
     this.physicsMS = lerp(this.physicsMS, performance.now() - start, 0.05);
@@ -1733,25 +1829,38 @@ export class Simulation {
       }
       this.resolveSupport(this.plane.p);
     }
-    for (const m of [...this.moving.values()]) {
+    const nextPosition: Vec3 = [0, 0, 0];
+    const maxAge = [8, 12, 18, 24, 30][this.destruction.bodies];
+    for (const m of this.moving.values()) {
       m.age += dt;
+      if (m.age > 2 && m.body.isSleeping()) {
+        this.settle(m);
+        continue;
+      }
       const velocity = m.body.linvel(),
         needsCCD =
-          Math.hypot(velocity.x, velocity.y, velocity.z) * dt >
-          Math.min(...m.view.s) * 0.7;
+          Math.hypot(velocity.x, velocity.y, velocity.z) * dt > m.minSize * 0.7;
       if (needsCCD !== m.ccd) {
         m.body.enableCcd(needsCCD);
         m.ccd = needsCCD;
       }
-      const nextPosition = arr(m.body.translation()),
+      const position = m.body.translation(),
         previous = m.view.p;
+      nextPosition[0] = position.x;
+      nextPosition[1] = position.y;
+      nextPosition[2] = position.z;
       const steps = Math.max(
           1,
           Math.ceil(distance(previous, nextPosition) / 1.5),
         ),
-        clearance = Math.min(...m.view.s) * 0.8;
+        clearance = m.minSize * 0.8;
       // Canonical terrain sweep also covers fast fragments crossing a streamed collider boundary.
-      for (let i = 1; i <= steps; i++) {
+      const aboveTerrain = this.terrain.aboveSurface(
+        previous,
+        nextPosition,
+        clearance,
+      );
+      for (let i = 1; !aboveTerrain && i <= steps; i++) {
         const t = i / steps,
           x = lerp(previous[0], nextPosition[0], t),
           z = lerp(previous[2], nextPosition[2], t),
@@ -1766,6 +1875,9 @@ export class Simulation {
               "impact",
             );
           m.body.setTranslation({ x, y: floor, z }, true);
+          nextPosition[0] = x;
+          nextPosition[1] = floor;
+          nextPosition[2] = z;
           const v = m.body.linvel();
           m.body.setLinvel(
             { x: v.x * 0.65, y: Math.max(0, -v.y * 0.2), z: v.z * 0.65 },
@@ -1774,23 +1886,26 @@ export class Simulation {
           break;
         }
       }
-      m.view.p = arr(m.body.translation());
+      m.view.p[0] = nextPosition[0];
+      m.view.p[1] = nextPosition[1];
+      m.view.p[2] = nextPosition[2];
       const q = m.body.rotation();
-      m.view.q = [q.x, q.y, q.z, q.w];
-      if (m.body.isSleeping() && m.age > 2) this.settle(m);
-      else if (
-        m.age > [8, 12, 18, 24, 30][this.destruction.bodies] ||
-        m.view.p[1] <
-          this.terrain.sample(m.view.p[0], m.view.p[2]) -
-            Math.max(...m.view.s) * 2 -
-            10
+      m.view.q[0] = q.x;
+      m.view.q[1] = q.y;
+      m.view.q[2] = q.z;
+      m.view.q[3] = q.w;
+      if (
+        m.age > maxAge ||
+        (!aboveTerrain &&
+          m.view.p[1] <
+            this.terrain.sample(m.view.p[0], m.view.p[2]) - m.maxSize * 2 - 10)
       )
         this.settle(m, true);
     }
     if (this.tick % 12 === 0) this.updateAim();
     this.flush();
   }
-  snapshot(): SimulationSnapshot {
+  snapshot(packed = false): SimulationSnapshot {
     return {
       type: "snapshot",
       tick: this.tick,
@@ -1809,10 +1924,29 @@ export class Simulation {
         p: [...s.p],
         v: [...s.v],
       })),
-      monsters: structuredClone(this.monsters.states.slice(0, this.monsterCount)),
+      monsters: structuredClone(
+        this.monsters.states.slice(0, this.monsterCount),
+      ),
       monsterSpikes: structuredClone(this.monsters.spikes),
       monsterCount: this.monsterCount,
-      bodies: [...this.moving.values()].map((m) => structuredClone(m.view)),
+      bodies: packed
+        ? []
+        : Array.from(this.moving.values(), ({ view: b }) => ({
+            ...b,
+            p: [...b.p],
+            q: [...b.q],
+            s: [...b.s],
+          })),
+      ...(packed
+        ? {
+            packedBodies: packBodies(
+              (function* (moving: Map<number, Moving>) {
+                for (const m of moving.values()) yield m.view;
+              })(this.moving),
+              this.moving.size,
+            ),
+          }
+        : {}),
       stats: {
         physicsMS: this.physicsMS,
         destructionMS: this.destructionMS,

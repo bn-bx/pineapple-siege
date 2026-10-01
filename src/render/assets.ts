@@ -111,6 +111,21 @@ export function createMaterials() {
       map: wood,
       roughness: 0.8,
     }),
+    sandstone: new THREE.MeshStandardMaterial({
+      color: "#d9af75",
+      map: stone,
+      roughness: 0.94,
+    }),
+    slate: new THREE.MeshStandardMaterial({
+      color: "#394954",
+      map: wood,
+      roughness: 0.83,
+    }),
+    window: new THREE.MeshStandardMaterial({
+      color: "#252d32",
+      roughness: 0.55,
+      metalness: 0.08,
+    }),
   };
   return { materials, grass };
 }

@@ -7,10 +7,32 @@ export class Terrain {
   readonly flooded = new Uint8Array(CONFIG.grid * CONFIG.grid);
   readonly laserDry = new Uint8Array(CONFIG.grid * CONFIG.grid);
   private floodQueue = new Uint32Array(CONFIG.grid * CONFIG.grid);
+  private ceilings = new Float32Array(32 * 32);
   constructor(base: Float32Array) {
     this.base = base.slice();
     this.heights = base.slice();
+    // All terrain edits lower the baseline. Include shared section edges so
+    // this remains a conservative bound after craters, shafts, and restoration.
+    for (let cz = 0; cz < 32; cz++)
+      for (let cx = 0; cx < 32; cx++) {
+        let highest = -Infinity;
+        for (let z = cz * 32; z <= cz * 32 + 32; z++)
+          for (let x = cx * 32; x <= cx * 32 + 32; x++)
+            highest = Math.max(highest, base[z * 1025 + x]);
+        this.ceilings[cz * 32 + cx] = highest;
+      }
     this.initializeFlood();
+  }
+  aboveSurface(a: readonly number[], b: readonly number[], clearance: number) {
+    const bottom = Math.min(a[1], b[1]) - clearance;
+    const x0 = clamp(Math.floor(Math.min(a[0], b[0]) / 64), 0, 31),
+      x1 = clamp(Math.floor(Math.max(a[0], b[0]) / 64), 0, 31),
+      z0 = clamp(Math.floor(Math.min(a[2], b[2]) / 64), 0, 31),
+      z1 = clamp(Math.floor(Math.max(a[2], b[2]) / 64), 0, 31);
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++)
+        if (bottom <= this.ceilings[z * 32 + x]) return false;
+    return true;
   }
   sample(x: number, z: number) {
     const g = CONFIG.grid,
