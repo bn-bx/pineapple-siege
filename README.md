@@ -129,20 +129,21 @@ Commit `package-lock.json`. The generated `world.bin` and `world.json` are produ
 
 ### Live deployment
 
-Pineapple Siege is deployed to the `pineapple-siege` Cloudflare Pages project:
+The private source repository is [bn-bx/pineapple-siege](https://github.com/bn-bx/pineapple-siege). Cloudflare Pages builds the `main` branch automatically in the `pineapple-siege-git` project:
 
 - Production: <https://sweetpickledpineapple.com>
-- Pages address: <https://pineapple-siege.pages.dev>
+- Pages address: <https://pineapple-siege-git.pages.dev>
 - Pineapple Hoops: <https://hoops.sweetpickledpineapple.com>, served by the existing `sweet-pickled-pineapple` Pages project.
 
-To deploy an update, build locally and upload `dist/` to the production branch:
+To deploy an update, commit and push to `main`:
 
 ```sh
-npm run build
-npx wrangler pages deploy dist --project-name pineapple-siege --branch main --commit-dirty=true
+git add <changed-files>
+git commit -m "Describe the change"
+git push origin main
 ```
 
-Use Wrangler login or supply `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` through your environment. Keep API tokens out of source files. Local changes are published by this command; the project currently uses direct uploads rather than automatic Git deployments.
+Cloudflare runs `npm run build` and publishes `dist/` after each push. Branches and pull requests get preview deployments. Check the deployment status in the `pineapple-siege-git` Pages dashboard before treating a push as live. The previous direct-upload project, `pineapple-siege`, remains available as a fallback at <https://pineapple-siege.pages.dev>; it is not connected to this Git repository. Keep credentials out of source files.
 
 ## Development architecture
 
