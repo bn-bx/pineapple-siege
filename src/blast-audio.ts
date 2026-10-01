@@ -1,4 +1,5 @@
 import type { Explosion } from "./types";
+import { setAudioPosition } from "./spatial-audio";
 
 export function createBlastLimiter(
   ctx: BaseAudioContext,
@@ -64,9 +65,7 @@ export function playNukeBlast(
   pan.refDistance = 220 + strength * 100;
   pan.maxDistance = 3000;
   pan.rolloffFactor = 0.65;
-  pan.positionX.value = event.p[0];
-  pan.positionY.value = event.p[1];
-  pan.positionZ.value = event.p[2];
+  setAudioPosition(pan, event.p);
   bus.connect(pan);
   pan.connect(destination);
   let remaining = 0,

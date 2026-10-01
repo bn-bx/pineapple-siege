@@ -113,7 +113,7 @@ function applyPreferences(p: Preferences) {
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
   monsterCount = extras.monsterCount ?? 20;
-  view?.setGooglyEyes(extras.googlyEyes !== false);
+  view?.setGooglyEyes(extras.googlyEyes === true);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
   $<HTMLInputElement>("reverseX").checked = reversedX;
@@ -487,7 +487,7 @@ async function load() {
     view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
     view.setQuality(extras.quality!);
     view.setReducedEffects(!!extras.reduceEffects);
-    view.setGooglyEyes(extras.googlyEyes !== false);
+    view.setGooglyEyes(extras.googlyEyes === true);
     view.setShake(!extras.reduceShake);
     audio.setVolume(extras.volume!);
     audio.setMute(!!extras.mute);
@@ -505,7 +505,7 @@ async function load() {
     if (debug) installDebug();
   } catch (e) {
     fatal(
-      "This game needs WebGL 2 and its local game assets. Try a current desktop version of Chrome or Safari.",
+      "This game needs WebGL 2 and its local game assets. Try a current desktop browser with WebGL 2 enabled.",
       e instanceof Error ? e.stack || e.message : String(e),
     );
   }
@@ -734,7 +734,7 @@ for (const id of [
   $<HTMLInputElement>(id).onchange = (e) => {
     extras[id] = (e.target as HTMLInputElement).checked;
     view?.setReducedEffects(!!extras.reduceEffects);
-    view?.setGooglyEyes(extras.googlyEyes !== false);
+    view?.setGooglyEyes(extras.googlyEyes === true);
     view?.setShake(!extras.reduceShake);
     audio.setMute(!!extras.mute);
     $("perf").hidden = !extras.showPerf;

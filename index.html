@@ -130,7 +130,8 @@
                   step="1"
                   value="1"
                 /><small
-                  >Slim → Extreme · More moving pieces. Large collapses simplify collisions between small chunks.</small
+                  >Slim → Extreme · More moving pieces. Large collapses simplify
+                  collisions between small chunks.</small
                 ></label
               >
               <label
@@ -247,7 +248,7 @@
                 >Reduce effects<input id="reduceEffects" type="checkbox"
               /></label>
               <label class="check"
-                >Googly eyes<input id="googlyEyes" type="checkbox" checked
+                >Googly eyes<input id="googlyEyes" type="checkbox"
               /></label>
               <label class="check"
                 >Show performance<input id="showPerf" type="checkbox"
@@ -315,15 +316,24 @@
       </div>
       <div class="weapon">
         <span class="weapon-icon">◈</span>
-        <div>
+        <div class="weapon-info">
           <small id="weaponName">PINEAPPLE CANNON</small
           ><strong id="weaponStatus">READY</strong>
         </div>
         <span id="ammo">∞</span>
-        <div class="weapon-select">
-          <button id="select-cannon" aria-pressed="true">1 Cannon</button
-          ><button id="select-nuke" aria-pressed="false">2 Nuke</button
-          ><button id="select-laser" aria-pressed="false">3 Space Laser</button>
+        <div class="weapon-select" role="group" aria-label="Select weapon">
+          <button
+            id="select-cannon"
+            type="button"
+            class="selected"
+            aria-pressed="true"
+          >
+            1 Cannon</button
+          ><button id="select-nuke" type="button" aria-pressed="false">
+            2 Nuke</button
+          ><button id="select-laser" type="button" aria-pressed="false">
+            3 Space Laser
+          </button>
           <div class="cooldown-bar"><span id="cooldownFill"></span></div>
         </div>
       </div>

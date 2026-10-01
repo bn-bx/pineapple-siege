@@ -68,7 +68,7 @@ Static fallback preserves source module dimensions at every tier. Rubble retenti
 
 ## Final polish
 
-`preferences.ts` normalizes persisted settings and applies preference revision 2. Migration replaces the old eight-monster default with 20 and retains earlier migrated nuke choices; new users get Valley-scale without changing saved terrain, structures, experimental sliders, or storage identifiers. Presentation branding is independent of the existing `lantern-vale` database name.
+`preferences.ts` normalizes persisted settings and applies preference revision 3. The earlier automatic-on eye default is disabled once, while later explicit choices persist. Migration replaces the old eight-monster default with 20 and retains earlier migrated nuke choices; new users get Valley-scale without changing saved terrain, structures, experimental sliders, or storage identifiers. Presentation branding is independent of the existing `lantern-vale` database name.
 
 Camera modes are chase, cinematic, and photo. Cinematic changes framing only. Photo sends the existing pause command and waits for a `paused` message carrying the authoritative snapshot before enabling free-camera movement. Rendering remains active with effect time frozen. Escape and interruption paths clear input and return to paused chase. PNG capture renders synchronously before `toBlob`, without preserveDrawingBuffer.
 

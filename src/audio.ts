@@ -5,6 +5,7 @@ import type {
   ContactSound,
   LaserStrike,
 } from "./types";
+import { setAudioPosition, setListenerOrientation } from "./spatial-audio";
 import {
   createBlastLimiter,
   createBlastNoise,
@@ -121,13 +122,8 @@ export class GameAudio {
       0.3,
     );
     const l = this.ctx.listener;
-    l.positionX.value = p[0];
-    l.positionY.value = p[1];
-    l.positionZ.value = p[2];
-    l.forwardX.value = forward[0];
-    l.forwardY.value = forward[1];
-    l.forwardZ.value = forward[2];
-    l.upY.value = 1;
+    setAudioPosition(l, p);
+    setListenerOrientation(l, forward);
   }
   private noise(p: Vec3, duration: number, gain: number, cutoff: number) {
     if (!this.ctx || !this.master) return;
@@ -147,9 +143,7 @@ export class GameAudio {
     pan.refDistance = 100;
     pan.maxDistance = 2000;
     pan.rolloffFactor = 0.9;
-    pan.positionX.value = p[0];
-    pan.positionY.value = p[1];
-    pan.positionZ.value = p[2];
+    setAudioPosition(pan, p);
     source.connect(filter);
     filter.connect(volume);
     volume.connect(pan);
@@ -311,9 +305,7 @@ export class GameAudio {
         tonalGain.gain.value = bassGain.gain.value = roarGain.gain.value = 0;
         pan.refDistance = 180;
         pan.rolloffFactor = 0.7;
-        pan.positionX.value = l.p[0];
-        pan.positionY.value = l.p[1];
-        pan.positionZ.value = l.p[2];
+        setAudioPosition(pan, l.p);
         tone.connect(tonalGain).connect(pan);
         bass.connect(bassGain).connect(pan);
         noise.connect(filter).connect(roarGain).connect(pan);

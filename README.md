@@ -89,7 +89,7 @@ The surrounding map contains four five-building hamlets, three farmsteads, three
 
 ## Googly eyes
 
-The castle parts, trees, rocks, banners, lanterns, jet, cannon/nuke pineapples, monsters and their spikes, moving and settled wreckage, and cosmetic fragments all wear googly eyes. Even the orbital disco ball and pineapple smoke clouds get a face. The matte, bone-white eyes have tiny black pupils that independently lock onto the rendered jet, with no random wobble or distractions. Settings → Graphics → Googly eyes switches the decoration on or off immediately; it defaults to on and remembers your choice. Eyes follow the rendered transforms, disappear with destroyed/vaporized objects, and return with world resets; their animation freezes during pause and photo mode.
+The castle parts, trees, rocks, banners, lanterns, jet, cannon/nuke pineapples, monsters and their spikes, moving and settled wreckage, and cosmetic fragments all wear googly eyes. Even the orbital disco ball and pineapple smoke clouds get a face. The matte, bone-white eyes have tiny black pupils that independently lock onto the rendered jet, with no random wobble or distractions. Settings → Graphics → Googly eyes switches the decoration on or off immediately; it defaults to off and remembers your choice. The older automatic-on setting is switched off once on upgrade; choosing eyes on afterward persists. Eyes follow the rendered transforms, disappear with destroyed/vaporized objects, and return with world resets; their animation freezes during pause and photo mode.
 
 Eye pairs use shared procedural billboard geometry and reuse each source batch's instance buffer, adding no physics bodies or per-fragment CPU animation. They are visual decoration and require no save migration.
 
@@ -149,6 +149,8 @@ Run `npm test` for the automated simulation, weapons, monster, rendering, and pe
 Nukes have a longer white exposure flash, a 4.5-second white-to-gold fireball and shockwave, then the existing pineapple cloud. Audio is generated locally: a sharp pressure crack, descending bass, filtered roar, rolling echoes, and a 10–14-second rumble tail according to blast size. Water impacts are more muffled. Nuke release has a deeper sound than the cannon. Up to four nuke voices remain active, with short crossfades when replacing older sounds. A shared compressor and soft peak ceiling control overlapping blasts; volume and mute still apply to the final output. No audio files or network services are required.
 
 ## Final polish and cameras
+
+Spatial audio supports both AudioParam-based listener positioning and Firefox's legacy listener methods. Weapon selection and the rest of the HUD continue updating during audible flight. The selector uses three stable button columns, with the cooldown bar beneath and a stronger selected-weapon highlight; small-window hints and telemetry stay clear of the buttons.
 
 The game is now **Pineapple Siege**. Existing browser saves remain in the same IndexedDB database. Preferences migrate independently: Valley-scale is selected once on upgrade, then later strength changes are remembered. Graphics quality, sound, reduced effects/shake, performance display, and hold-time now persist through reloads and world resets.
 
