@@ -41,6 +41,8 @@ The source tree contains the current game, its world generator, and automated te
 
 If mouse capture is unavailable, hold and drag to steer, and use Space to fire. Safari may consume Escape presses for its mouse-capture banner before opening the game menu.
 
+On phones and tablets, use the left thumb pad to steer (release to center), and hold Fire, Boost, or the +/− throttle buttons on the right. Tap the weapon buttons to switch weapons, Respawn to return airborne, and the top-right menu button to pause. Steering sensitivity and reversal settings also apply to touch. Touch controls support simultaneous fingers and work in portrait or landscape.
+
 Pineapples inherit the aircraft's velocity, fall slightly, and explode on impact. The ring on the world estimates the impact location. The jet crashes against terrain, structures, substantial rubble, and water, then returns airborne after two seconds. Destruction stays in place. The boundary assistant turns the jet toward the kingdom before reaching the map edge.
 
 The menu contains independent horizontal/vertical steering reversal, sensitivity, nuke strength, quality, reduced effects and camera shake, time, audio, performance information, and world reset. Pointer movement defaults to right → turn right and up → climb. Steering preferences and nuke strength persist independently of world resets.

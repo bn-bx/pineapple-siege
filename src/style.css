@@ -34,6 +34,7 @@ a:focus-visible {
   display: none !important;
 }
 #world {
+  touch-action: none;
   position: fixed;
   inset: 0;
   width: 100%;
@@ -790,5 +791,109 @@ body.photo #perf {
   .settings-laser .settings-grid,
   .settings-destruction .settings-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+#touchControls,
+.controls .touch-help {
+  display: none;
+}
+@media (any-pointer: coarse) {
+  .controls .touch-help {
+    display: block;
+    line-height: 1.6;
+  }
+  #touchControls {
+    position: fixed;
+    inset: auto max(16px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    pointer-events: none;
+    z-index: 3;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #touchControls [data-stick],
+  #touchControls button {
+    pointer-events: auto;
+    touch-action: none;
+    background: #162e36c9;
+    border: 1px solid #ffdc8770;
+    color: #ffdc87;
+  }
+  #touchControls [data-stick] {
+    width: 112px;
+    height: 112px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+  [data-stick] span {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #ffdc8770;
+    transform: translate(var(--stick-x, 0px), var(--stick-y, 0px));
+    pointer-events: none;
+  }
+  .touch-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(44px, auto));
+    gap: 8px;
+  }
+  #touchControls button {
+    min-height: 48px;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+  }
+  #touchControls button.held {
+    background: #56604a;
+  }
+  [data-key="Space"] {
+    grid-column: span 2;
+  }
+  .telemetry {
+    top: 76px;
+    bottom: auto;
+    gap: 16px;
+  }
+  .telemetry strong {
+    font-size: 22px;
+  }
+  .weapon {
+    bottom: calc(144px + env(safe-area-inset-bottom));
+    max-width: 190px;
+    gap: 4px;
+  }
+  .weapon strong {
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+  .weapon-icon,
+  #ammo,
+  .world-status,
+  #clock,
+  #hint {
+    display: none;
+  }
+  .weapon > .weapon-select {
+    gap: 4px;
+    margin-top: 0;
+  }
+  .weapon-select button,
+  #pauseButton {
+    min-height: 44px;
+  }
+  #pauseButton {
+    font-size: 0;
+  }
+  #pauseButton span {
+    font-size: 10px;
+    padding: 0;
   }
 }
