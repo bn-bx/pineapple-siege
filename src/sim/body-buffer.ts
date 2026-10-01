@@ -32,7 +32,7 @@ export function packBodies(
     transforms.set(b.q, i * 10 + 3);
     transforms.set(b.s, i * 10 + 7);
     tags[i * 2] = materialIds.get(b.material)!;
-    tags[i * 2 + 1] = kinds.indexOf(b.kind);
+    tags[i * 2 + 1] = kinds.indexOf(b.kind) | ((b.roofPart ?? 0) << 2);
     i++;
   }
   return { count, buffer };
@@ -52,7 +52,8 @@ export function unpackBodies({ count, buffer }: PackedBodies): BodyView[] {
       q: [t[j + 3], t[j + 4], t[j + 5], t[j + 6]],
       s: [t[j + 7], t[j + 8], t[j + 9]],
       material: materials[tags[i * 2]],
-      kind: kinds[tags[i * 2 + 1]],
+      kind: kinds[tags[i * 2 + 1] & 3],
+      ...(tags[i * 2 + 1] >>> 2 ? { roofPart: tags[i * 2 + 1] >>> 2 } : {}),
     };
   }
   return bodies;

@@ -11,6 +11,7 @@ import {
   createMaterials,
   fractureGeometry,
   roofGeometry,
+  roofFragmentGeometry,
   fractureMaterials,
   pineGeometry,
   makeJet,
@@ -68,7 +69,7 @@ export class GameRenderer {
   private ruinCells = new Map<number, Set<number>>();
   private ruinGroups = new Map<number, THREE.Group>();
   private dirtyRuinBatches = new Set<number>();
-  private bodyMeshes = new Map<Material, THREE.InstancedMesh>();
+  private bodyMeshes = new Map<string, THREE.InstancedMesh>();
   private syncedBodies?: BodyView[];
   private previousBodies = new Map<number, BodyView>();
   private syncedBodyAlpha = -1;
@@ -101,6 +102,7 @@ export class GameRenderer {
   private fractureBox = fractureGeometry();
   private roof = roofGeometry();
   private fractureRoof = fractureGeometry(roofGeometry());
+  private roofFragments = new Map<number, THREE.BufferGeometry>();
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
@@ -660,8 +662,8 @@ export class GameRenderer {
               }
         } else
           add(
-            r.material,
-            isRoof(r.material) ? this.fractureRoof : this.fractureBox,
+            this.debrisKey(r),
+            this.debrisGeometry(r),
             this.fragmentMaterials[r.material],
           );
       }
@@ -715,17 +717,48 @@ export class GameRenderer {
     this.scene.add(grown);
     return grown;
   }
+  private debrisKey(b: Pick<BodyView, "material" | "roofPart">) {
+    return b.roofPart ? `${b.material}:${b.roofPart}` : b.material;
+  }
+  private debrisGeometry(b: Pick<BodyView, "material" | "roofPart">) {
+    if (!isRoof(b.material)) return this.fractureBox;
+    if (!b.roofPart) return this.fractureRoof;
+    // Shared by airborne and settled instances; at most four prepared shapes.
+    this.roofFragments ??= new Map();
+    let geo = this.roofFragments.get(b.roofPart);
+    if (!geo) {
+      geo = roofFragmentGeometry(b.roofPart);
+      this.roofFragments.set(b.roofPart, geo);
+    }
+    return geo;
+  }
   private syncBodies(bodies: BodyView[], alpha: number) {
     if (bodies === this.syncedBodies && alpha === this.syncedBodyAlpha) return;
     const changed = bodies !== this.syncedBodies;
     this.syncedBodies = bodies;
     this.syncedBodyAlpha = alpha;
     if (changed) {
-      const needed = new Map<Material, number>();
+      const needed = new Map<string, number>();
       let treeCount = 0;
       for (const b of bodies) {
         if (b.kind === "tree") treeCount++;
-        else needed.set(b.material, (needed.get(b.material) || 0) + 1);
+        else {
+          const key = this.debrisKey(b);
+          needed.set(key, (needed.get(key) || 0) + 1);
+          if (!this.bodyMeshes.has(key)) {
+            const mesh = new THREE.InstancedMesh(
+              this.debrisGeometry(b),
+              this.fragmentMaterials[b.material],
+              64,
+            );
+            mesh.count = 0;
+            mesh.frustumCulled = false;
+            mesh.receiveShadow = true;
+            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            this.bodyMeshes.set(key, mesh);
+            this.scene.add(mesh);
+          }
+        }
       }
       this.fallenTrunks = this.growDebrisMesh(this.fallenTrunks, treeCount);
       this.fallenPines = this.growDebrisMesh(this.fallenPines, treeCount);
@@ -735,7 +768,7 @@ export class GameRenderer {
           this.growDebrisMesh(this.bodyMeshes.get(material)!, count),
         );
     }
-    const counts = new Map<Material, number>();
+    const counts = new Map<string, number>();
     let trees = 0;
     for (const b of bodies) {
       dummy.position.fromArray(b.p);
@@ -771,8 +804,9 @@ export class GameRenderer {
         trees++;
         continue;
       }
-      let mesh = this.bodyMeshes.get(b.material)!,
-        index = counts.get(b.material) || 0;
+      const key = this.debrisKey(b);
+      let mesh = this.bodyMeshes.get(key)!,
+        index = counts.get(key) || 0;
       dummy.scale.fromArray(b.s);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
@@ -781,7 +815,7 @@ export class GameRenderer {
           index,
           this.fragmentColor.setScalar(0.86 + (b.id % 19) / 70),
         );
-      counts.set(b.material, index + 1);
+      counts.set(key, index + 1);
     }
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
       mesh.count = trees;

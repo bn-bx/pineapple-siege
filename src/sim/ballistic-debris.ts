@@ -45,7 +45,7 @@ export function advanceDebris(
   for (let k = 0; k < 4; k++) q[k] /= length;
 
   const height = isRoof(m.view.material)
-    ? roofClearance(s, q)
+    ? roofClearance(s, q, m.view.roofPart)
     : orientedSize(s, q)[1];
   const next: Vec3 = [p[0] + v[0] * dt, p[1] + v[1] * dt, p[2] + v[2] * dt];
   const steps = terrain.aboveSurface(p, next, height)

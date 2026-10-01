@@ -17,7 +17,12 @@ import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
 import { consolidateRubble } from "./rubble";
 import { packBodies } from "./body-buffer";
-import { isRoof, roofVertices, roofClearance } from "../debris-shape";
+import {
+  isRoof,
+  roofVertices,
+  roofClearance,
+  roofParts,
+} from "../debris-shape";
 import {
   advanceDebris,
   orientedSize,
@@ -273,13 +278,14 @@ export class Simulation {
     s: Vec3,
     material: BodyView["material"],
     pile = false,
+    roofPart = 0,
   ) {
     return isRoof(material) && !pile
-      ? RAPIER.ColliderDesc.convexHull(roofVertices(s))!
+      ? RAPIER.ColliderDesc.convexHull(roofVertices(s, roofPart))!
       : RAPIER.ColliderDesc.cuboid(...s);
   }
   private addRuinCollider(r: Ruin) {
-    const d = this.debrisCollider(r.s, r.material, r.pile)
+    const d = this.debrisCollider(r.s, r.material, r.pile, r.roofPart)
       .setTranslation(...r.p)
       .setRotation({ x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] })
       .setFriction(0.95)
@@ -392,6 +398,7 @@ export class Simulation {
     impulse: Vec3,
     q: Quat = [0, 0, 0, 1],
     existing = false,
+    roofPart = 0,
   ) {
     if (
       (!existing && this.vaporized.has(source)) ||
@@ -413,7 +420,7 @@ export class Simulation {
         .setCcdEnabled(ccd);
     const body = this.physics.createRigidBody(desc);
     const collider = this.physics.createCollider(
-      this.debrisCollider(s, material)
+      this.debrisCollider(s, material, false, roofPart)
         .setCollisionGroups(major ? MAJOR_COLLISIONS : CHIP_COLLISIONS)
         .setFriction(0.85)
         .setRestitution(0.16)
@@ -442,6 +449,7 @@ export class Simulation {
       material,
       kind,
       source,
+      ...(roofPart ? { roofPart } : {}),
     };
     this.colliderMoving.set(collider.handle, id);
     this.moving.set(id, {
@@ -514,18 +522,18 @@ export class Simulation {
     this.removeEntity(e);
     this.contact(e.p, e.material, 1, "fracture");
     const limit = budget.limit ?? this.fragmentLimit;
+    if (isRoof(e.material)) {
+      this.fragmentRoof(e, origin, force, budget);
+      return;
+    }
     if (budget.n >= limit) {
       this.staticFragment(e, origin, force);
       return;
     }
-    // Roof sections retain their pointed shape; other prepared splits partition the source box.
+    // Prepared splits partition the source box.
     const tree = e.kind === "tree",
       axis = tree ? 1 : e.s.indexOf(Math.max(...e.s));
-    const roof = isRoof(e.material);
-    const count = Math.min(
-      limit - budget.n,
-      roof ? 1 : tree ? 2 : 2 + (e.id % 3) * 2,
-    );
+    const count = Math.min(limit - budget.n, tree ? 2 : 2 + (e.id % 3) * 2);
     for (let i = 0; i < count; i++) {
       const p = [...e.p] as Vec3,
         size = [...e.s] as Vec3;
@@ -547,9 +555,57 @@ export class Simulation {
       budget.n++;
     }
   }
+  private fragmentRoof(
+    e: Entity,
+    origin: Vec3,
+    force: number,
+    budget = { n: 0, limit: 0 } as { n: number; limit?: number },
+  ) {
+    for (let i = 0; i < roofParts.length; i++) {
+      const part = roofParts[i];
+      const p = e.p.map((v, k) => v + part.offset[k] * e.s[k]) as Vec3;
+      const s = e.s.map((v, k) => v * part.size[k]) as Vec3;
+      const velocity = this.scatterVelocity(
+        p,
+        origin,
+        force * (0.85 + rand(e.id * 13 + i) * 0.15),
+        e.id + i,
+      );
+      if (budget.n < (budget.limit ?? this.fragmentLimit)) {
+        this.spawnBody(
+          p,
+          s,
+          e.material,
+          e.id,
+          "chunk",
+          velocity,
+          [0, 0, 0, 1],
+          false,
+          i + 1,
+        );
+        budget.n++;
+      } else {
+        const view: BodyView = {
+          id: this.nextBody++,
+          source: e.id,
+          kind: "chunk",
+          material: e.material,
+          p,
+          s,
+          q: [0, 0, 0, 1],
+          roofPart: i + 1,
+        };
+        if (!this.inBeam(p, s)) this.addBallistic(view, velocity);
+      }
+    }
+  }
   private staticFragment(e: Entity, origin?: Vec3, force = 0) {
     if (this.vaporized.has(e.id)) return;
     if (origin && force > 0) {
+      if (isRoof(e.material)) {
+        this.fragmentRoof(e, origin, force);
+        return;
+      }
       const tree = e.kind === "tree";
       const size: Vec3 = tree
         ? [Math.min(1, e.s[0] * 0.25), e.s[1], Math.min(1, e.s[2] * 0.25)]
@@ -650,6 +706,7 @@ export class Simulation {
         this.scatterVelocity(r.p, p, speed, r.id),
         r.q,
         true,
+        r.roofPart,
       );
       budget.n++;
     }
@@ -860,6 +917,13 @@ export class Simulation {
         continue;
       }
       for (const group of ordered) {
+        if (isRoof(group[0].material)) {
+          const budget = { n: 0, limit: Math.max(0, dynamicBudget) };
+          this.fragmentRoof(group[0], origin, 25, budget);
+          dynamicBudget -= budget.n;
+          spawned += budget.n;
+          continue;
+        }
         const min: Vec3 = [Infinity, Infinity, Infinity],
           max: Vec3 = [-Infinity, -Infinity, -Infinity];
         for (const e of group)
@@ -2064,7 +2128,7 @@ export class Simulation {
       p[1] =
         this.terrain.sample(p[0], p[2]) +
         (isRoof(view.material)
-          ? roofClearance(s, q)
+          ? roofClearance(s, q, view.roofPart)
           : this.orientedSize(s, q)[1]);
       if (this.inBeam(p, this.orientedSize(s, q))) continue;
       let r: Ruin = { ...view, p, s, q, kind: "chunk" };

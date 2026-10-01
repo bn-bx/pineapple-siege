@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as THREE from "three";
+import { roofFragmentGeometry } from "../src/render/assets";
 import { GameRenderer } from "../src/render/renderer";
 import type { BodyView } from "../src/types";
 
@@ -92,6 +93,35 @@ it("interpolates debris on successive frames and leaves paused transforms unchan
     view.syncBodies(bodies, 1);
     expect(view.bodyMeshes.get("stone").instanceMatrix.version).toBe(version);
   } finally {
+    dispose();
+  }
+});
+
+it("instances each roof wedge separately and reuses its settled geometry", () => {
+  const { view, dispose } = fixture();
+  view.fragmentMaterials = { roof: new THREE.MeshBasicMaterial() };
+  try {
+    const bodies = Array.from({ length: 280 }, (_, i) => ({
+      ...body(i),
+      material: "roof" as const,
+      roofPart: (i % 4) + 1,
+    }));
+    view.syncBodies(bodies, 1);
+    for (let part = 1; part <= 4; part++) {
+      const mesh = view.bodyMeshes.get(`roof:${part}`);
+      expect(mesh.count).toBe(70);
+      expect(mesh.geometry).toBe(
+        view.debrisGeometry({ material: "roof", roofPart: part }),
+      );
+      expect(Array.from(mesh.geometry.attributes.position.array)).toEqual(
+        Array.from(roofFragmentGeometry(part).attributes.position.array),
+      );
+    }
+    view.syncBodies([], 1);
+    for (const mesh of view.bodyMeshes.values()) expect(mesh.count).toBe(0);
+  } finally {
+    for (const geo of view.roofFragments.values()) geo.dispose();
+    view.fragmentMaterials.roof.dispose();
     dispose();
   }
 });

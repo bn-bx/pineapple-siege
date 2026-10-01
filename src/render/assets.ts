@@ -1,3 +1,4 @@
+import { roofParts } from "../debris-shape";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Material } from "../types";
@@ -307,6 +308,29 @@ export function makePineapple(length = 6): THREE.Group {
 export function roofGeometry() {
   const geo = new THREE.ConeGeometry(Math.SQRT2, 2, 4);
   geo.rotateY(Math.PI / 4);
+  return geo;
+}
+
+/** Closed roof wedges: original sloped face plus distinct exposed cuts. */
+export function roofFragmentGeometry(part: number) {
+  const shape = roofParts[part - 1];
+  const positions: number[] = [],
+    uvs: number[] = [],
+    colors: number[] = [];
+  shape.faces.forEach((face, i) => {
+    for (const index of face) {
+      const v = shape.vertices[index];
+      positions.push(...v);
+      const cut = i >= 2;
+      uvs.push((v[0] + 1) * 0.245 + (cut ? 0.51 : 0), (v[1] + 1) / 2);
+      colors.push(...(cut ? [1, 0.98, 0.94] : [0.9, 0.9, 0.88]));
+    }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
   return geo;
 }
 
