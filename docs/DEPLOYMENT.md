@@ -13,9 +13,9 @@ This is the production setup as of September 30, 2026. The game is a static Vite
 | Pages hostname | <https://pineapple-siege-git.pages.dev> |
 | Production domain | <https://sweetpickledpineapple.com> |
 | Separate basketball site | <https://hoops.sweetpickledpineapple.com> on the `sweet-pickled-pineapple` Pages project |
-| Previous direct-upload project | `pineapple-siege`; replaced by the Git-backed project |
+| Previous direct-upload project | `pineapple-siege`; deleted after the Git-backed cutover |
 
-The apex domain is attached to `pineapple-siege-git`, with a Cloudflare-managed apex CNAME targeting `pineapple-siege-git.pages.dev`. Cloudflare reported the domain **Active** with SSL enabled after cutover. The older direct-upload project was detached from the apex during migration. It does not receive Git pushes; use the Git-backed project for all current releases.
+The apex domain is attached to `pineapple-siege-git`, with a Cloudflare-managed apex CNAME targeting `pineapple-siege-git.pages.dev`. Cloudflare reported the domain **Active** with SSL enabled after cutover. The older direct-upload project was detached from the apex and permanently deleted after the Git-backed build was verified. Its deployments and `pineapple-siege.pages.dev` hostname are no longer available.
 
 Browser world saves live in IndexedDB for the site origin. Keeping the same apex domain during this migration preserved that origin. The Pages hostname and local preview use separate browser storage.
 
