@@ -19,7 +19,7 @@ import { bindTouchControls, pointerSteering } from "./input";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
 import { SaveStore, compatible } from "./storage";
-import { clamp, LASER, WEAPONS } from "./config";
+import { clamp, DEFAULT_MONSTER_COUNT, LASER, normalizeMonsterCount, WEAPONS } from "./config";
 import type {
   WorldData,
   SaveSnapshot,
@@ -64,7 +64,7 @@ let steerX = 0,
   inverted = false,
   reversedX = false,
   nukeYield: NukeYield = "valley",
-  monsterCount: 0 | 3 | 8 | 20 = 20,
+  monsterCount = DEFAULT_MONSTER_COUNT,
   destruction = { ...DEFAULT_DESTRUCTION },
   lastShots = 0,
   lastTime = 0,
@@ -112,7 +112,7 @@ function applyPreferences(p: Preferences) {
   inverted = p.reverseY;
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
-  monsterCount = extras.monsterCount ?? 20;
+  monsterCount = extras.monsterCount ?? DEFAULT_MONSTER_COUNT;
   view?.setGooglyEyes(extras.googlyEyes === true);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
@@ -120,7 +120,7 @@ function applyPreferences(p: Preferences) {
   $<HTMLInputElement>("invert").checked = inverted;
   $<HTMLInputElement>("sensitivity").value = String(sensitivity);
   $<HTMLSelectElement>("nukeYield").value = nukeYield;
-  $<HTMLSelectElement>("monsterCount").value = String(monsterCount);
+  updateMonsterCountUI();
   for (const id of [
     "reduceEffects",
     "googlyEyes",
@@ -133,6 +133,10 @@ function applyPreferences(p: Preferences) {
   $<HTMLInputElement>("volume").value = String(extras.volume);
   $<HTMLSelectElement>("quality").value = extras.quality!;
   $("perf").hidden = !(extras.showPerf || debug);
+}
+function updateMonsterCountUI() {
+  $<HTMLInputElement>("monsterCount").value = String(monsterCount);
+  $("monsterCountValue").textContent = monsterCount === 0 ? "Off" : String(monsterCount);
 }
 function updateDestructionUI() {
   for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
@@ -683,9 +687,10 @@ $("defaultSettings").onclick = () => {
   applyDestruction();
   void saveNow(true);
 };
-$<HTMLSelectElement>("monsterCount").onchange = (event) => {
-  monsterCount = Number((event.target as HTMLSelectElement).value) as 0 | 3 | 8 | 20;
+$<HTMLInputElement>("monsterCount").oninput = (event) => {
+  monsterCount = normalizeMonsterCount(Number((event.target as HTMLInputElement).value));
   extras.monsterCount = monsterCount;
+  updateMonsterCountUI();
   send({ type: "monsterCount", value: monsterCount });
   savePreferences();
 };

@@ -56,7 +56,7 @@ export interface Preferences {
   sensitivity: number;
   nukeYield: NukeYield;
   destruction?: DestructionSettings;
-  monsterCount?: 0 | 3 | 8 | 20;
+  monsterCount?: number;
 }
 export interface MonsterState {
   id: number;
@@ -290,7 +290,7 @@ export type GameCommand =
   | { type: "weapon"; weapon: WeaponId }
   | { type: "nukeYield"; value: NukeYield }
   | { type: "destructionSettings"; value: DestructionSettings }
-  | { type: "monsterCount"; value: 0 | 3 | 8 | 20 }
+  | { type: "monsterCount"; value: number }
   | { type: "respawn" }
   | { type: "reset" }
   | { type: "save"; request: number }

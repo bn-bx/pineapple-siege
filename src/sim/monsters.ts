@@ -1,4 +1,4 @@
-import { CONFIG, MONSTER_SCALE, clamp } from "../config";
+import { CONFIG, DEFAULT_MONSTER_COUNT, MAX_MONSTER_COUNT, MONSTER_SCALE, clamp, normalizeMonsterCount } from "../config";
 import type { MonsterSpike, MonsterState, Vec3, WorldData } from "../types";
 import { Terrain } from "./terrain";
 
@@ -14,15 +14,18 @@ export const MONSTER_BODY_RADIUS = 12 * MONSTER_SCALE;
 export class Monsters {
   readonly states: MonsterState[] = [];
   readonly spikes: MonsterSpike[] = [];
-  count: 0 | 3 | 8 | 20 = 20;
-  private cooldowns = Array(20).fill(1) as number[];
-  private wander = Array(20).fill(0) as number[];
+  count = DEFAULT_MONSTER_COUNT;
+  private cooldowns: number[] = [];
+  private wander: number[] = [];
   constructor(
     private world: WorldData,
     private terrain: Terrain,
     saved?: MonsterState[],
   ) {
-    for (let id = 0; id < 20; id++) {
+    this.ensureStates(Math.min(MAX_MONSTER_COUNT, Math.max(DEFAULT_MONSTER_COUNT, saved?.length ?? 0)), saved);
+  }
+  private ensureStates(count: number, saved?: MonsterState[]) {
+    for (let id = this.states.length; id < count; id++) {
       const p = this.spawn(id);
       const old = saved?.find((m) => m?.id === id);
       this.states.push(old ? { ...old, p: this.restorePosition(old.p, p), windup: 0, stagger: 0 } : {
@@ -30,11 +33,13 @@ export class Monsters {
         defeated: false, phase: 0, windup: 0, stagger: 0,
       });
       this.wander[id] = hash(id + 700) * Math.PI * 2;
+      this.cooldowns[id] = 1;
     }
   }
   private restorePosition(saved: Vec3, fallback: Vec3): Vec3 {
+    const separation = this.states.length < DEFAULT_MONSTER_COUNT ? 115 : MONSTER_BODY_RADIUS * 2 + 16;
     const clear = (x: number, z: number) => this.walkable(x, z) &&
-      this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= 115);
+      this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= separation);
     if (clear(saved[0], saved[2]))
       return [saved[0], this.terrain.sample(saved[0], saved[2]), saved[2]];
     for (let radius = 40; radius <= 320; radius += 40)
@@ -47,15 +52,22 @@ export class Monsters {
     return fallback;
   }
   private spawn(id: number): Vec3 {
-    for (let attempt = 0; attempt < 250; attempt++) {
+    const separation = id < DEFAULT_MONSTER_COUNT ? 145 : MONSTER_BODY_RADIUS * 2 + 16;
+    const clear = (x: number, z: number, spacing: number) => this.walkable(x, z) &&
+      this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= spacing);
+    for (let attempt = 0; attempt < 1000; attempt++) {
       const x = 105 + hash(id * 887 + attempt * 31 + this.world.seed) * 1838;
       const z = 105 + hash(id * 997 + attempt * 47 + this.world.seed) * 1838;
-      if (!this.walkable(x, z)) continue;
-      if (this.states.some((m) => Math.hypot(m.p[0] - x, m.p[2] - z) < 145)) continue;
+      if (!clear(x, z, separation)) continue;
       return [x, this.terrain.sample(x, z), z];
     }
-    const x = 180 + (id % 5) * 400;
-    const z = 180 + Math.floor(id / 5) * 400;
+    // A bounded land scan avoids placing large populations outside the valley.
+    for (const spacing of [MONSTER_BODY_RADIUS * 2 + 16, 0])
+      for (let z = 105; z < CONFIG.worldSize - 105; z += 32)
+        for (let x = 105; x < CONFIG.worldSize - 105; x += 32)
+          if (clear(x, z, spacing)) return [x, this.terrain.sample(x, z), z];
+    const x = clamp(this.world.spawn[0], 75, CONFIG.worldSize - 75);
+    const z = clamp(this.world.spawn[2], 75, CONFIG.worldSize - 75);
     return [x, this.terrain.sample(x, z), z];
   }
   private walkable(x: number, z: number): boolean {
@@ -70,7 +82,8 @@ export class Monsters {
     return !this.world.sites.some((s) => Math.hypot(s.p[0] - x, s.p[2] - z) < s.radius + 60);
   }
   setCount(value: number) {
-    if ([0, 3, 8, 20].includes(value)) this.count = value as 0 | 3 | 8 | 20;
+    this.count = normalizeMonsterCount(value);
+    this.ensureStates(this.count);
     this.spikes.length = 0;
   }
   active() { return this.states.slice(0, this.count).filter((m) => !m.defeated); }

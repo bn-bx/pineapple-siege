@@ -79,6 +79,18 @@ it("turns the old automatic-on eyes off once and preserves later choices", () =>
     normalizePreferences({ ...migrated, googlyEyes: false }).googlyEyes,
   ).toBe(false);
 });
+it("persists integer monster counts across 0–200 and normalizes invalid values", () => {
+  for (const monsterCount of [0, 1, 7, 20, 99, 199, 200]) {
+    const preferences = normalizePreferences({ revision: 3, monsterCount });
+    expect(preferences.monsterCount).toBe(monsterCount);
+    expect(normalizePreferences(preferences).monsterCount).toBe(monsterCount);
+  }
+  expect(normalizePreferences({ monsterCount: -1 }).monsterCount).toBe(0);
+  expect(normalizePreferences({ monsterCount: 201 }).monsterCount).toBe(200);
+  expect(normalizePreferences({ monsterCount: 7.6 }).monsterCount).toBe(8);
+  expect(normalizePreferences({ monsterCount: NaN }).monsterCount).toBe(20);
+  expect(normalizePreferences({ monsterCount: Infinity }).monsterCount).toBe(20);
+});
 it("cinematic shots remain finite and cycle with a level target", () => {
   const r = new CameraRig();
   r.toggle();

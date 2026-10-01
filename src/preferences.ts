@@ -1,4 +1,5 @@
 import { normalizeDestruction } from "./destruction-settings";
+import { DEFAULT_MONSTER_COUNT, normalizeMonsterCount } from "./config";
 import type { Preferences } from "./types";
 export const PREFERENCE_REVISION = 3;
 export function normalizePreferences(
@@ -21,10 +22,8 @@ export function normalizePreferences(
     destruction: normalizeDestruction(value.destruction),
     monsterCount:
       (value.revision ?? 0) < 2 && value.monsterCount === 8
-        ? 20
-        : [0, 3, 8, 20].includes(value.monsterCount!)
-          ? value.monsterCount
-          : 20,
+        ? DEFAULT_MONSTER_COUNT
+        : normalizeMonsterCount(value.monsterCount),
     googlyEyes:
       value.revision === PREFERENCE_REVISION && value.googlyEyes === true,
     quality: ["auto", "720", "1080", "1440"].includes(value.quality!)

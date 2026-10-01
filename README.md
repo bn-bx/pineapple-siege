@@ -99,7 +99,7 @@ Twenty giant, angry pineapple monsters crawl across the valley by default. They 
 
 Monsters are now twice their original size, including their hitboxes and swipe reach. Their speed and three-hit health stay the same. While any space laser charges or burns, living monsters stop attacking and dance across the map; laser damage still affects monsters near the strike.
 
-World → Pineapple monsters offers Off, 3, 8, and 20. Changes take effect immediately. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals any that are still alive. Monster positions, damage, and defeats are saved with the world. Defeated monsters return only after Reset world. Existing compatible saves gain monsters automatically.
+World → Pineapple monsters has a slider from 0 (Off) to 200, in steps of one; the default is 20. Changes take effect immediately and the selected count persists across reloads. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals any that are still alive and spawns additional monsters as needed. Monster positions, damage, and defeats are saved with the world. Defeated monsters return only after Reset world. Existing compatible saves gain monsters automatically. Higher populations can reduce performance.
 
 ## Space laser
 

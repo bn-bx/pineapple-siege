@@ -30,6 +30,12 @@ export const CONFIG = {
   chunkSize: 64,
 };
 export const MONSTER_SCALE = 2;
+export const DEFAULT_MONSTER_COUNT = 20;
+export const MAX_MONSTER_COUNT = 200;
+export const normalizeMonsterCount = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.min(MAX_MONSTER_COUNT, Math.round(value)))
+    : DEFAULT_MONSTER_COUNT;
 export const clamp = (v: number, a: number, b: number) =>
   Math.max(a, Math.min(b, v));
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;

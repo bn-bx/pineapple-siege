@@ -31,7 +31,7 @@ import type {
   FragmentEffect,
   Material,
 } from "../types";
-import { clamp, LASER, MONSTER_SCALE, WEAPONS } from "../config";
+import { clamp, DEFAULT_MONSTER_COUNT, LASER, MONSTER_SCALE, WEAPONS } from "../config";
 interface Batch {
   mesh: THREE.InstancedMesh;
   low?: THREE.InstancedMesh;
@@ -81,6 +81,7 @@ export class GameRenderer {
   private shotMeshes: THREE.Group[] = [];
   private monsterMeshes: THREE.Group[] = [];
   private distantMonsters: THREE.Group[] = [];
+  private googlyEyes = false;
   private spikeMeshes: THREE.Mesh[] = [];
   private flagGroup = new THREE.Group();
   private marker: THREE.Mesh;
@@ -175,15 +176,7 @@ export class GameRenderer {
       this.sun.target,
       this.ambient,
     );
-    for (let i = 0; i < 20; i++) {
-      const monster = makeMonster();
-      const distant = makeDistantMonster();
-      monster.visible = false;
-      distant.visible = false;
-      this.monsterMeshes.push(monster);
-      this.distantMonsters.push(distant);
-      this.scene.add(monster, distant);
-    }
+    this.ensureMonsterMeshes(DEFAULT_MONSTER_COUNT);
     this.scene.fog = new THREE.FogExp2("#98b5bb", 0.00065);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -454,10 +447,23 @@ export class GameRenderer {
     this.effects.reduced = value;
   }
   setGooglyEyes(value: boolean) {
+    this.googlyEyes = value;
     this.eyes.setEnabled(value);
     for (const monster of this.monsterMeshes) {
       const nativeEyes = monster.getObjectByName("native-eyes");
       if (nativeEyes) nativeEyes.visible = !value;
+    }
+  }
+  private ensureMonsterMeshes(count: number) {
+    while (this.monsterMeshes.length < count) {
+      const monster = makeMonster();
+      const distant = makeDistantMonster();
+      const nativeEyes = monster.getObjectByName("native-eyes");
+      if (nativeEyes) nativeEyes.visible = !this.googlyEyes;
+      monster.visible = distant.visible = false;
+      this.monsterMeshes.push(monster);
+      this.distantMonsters.push(distant);
+      this.scene.add(monster, distant);
     }
   }
   setQuality(q: string) {
@@ -1015,6 +1021,7 @@ export class GameRenderer {
     this.sky.position.copy(this.camera.position);
     this.updateRuins();
     this.syncBodies(snap.bodies, alpha);
+    this.ensureMonsterMeshes(snap.monsters.length);
     for (let i = 0; i < this.monsterMeshes.length; i++) {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];

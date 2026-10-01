@@ -1,7 +1,7 @@
 import { normalizePreferences } from "./preferences";
 import { NUKE_LIMITS } from "./destruction-settings";
 import type { SaveSnapshot, Preferences } from "./types";
-import { CONFIG } from "./config";
+import { CONFIG, DEFAULT_MONSTER_COUNT, MAX_MONSTER_COUNT } from "./config";
 export class SaveStore {
   private db?: IDBDatabase;
   async open() {
@@ -94,7 +94,8 @@ export function compatible(
     s.vaporized.every(Number.isInteger) &&
     (s.monsters === undefined ||
       (Array.isArray(s.monsters) &&
-        s.monsters.length === 20 &&
+        s.monsters.length >= DEFAULT_MONSTER_COUNT &&
+        s.monsters.length <= MAX_MONSTER_COUNT &&
         s.monsters.every(
           (m, id) =>
             m &&

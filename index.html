@@ -282,12 +282,15 @@
             <h3 id="heading-world">World</h3>
             <div class="settings-grid">
               <label
-                >Pineapple monsters<select id="monsterCount">
-                  <option value="0">Off</option>
-                  <option value="3">3</option>
-                  <option value="8">8</option>
-                  <option value="20" selected>20</option>
-                </select></label
+                >Pineapple monsters <output id="monsterCountValue" for="monsterCount">20</output
+                ><input
+                  id="monsterCount"
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value="20"
+                /></label
               >
               <label
                 >Time of day<input
