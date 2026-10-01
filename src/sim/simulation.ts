@@ -323,7 +323,10 @@ export class Simulation {
       type: "delta",
       revision: this.revision,
       removed: this.changedRemoved.splice(0),
-      settled: this.changedSettled.splice(0),
+      // Compaction can remove or replace queued pieces before this update.
+      settled: this.changedSettled
+        .splice(0)
+        .filter((r) => this.ruins.get(r.id) === r),
       rubbleRemoved: this.changedRubbleRemoved.splice(0),
       terrain,
       flood,
