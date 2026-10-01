@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { COSMETIC_LIMITS } from "../destruction-settings";
+import { CONFIG } from "../config";
 import type { FragmentEffect, Vec3 } from "../types";
 
 const palette = {
@@ -151,7 +152,7 @@ export class Fragments {
           d[j] += d[j + 3] * step;
           d[j + 1] += d[j + 4] * step;
           d[j + 2] += d[j + 5] * step;
-          d[j + 4] -= 18 * step;
+          d[j + 4] -= CONFIG.debrisGravity * step;
           const floor = this.ground(d[j], d[j + 2]) + d[j + 20];
           if (d[j + 1] < floor) {
             d[j + 1] = floor;

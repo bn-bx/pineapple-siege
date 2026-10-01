@@ -1,3 +1,4 @@
+import { isRoof } from "../debris-shape";
 import { MAX_BODY_LIMIT } from "../destruction-settings";
 import { CameraRig } from "./camera-rig";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
@@ -9,6 +10,7 @@ import { Water } from "three/addons/objects/Water.js";
 import {
   createMaterials,
   fractureGeometry,
+  roofGeometry,
   fractureMaterials,
   pineGeometry,
   makeJet,
@@ -97,6 +99,8 @@ export class GameRenderer {
   private averageMS = 16.7;
   private shakeEnabled = true;
   private fractureBox = fractureGeometry();
+  private roof = roofGeometry();
+  private fractureRoof = fractureGeometry(roofGeometry());
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
@@ -329,7 +333,7 @@ export class GameRenderer {
     this.scene.add(this.marker);
     for (const material of Object.keys(this.materials) as Material[]) {
       let mesh = new THREE.InstancedMesh(
-        this.fractureBox,
+        isRoof(material) ? this.fractureRoof : this.fractureBox,
         this.fragmentMaterials[material],
         MAX_BODY_LIMIT,
       );
@@ -358,8 +362,7 @@ export class GameRenderer {
     const pine = pineGeometry(),
       low = new THREE.ConeGeometry(1, 1, 7, 1);
     low.translate(0, 0.5, 0);
-    const roof = new THREE.ConeGeometry(Math.SQRT2, 2, 4);
-    roof.rotateY(Math.PI / 4);
+    const roof = this.roof;
     const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
       rock = new THREE.DodecahedronGeometry(1, 0);
     for (const list of grouped.values()) {
@@ -421,11 +424,7 @@ export class GameRenderer {
         add(trunk, this.materials.wood, "trunk");
       } else
         add(
-          e.kind === "rock"
-            ? rock
-            : e.material === "roof" || e.material === "slate"
-              ? roof
-              : this.box,
+          e.kind === "rock" ? rock : isRoof(e.material) ? roof : this.box,
           this.materials[e.material],
           e.kind,
         );
@@ -655,12 +654,16 @@ export class GameRenderer {
                 dummy.scale.set(r.s[0] * 0.5, r.s[1] * 0.5, r.s[2] * 0.5);
                 add(
                   r.material,
-                  this.fractureBox,
+                  isRoof(r.material) ? this.fractureRoof : this.fractureBox,
                   this.fragmentMaterials[r.material],
                 );
               }
         } else
-          add(r.material, this.fractureBox, this.fragmentMaterials[r.material]);
+          add(
+            r.material,
+            isRoof(r.material) ? this.fractureRoof : this.fractureBox,
+            this.fragmentMaterials[r.material],
+          );
       }
       for (const { geo, mat, matrices } of lists.values()) {
         const mesh = new THREE.InstancedMesh(geo, mat, matrices.length);
@@ -744,7 +747,9 @@ export class GameRenderer {
           THREE.MathUtils.lerp(previous.p[1], b.p[1], alpha),
           THREE.MathUtils.lerp(previous.p[2], b.p[2], alpha),
         );
-        this.debrisRotation.fromArray(previous.q).slerp(dummy.quaternion, alpha);
+        this.debrisRotation
+          .fromArray(previous.q)
+          .slerp(dummy.quaternion, alpha);
         dummy.quaternion.copy(this.debrisRotation);
       }
       if (b.kind === "tree") {

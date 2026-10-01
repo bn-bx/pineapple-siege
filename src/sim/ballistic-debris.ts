@@ -1,5 +1,7 @@
 import type { BodyView, Quat, Vec3 } from "../types";
 import type { Terrain } from "./terrain";
+import { CONFIG } from "../config";
+import { isRoof, roofClearance } from "../debris-shape";
 
 /** Overflow wreckage keeps moving without adding Rapier contact pairs. */
 export interface BallisticDebris {
@@ -42,7 +44,9 @@ export function advanceDebris(
   const length = Math.hypot(...q);
   for (let k = 0; k < 4; k++) q[k] /= length;
 
-  const height = orientedSize(s, q)[1];
+  const height = isRoof(m.view.material)
+    ? roofClearance(s, q)
+    : orientedSize(s, q)[1];
   const next: Vec3 = [p[0] + v[0] * dt, p[1] + v[1] * dt, p[2] + v[2] * dt];
   const steps = terrain.aboveSurface(p, next, height)
     ? 1
@@ -51,7 +55,7 @@ export function advanceDebris(
   let contact = false;
   for (let i = 0; i < steps; i++) {
     for (let k = 0; k < 3; k++) p[k] += v[k] * step;
-    v[1] -= 18 * step;
+    v[1] -= CONFIG.debrisGravity * step;
     for (const k of [0, 2]) {
       if (p[k] < 8 || p[k] > 2040) {
         p[k] = Math.max(8, Math.min(2040, p[k]));

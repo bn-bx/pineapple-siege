@@ -2,6 +2,7 @@ import type { BlastProfile, NukeYield } from "./types";
 export const CONFIG = {
   version: 6,
   dt: 1 / 60,
+  debrisGravity: 21.6,
   minSpeed: 35,
   maxSpeed: 90,
   boostSpeed: 120,

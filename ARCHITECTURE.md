@@ -109,3 +109,10 @@ The local CPU comparison on 2026-10-01 used the same generated world and request
 ## Continuous overflow debris
 
 The ballistic update benchmark added on 2026-10-01 measured airborne batches at 4,096 pieces: mean 0.58 ms / p95 0.90 ms, and 16,384 pieces: mean 2.14 ms / p95 3.13 ms. These isolated worker CPU timings exclude rendering, snapshots, rubble insertion, and dense terrain contacts. The browser verification of a default Valley-scale castle blast showed 3,906 ballistic pieces plus 152 rigid bodies at 0.75 simulation seconds, and 3,486 ballistic pieces plus 178 rigid bodies at 1.75 seconds. Counts change as debris lands and contact cascades break surviving structures. Save capture retains the established behavior of recording airborne wreckage as ground-level rubble without changing live motion.
+
+
+## Roof silhouettes and distant flash
+
+Debris gravity is shared by Rapier bodies, worker ballistic wreckage, and cosmetic chips at 21.6 m/s² (20% above the earlier 18). Weapon projectile gravity is unchanged. Roof and slate sections retain the same four-sided pointed geometry as intact scenery during flight, settlement, and save restoration. These sections stay whole during fragmentation and remain separate in support clusters; their moving and individual settled colliders use matching five-vertex convex hulls. Lightweight landing and save capture use the actual rotated roof's lowest corner. Consolidated roof rubble renders as pointed chunks with the existing box pile collider. Materials identify roof shape, so packed body buffers and existing saves need no new format.
+
+Nuke exposure reaches 2,200–6,000 meters according to yield/scale, giving a visible atmospheric wash across the whole valley even when the blast is behind the camera. Looking toward the blast remains brighter. Pulse durations, strongest-only overlapping contributions, pause/reset behavior, and the reduced-effects opacity cap and short fade remain unchanged.

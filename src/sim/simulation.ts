@@ -17,6 +17,7 @@ import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
 import { consolidateRubble } from "./rubble";
 import { packBodies } from "./body-buffer";
+import { isRoof, roofVertices, roofClearance } from "../debris-shape";
 import {
   advanceDebris,
   orientedSize,
@@ -180,7 +181,7 @@ export class Simulation {
   ) {
     this.terrain = new Terrain(heights);
     this.monsters = new Monsters(world, this.terrain, save?.monsters);
-    this.physics = new RAPIER.World({ x: 0, y: -18, z: 0 });
+    this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
     this.physics.timestep = CONFIG.dt;
     this.physics.numSolverIterations = 4;
     this.plane = {
@@ -268,8 +269,17 @@ export class Simulation {
     this.entityColliders.set(e.id, c);
     this.colliderEntities.set(c.handle, e.id);
   }
+  private debrisCollider(
+    s: Vec3,
+    material: BodyView["material"],
+    pile = false,
+  ) {
+    return isRoof(material) && !pile
+      ? RAPIER.ColliderDesc.convexHull(roofVertices(s))!
+      : RAPIER.ColliderDesc.cuboid(...s);
+  }
   private addRuinCollider(r: Ruin) {
-    const d = RAPIER.ColliderDesc.cuboid(...r.s)
+    const d = this.debrisCollider(r.s, r.material, r.pile)
       .setTranslation(...r.p)
       .setRotation({ x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] })
       .setFriction(0.95)
@@ -403,7 +413,7 @@ export class Simulation {
         .setCcdEnabled(ccd);
     const body = this.physics.createRigidBody(desc);
     const collider = this.physics.createCollider(
-      RAPIER.ColliderDesc.cuboid(...s)
+      this.debrisCollider(s, material)
         .setCollisionGroups(major ? MAJOR_COLLISIONS : CHIP_COLLISIONS)
         .setFriction(0.85)
         .setRestitution(0.16)
@@ -508,10 +518,14 @@ export class Simulation {
       this.staticFragment(e, origin, force);
       return;
     }
-    // Prepared splits partition the source box, avoiding overlapping rigid pieces.
+    // Roof sections retain their pointed shape; other prepared splits partition the source box.
     const tree = e.kind === "tree",
       axis = tree ? 1 : e.s.indexOf(Math.max(...e.s));
-    const count = Math.min(limit - budget.n, tree ? 2 : 2 + (e.id % 3) * 2);
+    const roof = isRoof(e.material);
+    const count = Math.min(
+      limit - budget.n,
+      roof ? 1 : tree ? 2 : 2 + (e.id % 3) * 2,
+    );
     for (let i = 0; i < count; i++) {
       const p = [...e.p] as Vec3,
         size = [...e.s] as Vec3;
@@ -823,14 +837,15 @@ export class Simulation {
       for (const id of falling) {
         const e = this.world.entities[id];
         this.removeEntity(e);
-        const key =
-          e.material +
-          ":" +
-          Math.floor(e.p[0] / coarse) +
-          ":" +
-          Math.floor(e.p[1] / (coarse * 0.85)) +
-          ":" +
-          Math.floor(e.p[2] / coarse);
+        const key = isRoof(e.material)
+          ? `roof:${e.id}`
+          : e.material +
+            ":" +
+            Math.floor(e.p[0] / coarse) +
+            ":" +
+            Math.floor(e.p[1] / (coarse * 0.85)) +
+            ":" +
+            Math.floor(e.p[2] / coarse);
         let group = clusters.get(key);
         if (!group) clusters.set(key, (group = []));
         group.push(e);
@@ -2046,7 +2061,11 @@ export class Simulation {
         s[2] = 0.8;
         q = [0, 0, 0, 1];
       }
-      p[1] = this.terrain.sample(p[0], p[2]) + this.orientedSize(s, q)[1];
+      p[1] =
+        this.terrain.sample(p[0], p[2]) +
+        (isRoof(view.material)
+          ? roofClearance(s, q)
+          : this.orientedSize(s, q)[1]);
       if (this.inBeam(p, this.orientedSize(s, q))) continue;
       let r: Ruin = { ...view, p, s, q, kind: "chunk" };
       const k = this.cell(p);

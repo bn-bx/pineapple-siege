@@ -304,10 +304,17 @@ export function makePineapple(length = 6): THREE.Group {
   return makePineapple(length);
 }
 
+export function roofGeometry() {
+  const geo = new THREE.ConeGeometry(Math.SQRT2, 2, 4);
+  geo.rotateY(Math.PI / 4);
+  return geo;
+}
+
 // Shared prepared fragment faces: pale exposed cuts contrast with weathered sides.
-export function fractureGeometry() {
-  const geo = new THREE.BoxGeometry(2, 2, 2),
-    normals = geo.attributes.normal;
+export function fractureGeometry(
+  geo: THREE.BufferGeometry = new THREE.BoxGeometry(2, 2, 2),
+) {
+  const normals = geo.attributes.normal;
   const colors = new Float32Array(normals.count * 3);
   for (let i = 0; i < normals.count; i++) {
     const cut = normals.getY(i) > 0.5 || normals.getX(i) < -0.5;
