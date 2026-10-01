@@ -15,7 +15,7 @@ import {
   laserProfile,
 } from "./destruction-settings";
 import "./style.css";
-import { pointerSteering } from "./input";
+import { bindTouchControls, pointerSteering } from "./input";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
 import { SaveStore, compatible } from "./storage";
@@ -85,6 +85,10 @@ let debugInput: import("./types").InputState | undefined;
 const pendingSaves = new Map<number, (save: SaveSnapshot) => void>();
 const stepWaiters: ((value: unknown) => void)[] = [];
 const pendingReady: (() => void)[] = [];
+const touchControls = $("touchControls");
+const touchDevice = matchMedia("(any-pointer: coarse)");
+const touch = bindTouchControls(touchControls, () => active, preferences);
+const held = (key: string) => keys.has(key) || touch.keys.has(key);
 function preferences(): Preferences {
   return {
     ...extras,
@@ -172,6 +176,7 @@ function fatal(message: string, detail = "") {
   $("fatal").hidden = false;
 }
 function clearInput() {
+  touch.reset();
   debugInput = undefined;
   keys.clear();
   steerX = steerY = 0;
@@ -183,6 +188,7 @@ function clearInput() {
   });
 }
 function pause() {
+  touchControls.hidden = true;
   photoPending = photoMode = false;
   view?.setChase();
   document.body.classList.remove("cinematic", "photo");
@@ -208,7 +214,7 @@ function pause() {
   $("hint").hidden = true;
   $("warning").hidden = true;
 }
-async function enter() {
+async function enter(event?: Event) {
   if (!ready || contextLost) return;
   everEntered = active = true;
   clearInput();
@@ -216,6 +222,7 @@ async function enter() {
   $("overlay").hidden = true;
   $("flightHUD").hidden = false;
   $("pauseButton").hidden = false;
+  touchControls.hidden = false;
   $("hint").hidden = false;
   $("hint").style.opacity = "1";
   setTimeout(() => ($("hint").style.opacity = "0"), 9000);
@@ -223,6 +230,16 @@ async function enter() {
     $("status").textContent = "Sound is unavailable; flight is still ready.";
   });
   try {
+    if (
+      event instanceof PointerEvent
+        ? event.pointerType === "touch"
+        : touchDevice.matches
+    ) {
+      pointerFallback = true;
+      $("hint").textContent =
+        "Left pad steers · hold Fire or Boost · +/− throttle";
+      return;
+    }
     await canvas.requestPointerLock();
     pointerFallback = false;
   } catch {
@@ -241,15 +258,13 @@ function input() {
   send({
     type: "input",
     input: {
-      x: steerX,
-      y: steerY,
-      throttle: (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0),
+      x: clamp(steerX + touch.steering.x, -1, 1),
+      y: clamp(steerY + touch.steering.y, -1, 1),
+      throttle: (held("KeyW") ? 1 : 0) - (held("KeyS") ? 1 : 0),
       bank: (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0),
-      boost: keys.has("ShiftLeft") || keys.has("ShiftRight"),
+      boost: held("ShiftLeft") || held("ShiftRight"),
       fire:
-        keys.has("Mouse0") ||
-        keys.has("Space") ||
-        performance.now() < fireUntil,
+        keys.has("Mouse0") || held("Space") || performance.now() < fireUntil,
     },
   });
 }
@@ -523,7 +538,7 @@ function frame(now: number) {
     p.speed,
     view.camera.position.toArray() as Vec3,
     view.cameraDirection(),
-    keys.has("ShiftLeft") || keys.has("ShiftRight"),
+    held("ShiftLeft") || held("ShiftRight"),
   );
   if (p.crashed > 0 && view.rig.mode === "cinematic") {
     view.setChase();
@@ -756,7 +771,8 @@ function togglePhoto() {
       audio.start().catch(() => {});
     }
     document.body.classList.toggle("cinematic", view.rig.mode === "cinematic");
-    if (document.pointerLockElement !== canvas)
+    touchControls.hidden = !active;
+    if (!pointerFallback && document.pointerLockElement !== canvas)
       canvas.requestPointerLock().catch(() => {
         pointerFallback = true;
       });
@@ -765,6 +781,7 @@ function togglePhoto() {
   if (!active) return;
   photoReturn = active;
   photoPending = true;
+  touchControls.hidden = true;
   active = false;
   clearInput();
   send({ type: "pause", paused: true });
@@ -796,6 +813,14 @@ for (const weapon of ["cannon", "nuke", "laser"] as const)
   $("select-" + weapon).onclick = () => {
     if (active) send({ type: "weapon", weapon });
   };
+function respawn() {
+  if (!active) return;
+  clearInput();
+  view.setChase();
+  document.body.classList.remove("cinematic");
+  send({ type: "respawn" });
+}
+$("touchRespawn").onclick = respawn;
 window.addEventListener("keydown", (e) => {
   if (e.code === "Escape") {
     pause();
@@ -845,16 +870,12 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     keys.add(e.code);
     if (e.code === "Space") fireUntil = performance.now() + 100;
-    if (e.code === "KeyR" && !e.repeat) {
-      clearInput();
-      view.setChase();
-      document.body.classList.remove("cinematic");
-      send({ type: "respawn" });
-    }
+    if (e.code === "KeyR" && !e.repeat) respawn();
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 canvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") return;
   if (photoMode) {
     dragging = true;
     canvas.setPointerCapture(e.pointerId);
@@ -869,7 +890,8 @@ canvas.addEventListener("pointerdown", (e) => {
     fireUntil = performance.now() + 100;
   }
 });
-window.addEventListener("pointerup", () => {
+window.addEventListener("pointerup", (e) => {
+  if (e.pointerType === "touch") return;
   dragging = false;
   keys.delete("Mouse0");
 });
