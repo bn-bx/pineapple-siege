@@ -22,10 +22,14 @@ with sync_playwright() as p:
       const { GameRenderer } = await import('/src/render/renderer.ts');
       window.flightCheck = {view:null, frames:[], rendered:0, phase:'flight'};
       const render = GameRenderer.prototype.render;
-      GameRenderer.prototype.render = function(dt,active) {
+      GameRenderer.prototype.render = function(dt,active,frameTime) {
         flightCheck.view=this;
+        if(active && flightCheck.waitingForReset) {
+          flightCheck.resetSamples=lanternVale.samples.slice();
+          flightCheck.waitingForReset=false;
+        }
         const at=performance.now();
-        const result=render.call(this,dt,active);
+        const result=render.call(this,dt,active,frameTime);
         if(active) flightCheck.frames.push({at,phase:flightCheck.phase,z:this.jet.position.z});
         flightCheck.rendered++;
         return result;
@@ -80,14 +84,18 @@ with sync_playwright() as p:
     }''')
     page.locator('#enter').click()
     assert page.evaluate('lanternVale.samples.length') < 100
+    page.wait_for_function('lanternVale.samples.length >= 120', timeout=10000)
     page.evaluate('''async () => {
       lanternVale.pause();
+      flightCheck.waitingForReset=true;
       await lanternVale.reset();
     }''')
-    assert page.evaluate('lanternVale.samples.length') == 0
+    page.wait_for_function('flightCheck.resetSamples !== undefined', timeout=10000)
+    assert page.evaluate('flightCheck.resetSamples') == [16.67]
     result = page.evaluate('''() => ({
       frames:flightCheck.frames, overlay:document.getElementById('perf').textContent,
-      resetReady:lanternVale.state.ready, rendered:flightCheck.rendered
+      resetReady:lanternVale.state.ready, resetSamples:flightCheck.resetSamples,
+      rendered:flightCheck.rendered
     })''')
     result.update(errors=errors, stalled_overlay=stalled,
                   gpu_note='Software WebGL; drawing disabled during timing/lifecycle isolation.')

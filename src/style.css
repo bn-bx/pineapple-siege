@@ -921,3 +921,41 @@ body.photo #perf {
     padding: 0;
   }
 }
+
+.civilian-status {
+  position: fixed;
+  top: 88px;
+  right: 32px;
+  width: 148px;
+  padding: 9px 12px;
+  border: 1px solid #e9ca7b35;
+  border-radius: 8px;
+  background: #13262fbd;
+  color: #eeeeda;
+  font-size: 11px;
+  pointer-events: none;
+}
+.civilian-status > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.civilian-status > div + div {
+  margin-top: 5px;
+}
+.civilian-status span {
+  color: #eeeedaad;
+}
+.civilian-status strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 650px) {
+  .civilian-status {
+    top: 78px;
+    right: 16px;
+    width: 134px;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+}

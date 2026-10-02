@@ -1,6 +1,11 @@
 import type { BlastProfile, NukeYield } from "./types";
+export const WORLD_SIZE = 6144;
+export const TERRAIN_SPACING = 2;
+export const CHUNK_SIZE = 64;
+export const CHUNKS = WORLD_SIZE / CHUNK_SIZE;
+export const CHUNK_SAMPLES = CHUNK_SIZE / TERRAIN_SPACING;
 export const CONFIG = {
-  version: 6,
+  version: 7,
   dt: 1 / 60,
   debrisGravity: 21.6,
   minSpeed: 35,
@@ -24,14 +29,14 @@ export const CONFIG = {
   maxProjectiles: 12,
   maxRubblePerChunk: 36,
   respawnDelay: 2,
-  worldSize: 2048,
-  grid: 1025,
-  spacing: 2,
-  chunkSize: 64,
+  worldSize: WORLD_SIZE,
+  grid: WORLD_SIZE / TERRAIN_SPACING + 1,
+  spacing: TERRAIN_SPACING,
+  chunkSize: CHUNK_SIZE,
 };
 export const MONSTER_SCALE = 2;
-export const DEFAULT_MONSTER_COUNT = 20;
-export const MAX_MONSTER_COUNT = 200;
+export const DEFAULT_MONSTER_COUNT = 120;
+export const MAX_MONSTER_COUNT = 400;
 export const normalizeMonsterCount = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.min(MAX_MONSTER_COUNT, Math.round(value)))
@@ -75,7 +80,7 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
 export const WEAPONS = {
   laser: { cooldown: 24 },
   cannon: {
-    cooldown: 1,
+    cooldown: 0.75,
     length: 6,
     radius: 1.6,
     gravity: 5,

@@ -1,3 +1,6 @@
+import { civilianPopulation } from "../civilian-morale";
+import { Civilians } from "./civilians";
+import { CHUNKS } from "../config";
 import {
   DEFAULT_DESTRUCTION,
   normalizeDestruction,
@@ -108,8 +111,14 @@ export class Simulation {
   }
   readonly terrain: Terrain;
   readonly monsters: Monsters;
-  get monsterCount() { return this.monsters.count; }
-  setMonsterCount(value: number) { this.monsters.setCount(value); this.bump(); }
+  get monsterCount() {
+    return this.monsters.count;
+  }
+  setMonsterCount(value: number) {
+    this.monsters.setCount(value);
+    this.civilians.rebaseline(this.monsters.active());
+    this.bump();
+  }
   readonly physics: RAPIER.World;
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
@@ -162,6 +171,7 @@ export class Simulation {
   readonly lasers: LaserStrike[] = [];
   readonly laserWork = new Map<number, LaserWork>();
   readonly laserSupport = new Set<string>();
+  readonly civilians: Civilians;
   readonly vaporized = new Set<number>();
   private burnZones: { p: Vec3; radius: number }[] = [];
   readonly pendingJobs: DestructionJob[] = [];
@@ -231,18 +241,19 @@ export class Simulation {
         this.nextBody = Math.max(this.nextBody, r.id + 1);
       }
     }
+    this.civilians = new Civilians(world, this.terrain, this.removed, save);
     for (const e of world.entities) {
       for (
-        let z = clamp(Math.floor((e.p[2] - e.s[2]) / 64), 0, 31);
-        z <= clamp(Math.floor((e.p[2] + e.s[2]) / 64), 0, 31);
+        let z = clamp(Math.floor((e.p[2] - e.s[2]) / 64), 0, CHUNKS - 1);
+        z <= clamp(Math.floor((e.p[2] + e.s[2]) / 64), 0, CHUNKS - 1);
         z++
       )
         for (
-          let x = clamp(Math.floor((e.p[0] - e.s[0]) / 64), 0, 31);
-          x <= clamp(Math.floor((e.p[0] + e.s[0]) / 64), 0, 31);
+          let x = clamp(Math.floor((e.p[0] - e.s[0]) / 64), 0, CHUNKS - 1);
+          x <= clamp(Math.floor((e.p[0] + e.s[0]) / 64), 0, CHUNKS - 1);
           x++
         ) {
-          let key = z * 32 + x,
+          let key = z * CHUNKS + x,
             list = this.entityCells.get(key);
           if (!list) this.entityCells.set(key, (list = []));
           list.push(e.id);
@@ -295,14 +306,14 @@ export class Simulation {
   private buildTerrainCollider(id: number) {
     const old = this.terrainColliders.get(id);
     if (old) this.physics.removeCollider(old, true);
-    const cx = id % 32,
-      cz = Math.floor(id / 32),
+    const cx = id % CHUNKS,
+      cz = Math.floor(id / CHUNKS),
       heights = new Float32Array(33 * 33);
     // Rapier heightfields are column-major; their triangle diagonal matches our sampler.
     for (let z = 0; z <= 32; z++)
       for (let x = 0; x <= 32; x++)
         heights[x * 33 + z] =
-          this.terrain.heights[(cz * 32 + z) * 1025 + cx * 32 + x];
+          this.terrain.heights[(cz * 32 + z) * CONFIG.grid + cx * 32 + x];
     const descriptor = RAPIER.ColliderDesc.heightfield(
       32,
       32,
@@ -319,16 +330,16 @@ export class Simulation {
     const wanted = new Set<number>();
     const near = (p: Vec3, r: number) => {
       for (
-        let z = clamp(Math.floor((p[2] - r) / 64), 0, 31);
-        z <= clamp(Math.floor((p[2] + r) / 64), 0, 31);
+        let z = clamp(Math.floor((p[2] - r) / 64), 0, CHUNKS - 1);
+        z <= clamp(Math.floor((p[2] + r) / 64), 0, CHUNKS - 1);
         z++
       )
         for (
-          let x = clamp(Math.floor((p[0] - r) / 64), 0, 31);
-          x <= clamp(Math.floor((p[0] + r) / 64), 0, 31);
+          let x = clamp(Math.floor((p[0] - r) / 64), 0, CHUNKS - 1);
+          x <= clamp(Math.floor((p[0] + r) / 64), 0, CHUNKS - 1);
           x++
         )
-          wanted.add(z * 32 + x);
+          wanted.add(z * CHUNKS + x);
     };
     near(this.plane.p, 85);
     for (const m of this.moving.values()) near(m.view.p, 38);
@@ -374,6 +385,7 @@ export class Simulation {
   private removeEntity(e: Entity) {
     if (this.removed.has(e.id)) return;
     this.removed.add(e.id);
+    this.civilians.structureRemoved(e);
     this.changedRemoved.push(e.id);
     const c = this.entityColliders.get(e.id);
     if (c) {
@@ -642,16 +654,16 @@ export class Simulation {
   private nearbyRuins(p: Vec3, radius: number) {
     const result: Ruin[] = [];
     for (
-      let z = clamp(Math.floor((p[2] - radius) / 64), 0, 31);
-      z <= clamp(Math.floor((p[2] + radius) / 64), 0, 31);
+      let z = clamp(Math.floor((p[2] - radius) / 64), 0, CHUNKS - 1);
+      z <= clamp(Math.floor((p[2] + radius) / 64), 0, CHUNKS - 1);
       z++
     )
       for (
-        let x = clamp(Math.floor((p[0] - radius) / 64), 0, 31);
-        x <= clamp(Math.floor((p[0] + radius) / 64), 0, 31);
+        let x = clamp(Math.floor((p[0] - radius) / 64), 0, CHUNKS - 1);
+        x <= clamp(Math.floor((p[0] + radius) / 64), 0, CHUNKS - 1);
         x++
       )
-        for (const id of this.ruinCells.get(z * 32 + x) || []) {
+        for (const id of this.ruinCells.get(z * CHUNKS + x) || []) {
           const r = this.ruins.get(id)!;
           if (distance(r.p, p) < radius) result.push(r);
         }
@@ -742,8 +754,8 @@ export class Simulation {
     for (let i = 0; i < count && budget.n < budget.limit; i++) {
       const a = rand(this.tick + i * 31) * Math.PI * 2,
         r = rand(i * 43 + this.tick) * radius * 0.7;
-      const x = clamp(p[0] + Math.cos(a) * r, 1, 2047),
-        z = clamp(p[2] + Math.sin(a) * r, 1, 2047),
+      const x = clamp(p[0] + Math.cos(a) * r, 1, CONFIG.worldSize - 1),
+        z = clamp(p[2] + Math.sin(a) * r, 1, CONFIG.worldSize - 1),
         size = 0.7 + rand(i * 59 + this.tick) * 1.4;
       const pos: Vec3 = [x, this.terrain.sample(x, z) + size + 2, z];
       this.spawnBody(
@@ -759,8 +771,8 @@ export class Simulation {
   }
   private cell(p: Vec3) {
     return (
-      clamp(Math.floor(p[2] / 64), 0, 31) * 32 +
-      clamp(Math.floor(p[0] / 64), 0, 31)
+      clamp(Math.floor(p[2] / 64), 0, CHUNKS - 1) * CHUNKS +
+      clamp(Math.floor(p[0] / 64), 0, CHUNKS - 1)
     );
   }
   private indexRuin(r: Ruin) {
@@ -772,16 +784,17 @@ export class Simulation {
   private nearbyEntities(p: Vec3, radius: number) {
     const ids = new Set<number>();
     for (
-      let z = clamp(Math.floor((p[2] - radius) / 64), 0, 31);
-      z <= clamp(Math.floor((p[2] + radius) / 64), 0, 31);
+      let z = clamp(Math.floor((p[2] - radius) / 64), 0, CHUNKS - 1);
+      z <= clamp(Math.floor((p[2] + radius) / 64), 0, CHUNKS - 1);
       z++
     )
       for (
-        let x = clamp(Math.floor((p[0] - radius) / 64), 0, 31);
-        x <= clamp(Math.floor((p[0] + radius) / 64), 0, 31);
+        let x = clamp(Math.floor((p[0] - radius) / 64), 0, CHUNKS - 1);
+        x <= clamp(Math.floor((p[0] + radius) / 64), 0, CHUNKS - 1);
         x++
       )
-        for (const id of this.entityCells.get(z * 32 + x) || []) ids.add(id);
+        for (const id of this.entityCells.get(z * CHUNKS + x) || [])
+          ids.add(id);
     return [...ids];
   }
   private insertRuin(r: Ruin) {
@@ -954,28 +967,37 @@ export class Simulation {
     releasedProfile?: BlastProfile,
   ) {
     const profile = releasedProfile ?? nukeProfile(strength, this.destruction);
-    this.damageMonsters(p, profile.damageRadius, 3);
+    this.damageMonsters(p, profile.damageRadius, 5);
     const chunks: number[] = [];
     for (
-      let z = clamp(Math.floor((p[2] - profile.craterRadius) / 64), 0, 31);
-      z <= clamp(Math.floor((p[2] + profile.craterRadius) / 64), 0, 31);
+      let z = clamp(
+        Math.floor((p[2] - profile.craterRadius) / 64),
+        0,
+        CHUNKS - 1,
+      );
+      z <= clamp(Math.floor((p[2] + profile.craterRadius) / 64), 0, CHUNKS - 1);
       z++
     )
       for (
-        let x = clamp(Math.floor((p[0] - profile.craterRadius) / 64), 0, 31);
-        x <= clamp(Math.floor((p[0] + profile.craterRadius) / 64), 0, 31);
+        let x = clamp(
+          Math.floor((p[0] - profile.craterRadius) / 64),
+          0,
+          CHUNKS - 1,
+        );
+        x <=
+        clamp(Math.floor((p[0] + profile.craterRadius) / 64), 0, CHUNKS - 1);
         x++
       )
-        chunks.push(z * 32 + x);
+        chunks.push(z * CHUNKS + x);
     chunks.sort(
       (a, b) =>
         Math.hypot(
-          (a % 32) * 64 + 32 - p[0],
-          Math.floor(a / 32) * 64 + 32 - p[2],
+          (a % CHUNKS) * 64 + 32 - p[0],
+          Math.floor(a / CHUNKS) * 64 + 32 - p[2],
         ) -
         Math.hypot(
-          (b % 32) * 64 + 32 - p[0],
-          Math.floor(b / 32) * 64 + 32 - p[2],
+          (b % CHUNKS) * 64 + 32 - p[0],
+          Math.floor(b / CHUNKS) * 64 + 32 - p[2],
         ),
     );
     const ids = this.nearbyEntities(p, profile.damageRadius).filter(
@@ -1388,9 +1410,16 @@ export class Simulation {
     );
     let turn = clamp(this.input.x + this.input.bank * 0.8, -1, 1),
       pitch = clamp(this.input.y, -1, 1);
-    p.boundary = p.p[0] < 200 || p.p[0] > 1848 || p.p[2] < 200 || p.p[2] > 1848;
+    p.boundary =
+      p.p[0] < 200 ||
+      p.p[0] > CONFIG.worldSize - 200 ||
+      p.p[2] < 200 ||
+      p.p[2] > CONFIG.worldSize - 200;
     if (p.boundary) {
-      let desired = Math.atan2(1024 - p.p[0], 1024 - p.p[2]),
+      let desired = Math.atan2(
+          CONFIG.worldSize / 2 - p.p[0],
+          CONFIG.worldSize / 2 - p.p[2],
+        ),
         diff = Math.atan2(Math.sin(desired - p.yaw), Math.cos(desired - p.yaw));
       turn = clamp(diff * 2, -1, 1);
     }
@@ -1483,6 +1512,8 @@ export class Simulation {
     amount: number,
     laserColumn = false,
   ) {
+    const before = this.monsters.active();
+    this.civilians.blast(p, radius, laserColumn);
     for (const m of laserColumn
       ? this.monsters.burn(p, radius, amount)
       : this.monsters.blast(p, radius, amount)) {
@@ -1493,6 +1524,7 @@ export class Simulation {
         kind: m.defeated ? "defeat" : "hit",
       });
     }
+    this.civilians.defeats(before, this.monsters.active());
   }
   private laserAim(): Vec3 | null {
     const p = this.plane,
@@ -1546,19 +1578,27 @@ export class Simulation {
     if (progress === 1) l.pending = [];
     for (
       let z =
-        radius > 500 ? 0 : clamp(Math.floor((l.p[2] - radius) / 64), 0, 31);
+        radius > 500
+          ? 0
+          : clamp(Math.floor((l.p[2] - radius) / 64), 0, CHUNKS - 1);
       z <=
-      (radius > 500 ? 31 : clamp(Math.floor((l.p[2] + radius) / 64), 0, 31));
+      (radius > 500
+        ? CHUNKS - 1
+        : clamp(Math.floor((l.p[2] + radius) / 64), 0, CHUNKS - 1));
       z++
     )
       for (
         let x =
-          radius > 500 ? 0 : clamp(Math.floor((l.p[0] - radius) / 64), 0, 31);
+          radius > 500
+            ? 0
+            : clamp(Math.floor((l.p[0] - radius) / 64), 0, CHUNKS - 1);
         x <=
-        (radius > 500 ? 31 : clamp(Math.floor((l.p[0] + radius) / 64), 0, 31));
+        (radius > 500
+          ? CHUNKS - 1
+          : clamp(Math.floor((l.p[0] + radius) / 64), 0, CHUNKS - 1));
         x++
       ) {
-        const section = z * 32 + x;
+        const section = z * CHUNKS + x;
         if (progress === 1) l.pending!.push(section);
         let work = this.laserWork.get(section);
         if (!work)
@@ -1804,7 +1844,13 @@ export class Simulation {
       }
       a = b;
       v[1] -= tuning.gravity * 0.16;
-      if (a[0] < 0 || a[0] > 2048 || a[2] < 0 || a[2] > 2048) break;
+      if (
+        a[0] < 0 ||
+        a[0] > CONFIG.worldSize ||
+        a[2] < 0 ||
+        a[2] > CONFIG.worldSize
+      )
+        break;
     }
   }
   step() {
@@ -1819,7 +1865,8 @@ export class Simulation {
     const previousPlanePosition = [...this.plane.p] as Vec3;
     const wasCrashed = this.plane.crashed > 0;
     this.fly(dt);
-    const previousSpikeCount = this.monsters.spikes.length;
+    if (!wasCrashed)
+      this.civilians.sweep(previousPlanePosition, this.plane.p, [4, 2, 4]);
     const struck = this.monsters.step(
       dt,
       this.plane.p,
@@ -1836,11 +1883,12 @@ export class Simulation {
           );
         }),
       discoActive(this.lasers),
+      this.plane.v,
     );
-    if (this.monsters.spikes.length > previousSpikeCount)
+    for (const p of this.monsters.throws)
       this.emit({
         type: "monsterEvent",
-        p: [...this.monsters.spikes.at(-1)!.p],
+        p: [...p],
         kind: "throw",
       });
     const bodyHit = this.monsters.intersect(
@@ -1893,9 +1941,9 @@ export class Simulation {
       } else if (
         s.age > WEAPONS[s.weapon].lifetime ||
         next[0] < 0 ||
-        next[0] > 2048 ||
+        next[0] > CONFIG.worldSize ||
         next[2] < 0 ||
-        next[2] > 2048
+        next[2] > CONFIG.worldSize
       )
         this.projectiles.splice(i, 1);
       else {
@@ -2015,6 +2063,12 @@ export class Simulation {
           break;
         }
       }
+      if (Math.hypot(velocity.x, velocity.y, velocity.z) > 2)
+        this.civilians.sweep(
+          previous,
+          nextPosition,
+          this.orientedSize(m.view.s, m.view.q),
+        );
       m.view.p[0] = nextPosition[0];
       m.view.p[1] = nextPosition[1];
       m.view.p[2] = nextPosition[2];
@@ -2032,7 +2086,15 @@ export class Simulation {
         this.settle(m, true);
     }
     for (const m of this.ballistic.values()) {
+      const previous = [...m.view.p] as Vec3;
+      const speed = Math.hypot(...m.velocity);
       const resting = advanceDebris(m, this.terrain, dt);
+      if (speed > 2)
+        this.civilians.sweep(
+          previous,
+          m.view.p,
+          this.orientedSize(m.view.s, m.view.q),
+        );
       if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
         this.ballistic.delete(m.view.id);
         this.bump();
@@ -2043,12 +2105,38 @@ export class Simulation {
         this.bump();
       }
     }
+    this.civilians.step(
+      dt,
+      this.monsters.active(),
+      this.plane.p,
+      this.plane.crashed > 0,
+      (p) =>
+        this.nearbyEntities(p, 5).some((id) => {
+          const e = this.world.entities[id];
+          return (
+            !this.removed.has(id) &&
+            e.kind !== "tree" &&
+            Math.abs(e.p[0] - p[0]) < e.s[0] + 1 &&
+            Math.abs(e.p[2] - p[2]) < e.s[2] + 1 &&
+            e.p[1] + e.s[1] > p[1] &&
+            e.p[1] - e.s[1] < p[1] + 4
+          );
+        }),
+    );
+    if (this.civilians.changed) {
+      this.bump();
+      this.civilians.changed = false;
+    }
+    this.civilians.flush((p, kind) =>
+      this.emit({ type: "settlementEvent", p: [...p], kind }),
+    );
     if (this.tick % 12 === 0) this.updateAim();
     this.flush();
   }
   snapshot(packed = false): SimulationSnapshot {
     return {
       type: "snapshot",
+      population: civilianPopulation(this.civilians.states),
       tick: this.tick,
       time: this.time,
       plane: structuredClone(this.plane),
@@ -2065,6 +2153,8 @@ export class Simulation {
         p: [...s.p],
         v: [...s.v],
       })),
+      civilians: structuredClone(this.civilians.states),
+      settlements: structuredClone(this.civilians.settlements),
       monsters: structuredClone(
         this.monsters.states.slice(0, this.monsterCount),
       ),
@@ -2116,7 +2206,11 @@ export class Simulation {
       ids.add(r.id);
     }
     for (const view of this.debrisViews()) {
-      const p: Vec3 = [clamp(view.p[0], 8, 2040), 0, clamp(view.p[2], 8, 2040)];
+      const p: Vec3 = [
+        clamp(view.p[0], 8, CONFIG.worldSize - 8),
+        0,
+        clamp(view.p[2], 8, CONFIG.worldSize - 8),
+      ];
       const s: Vec3 = [...view.s];
       let q: Quat = [...view.q];
       if (view.kind === "tree") {
@@ -2178,6 +2272,8 @@ export class Simulation {
         }, []),
       ),
       vaporized: [...this.vaporized],
+      civilians: structuredClone(this.civilians.states),
+      settlements: structuredClone(this.civilians.settlements),
       monsters: structuredClone(this.monsters.states),
     };
   }

@@ -56,8 +56,16 @@ export class CameraRig {
             dt * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 160 : 35),
           ),
       );
-    this.photoPosition.x = THREE.MathUtils.clamp(this.photoPosition.x, 0, 2048);
-    this.photoPosition.z = THREE.MathUtils.clamp(this.photoPosition.z, 0, 2048);
+    this.photoPosition.x = THREE.MathUtils.clamp(
+      this.photoPosition.x,
+      0,
+      CONFIG.worldSize,
+    );
+    this.photoPosition.z = THREE.MathUtils.clamp(
+      this.photoPosition.z,
+      0,
+      CONFIG.worldSize,
+    );
     this.photoPosition.y = THREE.MathUtils.clamp(
       this.photoPosition.y,
       -CONFIG.laserBedrock - 200,

@@ -1,3 +1,4 @@
+import { CONFIG } from "../config";
 import * as THREE from "three";
 
 export const DISCO_PATTERN_GLSL = `
@@ -5,7 +6,7 @@ float discoHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5
 vec3 discoPattern(vec2 world, float beat) {
   float a = beat * 0.18;
   mat2 spin = mat2(cos(a), -sin(a), sin(a), cos(a));
-  vec2 grid = (spin * (world - vec2(1024.0))) / 78.0;
+  vec2 grid = (spin * (world - vec2(${(CONFIG.worldSize / 2).toFixed(1)}))) / 78.0;
   vec2 cell = floor(grid);
   vec2 local = fract(grid) - 0.5;
   float phase = discoHash(cell) * 6.28318;
@@ -45,23 +46,35 @@ export class DiscoScene {
     map.colorSpace = THREE.SRGBColorSpace;
     this.ball = new THREE.Group();
     this.ball.userData.googlyBounds = [0, 0, 0, 125, 125, 125];
-    this.ball.position.set(1024, 1100, 1024);
+    this.ball.position.set(CONFIG.worldSize / 2, 1100, CONFIG.worldSize / 2);
     const mirror = new THREE.Mesh(
       new THREE.SphereGeometry(125, 48, 32),
       new THREE.MeshBasicMaterial({ map, color: "#d8e7ff" }),
     );
     const halo = new THREE.Mesh(
       new THREE.SphereGeometry(133, 32, 20),
-      new THREE.MeshBasicMaterial({ color: "#91aaff", transparent: true,
-        opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending,
-        side: THREE.BackSide }),
+      new THREE.MeshBasicMaterial({
+        color: "#91aaff",
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+      }),
     );
     this.ball.add(mirror, halo);
     this.beams = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(1, 0.02, 1, 8, 1, true),
-      new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true,
-        opacity: 0.08, depthWrite: false, side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending, toneMapped: false, fog: false }),
+      new THREE.MeshBasicMaterial({
+        color: "#ffffff",
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        fog: false,
+      }),
       32,
     );
     this.beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -78,34 +91,59 @@ export class DiscoScene {
       shader.uniforms.uDiscoAmount = this.amount;
       shader.uniforms.uDiscoTime = this.time;
       shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", "#include <common>\nvarying vec3 vDiscoWorld;")
-        .replace("#include <begin_vertex>", `#include <begin_vertex>
+        .replace(
+          "#include <common>",
+          "#include <common>\nvarying vec3 vDiscoWorld;",
+        )
+        .replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
           vec4 discoLocal = vec4(transformed, 1.0);
           #ifdef USE_INSTANCING
             discoLocal = instanceMatrix * discoLocal;
           #endif
-          vDiscoWorld = (modelMatrix * discoLocal).xyz;`);
+          vDiscoWorld = (modelMatrix * discoLocal).xyz;`,
+        );
       shader.fragmentShader = shader.fragmentShader
-        .replace("#include <common>", `#include <common>
+        .replace(
+          "#include <common>",
+          `#include <common>
           varying vec3 vDiscoWorld;
           uniform float uDiscoAmount;
           uniform float uDiscoTime;
-          ${DISCO_PATTERN_GLSL}`)
-        .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+          ${DISCO_PATTERN_GLSL}`,
+        )
+        .replace(
+          "#include <emissivemap_fragment>",
+          `#include <emissivemap_fragment>
           if (uDiscoAmount > 0.001)
-            totalEmissiveRadiance += uDiscoAmount * discoPattern(vDiscoWorld.xz, uDiscoTime);`);
+            totalEmissiveRadiance += uDiscoAmount * discoPattern(vDiscoWorld.xz, uDiscoTime);`,
+        );
     };
     material.needsUpdate = true;
   }
   decorateScene(scene: THREE.Scene) {
     scene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
-      for (const material of Array.isArray(object.material) ? object.material : [object.material])
-        if (material instanceof THREE.MeshStandardMaterial) this.decorate(material);
+      for (const material of Array.isArray(object.material)
+        ? object.material
+        : [object.material])
+        if (material instanceof THREE.MeshStandardMaterial)
+          this.decorate(material);
     });
   }
-  update(active: boolean, dt: number, simTime: number, ground: (x: number, z: number) => number, reduced: boolean) {
-    this.strength = THREE.MathUtils.clamp(this.strength + (active ? dt / 0.75 : -dt / 0.6), 0, 1);
+  update(
+    active: boolean,
+    dt: number,
+    simTime: number,
+    ground: (x: number, z: number) => number,
+    reduced: boolean,
+  ) {
+    this.strength = THREE.MathUtils.clamp(
+      this.strength + (active ? dt / 0.75 : -dt / 0.6),
+      0,
+      1,
+    );
     this.group.visible = this.strength > 0.001;
     this.skyAmount.value = this.strength;
     this.amount.value = this.strength * (reduced ? 0.55 : 1);
@@ -113,19 +151,34 @@ export class DiscoScene {
     const ease = this.strength * this.strength * (3 - 2 * this.strength);
     this.ball.scale.setScalar(ease);
     this.ball.rotation.y = simTime * 0.24;
-    const count = this.group.visible ? reduced ? 12 : 32 : 0;
+    const count = this.group.visible ? (reduced ? 12 : 32) : 0;
     this.beams.count = count;
-    const origin = new THREE.Vector3(1024, 1100, 1024);
+    const origin = new THREE.Vector3(
+      CONFIG.worldSize / 2,
+      1100,
+      CONFIG.worldSize / 2,
+    );
     const color = new THREE.Color();
     for (let i = 0; i < count; i++) {
       const angle = i * 2.399963 + simTime * (i % 2 ? 0.2 : -0.16);
       const radius = 240 + Math.sqrt((i + 0.5) / count) * 1020;
-      const x = THREE.MathUtils.clamp(1024 + Math.cos(angle) * radius, 20, 2028);
-      const z = THREE.MathUtils.clamp(1024 + Math.sin(angle) * radius, 20, 2028);
+      const x = THREE.MathUtils.clamp(
+        CONFIG.worldSize / 2 + Math.cos(angle) * radius,
+        20,
+        CONFIG.worldSize - 20,
+      );
+      const z = THREE.MathUtils.clamp(
+        CONFIG.worldSize / 2 + Math.sin(angle) * radius,
+        20,
+        CONFIG.worldSize - 20,
+      );
       const target = new THREE.Vector3(x, ground(x, z) + 4, z);
       const ray = target.clone().sub(origin);
       this.dummy.position.copy(origin).addScaledVector(ray, 0.5);
-      this.dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ray.clone().normalize());
+      this.dummy.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        ray.clone().normalize(),
+      );
       this.dummy.scale.set(18 * ease, ray.length(), 18 * ease);
       this.dummy.updateMatrix();
       this.beams.setMatrixAt(i, this.dummy.matrix);

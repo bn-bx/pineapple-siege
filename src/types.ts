@@ -1,3 +1,4 @@
+import type { CivilianPopulation } from "./civilian-morale";
 export type ProjectileWeapon = "cannon" | "nuke";
 export type WeaponId = ProjectileWeapon | "laser";
 export interface LaserProfile {
@@ -69,6 +70,8 @@ export interface MonsterState {
   stagger: number;
 }
 export interface MonsterSpike {
+  id: number;
+  age: number;
   p: Vec3;
   v: Vec3;
 }
@@ -110,7 +113,29 @@ export interface Entity {
   supports: number[];
   variant: number;
 }
+export interface CivilianSpawn {
+  id: number;
+  home: string;
+  settlement: string;
+  p: Vec3;
+}
+export type CivilianMood = "walk" | "flee" | "cheer" | "sad";
+export interface CivilianState {
+  id: number;
+  p: Vec3;
+  yaw: number;
+  alive: boolean;
+  mood: CivilianMood;
+  phase: number;
+}
+export interface SettlementState {
+  id: string;
+  cheer: number;
+  sad: number;
+  threatened: boolean;
+}
 export interface WorldData {
+  civilians?: CivilianSpawn[];
   version: number;
   seed: number;
   size: number;
@@ -234,6 +259,9 @@ export interface SimulationSnapshot {
     weapon: ProjectileWeapon;
     yield: NukeYield;
   }[];
+  population: CivilianPopulation;
+  civilians: CivilianState[];
+  settlements: SettlementState[];
   monsters: MonsterState[];
   monsterSpikes: MonsterSpike[];
   monsterCount: number;
@@ -273,6 +301,8 @@ export interface SaveSnapshot {
   laserCooldown: number;
   laserDry: Uint32Array;
   vaporized: number[];
+  civilians?: CivilianState[];
+  settlements?: SettlementState[];
   monsters?: MonsterState[];
 }
 export type GameCommand =
@@ -308,6 +338,7 @@ export interface ContactSound {
   action: "fracture" | "impact" | "settle";
 }
 export type WorkerMessage =
+  | { type: "settlementEvent"; p: Vec3; kind: "cheer" | "sad" }
   | { type: "vaporize"; p: Vec3; radius: number }
   | {
       type: "monsterEvent";

@@ -1,9 +1,17 @@
 import * as THREE from "three";
 
 let template: THREE.Group | undefined;
-const cylinder = (a: THREE.Vector3, b: THREE.Vector3, radius: number, material: THREE.Material) => {
+const cylinder = (
+  a: THREE.Vector3,
+  b: THREE.Vector3,
+  radius: number,
+  material: THREE.Material,
+) => {
   const d = b.clone().sub(a);
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.8, radius, d.length(), 7), material);
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.8, radius, d.length(), 7),
+    material,
+  );
   mesh.position.copy(a).addScaledVector(d, 0.5);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
   mesh.castShadow = true;
@@ -34,15 +42,32 @@ function build() {
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
   const gold = new THREE.MeshStandardMaterial({ map, roughness: 0.9 });
-  const leaf = new THREE.MeshStandardMaterial({ color: "#3a6930", roughness: 0.9, side: THREE.DoubleSide });
-  const limb = new THREE.MeshStandardMaterial({ color: "#987126", roughness: 0.95 });
-  const dark = new THREE.MeshStandardMaterial({ color: "#21170f", roughness: 0.9 });
-  const eye = new THREE.MeshStandardMaterial({ color: "#f34924", emissive: "#631807", emissiveIntensity: 0.7 });
+  const leaf = new THREE.MeshStandardMaterial({
+    color: "#3a6930",
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  });
+  const limb = new THREE.MeshStandardMaterial({
+    color: "#987126",
+    roughness: 0.95,
+  });
+  const dark = new THREE.MeshStandardMaterial({
+    color: "#21170f",
+    roughness: 0.9,
+  });
+  const eye = new THREE.MeshStandardMaterial({
+    color: "#f34924",
+    emissive: "#631807",
+    emissiveIntensity: 0.7,
+  });
   const nativeEyes = new THREE.Group();
   nativeEyes.name = "native-eyes";
   nativeEyes.visible = false;
   g.add(nativeEyes);
-  const ivory = new THREE.MeshStandardMaterial({ color: "#e7dca9", roughness: 0.75 });
+  const ivory = new THREE.MeshStandardMaterial({
+    color: "#e7dca9",
+    roughness: 0.75,
+  });
   const body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), gold);
   body.position.y = 15;
   body.scale.set(9, 12, 8);
@@ -52,8 +77,11 @@ function build() {
   crown.name = "crown";
   crown.position.y = 26;
   for (let i = 0; i < 11; i++) {
-    const a = i * Math.PI * 2 / 11;
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(1.2, 9 + (i % 3) * 2, 4), leaf);
+    const a = (i * Math.PI * 2) / 11;
+    const blade = new THREE.Mesh(
+      new THREE.ConeGeometry(1.2, 9 + (i % 3) * 2, 4),
+      leaf,
+    );
     blade.position.set(Math.sin(a) * 2.8, 3.6, Math.cos(a) * 2.8);
     blade.rotation.z = Math.sin(a) * 0.36;
     blade.rotation.x = Math.cos(a) * 0.36;
@@ -69,12 +97,33 @@ function build() {
     pupil.position.set(sign * 3.4, 18.5, 8.15);
     pupil.scale.z = 0.45;
     nativeEyes.add(socket, pupil);
-    g.add(cylinder(new THREE.Vector3(sign * 1.5, 21, 8), new THREE.Vector3(sign * 5.2, 19.6, 7.4), 0.55, dark));
+    g.add(
+      cylinder(
+        new THREE.Vector3(sign * 1.5, 21, 8),
+        new THREE.Vector3(sign * 5.2, 19.6, 7.4),
+        0.55,
+        dark,
+      ),
+    );
     const arm = new THREE.Group();
     arm.name = sign < 0 ? "leftArm" : "rightArm";
     arm.position.set(sign * 7.5, 19, 0);
-    arm.add(cylinder(new THREE.Vector3(), new THREE.Vector3(sign * 6.5, -7.5, 2), 2.2, limb));
-    arm.add(cylinder(new THREE.Vector3(sign * 6.5, -7.5, 2), new THREE.Vector3(sign * 10, -15.5, 6), 1.8, limb));
+    arm.add(
+      cylinder(
+        new THREE.Vector3(),
+        new THREE.Vector3(sign * 6.5, -7.5, 2),
+        2.2,
+        limb,
+      ),
+    );
+    arm.add(
+      cylinder(
+        new THREE.Vector3(sign * 6.5, -7.5, 2),
+        new THREE.Vector3(sign * 10, -15.5, 6),
+        1.8,
+        limb,
+      ),
+    );
     const fist = new THREE.Mesh(new THREE.SphereGeometry(2.1, 10, 8), limb);
     fist.position.set(sign * 10, -15.5, 6);
     fist.castShadow = true;
@@ -87,7 +136,10 @@ function build() {
     }
     g.add(arm);
   }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.6, 6, 12, Math.PI), dark);
+  const mouth = new THREE.Mesh(
+    new THREE.TorusGeometry(2.7, 0.6, 6, 12, Math.PI),
+    dark,
+  );
   mouth.position.set(0, 13.5, 8);
   mouth.rotation.z = Math.PI;
   g.add(mouth);
@@ -125,9 +177,63 @@ export function makeDistantMonster() {
     distantTemplate.add(crown);
     const armMat = new THREE.MeshLambertMaterial({ color: "#8e6925" });
     for (const sign of [-1, 1]) {
-      distantTemplate.add(cylinder(new THREE.Vector3(sign * 7, 18, 0),
-        new THREE.Vector3(sign * 18, 3, 5), 2, armMat));
+      distantTemplate.add(
+        cylinder(
+          new THREE.Vector3(sign * 7, 18, 0),
+          new THREE.Vector3(sign * 18, 3, 5),
+          2,
+          armMat,
+        ),
+      );
     }
   }
   return distantTemplate.clone(true);
+}
+
+/** Four shared draws for all distant enemies, including their disco transforms. */
+export class DistantMonsterView {
+  readonly group = new THREE.Group();
+  readonly parts: THREE.InstancedMesh[];
+  private local: THREE.Matrix4[];
+  private matrix = new THREE.Matrix4();
+  private count = 0;
+  constructor(capacity: number) {
+    const template = makeDistantMonster();
+    this.local = [];
+    this.parts = template.children.map((child) => {
+      const mesh = child as THREE.Mesh;
+      mesh.updateMatrix();
+      this.local.push(mesh.matrix.clone());
+      const part = new THREE.InstancedMesh(
+        mesh.geometry,
+        mesh.material,
+        capacity,
+      );
+      part.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      part.frustumCulled = false;
+      part.count = 0;
+      this.group.add(part);
+      return part;
+    });
+  }
+  begin() {
+    this.count = 0;
+  }
+  add(root: THREE.Object3D) {
+    root.updateMatrix();
+    for (let i = 0; i < this.parts.length; i++)
+      this.parts[i].setMatrixAt(
+        this.count,
+        this.matrix.multiplyMatrices(root.matrix, this.local[i]),
+      );
+    this.count++;
+  }
+  finish() {
+    for (const part of this.parts) {
+      part.count = this.count;
+      part.instanceMatrix.clearUpdateRanges();
+      if (this.count) part.instanceMatrix.addUpdateRange(0, this.count * 16);
+      part.instanceMatrix.needsUpdate = true;
+    }
+  }
 }

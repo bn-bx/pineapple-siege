@@ -1,11 +1,13 @@
+import { SnapshotTimeline } from "./snapshot-timeline";
+import { CivilianView } from "./civilians";
 import { isRoof } from "../debris-shape";
 import { MAX_BODY_LIMIT } from "../destruction-settings";
 import { CameraRig } from "./camera-rig";
 import { GooglyEyes } from "./googly-eyes";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
-import { makeMonster, makeDistantMonster } from "./monster";
-import { FlightTimeline, flightPose } from "./flight-pose";
+import { makeMonster, makeDistantMonster, DistantMonsterView } from "./monster";
+import { flightPose } from "./flight-pose";
 import * as THREE from "three";
 import { Water } from "three/addons/objects/Water.js";
 import {
@@ -31,7 +33,16 @@ import type {
   FragmentEffect,
   Material,
 } from "../types";
-import { clamp, DEFAULT_MONSTER_COUNT, LASER, MONSTER_SCALE, WEAPONS } from "../config";
+import {
+  CONFIG,
+  CHUNKS,
+  clamp,
+  DEFAULT_MONSTER_COUNT,
+  MAX_MONSTER_COUNT,
+  LASER,
+  MONSTER_SCALE,
+  WEAPONS,
+} from "../config";
 interface Batch {
   mesh: THREE.InstancedMesh;
   low?: THREE.InstancedMesh;
@@ -44,6 +55,7 @@ const dummy = new THREE.Object3D(),
   zero = new THREE.Matrix4().makeScale(0, 0, 0),
   up = new THREE.Vector3(0, 1, 0);
 export class GameRenderer {
+  readonly civilians: CivilianView;
   readonly rig = new CameraRig();
   private cameraCells = new Map<number, Entity[]>();
   readonly renderer: THREE.WebGLRenderer;
@@ -74,6 +86,14 @@ export class GameRenderer {
   private bodyMeshes = new Map<string, THREE.InstancedMesh>();
   private syncedBodies?: BodyView[];
   private previousBodies = new Map<number, BodyView>();
+  private previousProjectiles = new Map<
+    number,
+    SimulationSnapshot["projectiles"][number]
+  >();
+  private previousSpikes = new Map<
+    number,
+    SimulationSnapshot["monsterSpikes"][number]
+  >();
   private syncedBodyAlpha = -1;
   private debrisRotation = new THREE.Quaternion();
   private fallenPines: THREE.InstancedMesh;
@@ -81,6 +101,7 @@ export class GameRenderer {
   private shotMeshes: THREE.Group[] = [];
   private monsterMeshes: THREE.Group[] = [];
   private distantMonsters: THREE.Group[] = [];
+  private distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
   private googlyEyes = false;
   private spikeMeshes: THREE.Mesh[] = [];
   private flagGroup = new THREE.Group();
@@ -88,8 +109,7 @@ export class GameRenderer {
   private inspect?: { p: THREE.Vector3; target: THREE.Vector3 };
   private last?: SimulationSnapshot;
   private previous?: SimulationSnapshot;
-  private lastArrival = 0;
-  private flight = new FlightTimeline();
+  private timeline = new SnapshotTimeline<SimulationSnapshot>();
   private readyCamera = false;
   private cameraTarget = new THREE.Vector3();
   private cameraPosition = new THREE.Vector3();
@@ -123,19 +143,21 @@ export class GameRenderer {
     readonly world: WorldData,
     heights: Float32Array,
   ) {
+    this.civilians = new CivilianView(world.civilians?.length ?? 0);
+    this.scene.add(this.civilians.group);
     for (const e of world.entities) {
       if (e.kind === "tree") continue;
       for (
         let z = Math.max(0, Math.floor((e.p[2] - e.s[2]) / 64));
-        z <= Math.min(31, Math.floor((e.p[2] + e.s[2]) / 64));
+        z <= Math.min(CHUNKS - 1, Math.floor((e.p[2] + e.s[2]) / 64));
         z++
       )
         for (
           let x = Math.max(0, Math.floor((e.p[0] - e.s[0]) / 64));
-          x <= Math.min(31, Math.floor((e.p[0] + e.s[0]) / 64));
+          x <= Math.min(CHUNKS - 1, Math.floor((e.p[0] + e.s[0]) / 64));
           x++
         ) {
-          const key = z * 32 + x;
+          const key = z * CHUNKS + x;
           let cell = this.cameraCells.get(key);
           if (!cell) this.cameraCells.set(key, (cell = []));
           cell.push(e);
@@ -178,6 +200,7 @@ export class GameRenderer {
       this.ambient,
     );
     this.ensureMonsterMeshes(DEFAULT_MONSTER_COUNT);
+    this.scene.add(this.distantMonsterView.group);
     this.scene.fog = new THREE.FogExp2("#98b5bb", 0.00065);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -234,18 +257,21 @@ export class GameRenderer {
     const normals = new THREE.DataTexture(pixels, 128, 128);
     normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
     normals.needsUpdate = true;
-    this.water = new Water(new THREE.PlaneGeometry(2048, 2048), {
-      textureWidth: 768,
-      textureHeight: 432,
-      waterNormals: normals,
-      sunDirection: new THREE.Vector3(0.3, 0.6, 0.2),
-      sunColor: 0xffeed5,
-      waterColor: 0x28645d,
-      distortionScale: 1.6,
-      fog: true,
-    });
+    this.water = new Water(
+      new THREE.PlaneGeometry(CONFIG.worldSize, CONFIG.worldSize),
+      {
+        textureWidth: 768,
+        textureHeight: 432,
+        waterNormals: normals,
+        sunDirection: new THREE.Vector3(0.3, 0.6, 0.2),
+        sunColor: 0xffeed5,
+        waterColor: 0x28645d,
+        distortionScale: 1.6,
+        fog: true,
+      },
+    );
     this.water.rotation.x = -Math.PI / 2;
-    this.water.position.set(1024, 0.04, 1024);
+    this.water.position.set(CONFIG.worldSize / 2, 0.04, CONFIG.worldSize / 2);
     const mat = this.water.material;
     mat.uniforms.uFlood = { value: this.terrain.floodTexture };
     mat.uniforms.uHeight = { value: this.terrain.heightTexture };
@@ -259,7 +285,7 @@ export class GameRenderer {
       )
       .replace(
         "#include <logdepthbuf_fragment>",
-        "#include <logdepthbuf_fragment>\n vec2 terrainUV=(worldPosition.xz/2.+.5)/1025.; if(texture2D(uFlood,terrainUV).r<.5)discard; float waterDepth=max(0.,-texture2D(uHeight,terrainUV).r);",
+        `#include <logdepthbuf_fragment>\n vec2 terrainUV=(worldPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.; if(texture2D(uFlood,terrainUV).r<.5)discard; float waterDepth=max(0.,-texture2D(uHeight,terrainUV).r);`,
       )
       .replace("float rf0 = 0.3;", "float rf0 = 0.08;")
       .replace(
@@ -268,7 +294,7 @@ export class GameRenderer {
       );
     const original = this.water.onBeforeRender;
     this.water.onBeforeRender = (r, s, c, g, m, group) => {
-      if (this.frame % 2 === 0) {
+      if (this.frame % 6 === 0) {
         const visible = this.effects.group.visible;
         this.effects.group.visible = false;
         original.call(this.water, r, s, c, g, m, group);
@@ -459,12 +485,14 @@ export class GameRenderer {
     while (this.monsterMeshes.length < count) {
       const monster = makeMonster();
       const distant = makeDistantMonster();
+      for (const child of distant.children) child.visible = false;
       const nativeEyes = monster.getObjectByName("native-eyes");
       if (nativeEyes) nativeEyes.visible = !this.googlyEyes;
       monster.visible = distant.visible = false;
       this.monsterMeshes.push(monster);
       this.distantMonsters.push(distant);
-      this.scene.add(monster, distant);
+      // Attach only visible detail models; hidden hierarchies otherwise still
+      // recalculate thousands of world matrices on every frame.
     }
   }
   setQuality(q: string) {
@@ -489,18 +517,20 @@ export class GameRenderer {
     this.camera.updateProjectionMatrix();
   }
   receive(snapshot: SimulationSnapshot) {
-    this.previous = this.last;
-    this.previousBodies.clear();
-    for (const body of this.previous?.bodies || [])
-      this.previousBodies.set(body.id, body);
+    if (
+      this.last &&
+      flightPose(this.last.plane, snapshot.plane, 1).discontinuity
+    ) {
+      this.timeline.reset();
+      this.readyCamera = false;
+    }
     this.last = snapshot;
-    this.lastArrival = performance.now();
-    this.flight.receive({ time: snapshot.time, plane: snapshot.plane });
+    this.timeline.receive(snapshot, performance.now());
   }
-  resumeFlight() {
-    this.flight.reset();
-    if (this.last)
-      this.flight.receive({ time: this.last.time, plane: this.last.plane });
+  resumeSnapshots() {
+    this.timeline.reset();
+    this.readyCamera = false;
+    if (this.last) this.timeline.receive(this.last, performance.now());
   }
   reset(
     heights: Float32Array,
@@ -546,13 +576,16 @@ export class GameRenderer {
     this.disco.reset();
     for (const shot of this.shotMeshes.splice(12)) this.scene.remove(shot);
     for (const shot of this.shotMeshes) shot.visible = false;
+    this.civilians.reset();
     for (const m of this.monsterMeshes) m.visible = false;
     for (const m of this.distantMonsters) m.visible = false;
+    this.distantMonsterView.begin();
+    this.distantMonsterView.finish();
     for (const s of this.spikeMeshes) s.visible = false;
     this.readyCamera = false;
     this.previous = undefined;
+    this.timeline.reset();
     this.last = undefined;
-    this.flight.reset();
     this.previousBodies.clear();
     this.syncedBodies = undefined;
     this.renderer.shadowMap.needsUpdate = true;
@@ -588,8 +621,8 @@ export class GameRenderer {
   }
   private ruinCell(p: number[]) {
     return (
-      Math.max(0, Math.min(31, Math.floor(p[2] / 64))) * 32 +
-      Math.max(0, Math.min(31, Math.floor(p[0] / 64)))
+      Math.max(0, Math.min(CHUNKS - 1, Math.floor(p[2] / 64))) * CHUNKS +
+      Math.max(0, Math.min(CHUNKS - 1, Math.floor(p[0] / 64)))
     );
   }
   private addRuin(r: Ruin) {
@@ -634,12 +667,13 @@ export class GameRenderer {
         dummy.updateMatrix();
         batch.matrices.push(dummy.matrix.clone());
       };
-      const firstCell = Math.floor(key / 16) * 64 + (key % 16) * 2;
+      const firstCell =
+        Math.floor(key / (CHUNKS / 2)) * CHUNKS * 2 + (key % (CHUNKS / 2)) * 2;
       const ids = [
         firstCell,
         firstCell + 1,
-        firstCell + 32,
-        firstCell + 33,
+        firstCell + CHUNKS,
+        firstCell + CHUNKS + 1,
       ].flatMap((cell) => [...(this.ruinCells.get(cell) || [])]);
       for (const id of ids) {
         const r = this.ruins.get(id)!;
@@ -713,8 +747,8 @@ export class GameRenderer {
     this.dirtyRuinBatches.clear();
     for (const [key, g] of this.ruinGroups) {
       const d = Math.hypot(
-        (key % 16) * 128 + 64 - this.camera.position.x,
-        Math.floor(key / 16) * 128 + 64 - this.camera.position.z,
+        (key % (CHUNKS / 2)) * 128 + 64 - this.camera.position.x,
+        Math.floor(key / (CHUNKS / 2)) * 128 + 64 - this.camera.position.z,
       );
       g.visible = d < 1400;
       for (const m of g.children) m.castShadow = d < 230;
@@ -722,7 +756,8 @@ export class GameRenderer {
   }
   private ruinBatch(cell: number) {
     return (
-      Math.floor(Math.floor(cell / 32) / 2) * 16 + Math.floor((cell % 32) / 2)
+      Math.floor(Math.floor(cell / CHUNKS) / 2) * (CHUNKS / 2) +
+      Math.floor((cell % CHUNKS) / 2)
     );
   }
   private growDebrisMesh(mesh: THREE.InstancedMesh, required: number) {
@@ -863,12 +898,26 @@ export class GameRenderer {
       }
     }
   }
-  render(dt: number, active: boolean) {
+  render(dt: number, active: boolean, frameTime = performance.now()) {
     this.frame++;
     if (active) this.elapsed += dt;
     this.averageMS = this.averageMS * 0.95 + Math.min(dt * 1000, 200) * 0.05;
-    const snap = this.last;
-    if (!snap) return;
+    const playback = this.timeline.sample(frameTime, active);
+    if (!playback) return;
+    const snap = playback.current;
+    const alpha = playback.alpha;
+    if (this.previous !== playback.previous) {
+      this.previous = playback.previous;
+      this.previousBodies.clear();
+      for (const body of this.previous.bodies)
+        this.previousBodies.set(body.id, body);
+      this.previousProjectiles.clear();
+      for (const shot of this.previous.projectiles)
+        this.previousProjectiles.set(shot.id, shot);
+      this.previousSpikes.clear();
+      for (const spike of this.previous.monsterSpikes)
+        this.previousSpikes.set(spike.id, spike);
+    }
     const dancing = discoActive(snap.lasers);
     this.disco.update(
       dancing,
@@ -878,14 +927,11 @@ export class GameRenderer {
       this.effects.reduced,
     );
     const p = snap.plane;
-    const interval = this.previous
-      ? Math.max(1 / 60, snap.time - this.previous.time)
-      : 1 / 60;
-    const alpha = active
-      ? clamp((performance.now() - this.lastArrival) / (interval * 1000), 0, 1)
-      : 1;
-    const { position, rotation, discontinuity } =
-      this.flight.sample(performance.now(), active) ?? flightPose(undefined, p, 1);
+    const { position, rotation, discontinuity } = flightPose(
+      this.previous?.plane,
+      p,
+      alpha,
+    );
     if (discontinuity) this.readyCamera = false;
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);
@@ -927,15 +973,15 @@ export class GameRenderer {
     const candidates = new Set<Entity>();
     for (
       let z = Math.max(0, Math.floor((position.z - 90) / 64));
-      z <= Math.min(31, Math.floor((position.z + 90) / 64));
+      z <= Math.min(CHUNKS - 1, Math.floor((position.z + 90) / 64));
       z++
     )
       for (
         let x = Math.max(0, Math.floor((position.x - 90) / 64));
-        x <= Math.min(31, Math.floor((position.x + 90) / 64));
+        x <= Math.min(CHUNKS - 1, Math.floor((position.x + 90) / 64));
         x++
       )
-        for (const e of this.cameraCells.get(z * 32 + x) || [])
+        for (const e of this.cameraCells.get(z * CHUNKS + x) || [])
           candidates.add(e);
     for (const e of candidates) {
       if (
@@ -955,16 +1001,16 @@ export class GameRenderer {
     }
     const nearby: Ruin[] = [];
     for (
-      let z = clamp(Math.floor((position.z - 90) / 64), 0, 31);
-      z <= clamp(Math.floor((position.z + 90) / 64), 0, 31);
+      let z = clamp(Math.floor((position.z - 90) / 64), 0, CHUNKS - 1);
+      z <= clamp(Math.floor((position.z + 90) / 64), 0, CHUNKS - 1);
       z++
     )
       for (
-        let x = clamp(Math.floor((position.x - 90) / 64), 0, 31);
-        x <= clamp(Math.floor((position.x + 90) / 64), 0, 31);
+        let x = clamp(Math.floor((position.x - 90) / 64), 0, CHUNKS - 1);
+        x <= clamp(Math.floor((position.x + 90) / 64), 0, CHUNKS - 1);
         x++
       )
-        for (const id of this.ruinCells.get(z * 32 + x) || [])
+        for (const id of this.ruinCells.get(z * CHUNKS + x) || [])
           nearby.push(this.ruins.get(id)!);
     for (const r of [...nearby, ...snap.bodies]) {
       if (
@@ -1027,13 +1073,29 @@ export class GameRenderer {
     this.sky.position.copy(this.camera.position);
     this.updateRuins();
     this.syncBodies(snap.bodies, alpha);
+    this.civilians.update(snap, this.previous, alpha, this.camera.position);
     this.ensureMonsterMeshes(snap.monsters.length);
+    this.distantMonsterView.begin();
     for (let i = 0; i < this.monsterMeshes.length; i++) {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];
       const m = snap.monsters[i];
       mesh.visible = distant.visible = !!m && !m.defeated;
-      if (!m || m.defeated) continue;
+      if (!m || m.defeated) {
+        if (mesh.parent) this.scene.remove(mesh);
+        if (distant.parent) this.scene.remove(distant);
+        continue;
+      }
+      if (
+        (m.p[0] - this.camera.position.x) ** 2 +
+          (m.p[2] - this.camera.position.z) ** 2 >
+        1700 ** 2
+      ) {
+        mesh.visible = distant.visible = false;
+        if (mesh.parent) this.scene.remove(mesh);
+        if (distant.parent) this.scene.remove(distant);
+        continue;
+      }
       const old = this.previous?.monsters[m.id];
       if (old && !old.defeated)
         mesh.position.set(
@@ -1053,7 +1115,16 @@ export class GameRenderer {
       const detail = this.camera.position.distanceTo(mesh.position) < 480;
       mesh.visible = detail;
       distant.visible = !detail;
-      if (!detail) continue;
+      if (detail && !mesh.parent) this.scene.add(mesh);
+      else if (!detail && mesh.parent) this.scene.remove(mesh);
+      if (this.googlyEyes && !detail && !distant.parent)
+        this.scene.add(distant);
+      else if ((!this.googlyEyes || detail) && distant.parent)
+        this.scene.remove(distant);
+      if (!detail) {
+        this.distantMonsterView.add(distant);
+        continue;
+      }
       const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23);
       const left = mesh.getObjectByName("leftArm");
       const right = mesh.getObjectByName("rightArm");
@@ -1081,6 +1152,7 @@ export class GameRenderer {
             o.castShadow = this.camera.position.distanceTo(mesh.position) < 300;
         });
     }
+    this.distantMonsterView.finish();
     while (this.spikeMeshes.length < snap.monsterSpikes.length) {
       const spike = new THREE.Mesh(
         new THREE.ConeGeometry(0.75, 5, 5),
@@ -1099,7 +1171,16 @@ export class GameRenderer {
         s = snap.monsterSpikes[i];
       spike.visible = !!s;
       if (s) {
-        spike.position.fromArray(s.p);
+        const old = this.previousSpikes.get(s.id);
+        if (old)
+          spike.position.set(
+            ...(s.p.map((v, k) => THREE.MathUtils.lerp(old.p[k], v, alpha)) as [
+              number,
+              number,
+              number,
+            ]),
+          );
+        else spike.position.fromArray(s.p);
         spike.quaternion.setFromUnitVectors(
           up,
           new THREE.Vector3(...s.v).normalize(),
@@ -1124,9 +1205,18 @@ export class GameRenderer {
         s = snap.projectiles[i];
       shot.visible = !!s;
       if (s) {
-        shot.position.fromArray(s.p);
+        const old = this.previousProjectiles.get(s.id);
+        if (old)
+          shot.position.set(
+            ...(s.p.map((v, k) => THREE.MathUtils.lerp(old.p[k], v, alpha)) as [
+              number,
+              number,
+              number,
+            ]),
+          );
+        else shot.position.fromArray(s.p);
         shot.scale.setScalar(WEAPONS[s.weapon].length / 3.3);
-        if (active && s.weapon === "cannon" && this.frame % 2 === 0)
+        if (active && s.weapon === "cannon" && this.frame % 6 === 0)
           this.effects.trail(s.p, s.v);
         shot.quaternion.setFromUnitVectors(
           new THREE.Vector3(0, 1, 0),
@@ -1241,7 +1331,6 @@ export class GameRenderer {
       this.elapsed - this.lastLOD > 0.25 ||
       this.frame < 3
     ) {
-      this.terrain.update(this.camera.position);
       for (const b of this.batches) {
         let d = Math.hypot(
           b.x - this.camera.position.x,
@@ -1274,16 +1363,26 @@ export class GameRenderer {
     );
     this.eyes.update(
       [
-        this.jet, this.flagGroup, this.disco.ball,
-        ...this.batches.flatMap((batch) => batch.low ? [batch.mesh, batch.low] : [batch.mesh]),
-        this.fallenPines, this.fallenTrunks,
-        ...this.bodyMeshes.values(), ...this.ruinGroups.values(),
-        ...this.monsterMeshes, ...this.distantMonsters,
-        ...this.shotMeshes, ...this.spikeMeshes,
+        this.jet,
+        this.flagGroup,
+        this.disco.ball,
+        ...this.batches.flatMap((batch) =>
+          batch.low ? [batch.mesh, batch.low] : [batch.mesh],
+        ),
+        this.fallenPines,
+        this.fallenTrunks,
+        ...this.bodyMeshes.values(),
+        ...this.ruinGroups.values(),
+        ...this.monsterMeshes,
+        ...this.distantMonsters,
+        ...this.shotMeshes,
+        ...this.spikeMeshes,
         ...this.lanterns.map(({ lamp }) => lamp),
-        this.effects.fragments.mesh, ...this.effects.cloudFaces,
+        this.effects.fragments.mesh,
+        ...this.effects.cloudFaces,
       ],
-      snap, this.jet.position,
+      snap,
+      this.jet.position,
     );
     this.renderer.render(this.scene, this.camera);
     if (
@@ -1320,6 +1419,10 @@ export class GameRenderer {
   }
   releaseLostGeometry() {
     const seen = new Set<THREE.BufferGeometry>();
+    for (const c of this.terrain.chunks) {
+      seen.add(c.mesh.geometry);
+      c.mesh.geometry.dispose();
+    }
     this.scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if ((o as THREE.InstancedMesh).isInstancedMesh)

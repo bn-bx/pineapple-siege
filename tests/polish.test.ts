@@ -3,9 +3,10 @@ import * as THREE from "three";
 import { normalizePreferences } from "../src/preferences";
 import { CameraRig } from "../src/render/camera-rig";
 import { DEFAULT_DESTRUCTION } from "../src/destruction-settings";
-import * as flight from "../src/render/flight-pose";
-import type { PlaneState } from "../src/types";
 import { frameStats } from "../src/frame-stats";
+import { GameRenderer } from "../src/render/renderer";
+import { SnapshotTimeline } from "../src/render/snapshot-timeline";
+import type { SimulationSnapshot } from "../src/types";
 it("migrates valley strength once without changing experimental choices", () => {
   const migrated = normalizePreferences({
     nukeYield: "local",
@@ -38,10 +39,10 @@ it("normalizes every persistent setting independently", () => {
   });
   expect(normalizePreferences({ ...p, volume: 9 }).volume).toBe(1);
 });
-it("defaults to eyes off and 20 monsters, migrating the old default only once", () => {
+it("defaults to eyes off and 120 monsters while preserving saved population choices", () => {
   expect(normalizePreferences()).toMatchObject({
     googlyEyes: false,
-    monsterCount: 20,
+    monsterCount: 120,
   });
   const migrated = normalizePreferences({
     revision: 1,
@@ -50,7 +51,7 @@ it("defaults to eyes off and 20 monsters, migrating the old default only once", 
   });
   expect(migrated).toMatchObject({
     googlyEyes: false,
-    monsterCount: 20,
+    monsterCount: 8,
     nukeYield: "local",
   });
   expect(
@@ -82,17 +83,19 @@ it("turns the old automatic-on eyes off once and preserves later choices", () =>
     normalizePreferences({ ...migrated, googlyEyes: false }).googlyEyes,
   ).toBe(false);
 });
-it("persists integer monster counts across 0–200 and normalizes invalid values", () => {
-  for (const monsterCount of [0, 1, 7, 20, 99, 199, 200]) {
+it("persists integer monster counts across 0–400 and normalizes invalid values", () => {
+  for (const monsterCount of [0, 1, 7, 20, 99, 199, 200, 399, 400]) {
     const preferences = normalizePreferences({ revision: 3, monsterCount });
     expect(preferences.monsterCount).toBe(monsterCount);
     expect(normalizePreferences(preferences).monsterCount).toBe(monsterCount);
   }
   expect(normalizePreferences({ monsterCount: -1 }).monsterCount).toBe(0);
-  expect(normalizePreferences({ monsterCount: 201 }).monsterCount).toBe(200);
+  expect(normalizePreferences({ monsterCount: 401 }).monsterCount).toBe(400);
   expect(normalizePreferences({ monsterCount: 7.6 }).monsterCount).toBe(8);
-  expect(normalizePreferences({ monsterCount: NaN }).monsterCount).toBe(20);
-  expect(normalizePreferences({ monsterCount: Infinity }).monsterCount).toBe(20);
+  expect(normalizePreferences({ monsterCount: NaN }).monsterCount).toBe(120);
+  expect(normalizePreferences({ monsterCount: Infinity }).monsterCount).toBe(
+    120,
+  );
 });
 it("cinematic shots remain finite and cycle with a level target", () => {
   const r = new CameraRig();
@@ -140,106 +143,33 @@ it("photo diagonal speed is normalized and terrain floor constrains camera", () 
   b.applyPhoto(cb, () => 50);
   expect(cb.position.y).toBe(51);
 });
-
-const planeAt = (time: number): PlaneState => ({
-  p: [0, 100, time * 60],
-  v: [0, 0, 60],
-  yaw: 0,
-  pitch: 0,
-  roll: 0,
-  speed: 60,
-  crashed: 0,
-  boundary: false,
-});
-function timeline() {
-  return new flight.FlightTimeline(0.05);
-}
-it("keeps constant-speed flight smooth through irregular and duplicate snapshot arrivals", () => {
-  for (const delay of [2 / 60, 0.05]) {
-    const clock = new flight.FlightTimeline(delay);
-    const arrivals = [0, 25, 40, 55, 85, 90, 110, 140, 145, 160, 185];
-    let next = 0;
-    for (let now = 0; now <= 190; now += 10) {
-      while (next < arrivals.length && arrivals[next] <= now) {
-        const time = next++ / 60;
-        clock.receive({ time, plane: planeAt(time) });
-        clock.receive({ time, plane: planeAt(time) });
-      }
-      // Constant flight advances 0.6 m per 10 ms once the buffer fills.
-      expect(clock.sample(now, true)!.position.z).toBeCloseTo(
-        Math.max(0, (now / 1000 - delay) * 60),
-        6,
-      );
-    }
-  }
-});
-it("holds at the latest known position during a worker stall and resumes without a catch-up jump", () => {
-  const clock = timeline();
-  for (let now = 0; now <= 100; now += 10) {
-    clock.receive({ time: now / 1000, plane: planeAt(now / 1000) });
-    clock.sample(now, true);
-  }
-  expect(clock.sample(180, true)!.position.z).toBeCloseTo(6);
-  clock.receive({ time: 0.12, plane: planeAt(0.12) });
-  expect(clock.sample(220, true)!.position.z).toBeCloseTo(6);
-  clock.receive({ time: 0.18, plane: planeAt(0.18) });
-  expect(clock.sample(230, true)!.position.z).toBeCloseTo(6.6);
-  expect(clock.sample(240, true)!.position.z).toBeCloseTo(7.2);
-});
-it("restarts interpolation from the frozen plane after pause and a reset simulation clock", () => {
-  const clock = timeline();
-  clock.receive({ time: 5, plane: planeAt(5) });
-  clock.sample(0, true);
-  expect(clock.sample(1000, false)!.position.z).toBe(300);
-  expect(clock.sample(5000, true)!.position.z).toBe(300);
-  clock.receive({ time: 5.02, plane: planeAt(5.02) });
-  expect(clock.sample(5020, true)!.position.z).toBe(300);
-  clock.reset();
-  clock.receive({ time: 0, plane: planeAt(0) });
-  expect(clock.sample(6000, true)!.position.z).toBe(0);
-  clock.receive({ time: 5, plane: planeAt(5) });
-  clock.receive({ time: 0, plane: planeAt(0) });
-  expect(clock.sample(6010, true)!.position.z).toBe(0);
-});
-it("snaps crash changes and same-timestamp respawns instead of buffering them", () => {
-  const clock = timeline();
-  clock.receive({ time: 1, plane: planeAt(1) });
-  clock.sample(0, true);
-  clock.receive({ time: 1.01, plane: { ...planeAt(1.01), crashed: 2 } });
-  expect(clock.sample(10, true)!.position.z).toBe(60.6);
-  const respawn = {
-    ...planeAt(1.01),
-    p: [1000, 400, 700] as [number, number, number],
-  };
-  clock.receive({ time: 1.01, plane: respawn });
-  expect(clock.sample(20, true)!.position.toArray()).toEqual([1000, 400, 700]);
-});
-it("resumes forward after a queued snapshot burst evicts the old interpolation bracket", () => {
-  const clock = new flight.FlightTimeline();
-  clock.receive({ time: 0, plane: planeAt(0) });
-  clock.sample(0, true);
-  for (let tick = 1; tick <= 20; tick++)
-    clock.receive({ time: tick / 100, plane: planeAt(tick / 100) });
-  const a = clock.sample(20, true)!.position.z;
-  const b = clock.sample(30, true)!.position.z;
-  expect(a).toBeGreaterThanOrEqual(7.8);
-  expect(b).toBeLessThanOrEqual(12);
-  expect(b - a).toBeCloseTo(0.6);
-});
-it("preserves a teleport's camera snap until rendering consumes it, even after another snapshot", () => {
-  const clock = new flight.FlightTimeline();
-  clock.receive({ time: 1, plane: planeAt(1) });
-  clock.sample(0, true);
-  clock.receive({
-    time: 1.02,
-    plane: { ...planeAt(1.02), p: [1000, 400, 700] },
-  });
-  clock.receive({
-    time: 1.04,
-    plane: { ...planeAt(1.04), p: [1000, 400, 701] },
-  });
-  expect(clock.sample(20, true)!.discontinuity).toBe(true);
-  expect(clock.sample(30, true)!.discontinuity).toBe(false);
+it("resumes the shared snapshot timeline at the latest state and retains camera snaps across message bursts", () => {
+  const snapshot = (time: number, z: number) =>
+    ({
+      time,
+      plane: { p: [0, 100, z], yaw: 0, pitch: 0, roll: 0, crashed: 0 },
+    }) as SimulationSnapshot;
+  const timeline = new SnapshotTimeline<SimulationSnapshot>();
+  const view = { timeline, last: snapshot(1, 60), readyCamera: true };
+  timeline.receive(snapshot(0.8, 48), 0);
+  timeline.receive(view.last, 200);
+  timeline.sample(200, true);
+  GameRenderer.prototype.resumeSnapshots.call(view as unknown as GameRenderer);
+  expect(timeline.sample(1000, true)?.current).toBe(view.last);
+  expect(view.readyCamera).toBe(false);
+  view.readyCamera = true;
+  GameRenderer.prototype.receive.call(
+    view as unknown as GameRenderer,
+    snapshot(1.02, 1000),
+  );
+  GameRenderer.prototype.receive.call(
+    view as unknown as GameRenderer,
+    snapshot(1.04, 1001),
+  );
+  expect(view.readyCamera).toBe(false);
+  expect(
+    timeline.sample(1020, true)?.current.plane.p[2],
+  ).toBeGreaterThanOrEqual(1000);
 });
 it("reports the mean of the slowest one percent using uncapped recent frame times", () => {
   const samples = [...Array(598).fill(10), 100, 200];

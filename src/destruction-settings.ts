@@ -4,7 +4,7 @@ import type {
   NukeYield,
   LaserProfile,
 } from "./types";
-import { NUKE_PROFILES, LASER } from "./config";
+import { CONFIG, NUKE_PROFILES, LASER } from "./config";
 
 export const LEVELS = ["Slim", "Standard", "Heavy", "Massive", "Extreme"];
 export const BODY_LIMITS = [64, 256, 1024, 4096, 8192];
@@ -73,7 +73,9 @@ export function nukeProfile(
 
 export function laserProfile(settings: DestructionSettings): LaserProfile {
   const radius =
-    LASER.radius * (3000 / LASER.radius) ** (settings.laserSize / 100);
+    LASER.radius *
+    ((CONFIG.worldSize * Math.SQRT2 + CONFIG.spacing) / LASER.radius) **
+      (settings.laserSize / 100);
   return {
     radius,
     depth: settings.laserDepth,

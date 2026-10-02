@@ -67,13 +67,13 @@ Moving-body snapshots use a transferable packed buffer instead of cloning nested
 
 For collapses above 512 moving bodies, the 128 largest sections retain mutual collision detail. Smaller chunks still hit terrain, surviving structures, settled rubble, and those major sections, but pass through each other. Full mutual collision returns once fewer than 257 bodies remain. This avoids dense chip-to-chip contact storms while keeping castle damage and substantial wreckage physical.
 
-Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation interpolate on a buffered simulation timeline, absorbing uneven worker delivery with about 33 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
+Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation share the buffered simulation timeline used by other moving objects, absorbing uneven worker delivery with about 100 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
 
 **Show performance** includes 1% low FPS and worst-frame milliseconds alongside median and p95 frame time. The 1% low is 1,000 divided by the mean duration of the slowest 1% of the last 600 active frames, including uncapped stalls. It warms up for 100 frames. At 60 FPS this window covers about ten seconds; at lower FPS it covers longer. Resume, world reset, render-quality changes, and performance-display toggles start fresh samples so menu/background gaps and previous settings do not skew the comparison. These readings measure frame delivery, not GPU execution time.
 
 ## Weapons and fortress
 
-The cannon fires six-meter pineapples once per second. The nuke drops an eighteen-meter pineapple beneath the jet, inherits its velocity, and defaults to a ten-second cooldown. The No cooldown setting disables all weapon cooldown timers and removes projectile and pending-damage admission limits; holding fire launches the selected weapon once per simulation tick. The laser still completes its charge and beam sequence. All three weapons have unlimited ammunition. Switching weapons or respawning does not bypass cooldowns; pausing freezes them.
+The cannon fires six-meter pineapples every 0.75 seconds. The nuke drops an eighteen-meter pineapple beneath the jet, inherits its velocity, and defaults to a ten-second cooldown. The No cooldown setting disables all weapon cooldown timers and removes projectile and pending-damage admission limits; holding fire launches the selected weapon once per simulation tick. The laser still completes its charge and beam sequence. All three weapons have unlimited ammunition. Switching weapons or respawning does not bypass cooldowns; pausing freezes them.
 
 Nuke strength in Settings affects future drops:
 
@@ -85,9 +85,9 @@ Nuke strength in Settings affects future drops:
 
 Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
 
-The world layout and save format are now version 6. Version-5 and older saves prompt for a new world or temporary play without overwriting the old save. They cannot be mapped safely onto the revised castle's component IDs.
+The world layout and save format are now version 7. Version-6 and older saves prompt for a new world or temporary play without overwriting the old save. The expanded terrain uses a new sample stride and layout; older saves are protected until you choose a new world.
 
-The surrounding map contains four five-building hamlets, three farmsteads, three windmills, two watermills with docks and warehouses, four watchtowers, two additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
+The surrounding map contains twelve five-building hamlets, seven farmsteads, five windmills, two watermills with docks and warehouses, four watchtowers, four additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
 
 ## Googly eyes
 
@@ -97,11 +97,23 @@ Eye pairs use shared procedural billboard geometry and reuse each source batch's
 
 ## Giant pineapple monsters
 
-Twenty giant, angry pineapple monsters crawl across the valley by default. They wander around passable ground, pursue nearby low-flying jets, wind up before throwing visible crown spikes, and swipe aircraft that fly close to their arms. Cannon blasts stagger them; three hits defeat one. Nukes defeat monsters in their damage radius, and a sustained space laser also destroys them. The HUD shows how many remain.
+120 giant, angry pineapple monsters populate the expanded countryside by default, including encounters near settlements. Five cannon hits defeat one; hits stagger them and interrupt a volley. They pursue at 14 m/s, detect aircraft within 500 m horizontally and 350 m above the ground, and wind up for 0.75 seconds before throwing three velocity-led crown spikes 0.15 seconds apart at 125 m/s. Their attack cooldown is 2.4 seconds. Close flight remains vulnerable to swipes. Nukes remain lethal within their damage radius, and sustained lasers destroy monsters.
 
-Monsters are now twice their original size, including their hitboxes and swipe reach. Their speed and three-hit health stay the same. While any space laser charges or burns, living monsters stop attacking and dance across the map; laser damage still affects monsters near the strike.
+Monsters retain their doubled size. While any space laser charges or burns, they stop attacking and dance; laser damage still applies. Spikes have bounded lifetimes and population limits.
 
-World → Pineapple monsters has a slider from 0 (Off) to 200, in steps of one; the default is 20. Changes take effect immediately and the selected count persists across reloads. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals any that are still alive and spawns additional monsters as needed. Monster positions, damage, and defeats are saved with the world. Defeated monsters return only after Reset world. Existing compatible saves gain monsters automatically. Higher populations can reduce performance.
+World → Pineapple monsters has a slider from 0 (Off) to 400; the new default is 120. Existing population preferences, including 20, are preserved. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals living monsters and spawns more as needed. Positions, damage, and defeats are saved. Reset world revives defeated monsters.
+
+## Expanded world and townspeople
+
+The map spans **6,144 × 6,144 meters** (37.75 km²), nine times the original area. The original valley, castle dimensions, and spawn coordinates are retained. Rivers, roads, sparse forests, and new settlements extend into the countryside. Terrain uses a 3,073² heightfield, with nearby detail and coarse distant sections loaded around the camera. Distant destruction remains authoritative when terrain meshes are unloaded.
+
+The compact flight HUD shows the living population and a 0–100 happiness score. Casualties permanently reduce happiness; fear and mourning lower morale, while celebrations raise it.
+
+There are 600 cartoon townspeople: eight per residential house and 64 around the castle. They wander near home, avoid water and intact buildings, and flee low aircraft and nearby monsters. Explosions, aircraft, laser columns, moving wreckage, and collapsing buildings can kill them; casualties disappear without gore and remain lost until Reset world.
+
+A settlement cheers for six seconds when its last monster within 500 m is defeated. The final active monster defeat triggers celebration at every surviving settlement. Loading or changing monster counts never triggers victory. Civilian losses and building damage override cheering: survivors mourn for at least ten seconds, and residents of homes missing at least 25% of their structural parts remain sad. Reactions and casualties save with the world; pause and photo mode freeze them. Spatial cheer and mourning sounds follow volume and mute settings. There is no civilian score.
+
+Run `npm run benchmark:world` for CPU simulation timings at 120 and 400 monsters, including a Valley-scale castle blast. These timings exclude browser rendering and GPU work.
 
 ## Space laser
 
@@ -109,7 +121,7 @@ The laser now starts a valley-wide disco as soon as charging begins. A 250 m mir
 
 Press **3** to select Space Laser. Aim the jet toward a surface and click or press Space to lock that location. A four-second cyan-white charge builds from targeting rings, electrical arcs, rising energy, and sound. The sky-to-ground beam then burns for five seconds while the jet remains under your control. Flying into the bright central beam destroys the jet and triggers the usual two-second respawn; charging effects are harmless.
 
-The **Space Laser** settings offer logarithmic strike size (380 m diameter through **Entire map**, 6,000 m diameter), crater depth (25–500 m), and beam brightness (25–200%). Size scales destruction, visuals, and the beam’s aircraft collision together. Each strike captures its launch settings; changing sliders applies to the next strike. Preferences persist and Reset settings restores the current default laser. Huge strikes finish terrain and object cleanup in queued sections, keeping the dry footprint active until cleanup completes. Existing version-5 saves load with default values for older strikes.
+The **Space Laser** settings offer logarithmic strike size (380 m diameter through **Entire map**, approximately 17,382 m diameter), crater depth (25–500 m), and beam brightness (25–200%). Size scales destruction, visuals, and the beam’s aircraft collision together. Each strike captures its launch settings; changing sliders applies to the next strike. Preferences persist and Reset settings restores the current default laser. Huge strikes finish terrain and object cleanup in queued sections, keeping the dry footprint active until cleanup completes. Version-6 and older world saves require the protected new-world flow.
 
 At default size, the strike expands to a **190-meter radius** during its first firing second and progressively excavates a **380-meter-wide shaft up to 500 meters below the original terrain**. Structures, trees, rocks, moving debris, and settled rubble in the footprint are vaporized rather than scattered. The rock-lined crater stays dry, including where a river previously flowed. Dust and heat glow fade afterward; subsequent weapon hits can deposit new rubble. Repeated laser strikes cannot deepen terrain past the 500-meter limit.
 

@@ -16,15 +16,15 @@ it("distributes all requested targets with stable assemblies and bounded structu
     counts[s.kind] = (counts[s.kind] || 0) + 1;
     expect(s.assemblies.length).toBeGreaterThan(0);
     expect(s.p[0]).toBeGreaterThan(100);
-    expect(s.p[2]).toBeLessThan(1900);
+    expect(s.p[2]).toBeLessThan(CONFIG.worldSize - 100);
   }
   expect(counts).toEqual({
-    hamlet: 4,
-    farm: 3,
-    windmill: 3,
+    hamlet: 12,
+    farm: 7,
+    windmill: 5,
     watermill: 2,
     watchtower: 4,
-    crossing: 2,
+    crossing: 4,
     logging: 2,
     quarry: 1,
   });
@@ -87,7 +87,7 @@ it("partitions modules, ejects earth and respects each blast body/effect budget"
 });
 it("throws existing rubble and moving fragments outward while preserving CCD", () => {
   const s = new Simulation(world, base, () => {}),
-    p: [number, number, number] = [700, base[600 * 1025 + 350], 1200];
+    p: [number, number, number] = [700, base[600 * CONFIG.grid + 350], 1200];
   const id = (s as any).spawnBody(
     [p[0] + 15, p[1] + 20, p[2]],
     [1, 1, 1],

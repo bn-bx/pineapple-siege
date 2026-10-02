@@ -1,3 +1,4 @@
+import { CONFIG } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import * as THREE from "three";
 import { readFileSync } from "node:fs";
@@ -139,8 +140,8 @@ it("keeps 8192 independent physical castle pieces and evicts only the oldest at 
 });
 
 it("keeps terrain sweeps active at hills and shared section edges, including after excavation", () => {
-  const heights = new Float32Array(1025 * 1025);
-  heights[32 * 1025 + 32] = 100;
+  const heights = new Float32Array(CONFIG.grid * CONFIG.grid);
+  heights[32 * CONFIG.grid + 32] = 100;
   const terrain = new Terrain(heights);
   expect(terrain.aboveSurface([10, 101, 10], [120, 101, 120], 2)).toBe(false);
   expect(terrain.aboveSurface([10, 103, 10], [120, 103, 120], 2)).toBe(true);

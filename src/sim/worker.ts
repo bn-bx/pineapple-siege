@@ -1,12 +1,13 @@
+import { StepScheduler } from "./step-scheduler";
+import { DEFAULT_MONSTER_COUNT } from "../config";
 import { Simulation, initializePhysics } from "./simulation";
 import type { GameCommand, WorkerMessage, WorldData } from "../types";
 let sim: Simulation | undefined,
   world: WorldData,
   base: Float32Array,
   debug = false,
-  last = 0,
-  accumulator = 0,
   paused = true;
+const scheduler = new StepScheduler();
 const send = (m: WorkerMessage) => {
   const transfer: Transferable[] = [];
   if (m.type === "delta") {
@@ -55,7 +56,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       debug = !!m.debug;
       await initializePhysics();
       sim = new Simulation(world, base, send, m.save);
-      sim.setMonsterCount(m.monsterCount ?? 20);
+      sim.setMonsterCount(m.monsterCount ?? DEFAULT_MONSTER_COUNT);
       while (
         sim.pendingJobs.length ||
         sim.laserWork.size ||
@@ -67,7 +68,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       }
       if (m.destruction) sim.setDestruction(m.destruction);
       ready();
-      last = performance.now();
+      scheduler.reset(performance.now());
       return;
     }
     if (!sim) return;
@@ -77,8 +78,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         break;
       case "pause":
         paused = m.paused;
-        last = performance.now();
-        accumulator = 0;
+        scheduler.reset(performance.now());
         if (paused) send({ type: "paused", snapshot: sim.snapshot(true) });
         break;
       case "weapon":
@@ -163,17 +163,10 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
 };
 setInterval(() => {
   if (!sim || paused) {
-    last = performance.now();
+    scheduler.reset(performance.now());
     return;
   }
-  const now = performance.now();
-  accumulator += Math.min((now - last) / 1000, 0.1);
-  last = now;
-  let steps = 0;
-  while (accumulator >= 1 / 60 && steps < 6) {
-    sim.step();
-    accumulator -= 1 / 60;
-    steps++;
-  }
-  if (steps) send(sim.snapshot(true));
+  const steps = scheduler.advance(performance.now(), () => sim!.step());
+  if (steps && scheduler.shouldPublish(performance.now()))
+    send(sim.snapshot(true));
 }, 8);
