@@ -49,7 +49,7 @@ The Pages project is configured as follows:
 | Node version | 22 via `.node-version`; `package.json` requires at least 22.12 |
 | Production deployment | Automatic on pushes to `main` |
 
-`npm run build` generates `public/world.json` and `public/world.bin`, checks TypeScript, and runs Vite. `dist/` is the complete static output. The generated world files, `dist/`, `node_modules/`, and local `.wrangler/` state are ignored by Git. `package-lock.json` is committed for repeatable dependency installation. `public/_headers` sets cache policy: hashed assets are immutable; the HTML and world files revalidate. There are no Pages Functions or runtime secrets.
+`npm run build` generates `public/world.json` and terrain binaries, checks TypeScript, and runs Vite. The manifest lists ordered `world-*.bin` parts, each at most 20 MiB, to fit Pages' 25 MiB asset limit. The browser reassembles the original Float32 terrain exactly. The unsplit `public/world.bin` remains available locally for tests and is omitted from `dist/`. The generated world files, `dist/`, `node_modules/`, and local `.wrangler/` state are ignored by Git. `package-lock.json` is committed for repeatable dependency installation. `public/_headers` sets cache policy: hashed assets are immutable; the HTML and world files revalidate. There are no Pages Functions or runtime secrets.
 
 Cloudflare creates preview deployments for eligible non-production branches and pull requests. These previews have their own URLs and browser save origins. The Cloudflare GitHub App must retain access to the repository; removing it stops Git builds. The local SSH key can be removed or rotated without affecting Cloudflare's connection.
 
@@ -74,14 +74,15 @@ For a local preview, run `npm run dev` or `npm run build && npm run preview`. Th
 1. Confirm the Pages deployment shows the intended `main` commit and **success**.
 2. Confirm **Custom domains** shows `sweetpickledpineapple.com` as **Active** with SSL enabled.
 3. Open <https://sweetpickledpineapple.com> and confirm the game reaches **Ready** and starts.
-4. Check that `/world.json` and `/world.bin` return HTTP 200. If a new code change needs deeper validation, run `npm test` and test the affected gameplay in a browser.
+4. Check that `/world.json` and every terrain file listed in its `heightFiles` array return HTTP 200. If a new code change needs deeper validation, run `npm test` and test the affected gameplay in a browser.
 
 For a quick remote check:
 
 ```sh
 curl -fsSI https://sweetpickledpineapple.com/
 curl -fsSI https://sweetpickledpineapple.com/world.json
-curl -fsSI https://sweetpickledpineapple.com/world.bin
+curl -fsSI https://sweetpickledpineapple.com/world-0.bin
+curl -fsSI https://sweetpickledpineapple.com/world-1.bin
 ```
 
 During the initial migration, the first Git build succeeded, the domain became Active with SSL, and the production site's HTML and two world files matched the Git-backed Pages hostname byte for byte. A later README-only push to `main` also built successfully, proving the automatic deployment path.

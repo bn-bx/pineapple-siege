@@ -135,6 +135,7 @@ export interface SettlementState {
   threatened: boolean;
 }
 export interface WorldData {
+  heightFiles?: string[];
   civilians?: CivilianSpawn[];
   version: number;
   seed: number;

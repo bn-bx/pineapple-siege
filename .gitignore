@@ -1,6 +1,7 @@
 node_modules/
 dist/
 public/world.bin
+public/world-*.bin
 public/world.json
 *.tsbuildinfo
 .DS_Store

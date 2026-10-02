@@ -1215,7 +1215,19 @@ const world = {
   entities,
 };
 mkdirSync("public", { recursive: true });
-writeFileSync("public/world.bin", new Uint8Array(heights.buffer));
+const terrainBytes = new Uint8Array(heights.buffer);
+// Pages permits at most 25 MiB per asset. Retain the raw file for simulation tests.
+writeFileSync("public/world.bin", terrainBytes);
+world.heightFiles = [];
+const partSize = 20 * 1024 * 1024;
+for (let offset = 0; offset < terrainBytes.length; offset += partSize) {
+  const name = `world-${world.heightFiles.length}.bin`;
+  world.heightFiles.push(name);
+  writeFileSync(
+    `public/${name}`,
+    terrainBytes.subarray(offset, offset + partSize),
+  );
+}
 writeFileSync("public/world.json", JSON.stringify(world));
 console.log(
   `World: ${GRID}² samples, ${structureCount} structure parts, ${entities.length} entities`,
