@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData, TerrainPatch } from "../types";
-import { CONFIG, CHUNKS, clamp } from "../config";
+import { CONFIG, CHUNKS, clamp, DEFAULT_RENDER_DISTANCE } from "../config";
 interface Chunk {
   mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   step: number;
@@ -300,7 +300,7 @@ export class TerrainView {
     chunk.dirty = false;
     chunk.revision++;
   }
-  update(camera: THREE.Vector3) {
+  update(camera: THREE.Vector3, renderDistance = DEFAULT_RENDER_DISTANCE) {
     let rebuilt = 0;
     const started = performance.now();
     const visible: { c: Chunk; d: number }[] = [];
@@ -310,9 +310,9 @@ export class TerrainView {
         Math.floor(c.id / CHUNKS) * 64 + 32 - camera.z,
       );
       c.mesh.castShadow = d < 260;
-      c.mesh.visible = d < 1600 && c.step !== 0;
-      if (d < 1700) visible.push({ c, d });
-      else if (d > 2100 && c.step !== 0) {
+      c.mesh.visible = d < renderDistance + 64 && c.step !== 0;
+      if (d < renderDistance + 100) visible.push({ c, d });
+      else if (d > renderDistance + 500 && c.step !== 0) {
         c.mesh.geometry.dispose();
         c.mesh.geometry = new THREE.BufferGeometry();
         c.baseColors = undefined;
@@ -334,11 +334,11 @@ export class TerrainView {
       ) {
         if (c.step === step) this.refresh(c);
         else this.build(c, step);
-        c.mesh.visible = d < 1600;
+        c.mesh.visible = d < renderDistance + 64;
         rebuilt++;
       }
     }
-    this.batch(visible);
+    this.batch(visible.filter(({ d }) => d < renderDistance + 64));
   }
 
   private batch(visible: { c: Chunk; d: number }[]) {

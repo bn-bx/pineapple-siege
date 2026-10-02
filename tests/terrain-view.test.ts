@@ -109,3 +109,35 @@ it("stitches unequal terrain detail levels with identical shared heights and nor
   view.heightTexture.dispose();
   view.floodTexture.dispose();
 });
+it("removes distant terrain draw tiles when range shrinks and restores them when increased", () => {
+  const bytes = readFileSync("public/world.bin");
+  const base = new Float32Array(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  );
+  const view = new TerrainView(
+    JSON.parse(readFileSync("public/world.json", "utf8")),
+    base,
+    new THREE.Texture(),
+  );
+  const chunk = view.chunks[16 * CHUNKS + 16];
+  (view as any).build(chunk, 16);
+  const camera = new THREE.Vector3(1056, 200, 156);
+  const hasDistantTerrain = () =>
+    view.group.children.some((child) => {
+      const positions = (child as THREE.Mesh).geometry.getAttribute("position");
+      for (let i = 0; i < positions.count; i++)
+        if (positions.getX(i) === 1056 && positions.getZ(i) === 1056)
+          return true;
+      return false;
+    });
+  view.update(camera, 600);
+  expect(hasDistantTerrain()).toBe(false);
+  view.update(camera, 1800);
+  expect(hasDistantTerrain()).toBe(true);
+  for (const child of view.group.children)
+    (child as THREE.Mesh).geometry.dispose();
+  for (const chunk of view.chunks) chunk.mesh.geometry.dispose();
+  view.material.dispose();
+  view.heightTexture.dispose();
+  view.floodTexture.dispose();
+});

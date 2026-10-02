@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DEFAULT_RENDER_DISTANCE } from "../config";
 import type { SimulationSnapshot } from "../types";
 
 /** Shared geometry and instanced parts keep the whole population inexpensive. */
@@ -45,10 +46,14 @@ export class CivilianView {
     previous: SimulationSnapshot | undefined,
     alpha: number,
     camera: THREE.Vector3,
+    renderDistance = DEFAULT_RENDER_DISTANCE,
   ) {
     let n = 0;
     for (const c of snap.civilians ?? []) {
-      if (!c.alive || Math.hypot(c.p[0] - camera.x, c.p[2] - camera.z) > 1600)
+      if (
+        !c.alive ||
+        Math.hypot(c.p[0] - camera.x, c.p[2] - camera.z) > renderDistance
+      )
         continue;
       const old = previous?.civilians?.[c.id];
       const p = old?.alive

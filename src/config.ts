@@ -37,6 +37,11 @@ export const CONFIG = {
 export const MONSTER_SCALE = 2;
 export const DEFAULT_MONSTER_COUNT = 120;
 export const MAX_MONSTER_COUNT = 400;
+export const DEFAULT_RENDER_DISTANCE = 1200;
+export const normalizeRenderDistance = (value: unknown): number =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(600, Math.min(3000, Math.round(value / 100) * 100))
+    : DEFAULT_RENDER_DISTANCE;
 export const normalizeMonsterCount = (value: unknown): number =>
   typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.min(MAX_MONSTER_COUNT, Math.round(value)))

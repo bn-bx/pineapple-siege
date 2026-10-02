@@ -17,6 +17,7 @@ import {
 } from "./destruction-settings";
 import "./style.css";
 import { bindTouchControls, pointerSteering } from "./input";
+import { frameStats } from "./frame-stats";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
 import { SaveStore, compatible } from "./storage";
@@ -25,6 +26,7 @@ import {
   DEFAULT_MONSTER_COUNT,
   LASER,
   normalizeMonsterCount,
+  normalizeRenderDistance,
   WEAPONS,
 } from "./config";
 import type {
@@ -88,6 +90,12 @@ let perfSummary = "",
   lastPerfSummary = 0;
 let queuedReset = false,
   saveEpoch = 0;
+function resetFrameStats() {
+  frameTimes.length = 0;
+  perfSummary = "";
+  lastPerfSummary = lastTime = lastDraw = 0;
+  avgFrame = 16.7;
+}
 let debugInput: import("./types").InputState | undefined;
 const pendingSaves = new Map<number, (save: SaveSnapshot) => void>();
 const stepWaiters: ((value: unknown) => void)[] = [];
@@ -120,6 +128,8 @@ function applyPreferences(p: Preferences) {
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
   monsterCount = extras.monsterCount ?? DEFAULT_MONSTER_COUNT;
+  view?.setRenderDistance(extras.renderDistance!);
+  updateRenderDistanceUI();
   view?.setGooglyEyes(extras.googlyEyes === true);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
@@ -145,6 +155,16 @@ function updateMonsterCountUI() {
   $<HTMLInputElement>("monsterCount").value = String(monsterCount);
   $("monsterCountValue").textContent =
     monsterCount === 0 ? "Off" : String(monsterCount);
+}
+function updateRenderDistanceUI() {
+  const input = $<HTMLInputElement>("renderDistance");
+  input.value = String(extras.renderDistance);
+  input.setAttribute(
+    "aria-valuetext",
+    `${extras.renderDistance!.toLocaleString()} meters`,
+  );
+  $("renderDistanceValue").textContent =
+    `${extras.renderDistance!.toLocaleString()} m`;
 }
 function updateDestructionUI() {
   for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
@@ -230,6 +250,8 @@ function pause() {
 }
 async function enter(event?: Event) {
   if (!ready || contextLost) return;
+  resetFrameStats();
+  view.resumeSnapshots();
   everEntered = active = true;
   clearInput();
   send({ type: "pause", paused: false });
@@ -390,6 +412,7 @@ function handle(message: WorkerMessage) {
       break;
     case "ready":
       audio.reset();
+      resetFrameStats();
       view.reset(
         new Float32Array(message.heights),
         message.removed,
@@ -501,6 +524,7 @@ async function load() {
     }
     view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
     view.setQuality(extras.quality!);
+    view.setRenderDistance(extras.renderDistance!);
     view.setReducedEffects(!!extras.reduceEffects);
     view.setGooglyEyes(extras.googlyEyes === true);
     view.setShake(!extras.reduceShake);
@@ -660,8 +684,12 @@ function frame(now: number) {
       now - lastPerfSummary > 1000 &&
       frameTimes.length
     ) {
-      const sorted = frameTimes.slice(-600).sort((a, b) => a - b);
-      perfSummary = `\nFrame median ${sorted[Math.floor(sorted.length * 0.5)].toFixed(1)} ms · p95 ${sorted[Math.floor(sorted.length * 0.95)].toFixed(1)} ms`;
+      const stats = frameStats(frameTimes);
+      const low =
+        stats.lowFPS === undefined
+          ? "warming up"
+          : `${stats.lowFPS.toFixed(1)} FPS`;
+      perfSummary = `\nFrame median ${stats.medianMS.toFixed(1)} ms · p95 ${stats.p95MS.toFixed(1)} ms\n1% low ${low} · worst ${stats.worstMS.toFixed(1)} ms`;
       lastPerfSummary = now;
     }
     const r = view.stats;
@@ -694,6 +722,7 @@ $("defaultDestruction").onclick = () => {
   applyDestruction();
 };
 $("defaultSettings").onclick = () => {
+  resetFrameStats();
   applyPreferences(normalizePreferences());
   view?.setQuality(extras.quality!);
   view?.setReducedEffects(!!extras.reduceEffects);
@@ -732,8 +761,18 @@ $("cancelReset").onclick = () => $<HTMLDialogElement>("confirm").close();
 $("confirmReset").onclick = resetWorld;
 $("reload").onclick = () => location.reload();
 $<HTMLSelectElement>("quality").onchange = (e) => {
+  resetFrameStats();
   extras.quality = (e.target as HTMLSelectElement).value;
   view?.setQuality(extras.quality);
+  savePreferences();
+};
+$<HTMLInputElement>("renderDistance").oninput = (e) => {
+  extras.renderDistance = normalizeRenderDistance(
+    Number((e.target as HTMLInputElement).value),
+  );
+  view?.setRenderDistance(extras.renderDistance);
+  updateRenderDistanceUI();
+  resetFrameStats();
   savePreferences();
 };
 $<HTMLInputElement>("sensitivity").oninput = (e) => {
@@ -763,6 +802,7 @@ for (const id of [
   "holdTime",
 ] as const) {
   $<HTMLInputElement>(id).onchange = (e) => {
+    if (id === "showPerf") resetFrameStats();
     extras[id] = (e.target as HTMLInputElement).checked;
     view?.setReducedEffects(!!extras.reduceEffects);
     view?.setGooglyEyes(extras.googlyEyes === true);
@@ -802,6 +842,8 @@ function togglePhoto() {
     $("photoToolbar").hidden = true;
     clearInput();
     if (photoReturn) {
+      resetFrameStats();
+      view.resumeSnapshots();
       active = true;
       send({ type: "pause", paused: false });
       audio.start().catch(() => {});

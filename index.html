@@ -244,6 +244,25 @@
                   <option value="1440">Ultra · 1440p</option>
                 </select></label
               >
+              <label
+                >Render distance
+                <output id="renderDistanceValue" for="renderDistance"
+                  >1,200 m</output
+                >
+                <input
+                  id="renderDistance"
+                  type="range"
+                  min="600"
+                  max="3000"
+                  step="100"
+                  value="1200"
+                  aria-describedby="renderDistanceHelp"
+                />
+                <small id="renderDistanceHelp"
+                  >Lower distances draw less of the world. Higher distances may
+                  reduce FPS.</small
+                >
+              </label>
               <label class="check"
                 >Reduce effects<input id="reduceEffects" type="checkbox"
               /></label>

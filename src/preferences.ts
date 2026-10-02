@@ -1,5 +1,5 @@
 import { normalizeDestruction } from "./destruction-settings";
-import { normalizeMonsterCount } from "./config";
+import { normalizeMonsterCount, normalizeRenderDistance } from "./config";
 import type { Preferences } from "./types";
 export const PREFERENCE_REVISION = 3;
 export function normalizePreferences(
@@ -21,6 +21,7 @@ export function normalizePreferences(
         : "valley",
     destruction: normalizeDestruction(value.destruction),
     monsterCount: normalizeMonsterCount(value.monsterCount),
+    renderDistance: normalizeRenderDistance(value.renderDistance),
     googlyEyes:
       value.revision === PREFERENCE_REVISION && value.googlyEyes === true,
     quality: ["auto", "720", "1080", "1440"].includes(value.quality!)

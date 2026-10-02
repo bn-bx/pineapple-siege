@@ -38,6 +38,8 @@ import {
   CHUNKS,
   clamp,
   DEFAULT_MONSTER_COUNT,
+  DEFAULT_RENDER_DISTANCE,
+  normalizeRenderDistance,
   MAX_MONSTER_COUNT,
   LASER,
   MONSTER_SCALE,
@@ -50,6 +52,7 @@ interface Batch {
   kind: string;
   x: number;
   z: number;
+  radius: number;
 }
 const dummy = new THREE.Object3D(),
   zero = new THREE.Matrix4().makeScale(0, 0, 0),
@@ -117,6 +120,7 @@ export class GameRenderer {
   private frame = 0;
   private lastLOD = 0;
   private quality = "auto";
+  private renderDistance = DEFAULT_RENDER_DISTANCE;
   private targetHeight = 1080;
   private lowSince = 0;
   private highSince = 0;
@@ -369,15 +373,14 @@ export class GameRenderer {
       this.scene.add(mesh);
     }
     this.disco.decorateScene(this.scene);
+    this.setRenderDistance(this.renderDistance);
     this.resize();
   }
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
     for (const e of this.world.entities) {
-      const cell =
-        e.kind === "tree"
-          ? `${Math.floor(e.p[0] / 128)},${Math.floor(e.p[2] / 128)}`
-          : "structure";
+      const size = e.kind === "tree" ? 128 : 256;
+      const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
       let key = e.kind + e.material + cell;
       let list = grouped.get(key);
       if (!list) grouped.set(key, (list = []));
@@ -406,6 +409,7 @@ export class GameRenderer {
           kind,
           x: e.p[0],
           z: e.p[2],
+          radius: 0,
         };
         if (lowGeo) {
           batch.low = new THREE.InstancedMesh(lowGeo, material, list.length);
@@ -439,6 +443,9 @@ export class GameRenderer {
           refs.push({ batch, index: i });
         });
         mesh.computeBoundingSphere();
+        batch.x = mesh.boundingSphere!.center.x;
+        batch.z = mesh.boundingSphere!.center.z;
+        batch.radius = mesh.boundingSphere!.radius;
         batch.low?.computeBoundingSphere();
         this.scene.add(mesh);
         this.batches.push(batch);
@@ -501,6 +508,13 @@ export class GameRenderer {
     this.qualityChanged = performance.now();
     this.resize();
   }
+  setRenderDistance(value: number) {
+    this.renderDistance = normalizeRenderDistance(value);
+    this.camera.far = this.renderDistance + 256;
+    this.camera.updateProjectionMatrix();
+    this.sky.scale.setScalar((this.camera.far * 0.9) / 2500);
+    this.lastLOD = -Infinity;
+  }
   setShake(value: boolean) {
     this.shakeEnabled = value;
   }
@@ -526,6 +540,11 @@ export class GameRenderer {
     }
     this.last = snapshot;
     this.timeline.receive(snapshot, performance.now());
+  }
+  resumeSnapshots() {
+    this.timeline.reset();
+    this.readyCamera = false;
+    if (this.last) this.timeline.receive(this.last, performance.now());
   }
   reset(
     heights: Float32Array,
@@ -720,6 +739,7 @@ export class GameRenderer {
             this.fragmentMaterials[r.material],
           );
       }
+      const bounds = new THREE.Sphere().makeEmpty();
       for (const { geo, mat, matrices } of lists.values()) {
         const mesh = new THREE.InstancedMesh(geo, mat, matrices.length);
         matrices.forEach((m, i) => {
@@ -734,18 +754,21 @@ export class GameRenderer {
         });
         mesh.receiveShadow = true;
         mesh.computeBoundingSphere();
+        bounds.union(mesh.boundingSphere!);
         group.add(mesh);
       }
+      group.userData.bounds = bounds;
       this.scene.add(group);
       this.ruinGroups.set(key, group);
     }
     this.dirtyRuinBatches.clear();
-    for (const [key, g] of this.ruinGroups) {
+    for (const g of this.ruinGroups.values()) {
+      const bounds = g.userData.bounds as THREE.Sphere;
       const d = Math.hypot(
-        (key % (CHUNKS / 2)) * 128 + 64 - this.camera.position.x,
-        Math.floor(key / (CHUNKS / 2)) * 128 + 64 - this.camera.position.z,
+        bounds.center.x - this.camera.position.x,
+        bounds.center.z - this.camera.position.z,
       );
-      g.visible = d < 1400;
+      g.visible = d < this.renderDistance + bounds.radius;
       for (const m of g.children) m.castShadow = d < 230;
     }
   }
@@ -1068,7 +1091,13 @@ export class GameRenderer {
     this.sky.position.copy(this.camera.position);
     this.updateRuins();
     this.syncBodies(snap.bodies, alpha);
-    this.civilians.update(snap, this.previous, alpha, this.camera.position);
+    this.civilians.update(
+      snap,
+      this.previous,
+      alpha,
+      this.camera.position,
+      this.renderDistance,
+    );
     this.ensureMonsterMeshes(snap.monsters.length);
     this.distantMonsterView.begin();
     for (let i = 0; i < this.monsterMeshes.length; i++) {
@@ -1084,7 +1113,7 @@ export class GameRenderer {
       if (
         (m.p[0] - this.camera.position.x) ** 2 +
           (m.p[2] - this.camera.position.z) ** 2 >
-        1700 ** 2
+        (this.renderDistance + 90) ** 2
       ) {
         mesh.visible = distant.visible = false;
         if (mesh.parent) this.scene.remove(mesh);
@@ -1297,8 +1326,8 @@ export class GameRenderer {
       this.disco.skyAmount.value * 0.88,
     );
     fog.density = THREE.MathUtils.lerp(
-      0.00065,
-      0.00035,
+      1.8 / this.renderDistance,
+      1.3 / this.renderDistance,
       this.disco.skyAmount.value,
     );
     for (const { light, lamp, owner } of this.lanterns) {
@@ -1311,7 +1340,7 @@ export class GameRenderer {
       .copy(this.sun.color)
       .multiplyScalar(0.2 + day * 0.8);
     this.water.material.uniforms.time.value = this.elapsed;
-    this.terrain.update(this.camera.position);
+    this.terrain.update(this.camera.position, this.renderDistance);
     this.flagGroup.visible = true;
     for (const flag of this.flagGroup.children) {
       let m = flag as THREE.Mesh<THREE.PlaneGeometry>;
@@ -1334,8 +1363,10 @@ export class GameRenderer {
         b.mesh.castShadow = d < 280;
         if (b.low) {
           b.mesh.visible = d < 360;
-          b.low.visible = d >= 360 && d < 1500;
-        } else if (b.kind === "trunk") b.mesh.visible = d < 700;
+          b.low.visible = d >= 360 && d < this.renderDistance + b.radius;
+        } else if (b.kind === "trunk")
+          b.mesh.visible = d < Math.min(700, this.renderDistance + 90);
+        else b.mesh.visible = d < this.renderDistance + b.radius;
       }
       this.lastLOD = this.elapsed;
     }
@@ -1474,6 +1505,7 @@ export class GameRenderer {
       geometries: this.renderer.info.memory.geometries,
       textures: this.renderer.info.memory.textures,
       quality: this.targetHeight,
+      renderDistance: this.renderDistance,
       clouds: this.effects.cloudCount,
       fragments: this.effects.fragments.count,
       projectiles: this.shotMeshes.filter((s) => s.visible).length,
