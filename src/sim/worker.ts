@@ -1,3 +1,4 @@
+import { fixedDestruction } from "../destruction-settings";
 import { StepScheduler } from "./step-scheduler";
 import { DEFAULT_MONSTER_COUNT } from "../config";
 import { Simulation, initializePhysics } from "./simulation";
@@ -66,7 +67,8 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         sim.processDestruction(3);
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      if (m.destruction) sim.setDestruction(m.destruction);
+      sim.nukeYield = "valley";
+      sim.setDestruction(fixedDestruction(m.destruction));
       ready();
       scheduler.reset(performance.now());
       return;
@@ -86,11 +88,11 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         send(sim.snapshot(true));
         break;
       case "nukeYield":
-        sim.nukeYield = m.value;
+        sim.nukeYield = "valley";
         send(sim.snapshot(true));
         break;
       case "destructionSettings":
-        sim.setDestruction(m.value);
+        sim.setDestruction(fixedDestruction(m.value));
         send(sim.snapshot(true));
         break;
       case "monsterCount":
@@ -116,6 +118,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         const count = sim.monsterCount;
         sim.dispose();
         sim = new Simulation(world, base, send);
+        sim.nukeYield = "valley";
         sim.setDestruction(settings);
         sim.setMonsterCount(count);
         paused = true;

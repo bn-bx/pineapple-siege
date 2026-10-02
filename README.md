@@ -45,29 +45,19 @@ On phones and tablets, use the left thumb pad to steer (release to center), and 
 
 Pineapples inherit the aircraft's velocity, fall slightly, and explode on impact. The ring on the world estimates the impact location. The jet crashes against terrain, structures, substantial rubble, and water, then returns airborne after two seconds. Destruction stays in place. The boundary assistant turns the jet toward the kingdom before reaching the map edge.
 
-The menu contains independent horizontal/vertical steering reversal, sensitivity, nuke strength, quality, reduced effects and camera shake, time, audio, performance information, and world reset. Pointer movement defaults to right → turn right and up → climb. Steering preferences and nuke strength persist independently of world resets.
+The menu contains independent horizontal/vertical steering reversal, sensitivity, rapid fire, quality, reduced effects and camera shake, time, audio, performance information, and world reset. Pointer movement defaults to right → turn right and up → climb. Steering preferences and the cooldown toggle persist independently of world resets.
 
-## Experimental destruction settings
+## Destruction defaults
 
-Four independent sliders in Settings → Destruction expose five levels. Standard preserves the prior limits; Heavy through Extreme now have larger budgets. These preferences survive reloads and world resets. Restore destruction defaults resets these controls without resetting the world.
+Destruction is fixed at Standard: 256 active physics bodies, 64 cannon / 128 nuke fragments, a 4,096-piece cosmetic pool at 1× output, and 36 persistent rubble records per section. Nukes use Valley-scale strength at 1× blast scale. Space Laser uses a 380 m strike diameter, 500 m excavation depth, and 100% brightness. Old preferences for these removed controls are replaced with these defaults; existing world damage and already-launched strikes retain their saved state.
 
-| Limit                                      |    Slim | Standard |     Heavy |   Massive |     Extreme |
-| ------------------------------------------ | ------: | -------: | --------: | --------: | ----------: |
-| Active physics bodies                      |      64 |      256 |     1,024 |     4,096 |       8,192 |
-| Cannon / nuke fragments per blast          | 16 / 32 | 64 / 128 | 256 / 512 | 1,024 / 2,048 | 2,048 / 4,096 |
-| Cosmetic chunk pool                        |   1,024 |    4,096 |    16,384 |    32,768 |      65,536 |
-| Cosmetic chunks per blast multiplier       |   0.25× |       1× |        3× |        6× |         12× |
-| Persistent rubble records per 64 m section |      12 |       36 |        96 |       192 |         384 |
-
-Raise both physics bodies and fragments to keep more building pieces in motion. Higher physics levels also extend the maximum moving lifetime from 12 seconds at Standard to 30 seconds at Extreme. Substantial building modules retain their original dimensions at every level. The rubble slider controls how many individual records remain per section; overflow consolidates into rough, material-specific piles that retain accumulated volume. Tiny cosmetic chips and dust remain transient. This is prepared destruction rather than exact preservation of every brick. Existing saved ruins are not erased when lowering retention; the new budget guides subsequent compaction. Lowering the body cap settles excess pieces in batches on subsequent simulation ticks.
-
-Nuke blast scale ranges from **1× to 3×** and multiplies the selected yield's damage radius, crater radius, and depth (still capped at 25 meters below the baseline). A 3× radius covers roughly 9× the ground area. Each airborne nuke captures its resolved profile when released; changing settings affects later drops. No cooldown applies to all three weapons, clears their timers, and bypasses the in-flight projectile and pending-damage admission limits. Holding fire launches once per simulation tick (60 shots per simulated second). Fragment budgets still follow the sliders, and detailed clouds remain capped at three.
+The only Destruction control is **No cooldown · 0.1 sec**. Enabling it replaces all three weapon cooldowns with a 0.1-second interval (10 launches per simulated second), bypasses projectile/pending-damage admission limits, and retains each laser's full charge and beam sequence. Turning it off restores normal cooldowns. Pause and photo mode freeze firing timers.
 
 Moving-body snapshots use a transferable packed buffer instead of cloning nested objects. Cosmetic chunks use a dense typed-array pool, and the renderer uploads only occupied instance ranges. Airborne terrain sweeps skip sample work only when a conservative terrain bound proves the complete path is clear.
 
 For collapses above 512 moving bodies, the 128 largest sections retain mutual collision detail. Smaller chunks still hit terrain, surviving structures, settled rubble, and those major sections, but pass through each other. Full mutual collision returns once fewer than 257 bodies remain. This avoids dense chip-to-chip contact storms while keeping castle damage and substantial wreckage physical.
 
-Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation share the buffered simulation timeline used by other moving objects, absorbing uneven worker delivery with about 100 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
+Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation share the buffered simulation timeline used by other moving objects, absorbing uneven worker delivery with about 100 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
 
 **Render distance** in Graphics defaults to **1,200 meters**. Its slider ranges from **600 to 3,000 meters** in 100-meter steps and applies immediately. It controls terrain, buildings, trees, rubble, residents, monsters, camera clipping, and horizon fog; small section/batch margins keep objects at the boundary from disappearing early. Close-up detail thresholds remain fixed. Increasing distance draws more of the world and may reduce FPS; distant terrain streams in gradually. The setting persists through reloads and world resets, and Reset settings restores 1,200 meters. Rendering distance does not alter simulation, damage, or saved world contents.
 
@@ -75,7 +65,7 @@ Extreme settings can substantially reduce frame rate and enlarge saves. Reduced 
 
 ## Weapons and fortress
 
-The cannon fires six-meter pineapples every 0.75 seconds. The nuke drops an eighteen-meter pineapple beneath the jet, inherits its velocity, and defaults to a ten-second cooldown. The No cooldown setting disables all weapon cooldown timers and removes projectile and pending-damage admission limits; holding fire launches the selected weapon once per simulation tick. The laser still completes its charge and beam sequence. All three weapons have unlimited ammunition. Switching weapons or respawning does not bypass cooldowns; pausing freezes them.
+The cannon fires six-meter pineapples every 0.75 seconds. The nuke drops an eighteen-meter pineapple beneath the jet, inherits its velocity, and defaults to a ten-second cooldown. The No cooldown setting uses 0.1-second firing intervals and removes projectile and pending-damage admission limits. The laser still completes its charge and beam sequence. All three weapons have unlimited ammunition. Switching weapons or respawning does not bypass cooldowns; pausing freezes them.
 
 Nuke strength in Settings affects future drops:
 
@@ -123,11 +113,11 @@ The laser now starts a valley-wide disco as soon as charging begins. A 250 m mir
 
 Press **3** to select Space Laser. Aim the jet toward a surface and click or press Space to lock that location. A four-second cyan-white charge builds from targeting rings, electrical arcs, rising energy, and sound. The sky-to-ground beam then burns for five seconds while the jet remains under your control. Flying into the bright central beam destroys the jet and triggers the usual two-second respawn; charging effects are harmless.
 
-The **Space Laser** settings offer logarithmic strike size (380 m diameter through **Entire map**, approximately 17,382 m diameter), crater depth (25–500 m), and beam brightness (25–200%). Size scales destruction, visuals, and the beam’s aircraft collision together. Each strike captures its launch settings; changing sliders applies to the next strike. Preferences persist and Reset settings restores the current default laser. Huge strikes finish terrain and object cleanup in queued sections, keeping the dry footprint active until cleanup completes. Version-6 and older world saves require the protected new-world flow.
+Space Laser is fixed at 380 m strike diameter, 500 m depth, and 100% brightness. Already-launched strikes retain their saved profiles.
 
 At default size, the strike expands to a **190-meter radius** during its first firing second and progressively excavates a **380-meter-wide shaft up to 500 meters below the original terrain**. Structures, trees, rocks, moving debris, and settled rubble in the footprint are vaporized rather than scattered. The rock-lined crater stays dry, including where a river previously flowed. Dust and heat glow fade afterward; subsequent weapon hits can deposit new rubble. Repeated laser strikes cannot deepen terrain past the 500-meter limit.
 
-Normally a strike takes its nine-second charge/burn sequence plus fifteen seconds of recharge. No cooldown allows a new locked strike every simulation tick while firing is held; all strikes still charge and burn independently. Terrain work is coalesced per section, with overlapping edits using the deeper result. The nearest 64 strikes receive detailed effects and farther strikes use simple instanced columns; audio selects up to four spatial voices. This does not limit authoritative strikes. Large unrestricted runs can slow and accumulate unfinished excavation.
+Normally a strike takes its nine-second charge/burn sequence plus fifteen seconds of recharge. No cooldown allows a new locked strike every 0.1 seconds while firing is held; all strikes still charge and burn independently. Terrain work is coalesced per section, with overlapping edits using the deeper result. The nearest 64 strikes receive detailed effects and farther strikes use simple instanced columns; audio selects up to four spatial voices. This does not limit authoritative strikes. Large unrestricted runs can slow and accumulate unfinished excavation.
 
 Pause and photo mode freeze the laser. Saves retain locked targets, remaining charge/burn timing, queued excavation, the dry mask, and laser recharge. Reload finishes already-queued world edits before flight becomes available, then resumes unfinished charge/burn timing when play resumes. Reset clears strikes, terrain, water exclusions, and effects. Reduced effects dims presentation without changing damage.
 
@@ -172,13 +162,13 @@ Spatial audio supports both AudioParam-based listener positioning and Firefox's 
 
 The game is now **Pineapple Siege**. Existing browser saves remain in the same IndexedDB database. Preferences migrate independently: Valley-scale is selected once on upgrade, then later strength changes are remembered. Graphics quality/distance, sound, reduced effects/shake, performance display, and hold-time now persist through reloads and world resets.
 
-The full-screen menu always shows Flight, Destruction, Graphics, Audio, and World settings, with no sections to expand. **Reset settings to defaults** restores every preference (including Valley-scale nukes, Standard debris, normal cooldowns, Auto quality, and 35% sound volume) and afternoon time without erasing world damage. Settings reset persists across reloads; **Reset world** remains a separate confirmed action. The HUD shows weapon selectors, cooldown progress, objects destroyed, and height above the actual deformed ground (AGL).
+The full-screen menu shows Flight, Destruction, Graphics, Audio, and World settings. Destruction contains only the 0.1-second cooldown toggle; Space Laser has no settings section. **Reset settings to defaults** restores every preference (including Valley-scale nukes, Standard debris, normal cooldowns, Auto quality, and 35% sound volume) and afternoon time without erasing world damage. Settings reset persists across reloads; **Reset world** remains a separate confirmed action. The HUD shows weapon selectors, cooldown progress, objects destroyed, and height above the actual deformed ground (AGL).
 
 - **C:** toggle cinematic side, rear-quarter, and orbit shots. Flight and weapons stay under your control; C returns to chase immediately. Crash, respawn, pause, and reset return to chase.
 - **P:** freeze the world and enter photo mode; P resumes the previous camera mode. Drag to look, use WASD to move, Q/E to move vertically, and Shift to move faster. H hides/shows photo controls. The toolbar adjusts field of view and saves a clean PNG at the current render resolution. Escape returns to the pause menu.
 
 Photo mode waits for the simulation worker's pause acknowledgement. World effects and sound remain frozen while the camera moves. Camera state and transient dust/audio are never stored in world saves.
 
-Engine audio now layers turbine and airflow with the existing engine body. Material-specific fracture, impact, and settling sounds share generated buffers, with up to 24 ordinary voices and four nuke voices. Craters expose soil and rock strata, fragments show contrasting cut faces, and pooled low dust lingers over impacts. These presentation changes do not alter permanent damage or remove unrestricted firing.
+Engine audio now layers turbine and airflow with the existing engine body. Material-specific fracture, impact, and settling sounds share generated buffers, with up to 24 ordinary voices and four nuke voices. Craters expose soil and rock strata, fragments show contrasting cut faces, and pooled low dust lingers over impacts. These presentation changes do not alter permanent damage or rapid firing.
 
 Earlier screenshots and performance reports are available in Git history.

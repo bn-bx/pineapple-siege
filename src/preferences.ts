@@ -1,4 +1,4 @@
-import { normalizeDestruction } from "./destruction-settings";
+import { fixedDestruction } from "./destruction-settings";
 import { normalizeMonsterCount, normalizeRenderDistance } from "./config";
 import type { Preferences } from "./types";
 export const PREFERENCE_REVISION = 3;
@@ -14,12 +14,8 @@ export function normalizePreferences(
     reverseX: value.reverseX === true,
     reverseY: value.reverseY === true,
     sensitivity: finite(value.sensitivity, 1, 0.3, 2.5),
-    nukeYield:
-      [1, 2, PREFERENCE_REVISION].includes(value.revision!) &&
-      ["local", "castle", "valley"].includes(value.nukeYield!)
-        ? value.nukeYield!
-        : "valley",
-    destruction: normalizeDestruction(value.destruction),
+    nukeYield: "valley",
+    destruction: fixedDestruction(value.destruction),
     monsterCount: normalizeMonsterCount(value.monsterCount),
     renderDistance: normalizeRenderDistance(value.renderDistance),
     googlyEyes:

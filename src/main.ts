@@ -4,16 +4,9 @@ import { normalizePreferences } from "./preferences";
 import { discoActive } from "./disco";
 import {
   DEFAULT_DESTRUCTION,
-  normalizeDestruction,
-  LEVELS,
+  fixedDestruction,
   BODY_LIMITS,
-  CANNON_LIMITS,
-  NUKE_LIMITS,
   COSMETIC_LIMITS,
-  COSMETIC_SCALE,
-  RUBBLE_LIMITS,
-  nukeProfile,
-  laserProfile,
 } from "./destruction-settings";
 import "./style.css";
 import { bindTouchControls, pointerSteering } from "./input";
@@ -28,6 +21,7 @@ import {
   normalizeMonsterCount,
   normalizeRenderDistance,
   WEAPONS,
+  RAPID_FIRE_INTERVAL,
 } from "./config";
 import type {
   WorldData,
@@ -131,12 +125,11 @@ function applyPreferences(p: Preferences) {
   view?.setRenderDistance(extras.renderDistance!);
   updateRenderDistanceUI();
   view?.setGooglyEyes(extras.googlyEyes === true);
-  destruction = normalizeDestruction(p.destruction);
+  destruction = fixedDestruction(p.destruction);
   updateDestructionUI();
   $<HTMLInputElement>("reverseX").checked = reversedX;
   $<HTMLInputElement>("invert").checked = inverted;
   $<HTMLInputElement>("sensitivity").value = String(sensitivity);
-  $<HTMLSelectElement>("nukeYield").value = nukeYield;
   updateMonsterCountUI();
   for (const id of [
     "reduceEffects",
@@ -167,32 +160,10 @@ function updateRenderDistanceUI() {
     `${extras.renderDistance!.toLocaleString()} m`;
 }
 function updateDestructionUI() {
-  for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
-    $<HTMLInputElement>(key).value = String(destruction[key]);
-  $("bodiesValue").textContent =
-    `${LEVELS[destruction.bodies]} · ${BODY_LIMITS[destruction.bodies].toLocaleString()} active`;
-  $("fragmentsValue").textContent =
-    `${LEVELS[destruction.fragments]} · ${CANNON_LIMITS[destruction.fragments]} cannon / ${NUKE_LIMITS[destruction.fragments]} nuke`;
-  $("cosmeticsValue").textContent =
-    `${LEVELS[destruction.cosmetics]} · ${COSMETIC_SCALE[destruction.cosmetics]}× per blast / ${COSMETIC_LIMITS[destruction.cosmetics].toLocaleString()} total`;
-  $("rubbleValue").textContent =
-    `${LEVELS[destruction.rubble]} · ${RUBBLE_LIMITS[destruction.rubble]} per section`;
   $<HTMLInputElement>("noCooldown").checked = destruction.noCooldown;
-  $<HTMLInputElement>("nukeScale").value = String(destruction.nukeScale);
-  for (const key of ["laserSize", "laserDepth", "laserBrightness"] as const)
-    $<HTMLInputElement>(key).value = String(destruction[key]);
-  const laser = laserProfile(destruction);
-  $("laserSizeValue").textContent =
-    `${destruction.laserSize === 100 ? "Entire map · " : ""}${Math.round(laser.radius * 2).toLocaleString()} m diameter`;
-  $("laserDepthValue").textContent = `${laser.depth} m`;
-  $("laserBrightnessValue").textContent =
-    `${Math.round(laser.brightness * 100)}%`;
-  const profile = nukeProfile(nukeYield, destruction);
-  $("nukeScaleValue").textContent =
-    `${destruction.nukeScale}× · ${Math.round(profile.damageRadius)} m damage / ${Math.round(profile.craterRadius)} m crater radius`;
 }
 function applyDestruction() {
-  destruction = normalizeDestruction(destruction);
+  destruction = fixedDestruction(destruction);
   updateDestructionUI();
   view?.effects.fragments.setLimit(COSMETIC_LIMITS[destruction.cosmetics]);
   send({ type: "destructionSettings", value: destruction });
@@ -646,10 +617,10 @@ function frame(now: number) {
                 8
             ? "PROCESSING DAMAGE"
             : destruction.noCooldown
-              ? "READY · NO COOLDOWN"
+              ? "READY · 0.1 S"
               : "READY";
     $("cooldownFill").style.width =
-      `${100 * Math.max(0, 1 - cooldown / WEAPONS[snapshot.weapon].cooldown)}%`;
+      `${100 * Math.max(0, 1 - cooldown / (destruction.noCooldown ? RAPID_FIRE_INTERVAL : WEAPONS[snapshot.weapon].cooldown))}%`;
     for (const weapon of ["cannon", "nuke", "laser"]) {
       const button = $("select-" + weapon);
       button.classList.toggle("selected", snapshot.weapon === weapon);
@@ -699,26 +670,8 @@ function frame(now: number) {
   }
 }
 updateDestructionUI();
-for (const key of [
-  "bodies",
-  "fragments",
-  "cosmetics",
-  "rubble",
-  "nukeScale",
-  "laserSize",
-  "laserDepth",
-  "laserBrightness",
-] as const)
-  $<HTMLInputElement>(key).oninput = (e) => {
-    destruction[key] = +(e.target as HTMLInputElement).value;
-    applyDestruction();
-  };
 $<HTMLInputElement>("noCooldown").onchange = (e) => {
   destruction.noCooldown = (e.target as HTMLInputElement).checked;
-  applyDestruction();
-};
-$("defaultDestruction").onclick = () => {
-  destruction = { ...DEFAULT_DESTRUCTION };
   applyDestruction();
 };
 $("defaultSettings").onclick = () => {
@@ -785,12 +738,6 @@ $<HTMLInputElement>("invert").onchange = (e) => {
 };
 $<HTMLInputElement>("reverseX").onchange = (e) => {
   reversedX = (e.target as HTMLInputElement).checked;
-  savePreferences();
-};
-$<HTMLSelectElement>("nukeYield").onchange = (e) => {
-  nukeYield = (e.target as HTMLSelectElement).value as NukeYield;
-  send({ type: "nukeYield", value: nukeYield });
-  updateDestructionUI();
   savePreferences();
 };
 for (const id of [

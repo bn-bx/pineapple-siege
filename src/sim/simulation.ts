@@ -13,7 +13,14 @@ import {
   RUBBLE_LIMITS,
 } from "../destruction-settings";
 import RAPIER from "@dimforge/rapier3d-compat";
-import { CONFIG, LASER, WEAPONS, clamp, lerp } from "../config";
+import {
+  CONFIG,
+  LASER,
+  WEAPONS,
+  RAPID_FIRE_INTERVAL,
+  clamp,
+  lerp,
+} from "../config";
 import { Terrain } from "./terrain";
 import { Monsters } from "./monsters";
 import { MONSTER_BODY_HEIGHT } from "./monsters";
@@ -1451,7 +1458,7 @@ export class Simulation {
     p.p = next;
     const weapon = this.weapon;
     if (weapon === "laser") {
-      if (this.input.fire && this.cooldowns.laser <= 0) {
+      if (this.input.fire && this.cooldowns.laser <= 1e-9) {
         const target = this.laserAim();
         if (target) this.startLaser(target);
       }
@@ -1460,7 +1467,7 @@ export class Simulation {
     const tuning = WEAPONS[weapon];
     if (
       this.input.fire &&
-      this.cooldowns[weapon] <= 0 &&
+      this.cooldowns[weapon] <= 1e-9 &&
       (this.destruction.noCooldown ||
         (this.projectiles.length < CONFIG.maxProjectiles &&
           (weapon !== "nuke" ||
@@ -1469,7 +1476,7 @@ export class Simulation {
               8)))
     ) {
       this.cooldowns[weapon] = this.destruction.noCooldown
-        ? 0
+        ? RAPID_FIRE_INTERVAL
         : tuning.cooldown;
       this.shots++;
       this.projectiles.push({
@@ -1568,7 +1575,7 @@ export class Simulation {
       phase: "charging",
     });
     this.cooldowns.laser = this.destruction.noCooldown
-      ? 0
+      ? RAPID_FIRE_INTERVAL
       : WEAPONS.laser.cooldown;
     this.shots++;
     this.bump();

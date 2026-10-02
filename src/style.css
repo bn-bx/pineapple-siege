@@ -154,8 +154,8 @@ header {
 }
 #settings {
   display: grid;
-  grid-template-columns: 1fr 1.55fr 1fr;
-  grid-template-areas: "flight destruction graphics" "audio destruction world" "laser laser laser";
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-areas: "flight graphics world" "audio graphics destruction";
   gap: 16px;
   align-items: stretch;
 }
@@ -170,9 +170,6 @@ header {
 }
 .settings-audio {
   grid-area: audio;
-}
-.settings-laser {
-  grid-area: laser;
 }
 .settings-world {
   grid-area: world;
@@ -664,11 +661,8 @@ dialog > div {
   font-size: 13px;
   gap: 20px;
 }
-.settings-laser .settings-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
 .settings-destruction .settings-grid {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
 }
 .settings-grid label {
   min-width: 0;
@@ -807,9 +801,8 @@ body.photo #perf {
   }
   #settings {
     grid-template-columns: 1fr;
-    grid-template-areas: "flight" "destruction" "graphics" "audio" "world" "laser";
+    grid-template-areas: "flight" "destruction" "graphics" "audio" "world";
   }
-  .settings-laser .settings-grid,
   .settings-destruction .settings-grid {
     grid-template-columns: 1fr;
   }

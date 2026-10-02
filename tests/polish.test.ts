@@ -7,16 +7,16 @@ import { frameStats } from "../src/frame-stats";
 import { GameRenderer } from "../src/render/renderer";
 import { SnapshotTimeline } from "../src/render/snapshot-timeline";
 import type { SimulationSnapshot } from "../src/types";
-it("migrates valley strength once without changing experimental choices", () => {
+it("locks destruction and laser defaults while preserving the cooldown toggle", () => {
   const migrated = normalizePreferences({
     nukeYield: "local",
     destruction: { ...DEFAULT_DESTRUCTION, noCooldown: true, bodies: 4 },
   });
   expect(migrated.nukeYield).toBe("valley");
-  expect(migrated.destruction).toMatchObject({ noCooldown: true, bodies: 4 });
+  expect(migrated.destruction).toMatchObject({ noCooldown: true, bodies: 1 });
   expect(
     normalizePreferences({ ...migrated, nukeYield: "castle" }).nukeYield,
-  ).toBe("castle");
+  ).toBe("valley");
 });
 it("normalizes every persistent setting independently", () => {
   const p = normalizePreferences({
@@ -52,7 +52,7 @@ it("defaults to eyes off and 120 monsters while preserving saved population choi
   expect(migrated).toMatchObject({
     googlyEyes: false,
     monsterCount: 8,
-    nukeYield: "local",
+    nukeYield: "valley",
   });
   expect(
     normalizePreferences({ ...migrated, monsterCount: 8, googlyEyes: false }),
@@ -74,7 +74,7 @@ it("turns the old automatic-on eyes off once and preserves later choices", () =>
   expect(migrated).toMatchObject({
     googlyEyes: false,
     monsterCount: 8,
-    nukeYield: "castle",
+    nukeYield: "valley",
   });
   expect(
     normalizePreferences({ ...migrated, googlyEyes: true }).googlyEyes,
@@ -201,7 +201,7 @@ it("normalizes saved render distance without resetting other preferences", () =>
     });
     expect(preferences.renderDistance).toBe(expected);
     expect(preferences.monsterCount).toBe(7);
-    expect(preferences.nukeYield).toBe("local");
+    expect(preferences.nukeYield).toBe("valley");
   }
 });
 it("gives separate settlements independent draw bounds so distant structures can be culled", () => {

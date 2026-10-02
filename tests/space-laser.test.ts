@@ -145,7 +145,7 @@ it("locks fresh aimed targets, rejects sky shots and keeps independent cooldowns
   s.dispose();
 });
 it.each([0, 100])(
-  "allows sixty overlapping locked strikes per simulated second with No cooldown at size %s",
+  "allows ten overlapping locked strikes per simulated second with rapid fire at size %s",
   (laserSize) => {
     const s = create();
     s.setDestruction({ ...DEFAULT_DESTRUCTION, noCooldown: true, laserSize });
@@ -155,11 +155,11 @@ it.each([0, 100])(
     s.plane.yaw = 0;
     s.input.fire = true;
     for (let i = 0; i < 60; i++) s.step();
-    expect(s.shots).toBe(60);
-    expect(s.lasers).toHaveLength(60);
-    expect(s.cooldowns.laser).toBe(0);
+    expect(s.shots).toBe(10);
+    expect(s.lasers).toHaveLength(10);
+    expect(s.cooldowns.laser).toBeCloseTo(1 / 60);
     expect(s.lasers.every((l) => l.phase === "charging")).toBe(true);
-    expect(s.lasers[0].age - s.lasers[59].age).toBeCloseTo(59 / 60);
+    expect(s.lasers[0].age - s.lasers[9].age).toBeCloseTo(0.9);
     s.dispose();
   },
 );

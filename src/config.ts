@@ -35,6 +35,7 @@ export const CONFIG = {
   chunkSize: CHUNK_SIZE,
 };
 export const MONSTER_SCALE = 2;
+export const RAPID_FIRE_INTERVAL = 0.1;
 export const DEFAULT_MONSTER_COUNT = 120;
 export const MAX_MONSTER_COUNT = 400;
 export const DEFAULT_RENDER_DISTANCE = 1200;

@@ -54,6 +54,15 @@ export function normalizeDestruction(
         : 1,
   };
 }
+/** Public game settings are fixed; only rapid fire remains a user preference. */
+export function fixedDestruction(
+  value?: Partial<DestructionSettings> & { noNukeCooldown?: boolean },
+): DestructionSettings {
+  return {
+    ...DEFAULT_DESTRUCTION,
+    noCooldown: normalizeDestruction(value).noCooldown,
+  };
+}
 export function nukeProfile(
   yieldId: NukeYield,
   settings: DestructionSettings,

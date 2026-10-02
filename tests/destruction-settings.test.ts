@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import {
   DEFAULT_DESTRUCTION,
+  fixedDestruction,
   normalizeDestruction,
   nukeProfile,
   NUKE_LIMITS,
@@ -18,6 +19,25 @@ const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 );
 beforeAll(initializePhysics);
+
+it("fixes every removed control at its default even when old preferences override it", () => {
+  expect(
+    fixedDestruction({
+      bodies: 4,
+      fragments: 4,
+      cosmetics: 4,
+      rubble: 4,
+      nukeScale: 3,
+      laserSize: 100,
+      laserDepth: 25,
+      laserBrightness: 2,
+      noCooldown: true,
+    }),
+  ).toEqual({ ...DEFAULT_DESTRUCTION, noCooldown: true });
+  expect(fixedDestruction({ noCooldown: false, noNukeCooldown: true })).toEqual(
+    DEFAULT_DESTRUCTION,
+  );
+});
 
 it("migrates absent preferences and bounds experimental values", () => {
   expect(normalizeDestruction()).toEqual(DEFAULT_DESTRUCTION);
@@ -39,7 +59,7 @@ it("migrates absent preferences and bounds experimental values", () => {
   ).toMatchObject({ damageRadius: 1260, craterRadius: 480, depth: 25 });
 });
 
-it("removes cooldown and projectile limits, and captures strength at release", () => {
+it("uses 0.1-second rapid fire without projectile admission limits and captures strength at release", () => {
   const s = new Simulation(world, base, () => {});
   s.plane.p = [1024, 400, 650];
   s.plane.pitch = 0;
@@ -54,7 +74,7 @@ it("removes cooldown and projectile limits, and captures strength at release", (
     fragments: 4,
   });
   s.step();
-  expect(s.cooldowns.nuke).toBe(0);
+  expect(s.cooldowns.nuke).toBe(0.1);
   const released = s.projectiles[1];
   expect(released.profile).toMatchObject({
     damageRadius: 210,
@@ -62,19 +82,20 @@ it("removes cooldown and projectile limits, and captures strength at release", (
   });
   s.setDestruction({ ...DEFAULT_DESTRUCTION, noCooldown: true });
   for (let i = 0; i < 20; i++) s.step();
-  expect(s.shots).toBe(22);
-  expect(s.projectiles).toHaveLength(22);
+  expect(s.shots).toBe(6);
+  expect(s.projectiles).toHaveLength(6);
   expect(released.profile!.damageRadius).toBe(210);
   s.weapon = "cannon";
   s.cooldowns.cannon = 0.9;
   s.setDestruction({ ...DEFAULT_DESTRUCTION, noCooldown: true });
   for (let i = 0; i < 60; i++) s.step();
-  expect(s.shots).toBe(82);
-  expect(s.cooldowns.cannon).toBe(0);
+  expect(s.shots).toBe(16);
+  expect(s.cooldowns.cannon).toBeCloseTo(1 / 60);
   expect(s.projectiles.length).toBeGreaterThan(12);
   s.setDestruction(DEFAULT_DESTRUCTION);
   s.projectiles.length = 0;
   s.weapon = "nuke";
+  s.cooldowns.nuke = 0;
   s.step();
   expect(s.cooldowns.nuke).toBe(10);
   s.dispose();
