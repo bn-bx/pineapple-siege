@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { MONSTER_BODY_HEIGHT, MONSTER_BODY_RADIUS, Monsters } from "../src/sim/monsters";
+import { CONFIG } from "../src/config";
 import { discoActive } from "../src/disco";
 import { Terrain } from "../src/sim/terrain";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -13,7 +14,7 @@ const base = new Float32Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOff
 beforeAll(async () => initializePhysics(), 30000);
 
 describe("giant pineapple monsters", () => {
-  it("uses stable, separated land spawns and count presets without reviving defeated monsters", () => {
+  it("uses stable, separated land spawns without reviving defeated monsters when counts change", () => {
     const monsters = new Monsters(world, new Terrain(base));
     expect(monsters.states).toHaveLength(20);
     for (const m of monsters.states) {
@@ -28,6 +29,59 @@ describe("giant pineapple monsters", () => {
     monsters.setCount(20);
     expect(monsters.active()).toHaveLength(19);
     expect(new Monsters(world, new Terrain(base)).states[0].p).toEqual(p);
+  });
+
+  it("grows to 200 separated land monsters, supports every slider count, and retains hidden defeats", () => {
+    const terrain = new Terrain(base);
+    const monsters = new Monsters(world, terrain);
+    const original = structuredClone(monsters.states);
+    monsters.setCount(200);
+    expect(monsters.states.slice(0, 20)).toEqual(original);
+    expect(monsters.active()).toHaveLength(200);
+    for (const m of monsters.states) {
+      expect(m.p.every(Number.isFinite)).toBe(true);
+      expect(m.p[0]).toBeGreaterThanOrEqual(75);
+      expect(m.p[0]).toBeLessThanOrEqual(CONFIG.worldSize - 75);
+      expect(m.p[2]).toBeGreaterThanOrEqual(75);
+      expect(m.p[2]).toBeLessThanOrEqual(CONFIG.worldSize - 75);
+      expect(terrain.water(m.p[0], m.p[2])).toBe(false);
+      expect(monsters.states.some((other) => other !== m && Math.hypot(other.p[0] - m.p[0], other.p[2] - m.p[2]) < 64)).toBe(false);
+    }
+    monsters.damage(monsters.states[199], 3);
+    for (let count = 0; count <= 200; count++) {
+      monsters.setCount(count);
+      expect(monsters.active()).toHaveLength(count === 200 ? 199 : count);
+    }
+    monsters.step(1 / 60, [90, 400, 90], false, () => false);
+    expect(monsters.states.every((m) => m.p.every(Number.isFinite) && Number.isFinite(m.yaw))).toBe(true);
+    expect(new Monsters(world, new Terrain(base), structuredClone(monsters.states)).states[199].defeated).toBe(true);
+    monsters.setCount(201);
+    expect(monsters.count).toBe(200);
+    monsters.setCount(-1);
+    expect(monsters.count).toBe(0);
+  });
+
+  it("preserves old 20-monster saves and restores a grown population even when hidden", () => {
+    const sim = new Simulation(world, base, () => {});
+    const oldSave = sim.save();
+    expect(oldSave.monsters).toHaveLength(20);
+    expect(compatible(oldSave, world.version, world.seed)).toBe(true);
+    sim.setMonsterCount(200);
+    sim.monsters.damage(sim.monsters.states[199], 3);
+    sim.setMonsterCount(7);
+    const save = sim.save();
+    expect(save.monsters).toHaveLength(200);
+    expect(compatible(save, world.version, world.seed)).toBe(true);
+    const restored = new Simulation(world, base, () => {}, save);
+    restored.setMonsterCount(200);
+    expect(restored.snapshot().monsters).toHaveLength(200);
+    expect(restored.monsters.active()).toHaveLength(199);
+    expect(restored.monsters.states[199].defeated).toBe(true);
+    expect(compatible({ ...save, monsters: [...save.monsters!, { ...save.monsters![0], id: 200 }] }, world.version, world.seed)).toBe(false);
+    restored.step();
+    expect(restored.snapshot().monsters.every((m) => m.p.every(Number.isFinite))).toBe(true);
+    sim.dispose();
+    restored.dispose();
   });
 
   it("winds up, throws a spike, and can swipe a low jet", () => {

@@ -312,12 +312,12 @@ function wall(
         axis === 0 ? span / 2 : 2.4,
         dy / 2,
         axis === 1 ? span / 2 : 2.4,
-        "stone",
+        "sandstone",
         name,
         l === 0 && base === floor,
       );
     }
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n; i += 2) {
     const t = (i + 0.5) * span - length / 2;
     add(
       "block",
@@ -327,7 +327,7 @@ function wall(
       axis === 0 ? 1.65 : 2.6,
       1.4,
       axis === 1 ? 1.65 : 2.6,
-      "stone",
+      "sandstone",
       name,
     );
   }
@@ -344,14 +344,22 @@ function wall(
         axis === 0 ? 1.7 : 3.8 - l * 0.45,
         3,
         axis === 1 ? 1.7 : 3.8 - l * 0.45,
-        "stone",
+        "sandstone",
         name,
         l === 0,
       );
   }
 }
-function tower(name, cx, cz, height = 50, width = 18, roof = false) {
-  towers.push([cx, floor, cz]);
+function tower(
+  name,
+  cx,
+  cz,
+  height = 50,
+  width = 18,
+  roof = false,
+  landmark = true,
+) {
+  if (landmark) towers.push([cx, floor, cz]);
   const cell = width / 3;
   for (let l = 0; l < Math.ceil(height / 5); l++)
     for (let x = 0; x < 3; x++)
@@ -366,11 +374,37 @@ function tower(name, cx, cz, height = 50, width = 18, roof = false) {
           cell / 2,
           2.5,
           cell / 2,
-          "stone",
+          "sandstone",
           name,
           l === 0,
         );
       }
+  for (let y = 17; y < height - 7; y += 17) {
+    for (const side of [-1, 1]) {
+      add(
+        "block",
+        cx,
+        floor + y,
+        cz + side * (width / 2 - 0.15),
+        1.25,
+        3.3,
+        0.45,
+        "window",
+        name,
+      );
+      add(
+        "block",
+        cx + side * (width / 2 - 0.15),
+        floor + y,
+        cz,
+        0.45,
+        3.3,
+        1.25,
+        "window",
+        name,
+      );
+    }
+  }
   let owner;
   for (let i = -1; i <= 1; i++)
     for (const side of [-1, 1]) {
@@ -382,7 +416,7 @@ function tower(name, cx, cz, height = 50, width = 18, roof = false) {
         cell * 0.32,
         1.5,
         2,
-        "stone",
+        "sandstone",
         name,
       );
       add(
@@ -393,7 +427,7 @@ function tower(name, cx, cz, height = 50, width = 18, roof = false) {
         2,
         1.5,
         cell * 0.32,
-        "stone",
+        "sandstone",
         name,
       );
     }
@@ -401,12 +435,12 @@ function tower(name, cx, cz, height = 50, width = 18, roof = false) {
     add(
       "block",
       cx,
-      floor + Math.ceil(height / 5) * 5 + 7,
+      floor + Math.ceil(height / 5) * 5 + 17,
       cz,
       width * 0.62,
-      8,
+      17,
       width * 0.62,
-      "roof",
+      "slate",
       name,
     );
   banners.push({
@@ -461,11 +495,11 @@ for (let x = -2; x <= 2; x++)
       5,
       3,
       5,
-      "stone",
+      "sandstone",
       "keep",
       true,
     );
-for (let l = 0; l < 23; l++)
+for (let l = 0; l < 18; l++)
   for (let x = 0; x < 7; x++)
     for (let z = 0; z < 6; z++) {
       if (x !== 0 && x !== 6 && z !== 0 && z !== 5) continue;
@@ -479,24 +513,32 @@ for (let l = 0; l < 23; l++)
         3,
         2,
         3,
-        "stone",
+        "sandstone",
         "keep",
       );
     }
+for (let y = 20; y < 77; y += 13)
+  for (const x of [-13, 0, 13])
+    add("block", fx + x, floor + y, keepZ - 17.8, 2, 4, 0.55, "window", "keep");
 for (let i = -3; i <= 3; i++)
   for (const side of [-1, 1])
     add(
       "block",
       fx + i * 6,
-      floor + 99,
+      floor + 79,
       keepZ + side * 17,
       1.8,
       1.5,
       2.4,
-      "stone",
+      "sandstone",
       "keep",
     );
-add("block", fx, floor + 108, keepZ, 18, 10, 15, "roof", "keep");
+add("block", fx, floor + 96, keepZ, 22, 17, 19, "slate", "keep");
+// Uneven palace towers and long slate silhouettes echo the reference castle.
+tower("great-spire", fx - 34, keepZ + 36, 126, 20, true, false);
+tower("chapel-spire", fx + 70, fz + 77, 101, 17, true, false);
+tower("west-spire", fx - 83, fz + 70, 91, 16, true, false);
+tower("east-spire", fx + 88, fz - 9, 82, 15, true, false);
 for (let i = 0; i < 6; i++)
   add(
     "block",
@@ -506,7 +548,7 @@ for (let i = 0; i < 6; i++)
     10,
     0.5 + i * 0.5,
     1,
-    "stone",
+    "sandstone",
     "keep",
     true,
   );
@@ -519,7 +561,7 @@ for (const x of [-1, 1])
     wall(name, cx, cz + 12, 20, 0, 12);
     wall(name, cx - 10, cz, 24, 1, 12);
     wall(name, cx + 10, cz, 24, 1, 12);
-    add("block", cx, floor + 16, cz, 12, 5, 15, "roof", name);
+    add("block", cx, floor + 21, cz, 12, 10, 15, "slate", name);
   }
 // A broad rear palace closes the upper court; roofs are independently breakable.
 for (const side of [-1, 1]) {
@@ -531,7 +573,7 @@ for (const side of [-1, 1]) {
   wall(name, cx - 31, cz, 30, 1, 26);
   wall(name, cx + 31, cz, 30, 1, 26);
   for (let part = -1; part <= 1; part++)
-    add("block", cx + part * 21, floor + 32, cz, 11, 6, 18, "roof", name);
+    add("block", cx + part * 21, floor + 37, cz, 11, 11, 18, "slate", name);
 }
 for (const p of [
   [fx - 10, 14, fz - HALF_Z - 4],
@@ -540,7 +582,7 @@ for (const p of [
   [fx + 25, 16, fz + 5],
 ]) {
   const owner = entities
-    .filter((e) => e.material === "stone")
+    .filter((e) => e.material === "sandstone")
     .reduce((a, b) =>
       Math.hypot(...a.p.map((v, k) => v - p[k])) <
       Math.hypot(...b.p.map((v, k) => v - p[k]))
@@ -994,7 +1036,7 @@ for (let i = 0; i < 170; i++) {
   add("rock", x, h + s * 0.4, z, s, s * 0.6, s * 0.85, "rock", "", true);
 }
 const world = {
-  version: 5,
+  version: 6,
   seed: SEED,
   size: SIZE,
   step: STEP,

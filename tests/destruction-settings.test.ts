@@ -5,6 +5,8 @@ import {
   DEFAULT_DESTRUCTION,
   normalizeDestruction,
   nukeProfile,
+  NUKE_LIMITS,
+  COSMETIC_SCALE,
 } from "../src/destruction-settings";
 import { Fragments } from "../src/render/fragments";
 import { flightPose } from "../src/render/flight-pose";
@@ -56,7 +58,7 @@ it("removes cooldown and projectile limits, and captures strength at release", (
   const released = s.projectiles[1];
   expect(released.profile).toMatchObject({
     damageRadius: 210,
-    bodyLimit: 1024,
+    bodyLimit: NUKE_LIMITS[4],
   });
   s.setDestruction({ ...DEFAULT_DESTRUCTION, noCooldown: true });
   for (let i = 0; i < 20; i++) s.step();
@@ -111,8 +113,8 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
   expect(compatible(save, world.version, world.seed)).toBe(true);
   expect(save.pendingJobs[0].profile).toMatchObject({
     damageRadius: 140,
-    bodyLimit: 1024,
-    ejecta: 2160,
+    bodyLimit: NUKE_LIMITS[4],
+    ejecta: 720 * COSMETIC_SCALE[4],
   });
   const restored = new Simulation(world, base, () => {}, save);
   restored.plane.p = [...s.plane.p];
@@ -120,7 +122,7 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
   while (restored.pendingJobs.length) restored.processDestruction(50);
   expect([...restored.removed].sort()).toEqual([...s.removed].sort());
   expect(s.moving.size).toBeGreaterThan(256);
-  expect(s.moving.size).toBeLessThanOrEqual(1024);
+  expect(s.moving.size).toBeLessThanOrEqual(s.bodyLimit);
   expect(
     events
       .filter((e) => e.type === "fragments")
@@ -129,7 +131,8 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
   for (const [i, height] of s.terrain.changed)
     expect(height).toBeGreaterThanOrEqual(base[i] - 25.001);
   s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 0 });
-  for (let i = 0; i < 70 && s.moving.size > 64; i++) s.step();
+  const trimTicks = Math.ceil((s.moving.size - 64) / 16) + 120;
+  for (let i = 0; i < trimTicks && s.moving.size > 64; i++) s.step();
   expect(s.moving.size).toBeLessThanOrEqual(64);
   s.dispose();
   restored.dispose();

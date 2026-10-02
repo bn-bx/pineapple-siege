@@ -47,6 +47,10 @@
           ><span><kbd>SHIFT</kbd> Boost</span><span><kbd>R</kbd> Respawn</span
           ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
           ><span><kbd>P</kbd> Photo</span>
+          <span class="touch-help"
+            >Touch: left pad steers · hold Fire, Boost, or throttle +/− · tap a
+            weapon to select it</span
+          >
         </div>
         <div class="settings-heading">
           <h2>Settings</h2>
@@ -126,7 +130,8 @@
                   step="1"
                   value="1"
                 /><small
-                  >Slim → Extreme · Maximum moving, collidable fragments.</small
+                  >Slim → Extreme · More moving pieces. Large collapses simplify
+                  collisions between small chunks.</small
                 ></label
               >
               <label
@@ -243,6 +248,9 @@
                 >Reduce effects<input id="reduceEffects" type="checkbox"
               /></label>
               <label class="check"
+                >Googly eyes<input id="googlyEyes" type="checkbox"
+              /></label>
+              <label class="check"
                 >Show performance<input id="showPerf" type="checkbox"
               /></label>
             </div>
@@ -273,10 +281,17 @@
           >
             <h3 id="heading-world">World</h3>
             <div class="settings-grid">
-              <label>Pineapple monsters<select id="monsterCount">
-                <option value="0">Off</option><option value="3">3</option>
-                <option value="8" selected>8</option><option value="20">20</option>
-              </select></label>
+              <label
+                >Pineapple monsters <output id="monsterCountValue" for="monsterCount">20</output
+                ><input
+                  id="monsterCount"
+                  type="range"
+                  min="0"
+                  max="200"
+                  step="1"
+                  value="20"
+                /></label
+              >
               <label
                 >Time of day<input
                   id="time"
@@ -304,15 +319,24 @@
       </div>
       <div class="weapon">
         <span class="weapon-icon">◈</span>
-        <div>
+        <div class="weapon-info">
           <small id="weaponName">PINEAPPLE CANNON</small
           ><strong id="weaponStatus">READY</strong>
         </div>
         <span id="ammo">∞</span>
-        <div class="weapon-select">
-          <button id="select-cannon" aria-pressed="true">1 Cannon</button
-          ><button id="select-nuke" aria-pressed="false">2 Nuke</button
-          ><button id="select-laser" aria-pressed="false">3 Space Laser</button>
+        <div class="weapon-select" role="group" aria-label="Select weapon">
+          <button
+            id="select-cannon"
+            type="button"
+            class="selected"
+            aria-pressed="true"
+          >
+            1 Cannon</button
+          ><button id="select-nuke" type="button" aria-pressed="false">
+            2 Nuke</button
+          ><button id="select-laser" type="button" aria-pressed="false">
+            3 Space Laser
+          </button>
           <div class="cooldown-bar"><span id="cooldownFill"></span></div>
         </div>
       </div>
@@ -322,6 +346,22 @@
         ><span id="monstersRemaining">Monsters: 8</span>
       </div>
     </div>
+    <aside id="touchControls" hidden aria-label="Touch flight controls">
+      <div
+        data-stick
+        role="group"
+        aria-label="Drag to steer; release to center"
+      >
+        <span></span>
+      </div>
+      <div class="touch-actions">
+        <button data-key="KeyS" aria-label="Lower throttle">−</button>
+        <button data-key="KeyW" aria-label="Raise throttle">+</button>
+        <button id="touchRespawn">Respawn</button>
+        <button data-key="ShiftLeft">Boost</button>
+        <button data-key="Space">Fire 🍍</button>
+      </div>
+    </aside>
     <aside id="photoToolbar" hidden aria-label="Photo controls">
       <strong>Photo mode</strong
       ><span

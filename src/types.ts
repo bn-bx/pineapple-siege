@@ -45,6 +45,7 @@ export interface Preferences {
   revision?: number;
   quality?: string;
   reduceEffects?: boolean;
+  googlyEyes?: boolean;
   reduceShake?: boolean;
   volume?: number;
   mute?: boolean;
@@ -55,7 +56,7 @@ export interface Preferences {
   sensitivity: number;
   nukeYield: NukeYield;
   destruction?: DestructionSettings;
-  monsterCount?: 0 | 3 | 8 | 20;
+  monsterCount?: number;
 }
 export interface MonsterState {
   id: number;
@@ -94,7 +95,10 @@ export type Material =
   | "earth"
   | "rock"
   | "plaster"
-  | "roof";
+  | "roof"
+  | "sandstone"
+  | "slate"
+  | "window";
 export interface Entity {
   id: number;
   kind: "block" | "tree" | "rock";
@@ -159,6 +163,8 @@ export interface BodyView {
   material: Material;
   kind: "chunk" | "tree" | "rock";
   source: number;
+  /** One of four solid roof wedges; absent for an intact section. */
+  roofPart?: number;
 }
 export interface TerrainPatch {
   indices: Uint32Array;
@@ -174,6 +180,8 @@ export interface Ruin {
   material: Material;
   kind: "chunk" | "tree" | "rock";
   source: number;
+  /** One of four solid roof wedges; absent for an intact section. */
+  roofPart?: number;
   // Material volume survives pile consolidation, including during save capture.
   volume?: number;
   pile?: boolean;
@@ -230,16 +238,22 @@ export interface SimulationSnapshot {
   monsterSpikes: MonsterSpike[];
   monsterCount: number;
   bodies: BodyView[];
+  packedBodies?: PackedBodies;
   stats: {
     physicsMS: number;
     destructionMS: number;
     pendingJobs: number;
     bodies: number;
+    ballistic: number;
     ruins: number;
     removed: number;
     shots: number;
     revision: number;
   };
+}
+export interface PackedBodies {
+  count: number;
+  buffer: ArrayBuffer;
 }
 export interface SaveSnapshot {
   destruction?: DestructionSettings;
@@ -276,7 +290,7 @@ export type GameCommand =
   | { type: "weapon"; weapon: WeaponId }
   | { type: "nukeYield"; value: NukeYield }
   | { type: "destructionSettings"; value: DestructionSettings }
-  | { type: "monsterCount"; value: 0 | 3 | 8 | 20 }
+  | { type: "monsterCount"; value: number }
   | { type: "respawn" }
   | { type: "reset" }
   | { type: "save"; request: number }
@@ -295,7 +309,11 @@ export interface ContactSound {
 }
 export type WorkerMessage =
   | { type: "vaporize"; p: Vec3; radius: number }
-  | { type: "monsterEvent"; p: Vec3; kind: "hit" | "defeat" | "throw" | "swipe" }
+  | {
+      type: "monsterEvent";
+      p: Vec3;
+      kind: "hit" | "defeat" | "throw" | "swipe";
+    }
   | ContactSound
   | { type: "paused"; snapshot: SimulationSnapshot }
   | WorldDelta

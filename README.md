@@ -41,25 +41,31 @@ The source tree contains the current game, its world generator, and automated te
 
 If mouse capture is unavailable, hold and drag to steer, and use Space to fire. Safari may consume Escape presses for its mouse-capture banner before opening the game menu.
 
+On phones and tablets, use the left thumb pad to steer (release to center), and hold Fire, Boost, or the +/− throttle buttons on the right. Tap the weapon buttons to switch weapons, Respawn to return airborne, and the top-right menu button to pause. Steering sensitivity and reversal settings also apply to touch. Touch controls support simultaneous fingers and work in portrait or landscape.
+
 Pineapples inherit the aircraft's velocity, fall slightly, and explode on impact. The ring on the world estimates the impact location. The jet crashes against terrain, structures, substantial rubble, and water, then returns airborne after two seconds. Destruction stays in place. The boundary assistant turns the jet toward the kingdom before reaching the map edge.
 
 The menu contains independent horizontal/vertical steering reversal, sensitivity, nuke strength, quality, reduced effects and camera shake, time, audio, performance information, and world reset. Pointer movement defaults to right → turn right and up → climb. Steering preferences and nuke strength persist independently of world resets.
 
 ## Experimental destruction settings
 
-Four independent sliders in Settings → Destruction expose five levels. Standard preserves the prior limits. These preferences survive reloads and world resets. Restore destruction defaults resets these controls without resetting the world.
+Four independent sliders in Settings → Destruction expose five levels. Standard preserves the prior limits; Heavy through Extreme now have larger budgets. These preferences survive reloads and world resets. Restore destruction defaults resets these controls without resetting the world.
 
 | Limit                                      |    Slim | Standard |     Heavy |   Massive |     Extreme |
 | ------------------------------------------ | ------: | -------: | --------: | --------: | ----------: |
-| Active physics bodies                      |      64 |      256 |       512 |     1,024 |       2,048 |
-| Cannon / nuke fragments per blast          | 16 / 32 | 64 / 128 | 128 / 256 | 256 / 512 | 512 / 1,024 |
-| Cosmetic chunk pool                        |   1,024 |    4,096 |     8,192 |    12,288 |      16,384 |
-| Cosmetic chunks per blast multiplier       |   0.25× |       1× |      1.5× |        2× |          3× |
+| Active physics bodies                      |      64 |      256 |     1,024 |     4,096 |       8,192 |
+| Cannon / nuke fragments per blast          | 16 / 32 | 64 / 128 | 256 / 512 | 1,024 / 2,048 | 2,048 / 4,096 |
+| Cosmetic chunk pool                        |   1,024 |    4,096 |    16,384 |    32,768 |      65,536 |
+| Cosmetic chunks per blast multiplier       |   0.25× |       1× |        3× |        6× |         12× |
 | Persistent rubble records per 64 m section |      12 |       36 |        96 |       192 |         384 |
 
 Raise both physics bodies and fragments to keep more building pieces in motion. Higher physics levels also extend the maximum moving lifetime from 12 seconds at Standard to 30 seconds at Extreme. Substantial building modules retain their original dimensions at every level. The rubble slider controls how many individual records remain per section; overflow consolidates into rough, material-specific piles that retain accumulated volume. Tiny cosmetic chips and dust remain transient. This is prepared destruction rather than exact preservation of every brick. Existing saved ruins are not erased when lowering retention; the new budget guides subsequent compaction. Lowering the body cap settles excess pieces in batches on subsequent simulation ticks.
 
 Nuke blast scale ranges from **1× to 3×** and multiplies the selected yield's damage radius, crater radius, and depth (still capped at 25 meters below the baseline). A 3× radius covers roughly 9× the ground area. Each airborne nuke captures its resolved profile when released; changing settings affects later drops. No cooldown applies to all three weapons, clears their timers, and bypasses the in-flight projectile and pending-damage admission limits. Holding fire launches once per simulation tick (60 shots per simulated second). Fragment budgets still follow the sliders, and detailed clouds remain capped at three.
+
+Moving-body snapshots use a transferable packed buffer instead of cloning nested objects. Cosmetic chunks use a dense typed-array pool, and the renderer uploads only occupied instance ranges. Airborne terrain sweeps skip sample work only when a conservative terrain bound proves the complete path is clear.
+
+For collapses above 512 moving bodies, the 128 largest sections retain mutual collision detail. Smaller chunks still hit terrain, surviving structures, settled rubble, and those major sections, but pass through each other. Full mutual collision returns once fewer than 257 bodies remain. This avoids dense chip-to-chip contact storms while keeping castle damage and substantial wreckage physical.
 
 Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation interpolate on a buffered simulation timeline, absorbing uneven worker delivery with about 33 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
 
@@ -77,19 +83,25 @@ Nuke strength in Settings affects future drops:
 | Castle-leveling | 180 m         | 70 m          | 20 m        | 240 m        |
 | Valley-scale    | 420 m         | 160 m         | 25 m        | 400 m        |
 
-Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, 42-meter outer walls, a roughly 200-meter keep, layered inner walls, multiple courtyards, enlarged halls, a rear palace, buttresses, roofs, and banners. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
+Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
 
-The world layout and save format are now version 5. Version-4 and older saves prompt for a new world or temporary play without overwriting the old save. They cannot be mapped safely onto the new castle's component IDs.
+The world layout and save format are now version 6. Version-5 and older saves prompt for a new world or temporary play without overwriting the old save. They cannot be mapped safely onto the revised castle's component IDs.
 
 The surrounding map contains four five-building hamlets, three farmsteads, three windmills, two watermills with docks and warehouses, four watchtowers, two additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
 
+## Googly eyes
+
+The castle parts, trees, rocks, banners, lanterns, jet, cannon/nuke pineapples, monsters and their spikes, moving and settled wreckage, and cosmetic fragments all wear googly eyes. Even the orbital disco ball and pineapple smoke clouds get a face. The matte, bone-white eyes have tiny black pupils that independently lock onto the rendered jet, with no random wobble or distractions. Settings → Graphics → Googly eyes switches the decoration on or off immediately; it defaults to off and remembers your choice. The older automatic-on setting is switched off once on upgrade; choosing eyes on afterward persists. Eyes follow the rendered transforms, disappear with destroyed/vaporized objects, and return with world resets; their animation freezes during pause and photo mode.
+
+Eye pairs use shared procedural billboard geometry and reuse each source batch's instance buffer, adding no physics bodies or per-fragment CPU animation. They are visual decoration and require no save migration.
+
 ## Giant pineapple monsters
 
-Eight giant, angry pineapple monsters crawl across the valley by default. They wander around passable ground, pursue nearby low-flying jets, wind up before throwing visible crown spikes, and swipe aircraft that fly close to their arms. Cannon blasts stagger them; three hits defeat one. Nukes defeat monsters in their damage radius, and a sustained space laser also destroys them. The HUD shows how many remain.
+Twenty giant, angry pineapple monsters crawl across the valley by default. They wander around passable ground, pursue nearby low-flying jets, wind up before throwing visible crown spikes, and swipe aircraft that fly close to their arms. Cannon blasts stagger them; three hits defeat one. Nukes defeat monsters in their damage radius, and a sustained space laser also destroys them. The HUD shows how many remain.
 
 Monsters are now twice their original size, including their hitboxes and swipe reach. Their speed and three-hit health stay the same. While any space laser charges or burns, living monsters stop attacking and dance across the map; laser damage still affects monsters near the strike.
 
-World → Pineapple monsters offers Off, 3, 8, and 20. Changes take effect immediately. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals any that are still alive. Monster positions, damage, and defeats are saved with the world. Defeated monsters return only after Reset world. Existing compatible saves gain monsters automatically.
+World → Pineapple monsters has a slider from 0 (Off) to 200, in steps of one; the default is 20. Changes take effect immediately and the selected count persists across reloads. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals any that are still alive and spawns additional monsters as needed. Monster positions, damage, and defeats are saved with the world. Defeated monsters return only after Reset world. Existing compatible saves gain monsters automatically. Higher populations can reduce performance.
 
 ## Space laser
 
@@ -141,6 +153,8 @@ With Python Playwright installed and Vite running at `http://127.0.0.1:5177`, ru
 Nukes have a longer white exposure flash, a 4.5-second white-to-gold fireball and shockwave, then the existing pineapple cloud. Audio is generated locally: a sharp pressure crack, descending bass, filtered roar, rolling echoes, and a 10–14-second rumble tail according to blast size. Water impacts are more muffled. Nuke release has a deeper sound than the cannon. Up to four nuke voices remain active, with short crossfades when replacing older sounds. A shared compressor and soft peak ceiling control overlapping blasts; volume and mute still apply to the final output. No audio files or network services are required.
 
 ## Final polish and cameras
+
+Spatial audio supports both AudioParam-based listener positioning and Firefox's legacy listener methods. Weapon selection and the rest of the HUD continue updating during audible flight. The selector uses three stable button columns, with the cooldown bar beneath and a stronger selected-weapon highlight; small-window hints and telemetry stay clear of the buttons.
 
 The game is now **Pineapple Siege**. Existing browser saves remain in the same IndexedDB database. Preferences migrate independently: Valley-scale is selected once on upgrade, then later strength changes are remembered. Graphics quality, sound, reduced effects/shake, performance display, and hold-time now persist through reloads and world resets.
 

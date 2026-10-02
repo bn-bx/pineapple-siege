@@ -1,4 +1,7 @@
+import { isRoof } from "../debris-shape";
+import { MAX_BODY_LIMIT } from "../destruction-settings";
 import { CameraRig } from "./camera-rig";
+import { GooglyEyes } from "./googly-eyes";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
 import { makeMonster, makeDistantMonster } from "./monster";
@@ -8,6 +11,8 @@ import { Water } from "three/addons/objects/Water.js";
 import {
   createMaterials,
   fractureGeometry,
+  roofGeometry,
+  roofFragmentGeometry,
   fractureMaterials,
   pineGeometry,
   makeJet,
@@ -26,7 +31,7 @@ import type {
   FragmentEffect,
   Material,
 } from "../types";
-import { clamp, LASER, MONSTER_SCALE, WEAPONS } from "../config";
+import { clamp, DEFAULT_MONSTER_COUNT, LASER, MONSTER_SCALE, WEAPONS } from "../config";
 interface Batch {
   mesh: THREE.InstancedMesh;
   low?: THREE.InstancedMesh;
@@ -48,6 +53,7 @@ export class GameRenderer {
   readonly effects = new Effects();
   readonly disco = new DiscoScene();
   readonly jet = makeJet();
+  readonly eyes = new GooglyEyes();
   readonly materials: ReturnType<typeof createMaterials>["materials"];
   private sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   private sun = new THREE.DirectionalLight("#fff0d2", 2.8);
@@ -65,12 +71,17 @@ export class GameRenderer {
   private ruinCells = new Map<number, Set<number>>();
   private ruinGroups = new Map<number, THREE.Group>();
   private dirtyRuinBatches = new Set<number>();
-  private bodyMeshes = new Map<Material, THREE.InstancedMesh>();
+  private bodyMeshes = new Map<string, THREE.InstancedMesh>();
+  private syncedBodies?: BodyView[];
+  private previousBodies = new Map<number, BodyView>();
+  private syncedBodyAlpha = -1;
+  private debrisRotation = new THREE.Quaternion();
   private fallenPines: THREE.InstancedMesh;
   private fallenTrunks: THREE.InstancedMesh;
   private shotMeshes: THREE.Group[] = [];
   private monsterMeshes: THREE.Group[] = [];
   private distantMonsters: THREE.Group[] = [];
+  private googlyEyes = false;
   private spikeMeshes: THREE.Mesh[] = [];
   private flagGroup = new THREE.Group();
   private marker: THREE.Mesh;
@@ -93,10 +104,20 @@ export class GameRenderer {
   private averageMS = 16.7;
   private shakeEnabled = true;
   private fractureBox = fractureGeometry();
+  private roof = roofGeometry();
+  private fractureRoof = fractureGeometry(roofGeometry());
+  private roofFragments = new Map<number, THREE.BufferGeometry>();
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
   private cameraRay = new THREE.Raycaster();
+  private wreckTransform = new THREE.Matrix4();
+  private wreckInverse = new THREE.Matrix4();
+  private wreckRay = new THREE.Ray();
+  private wreckHit = new THREE.Vector3();
+  private wreckPosition = new THREE.Vector3();
+  private wreckRotation = new THREE.Quaternion();
+  private unitScale = new THREE.Vector3(1, 1, 1);
   constructor(
     readonly canvas: HTMLCanvasElement,
     readonly world: WorldData,
@@ -156,15 +177,7 @@ export class GameRenderer {
       this.sun.target,
       this.ambient,
     );
-    for (let i = 0; i < 20; i++) {
-      const monster = makeMonster();
-      const distant = makeDistantMonster();
-      monster.visible = false;
-      distant.visible = false;
-      this.monsterMeshes.push(monster);
-      this.distantMonsters.push(distant);
-      this.scene.add(monster, distant);
-    }
+    this.ensureMonsterMeshes(DEFAULT_MONSTER_COUNT);
     this.scene.fog = new THREE.FogExp2("#98b5bb", 0.00065);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -198,9 +211,14 @@ export class GameRenderer {
     this.sky.frustumCulled = false;
     this.sky.material.uniforms.discoAmount = this.disco.skyAmount;
     this.sky.material.fragmentShader = this.sky.material.fragmentShader
-      .replace("uniform float day,time,laserDim;", "uniform float day,time,laserDim,discoAmount;")
-      .replace("gl_FragColor=vec4(c*(1.-laserDim),1.);",
-        "gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);");
+      .replace(
+        "uniform float day,time,laserDim;",
+        "uniform float day,time,laserDim,discoAmount;",
+      )
+      .replace(
+        "gl_FragColor=vec4(c*(1.-laserDim),1.);",
+        "gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);",
+      );
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
     this.buildBatches();
@@ -278,12 +296,12 @@ export class GameRenderer {
     this.fallenPines = new THREE.InstancedMesh(
       pineGeometry(),
       this.materials.foliage,
-      2048,
+      MAX_BODY_LIMIT,
     );
     this.fallenTrunks = new THREE.InstancedMesh(
       new THREE.CylinderGeometry(0.8, 1, 1, 6),
       this.materials.wood,
-      2048,
+      MAX_BODY_LIMIT,
     );
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
       mesh.count = 0;
@@ -313,9 +331,9 @@ export class GameRenderer {
     this.scene.add(this.marker);
     for (const material of Object.keys(this.materials) as Material[]) {
       let mesh = new THREE.InstancedMesh(
-        this.fractureBox,
+        isRoof(material) ? this.fractureRoof : this.fractureBox,
         this.fragmentMaterials[material],
-        2048,
+        MAX_BODY_LIMIT,
       );
       mesh.count = 0;
       mesh.frustumCulled = false;
@@ -342,8 +360,7 @@ export class GameRenderer {
     const pine = pineGeometry(),
       low = new THREE.ConeGeometry(1, 1, 7, 1);
     low.translate(0, 0.5, 0);
-    const roof = new THREE.ConeGeometry(Math.SQRT2, 2, 4);
-    roof.rotateY(Math.PI / 4);
+    const roof = this.roof;
     const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
       rock = new THREE.DodecahedronGeometry(1, 0);
     for (const list of grouped.values()) {
@@ -405,7 +422,7 @@ export class GameRenderer {
         add(trunk, this.materials.wood, "trunk");
       } else
         add(
-          e.kind === "rock" ? rock : e.material === "roof" ? roof : this.box,
+          e.kind === "rock" ? rock : isRoof(e.material) ? roof : this.box,
           this.materials[e.material],
           e.kind,
         );
@@ -430,6 +447,26 @@ export class GameRenderer {
   setReducedEffects(value: boolean) {
     this.effects.reduced = value;
   }
+  setGooglyEyes(value: boolean) {
+    this.googlyEyes = value;
+    this.eyes.setEnabled(value);
+    for (const monster of this.monsterMeshes) {
+      const nativeEyes = monster.getObjectByName("native-eyes");
+      if (nativeEyes) nativeEyes.visible = !value;
+    }
+  }
+  private ensureMonsterMeshes(count: number) {
+    while (this.monsterMeshes.length < count) {
+      const monster = makeMonster();
+      const distant = makeDistantMonster();
+      const nativeEyes = monster.getObjectByName("native-eyes");
+      if (nativeEyes) nativeEyes.visible = !this.googlyEyes;
+      monster.visible = distant.visible = false;
+      this.monsterMeshes.push(monster);
+      this.distantMonsters.push(distant);
+      this.scene.add(monster, distant);
+    }
+  }
   setQuality(q: string) {
     this.quality = q;
     this.targetHeight = q === "auto" ? 1080 : Number(q);
@@ -453,6 +490,9 @@ export class GameRenderer {
   }
   receive(snapshot: SimulationSnapshot) {
     this.previous = this.last;
+    this.previousBodies.clear();
+    for (const body of this.previous?.bodies || [])
+      this.previousBodies.set(body.id, body);
     this.last = snapshot;
     this.lastArrival = performance.now();
     this.flight.receive({ time: snapshot.time, plane: snapshot.plane });
@@ -513,6 +553,8 @@ export class GameRenderer {
     this.previous = undefined;
     this.last = undefined;
     this.flight.reset();
+    this.previousBodies.clear();
+    this.syncedBodies = undefined;
     this.renderer.shadowMap.needsUpdate = true;
   }
   private hideEntity(id: number) {
@@ -638,12 +680,16 @@ export class GameRenderer {
                 dummy.scale.set(r.s[0] * 0.5, r.s[1] * 0.5, r.s[2] * 0.5);
                 add(
                   r.material,
-                  this.fractureBox,
+                  isRoof(r.material) ? this.fractureRoof : this.fractureBox,
                   this.fragmentMaterials[r.material],
                 );
               }
         } else
-          add(r.material, this.fractureBox, this.fragmentMaterials[r.material]);
+          add(
+            this.debrisKey(r),
+            this.debrisGeometry(r),
+            this.fragmentMaterials[r.material],
+          );
       }
       for (const { geo, mat, matrices } of lists.values()) {
         const mesh = new THREE.InstancedMesh(geo, mat, matrices.length);
@@ -679,14 +725,92 @@ export class GameRenderer {
       Math.floor(Math.floor(cell / 32) / 2) * 16 + Math.floor((cell % 32) / 2)
     );
   }
-  private syncBodies(bodies: BodyView[]) {
-    const counts = new Map<Material, number>();
+  private growDebrisMesh(mesh: THREE.InstancedMesh, required: number) {
+    if (required <= mesh.instanceMatrix.count) return mesh;
+    const grown = new THREE.InstancedMesh(
+      mesh.geometry,
+      mesh.material,
+      Math.max(required, mesh.instanceMatrix.count * 2),
+    );
+    grown.frustumCulled = false;
+    grown.castShadow = mesh.castShadow;
+    grown.receiveShadow = mesh.receiveShadow;
+    grown.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.scene.remove(mesh);
+    mesh.dispose();
+    this.scene.add(grown);
+    return grown;
+  }
+  private debrisKey(b: Pick<BodyView, "material" | "roofPart">) {
+    return b.roofPart ? `${b.material}:${b.roofPart}` : b.material;
+  }
+  private debrisGeometry(b: Pick<BodyView, "material" | "roofPart">) {
+    if (!isRoof(b.material)) return this.fractureBox;
+    if (!b.roofPart) return this.fractureRoof;
+    // Shared by airborne and settled instances; at most four prepared shapes.
+    this.roofFragments ??= new Map();
+    let geo = this.roofFragments.get(b.roofPart);
+    if (!geo) {
+      geo = roofFragmentGeometry(b.roofPart);
+      this.roofFragments.set(b.roofPart, geo);
+    }
+    return geo;
+  }
+  private syncBodies(bodies: BodyView[], alpha: number) {
+    if (bodies === this.syncedBodies && alpha === this.syncedBodyAlpha) return;
+    const changed = bodies !== this.syncedBodies;
+    this.syncedBodies = bodies;
+    this.syncedBodyAlpha = alpha;
+    if (changed) {
+      const needed = new Map<string, number>();
+      let treeCount = 0;
+      for (const b of bodies) {
+        if (b.kind === "tree") treeCount++;
+        else {
+          const key = this.debrisKey(b);
+          needed.set(key, (needed.get(key) || 0) + 1);
+          if (!this.bodyMeshes.has(key)) {
+            const mesh = new THREE.InstancedMesh(
+              this.debrisGeometry(b),
+              this.fragmentMaterials[b.material],
+              64,
+            );
+            mesh.count = 0;
+            mesh.frustumCulled = false;
+            mesh.receiveShadow = true;
+            mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            this.bodyMeshes.set(key, mesh);
+            this.scene.add(mesh);
+          }
+        }
+      }
+      this.fallenTrunks = this.growDebrisMesh(this.fallenTrunks, treeCount);
+      this.fallenPines = this.growDebrisMesh(this.fallenPines, treeCount);
+      for (const [material, count] of needed)
+        this.bodyMeshes.set(
+          material,
+          this.growDebrisMesh(this.bodyMeshes.get(material)!, count),
+        );
+    }
+    const counts = new Map<string, number>();
     let trees = 0;
     for (const b of bodies) {
-      if (b.kind === "tree" && trees < 2048) {
+      dummy.position.fromArray(b.p);
+      dummy.quaternion.fromArray(b.q);
+      const previous = this.previousBodies.get(b.id);
+      if (previous && alpha < 1) {
+        dummy.position.set(
+          THREE.MathUtils.lerp(previous.p[0], b.p[0], alpha),
+          THREE.MathUtils.lerp(previous.p[1], b.p[1], alpha),
+          THREE.MathUtils.lerp(previous.p[2], b.p[2], alpha),
+        );
+        this.debrisRotation
+          .fromArray(previous.q)
+          .slerp(dummy.quaternion, alpha);
+        dummy.quaternion.copy(this.debrisRotation);
+      }
+      if (b.kind === "tree") {
         const e = this.world.entities[b.source];
-        dummy.position.fromArray(b.p);
-        dummy.quaternion.fromArray(b.q);
         dummy.scale.set(b.s[0], b.s[1] * 2, b.s[2]);
         dummy.updateMatrix();
         this.fallenTrunks.setMatrixAt(trees, dummy.matrix);
@@ -704,28 +828,39 @@ export class GameRenderer {
         trees++;
         continue;
       }
-      let mesh = this.bodyMeshes.get(b.material)!,
-        index = counts.get(b.material) || 0;
-      if (index >= 2048) continue;
-      dummy.position.fromArray(b.p);
-      dummy.quaternion.fromArray(b.q);
+      const key = this.debrisKey(b);
+      let mesh = this.bodyMeshes.get(key)!,
+        index = counts.get(key) || 0;
       dummy.scale.fromArray(b.s);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
-      mesh.setColorAt(
-        index,
-        this.fragmentColor.setScalar(0.86 + (b.id % 19) / 70),
-      );
-      counts.set(b.material, index + 1);
+      if (changed)
+        mesh.setColorAt(
+          index,
+          this.fragmentColor.setScalar(0.86 + (b.id % 19) / 70),
+        );
+      counts.set(key, index + 1);
     }
     for (const mesh of [this.fallenPines, this.fallenTrunks]) {
       mesh.count = trees;
-      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (trees) {
+        mesh.instanceMatrix.addUpdateRange(0, trees * 16);
+        mesh.instanceMatrix.needsUpdate = true;
+      }
     }
     for (const [mat, mesh] of this.bodyMeshes) {
       mesh.count = counts.get(mat) || 0;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceColor?.clearUpdateRanges();
+      if (mesh.count) {
+        mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+        mesh.instanceMatrix.needsUpdate = true;
+        if (changed && mesh.instanceColor) {
+          mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
+          mesh.instanceColor.needsUpdate = true;
+        }
+      }
     }
   }
   render(dt: number, active: boolean) {
@@ -735,9 +870,13 @@ export class GameRenderer {
     const snap = this.last;
     if (!snap) return;
     const dancing = discoActive(snap.lasers);
-    this.disco.update(dancing,
+    this.disco.update(
+      dancing,
       active ? dt : dancing && this.disco.amount.value === 0 ? 0.75 : 0,
-      snap.time, (x, z) => this.terrain.sample(x, z), this.effects.reduced);
+      snap.time,
+      (x, z) => this.terrain.sample(x, z),
+      this.effects.reduced,
+    );
     const p = snap.plane;
     const interval = this.previous
       ? Math.max(1 / 60, snap.time - this.previous.time)
@@ -833,19 +972,17 @@ export class GameRenderer {
         Math.abs(r.p[2] - position.z) > 100
       )
         continue;
-      const transform = new THREE.Matrix4().compose(
-        new THREE.Vector3(...r.p),
-        new THREE.Quaternion(...r.q),
-        new THREE.Vector3(1, 1, 1),
+      const transform = this.wreckTransform.compose(
+        this.wreckPosition.fromArray(r.p),
+        this.wreckRotation.fromArray(r.q),
+        this.unitScale,
       );
-      const local = this.cameraRay.ray
-        .clone()
-        .applyMatrix4(transform.clone().invert());
-      box.set(
-        new THREE.Vector3(-r.s[0], -r.s[1], -r.s[2]),
-        new THREE.Vector3(...r.s),
-      );
-      const hit = local.intersectBox(box, new THREE.Vector3());
+      const local = this.wreckRay
+        .copy(this.cameraRay.ray)
+        .applyMatrix4(this.wreckInverse.copy(transform).invert());
+      box.min.set(-r.s[0], -r.s[1], -r.s[2]);
+      box.max.fromArray(r.s);
+      const hit = local.intersectBox(box, this.wreckHit);
       if (hit)
         limit = Math.min(
           limit,
@@ -889,9 +1026,11 @@ export class GameRenderer {
       this.rig.applyPhoto(this.camera, (x, z) => this.terrain.sample(x, z));
     this.sky.position.copy(this.camera.position);
     this.updateRuins();
-    this.syncBodies(snap.bodies);
+    this.syncBodies(snap.bodies, alpha);
+    this.ensureMonsterMeshes(snap.monsters.length);
     for (let i = 0; i < this.monsterMeshes.length; i++) {
-      const mesh = this.monsterMeshes[i], distant = this.distantMonsters[i];
+      const mesh = this.monsterMeshes[i],
+        distant = this.distantMonsters[i];
       const m = snap.monsters[i];
       mesh.visible = distant.visible = !!m && !m.defeated;
       if (!m || m.defeated) continue;
@@ -918,36 +1057,63 @@ export class GameRenderer {
       const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23);
       const left = mesh.getObjectByName("leftArm");
       const right = mesh.getObjectByName("rightArm");
-      if (left) left.rotation.z = dancing ? -0.65 - beat * 0.45 : m.windup > 0 ? -0.6 : crawl;
-      if (right) right.rotation.z = dancing ? 0.65 - beat * 0.45 : m.windup > 0 ? 0.6 : -crawl;
+      if (left)
+        left.rotation.z = dancing
+          ? -0.65 - beat * 0.45
+          : m.windup > 0
+            ? -0.6
+            : crawl;
+      if (right)
+        right.rotation.z = dancing
+          ? 0.65 - beat * 0.45
+          : m.windup > 0
+            ? 0.6
+            : -crawl;
       const crown = mesh.getObjectByName("crown");
       if (crown) crown.rotation.z = Math.sin(m.phase * 0.09) * 0.08;
-      mesh.scale.setScalar(MONSTER_SCALE * (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1));
+      mesh.scale.setScalar(
+        MONSTER_SCALE *
+          (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1),
+      );
       if (this.frame % 15 === 0)
-        mesh.traverse((o) => { if (o instanceof THREE.Mesh) o.castShadow = this.camera.position.distanceTo(mesh.position) < 300; });
+        mesh.traverse((o) => {
+          if (o instanceof THREE.Mesh)
+            o.castShadow = this.camera.position.distanceTo(mesh.position) < 300;
+        });
     }
     while (this.spikeMeshes.length < snap.monsterSpikes.length) {
       const spike = new THREE.Mesh(
         new THREE.ConeGeometry(0.75, 5, 5),
-        new THREE.MeshStandardMaterial({ color: "#518329", emissive: "#163909", emissiveIntensity: 0.6 }),
+        new THREE.MeshStandardMaterial({
+          color: "#518329",
+          emissive: "#163909",
+          emissiveIntensity: 0.6,
+        }),
       );
       spike.scale.setScalar(MONSTER_SCALE);
       this.spikeMeshes.push(spike);
       this.scene.add(spike);
     }
     for (let i = 0; i < this.spikeMeshes.length; i++) {
-      const spike = this.spikeMeshes[i], s = snap.monsterSpikes[i];
+      const spike = this.spikeMeshes[i],
+        s = snap.monsterSpikes[i];
       spike.visible = !!s;
       if (s) {
         spike.position.fromArray(s.p);
-        spike.quaternion.setFromUnitVectors(up, new THREE.Vector3(...s.v).normalize());
+        spike.quaternion.setFromUnitVectors(
+          up,
+          new THREE.Vector3(...s.v).normalize(),
+        );
       }
     }
     // No-cooldown mode has no in-flight cap. Grow the shared-asset pool to show every shot.
     while (this.shotMeshes.length < snap.projectiles.length) {
       const shot = makePineapple();
       shot.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshStandardMaterial)
+        if (
+          object instanceof THREE.Mesh &&
+          object.material instanceof THREE.MeshStandardMaterial
+        )
           this.disco.decorate(object.material);
       });
       this.shotMeshes.push(shot);
@@ -1021,17 +1187,35 @@ export class GameRenderer {
     this.sun.color.set(day > 0.2 ? "#ffe6ba" : "#9ebdeb");
     this.ambient.intensity = 0.38 + day * 1.5;
     this.ambient.color.set(day > 0.2 ? "#c5e5f4" : "#5873a2");
-    this.sun.intensity = THREE.MathUtils.lerp(this.sun.intensity, 0.55, this.disco.skyAmount.value);
+    this.sun.intensity = THREE.MathUtils.lerp(
+      this.sun.intensity,
+      0.55,
+      this.disco.skyAmount.value,
+    );
     this.sun.color.lerp(new THREE.Color("#b9c3ff"), this.disco.skyAmount.value);
-    this.ambient.intensity = THREE.MathUtils.lerp(this.ambient.intensity, 1.25, this.disco.skyAmount.value);
-    this.ambient.color.lerp(new THREE.Color("#d9dcff"), this.disco.skyAmount.value);
+    this.ambient.intensity = THREE.MathUtils.lerp(
+      this.ambient.intensity,
+      1.25,
+      this.disco.skyAmount.value,
+    );
+    this.ambient.color.lerp(
+      new THREE.Color("#d9dcff"),
+      this.disco.skyAmount.value,
+    );
     const fog = this.scene.fog as THREE.FogExp2;
     fog.color.copy(
       new THREE.Color("#192c43").lerp(new THREE.Color("#a3bdbb"), day),
     );
     fog.color.multiplyScalar(1 - laserDim * 0.5);
-    fog.color.lerp(new THREE.Color("#101021"), this.disco.skyAmount.value * 0.88);
-    fog.density = THREE.MathUtils.lerp(0.00065, 0.00035, this.disco.skyAmount.value);
+    fog.color.lerp(
+      new THREE.Color("#101021"),
+      this.disco.skyAmount.value * 0.88,
+    );
+    fog.density = THREE.MathUtils.lerp(
+      0.00065,
+      0.00035,
+      this.disco.skyAmount.value,
+    );
     for (const { light, lamp, owner } of this.lanterns) {
       const alive = !this.removed.has(owner);
       light.intensity = alive ? night * 150 : 0;
@@ -1087,6 +1271,19 @@ export class GameRenderer {
       active ? dt : 0,
       this.camera,
       this.effects.reduced,
+    );
+    this.eyes.update(
+      [
+        this.jet, this.flagGroup, this.disco.ball,
+        ...this.batches.flatMap((batch) => batch.low ? [batch.mesh, batch.low] : [batch.mesh]),
+        this.fallenPines, this.fallenTrunks,
+        ...this.bodyMeshes.values(), ...this.ruinGroups.values(),
+        ...this.monsterMeshes, ...this.distantMonsters,
+        ...this.shotMeshes, ...this.spikeMeshes,
+        ...this.lanterns.map(({ lamp }) => lamp),
+        this.effects.fragments.mesh, ...this.effects.cloudFaces,
+      ],
+      snap, this.jet.position,
     );
     this.renderer.render(this.scene, this.camera);
     if (
@@ -1182,6 +1379,7 @@ export class GameRenderer {
       clouds: this.effects.cloudCount,
       fragments: this.effects.fragments.count,
       projectiles: this.shotMeshes.filter((s) => s.visible).length,
+      googlyFaces: this.eyes.count,
     };
   }
 }

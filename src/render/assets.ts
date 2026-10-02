@@ -1,3 +1,4 @@
+import { roofParts } from "../debris-shape";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Material } from "../types";
@@ -110,6 +111,21 @@ export function createMaterials() {
       color: "#75464a",
       map: wood,
       roughness: 0.8,
+    }),
+    sandstone: new THREE.MeshStandardMaterial({
+      color: "#d9af75",
+      map: stone,
+      roughness: 0.94,
+    }),
+    slate: new THREE.MeshStandardMaterial({
+      color: "#394954",
+      map: wood,
+      roughness: 0.83,
+    }),
+    window: new THREE.MeshStandardMaterial({
+      color: "#252d32",
+      roughness: 0.55,
+      metalness: 0.08,
     }),
   };
   return { materials, grass };
@@ -236,6 +252,7 @@ export function makeJet() {
     flame.rotation.x = -Math.PI / 2;
     flame.name = "flame";
   }
+  g.userData.googlyBounds = [0, 1, 1.5, 1.4, 0.9, 3];
   return g;
 }
 let pineappleTemplate: THREE.Group | undefined;
@@ -285,14 +302,45 @@ export function makePineapple(length = 6): THREE.Group {
     group.add(leaf);
   }
   for (const child of group.children) child.position.y -= 0.45;
+  group.userData.googlyBounds = [0, -0.45, 0, 0.85, 1.1, 0.85];
   pineappleTemplate = group;
   return makePineapple(length);
 }
 
+export function roofGeometry() {
+  const geo = new THREE.ConeGeometry(Math.SQRT2, 2, 4);
+  geo.rotateY(Math.PI / 4);
+  return geo;
+}
+
+/** Closed roof wedges: original sloped face plus distinct exposed cuts. */
+export function roofFragmentGeometry(part: number) {
+  const shape = roofParts[part - 1];
+  const positions: number[] = [],
+    uvs: number[] = [],
+    colors: number[] = [];
+  shape.faces.forEach((face, i) => {
+    for (const index of face) {
+      const v = shape.vertices[index];
+      positions.push(...v);
+      const cut = i >= 2;
+      uvs.push((v[0] + 1) * 0.245 + (cut ? 0.51 : 0), (v[1] + 1) / 2);
+      colors.push(...(cut ? [1, 0.98, 0.94] : [0.9, 0.9, 0.88]));
+    }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 // Shared prepared fragment faces: pale exposed cuts contrast with weathered sides.
-export function fractureGeometry() {
-  const geo = new THREE.BoxGeometry(2, 2, 2),
-    normals = geo.attributes.normal;
+export function fractureGeometry(
+  geo: THREE.BufferGeometry = new THREE.BoxGeometry(2, 2, 2),
+) {
+  const normals = geo.attributes.normal;
   const colors = new Float32Array(normals.count * 3);
   for (let i = 0; i < normals.count; i++) {
     const cut = normals.getY(i) > 0.5 || normals.getX(i) < -0.5;

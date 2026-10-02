@@ -38,7 +38,8 @@ export class NukeFlash {
       age: 0,
       duration: THREE.MathUtils.clamp(4.5 + height / 200, 5.1, 8),
       hold: THREE.MathUtils.clamp(0.35 + height / 1200, 0.45, 0.9),
-      reach: THREE.MathUtils.clamp(height * 3, 500, 2000),
+      // Atmospheric exposure reaches across the valley, beyond the fireball.
+      reach: THREE.MathUtils.clamp(height * 10, 2200, 6000),
     });
     if (this.pulses.length > 8) this.pulses.shift();
   }
@@ -62,7 +63,7 @@ export class NukeFlash {
       const attenuation = 1 / (1 + Math.pow(distance / pulse.reach, 2));
       opacity = Math.max(
         opacity,
-        envelope * attenuation * (0.12 + 0.88 * view),
+        envelope * attenuation * (0.45 + 0.55 * view),
       );
     }
     this.pulses = this.pulses.filter((p) => p.age < p.duration);

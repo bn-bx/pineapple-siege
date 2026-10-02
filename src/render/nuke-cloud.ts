@@ -11,6 +11,7 @@ interface Puff {
 }
 export class NukeCloud {
   readonly group = new THREE.Group();
+  readonly face = new THREE.Group();
   private material: THREE.ShaderMaterial;
   private smoke: THREE.InstancedMesh;
   private puffs: Puff[] = [];
@@ -43,6 +44,8 @@ export class NukeCloud {
         const v = Math.sin(i * 127.1 + event.seed * 31.7) * 43758.5453;
         return v - Math.floor(v);
       };
+    this.face.userData.googlyBounds = [0, height * 0.43, 0, height * 0.23, height * 0.27, height * 0.23];
+    this.group.add(this.face);
     const color = new THREE.Color();
     const add = (
       p: THREE.Vector3,
@@ -136,6 +139,9 @@ export class NukeCloud {
         : Math.min(1, Math.max(0, (20 - this.age) / 5));
     this.material.uniforms.opacity.value = fade;
     this.material.uniforms.time.value = this.age;
+    this.face.scale.setScalar(grow);
+    this.face.position.y = this.age * eventRise(this.event);
+    this.face.visible = fade > 0.15;
     for (let i = 0; i < this.puffs.length; i++) {
       const p = this.puffs[i],
         wave = Math.sin(this.age * 0.8 + p.phase);

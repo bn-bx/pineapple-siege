@@ -7,11 +7,12 @@ import type {
 import { NUKE_PROFILES, LASER } from "./config";
 
 export const LEVELS = ["Slim", "Standard", "Heavy", "Massive", "Extreme"];
-export const BODY_LIMITS = [64, 256, 512, 1024, 2048];
-export const CANNON_LIMITS = [16, 64, 128, 256, 512];
-export const NUKE_LIMITS = [32, 128, 256, 512, 1024];
-export const COSMETIC_LIMITS = [1024, 4096, 8192, 12288, 16384];
-export const COSMETIC_SCALE = [0.25, 1, 1.5, 2, 3];
+export const BODY_LIMITS = [64, 256, 1024, 4096, 8192];
+export const MAX_BODY_LIMIT = Math.max(...BODY_LIMITS);
+export const CANNON_LIMITS = [16, 64, 256, 1024, 2048];
+export const NUKE_LIMITS = [32, 128, 512, 2048, 4096];
+export const COSMETIC_LIMITS = [1024, 4096, 16384, 32768, 65536];
+export const COSMETIC_SCALE = [0.25, 1, 3, 6, 12];
 export const RUBBLE_LIMITS = [12, 36, 96, 192, 384];
 export const DEFAULT_DESTRUCTION: DestructionSettings = {
   bodies: 1,

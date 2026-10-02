@@ -1,7 +1,15 @@
+import { isRoof } from "../debris-shape";
 import type { Ruin, Vec3 } from "../types";
 
-export const rubbleVolume = (r: Pick<Ruin, "s" | "volume">) =>
-  r.volume ?? 8 * r.s[0] * r.s[1] * r.s[2];
+export const rubbleVolume = (
+  r: Pick<Ruin, "s" | "volume" | "material" | "roofPart" | "pile">,
+) =>
+  r.volume ??
+  8 *
+    r.s[0] *
+    r.s[1] *
+    r.s[2] *
+    (isRoof(r.material) && !r.pile ? (r.roofPart ? 1 / 6 : 1 / 3) : 1);
 
 /** Bounded records, retained material. Consolidation never caps accumulated volume. */
 export function consolidateRubble(
@@ -54,6 +62,15 @@ export function consolidateRubble(
   p[1] = ground(p[0], p[2]) + s[1];
   return {
     removed: b.id,
-    ruin: { ...a, p, s, volume, pile: true, kind: "chunk", q: [0, 0, 0, 1] },
+    ruin: {
+      ...a,
+      p,
+      s,
+      volume,
+      pile: true,
+      roofPart: undefined,
+      kind: "chunk",
+      q: [0, 0, 0, 1],
+    },
   };
 }

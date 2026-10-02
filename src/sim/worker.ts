@@ -23,6 +23,9 @@ const send = (m: WorkerMessage) => {
   if (m.type === "saved" && m.save.terrain instanceof Float32Array)
     transfer.push(m.save.terrain.buffer as ArrayBuffer);
   if (m.type === "saved") transfer.push(m.save.laserDry.buffer as ArrayBuffer);
+  const snapshot =
+    m.type === "snapshot" ? m : m.type === "paused" ? m.snapshot : undefined;
+  if (snapshot?.packedBodies) transfer.push(snapshot.packedBodies.buffer);
   postMessage(m, transfer);
 };
 function ready() {
@@ -41,7 +44,7 @@ function ready() {
     flood,
     hour: sim.hour,
   });
-  send(sim.snapshot());
+  send(sim.snapshot(true));
 }
 self.onmessage = async (event: MessageEvent<GameCommand>) => {
   const m = event.data;
@@ -52,7 +55,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       debug = !!m.debug;
       await initializePhysics();
       sim = new Simulation(world, base, send, m.save);
-      sim.setMonsterCount(m.monsterCount ?? 8);
+      sim.setMonsterCount(m.monsterCount ?? 20);
       while (
         sim.pendingJobs.length ||
         sim.laserWork.size ||
@@ -76,31 +79,31 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         paused = m.paused;
         last = performance.now();
         accumulator = 0;
-        if (paused) send({ type: "paused", snapshot: sim.snapshot() });
+        if (paused) send({ type: "paused", snapshot: sim.snapshot(true) });
         break;
       case "weapon":
         sim.weapon = m.weapon;
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "nukeYield":
         sim.nukeYield = m.value;
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "destructionSettings":
         sim.setDestruction(m.value);
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "monsterCount":
         sim.setMonsterCount(m.value);
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "respawn":
         sim.respawn();
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "hour":
         sim.hour = m.hour;
-        send(sim.snapshot());
+        send(sim.snapshot(true));
         break;
       case "holdTime":
         sim.holdTime = m.hold;
@@ -125,13 +128,13 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
           if (m.yield) sim.detonateNuke(m.p, m.yield);
           else sim.explode(m.p);
           sim.physics.step();
-          send(sim.snapshot());
+          send(sim.snapshot(true));
         }
         break;
       case "debugLaser":
         if (debug) {
           sim.startLaser(m.p);
-          send(sim.snapshot());
+          send(sim.snapshot(true));
         }
         break;
       case "debugPlane":
@@ -140,14 +143,14 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
           sim.plane.yaw = m.yaw;
           sim.plane.pitch = m.pitch;
           sim.plane.crashed = 0;
-          send(sim.snapshot());
+          send(sim.snapshot(true));
         }
         break;
       case "debugStep":
         if (debug) {
           for (let i = 0; i < m.steps; i++) sim.step();
-          send(sim.snapshot());
-          send({ type: "debugResult", state: sim.snapshot().stats });
+          send(sim.snapshot(true));
+          send({ type: "debugResult", state: sim.snapshot(true).stats });
         }
         break;
     }
@@ -172,5 +175,5 @@ setInterval(() => {
     accumulator -= 1 / 60;
     steps++;
   }
-  if (steps) send(sim.snapshot());
+  if (steps) send(sim.snapshot(true));
 }, 8);

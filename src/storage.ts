@@ -1,6 +1,7 @@
 import { normalizePreferences } from "./preferences";
+import { NUKE_LIMITS } from "./destruction-settings";
 import type { SaveSnapshot, Preferences } from "./types";
-import { CONFIG } from "./config";
+import { CONFIG, DEFAULT_MONSTER_COUNT, MAX_MONSTER_COUNT } from "./config";
 export class SaveStore {
   private db?: IDBDatabase;
   async open() {
@@ -92,12 +93,23 @@ export function compatible(
     Array.isArray(s.vaporized) &&
     s.vaporized.every(Number.isInteger) &&
     (s.monsters === undefined ||
-      (Array.isArray(s.monsters) && s.monsters.length === 20 &&
-        s.monsters.every((m, id) => m && m.id === id && validPoint(m.p) &&
-          Number.isFinite(m.yaw) && Number.isFinite(m.health) &&
-          m.health >= 0 && m.health <= 3 && typeof m.defeated === "boolean" &&
-          Number.isFinite(m.phase) && Number.isFinite(m.windup) &&
-          Number.isFinite(m.stagger)))) &&
+      (Array.isArray(s.monsters) &&
+        s.monsters.length >= DEFAULT_MONSTER_COUNT &&
+        s.monsters.length <= MAX_MONSTER_COUNT &&
+        s.monsters.every(
+          (m, id) =>
+            m &&
+            m.id === id &&
+            validPoint(m.p) &&
+            Number.isFinite(m.yaw) &&
+            Number.isFinite(m.health) &&
+            m.health >= 0 &&
+            m.health <= 3 &&
+            typeof m.defeated === "boolean" &&
+            Number.isFinite(m.phase) &&
+            Number.isFinite(m.windup) &&
+            Number.isFinite(m.stagger),
+        ))) &&
     Array.isArray(s.laserSupport) &&
     s.laserSupport.every((a) => typeof a === "string") &&
     Array.isArray(s.lasers) &&
@@ -155,7 +167,7 @@ export function compatible(
         j.excavation <= 1 &&
         !!j.profile &&
         Object.values(j.profile).every((v) => Number.isFinite(v) && v >= 0) &&
-        j.profile.bodyLimit <= 1024 &&
+        j.profile.bodyLimit <= Math.max(...NUKE_LIMITS) &&
         Array.isArray(j.supportQueue) &&
         j.supportQueue.every(
           (ids) => Array.isArray(ids) && ids.every(Number.isInteger),
@@ -176,6 +188,9 @@ export function compatible(
           "rock",
           "plaster",
           "roof",
+          "sandstone",
+          "slate",
+          "window",
         ].includes(r.material) &&
         ["chunk", "tree", "rock"].includes(r.kind) &&
         Number.isInteger(r.id) &&

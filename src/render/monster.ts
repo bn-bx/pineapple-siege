@@ -38,6 +38,10 @@ function build() {
   const limb = new THREE.MeshStandardMaterial({ color: "#987126", roughness: 0.95 });
   const dark = new THREE.MeshStandardMaterial({ color: "#21170f", roughness: 0.9 });
   const eye = new THREE.MeshStandardMaterial({ color: "#f34924", emissive: "#631807", emissiveIntensity: 0.7 });
+  const nativeEyes = new THREE.Group();
+  nativeEyes.name = "native-eyes";
+  nativeEyes.visible = false;
+  g.add(nativeEyes);
   const ivory = new THREE.MeshStandardMaterial({ color: "#e7dca9", roughness: 0.75 });
   const body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 16), gold);
   body.position.y = 15;
@@ -61,11 +65,10 @@ function build() {
     const socket = new THREE.Mesh(new THREE.SphereGeometry(1.55, 9, 8), dark);
     socket.position.set(sign * 3.4, 18.5, 7.1);
     socket.scale.z = 0.55;
-    g.add(socket);
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 8), eye);
     pupil.position.set(sign * 3.4, 18.5, 8.15);
     pupil.scale.z = 0.45;
-    g.add(pupil);
+    nativeEyes.add(socket, pupil);
     g.add(cylinder(new THREE.Vector3(sign * 1.5, 21, 8), new THREE.Vector3(sign * 5.2, 19.6, 7.4), 0.55, dark));
     const arm = new THREE.Group();
     arm.name = sign < 0 ? "leftArm" : "rightArm";
@@ -94,6 +97,7 @@ function build() {
     tooth.rotation.z = Math.PI;
     g.add(tooth);
   }
+  g.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
   return g;
 }
 export function makeMonster() {
@@ -105,6 +109,7 @@ let distantTemplate: THREE.Group | undefined;
 export function makeDistantMonster() {
   if (!distantTemplate) {
     distantTemplate = new THREE.Group();
+    distantTemplate.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
     const fruit = new THREE.Mesh(
       new THREE.SphereGeometry(1, 8, 6),
       new THREE.MeshLambertMaterial({ color: "#d3962e" }),

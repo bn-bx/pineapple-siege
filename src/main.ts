@@ -1,3 +1,4 @@
+import { unpackBodies } from "./sim/body-buffer";
 import { normalizePreferences } from "./preferences";
 import { discoActive } from "./disco";
 import {
@@ -14,12 +15,12 @@ import {
   laserProfile,
 } from "./destruction-settings";
 import "./style.css";
-import { pointerSteering } from "./input";
+import { bindTouchControls, pointerSteering } from "./input";
 import { frameStats } from "./frame-stats";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
 import { SaveStore, compatible } from "./storage";
-import { clamp, LASER, WEAPONS } from "./config";
+import { clamp, DEFAULT_MONSTER_COUNT, LASER, normalizeMonsterCount, WEAPONS } from "./config";
 import type {
   WorldData,
   SaveSnapshot,
@@ -64,7 +65,7 @@ let steerX = 0,
   inverted = false,
   reversedX = false,
   nukeYield: NukeYield = "valley",
-  monsterCount: 0 | 3 | 8 | 20 = 8,
+  monsterCount = DEFAULT_MONSTER_COUNT,
   destruction = { ...DEFAULT_DESTRUCTION },
   lastShots = 0,
   lastTime = 0,
@@ -91,6 +92,10 @@ let debugInput: import("./types").InputState | undefined;
 const pendingSaves = new Map<number, (save: SaveSnapshot) => void>();
 const stepWaiters: ((value: unknown) => void)[] = [];
 const pendingReady: (() => void)[] = [];
+const touchControls = $("touchControls");
+const touchDevice = matchMedia("(any-pointer: coarse)");
+const touch = bindTouchControls(touchControls, () => active, preferences);
+const held = (key: string) => keys.has(key) || touch.keys.has(key);
 function preferences(): Preferences {
   return {
     ...extras,
@@ -114,16 +119,18 @@ function applyPreferences(p: Preferences) {
   inverted = p.reverseY;
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
-  monsterCount = extras.monsterCount ?? 8;
+  monsterCount = extras.monsterCount ?? DEFAULT_MONSTER_COUNT;
+  view?.setGooglyEyes(extras.googlyEyes === true);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
   $<HTMLInputElement>("reverseX").checked = reversedX;
   $<HTMLInputElement>("invert").checked = inverted;
   $<HTMLInputElement>("sensitivity").value = String(sensitivity);
   $<HTMLSelectElement>("nukeYield").value = nukeYield;
-  $<HTMLSelectElement>("monsterCount").value = String(monsterCount);
+  updateMonsterCountUI();
   for (const id of [
     "reduceEffects",
+    "googlyEyes",
     "reduceShake",
     "mute",
     "showPerf",
@@ -133,6 +140,10 @@ function applyPreferences(p: Preferences) {
   $<HTMLInputElement>("volume").value = String(extras.volume);
   $<HTMLSelectElement>("quality").value = extras.quality!;
   $("perf").hidden = !(extras.showPerf || debug);
+}
+function updateMonsterCountUI() {
+  $<HTMLInputElement>("monsterCount").value = String(monsterCount);
+  $("monsterCountValue").textContent = monsterCount === 0 ? "Off" : String(monsterCount);
 }
 function updateDestructionUI() {
   for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
@@ -178,6 +189,7 @@ function fatal(message: string, detail = "") {
   $("fatal").hidden = false;
 }
 function clearInput() {
+  touch.reset();
   debugInput = undefined;
   keys.clear();
   steerX = steerY = 0;
@@ -189,6 +201,7 @@ function clearInput() {
   });
 }
 function pause() {
+  touchControls.hidden = true;
   photoPending = photoMode = false;
   view?.setChase();
   document.body.classList.remove("cinematic", "photo");
@@ -214,7 +227,7 @@ function pause() {
   $("hint").hidden = true;
   $("warning").hidden = true;
 }
-async function enter() {
+async function enter(event?: Event) {
   if (!ready || contextLost) return;
   resetFrameStats();
   view.resumeFlight();
@@ -224,6 +237,7 @@ async function enter() {
   $("overlay").hidden = true;
   $("flightHUD").hidden = false;
   $("pauseButton").hidden = false;
+  touchControls.hidden = false;
   $("hint").hidden = false;
   $("hint").style.opacity = "1";
   setTimeout(() => ($("hint").style.opacity = "0"), 9000);
@@ -231,6 +245,16 @@ async function enter() {
     $("status").textContent = "Sound is unavailable; flight is still ready.";
   });
   try {
+    if (
+      event instanceof PointerEvent
+        ? event.pointerType === "touch"
+        : touchDevice.matches
+    ) {
+      pointerFallback = true;
+      $("hint").textContent =
+        "Left pad steers · hold Fire or Boost · +/− throttle";
+      return;
+    }
     await canvas.requestPointerLock();
     pointerFallback = false;
   } catch {
@@ -249,15 +273,13 @@ function input() {
   send({
     type: "input",
     input: {
-      x: steerX,
-      y: steerY,
-      throttle: (keys.has("KeyW") ? 1 : 0) - (keys.has("KeyS") ? 1 : 0),
+      x: clamp(steerX + touch.steering.x, -1, 1),
+      y: clamp(steerY + touch.steering.y, -1, 1),
+      throttle: (held("KeyW") ? 1 : 0) - (held("KeyS") ? 1 : 0),
       bank: (keys.has("KeyD") ? 1 : 0) - (keys.has("KeyA") ? 1 : 0),
-      boost: keys.has("ShiftLeft") || keys.has("ShiftRight"),
+      boost: held("ShiftLeft") || held("ShiftRight"),
       fire:
-        keys.has("Mouse0") ||
-        keys.has("Space") ||
-        performance.now() < fireUntil,
+        keys.has("Mouse0") || held("Space") || performance.now() < fireUntil,
     },
   });
 }
@@ -323,6 +345,16 @@ async function resetWorld() {
   send({ type: "reset" });
 }
 function handle(message: WorkerMessage) {
+  const received =
+    message.type === "snapshot"
+      ? message
+      : message.type === "paused"
+        ? message.snapshot
+        : undefined;
+  if (received?.packedBodies) {
+    received.bodies = unpackBodies(received.packedBodies);
+    delete received.packedBodies;
+  }
   switch (message.type) {
     case "paused":
       if (photoPending) {
@@ -469,6 +501,7 @@ async function load() {
     view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
     view.setQuality(extras.quality!);
     view.setReducedEffects(!!extras.reduceEffects);
+    view.setGooglyEyes(extras.googlyEyes === true);
     view.setShake(!extras.reduceShake);
     audio.setVolume(extras.volume!);
     audio.setMute(!!extras.mute);
@@ -486,7 +519,7 @@ async function load() {
     if (debug) installDebug();
   } catch (e) {
     fatal(
-      "This game needs WebGL 2 and its local game assets. Try a current desktop version of Chrome or Safari.",
+      "This game needs WebGL 2 and its local game assets. Try a current desktop browser with WebGL 2 enabled.",
       e instanceof Error ? e.stack || e.message : String(e),
     );
   }
@@ -522,7 +555,7 @@ function frame(now: number) {
     p.speed,
     view.camera.position.toArray() as Vec3,
     view.cameraDirection(),
-    keys.has("ShiftLeft") || keys.has("ShiftRight"),
+    held("ShiftLeft") || held("ShiftRight"),
   );
   if (p.crashed > 0 && view.rig.mode === "cinematic") {
     view.setChase();
@@ -620,7 +653,7 @@ function frame(now: number) {
     }
     const r = view.stats;
     $("perf").textContent =
-      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.stats.bodies}/${BODY_LIMITS[destruction.bodies]} active bodies · ${snapshot.stats.ruins} rubble\n${r.fragments}/${COSMETIC_LIMITS[destruction.cosmetics]} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
+      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.stats.bodies}/${BODY_LIMITS[destruction.bodies]} active bodies · ${snapshot.stats.ruins} rubble · ${snapshot.stats.ballistic} ballistic pieces\n${r.fragments}/${COSMETIC_LIMITS[destruction.cosmetics]} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
     lastHUD = now;
   }
 }
@@ -666,9 +699,10 @@ $("defaultSettings").onclick = () => {
   applyDestruction();
   void saveNow(true);
 };
-$<HTMLSelectElement>("monsterCount").onchange = (event) => {
-  monsterCount = Number((event.target as HTMLSelectElement).value) as 0 | 3 | 8 | 20;
+$<HTMLInputElement>("monsterCount").oninput = (event) => {
+  monsterCount = normalizeMonsterCount(Number((event.target as HTMLInputElement).value));
   extras.monsterCount = monsterCount;
+  updateMonsterCountUI();
   send({ type: "monsterCount", value: monsterCount });
   savePreferences();
 };
@@ -709,6 +743,7 @@ $<HTMLSelectElement>("nukeYield").onchange = (e) => {
 };
 for (const id of [
   "reduceEffects",
+  "googlyEyes",
   "reduceShake",
   "mute",
   "showPerf",
@@ -718,6 +753,7 @@ for (const id of [
     if (id === "showPerf") resetFrameStats();
     extras[id] = (e.target as HTMLInputElement).checked;
     view?.setReducedEffects(!!extras.reduceEffects);
+    view?.setGooglyEyes(extras.googlyEyes === true);
     view?.setShake(!extras.reduceShake);
     audio.setMute(!!extras.mute);
     $("perf").hidden = !extras.showPerf;
@@ -761,7 +797,8 @@ function togglePhoto() {
       audio.start().catch(() => {});
     }
     document.body.classList.toggle("cinematic", view.rig.mode === "cinematic");
-    if (document.pointerLockElement !== canvas)
+    touchControls.hidden = !active;
+    if (!pointerFallback && document.pointerLockElement !== canvas)
       canvas.requestPointerLock().catch(() => {
         pointerFallback = true;
       });
@@ -770,6 +807,7 @@ function togglePhoto() {
   if (!active) return;
   photoReturn = active;
   photoPending = true;
+  touchControls.hidden = true;
   active = false;
   clearInput();
   send({ type: "pause", paused: true });
@@ -801,6 +839,14 @@ for (const weapon of ["cannon", "nuke", "laser"] as const)
   $("select-" + weapon).onclick = () => {
     if (active) send({ type: "weapon", weapon });
   };
+function respawn() {
+  if (!active) return;
+  clearInput();
+  view.setChase();
+  document.body.classList.remove("cinematic");
+  send({ type: "respawn" });
+}
+$("touchRespawn").onclick = respawn;
 window.addEventListener("keydown", (e) => {
   if (e.code === "Escape") {
     pause();
@@ -850,16 +896,12 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     keys.add(e.code);
     if (e.code === "Space") fireUntil = performance.now() + 100;
-    if (e.code === "KeyR" && !e.repeat) {
-      clearInput();
-      view.setChase();
-      document.body.classList.remove("cinematic");
-      send({ type: "respawn" });
-    }
+    if (e.code === "KeyR" && !e.repeat) respawn();
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 canvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") return;
   if (photoMode) {
     dragging = true;
     canvas.setPointerCapture(e.pointerId);
@@ -874,7 +916,8 @@ canvas.addEventListener("pointerdown", (e) => {
     fireUntil = performance.now() + 100;
   }
 });
-window.addEventListener("pointerup", () => {
+window.addEventListener("pointerup", (e) => {
+  if (e.pointerType === "touch") return;
   dragging = false;
   keys.delete("Mouse0");
 });

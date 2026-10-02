@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { discoActive } from "../src/disco";
 import { Terrain } from "../src/sim/terrain";
+import { GameRenderer } from "../src/render/renderer";
 import { rubbleVolume } from "../src/sim/rubble";
 import {
   DEFAULT_DESTRUCTION,
@@ -206,6 +207,41 @@ it("removes existing water, clips edge strikes safely and restores the dry mask"
   t.reset();
   expect(t.water(2, 2)).toBe(true);
   expect(t.sample(2, 2)).toBe(-4);
+});
+it("does not render compacted rubble again after a laser excavates it", () => {
+  // Exercise the real delta consumer without allocating a WebGL context.
+  const view = Object.assign(Object.create(GameRenderer.prototype), {
+    ruins: new Map(),
+    ruinCells: new Map(),
+    dirtyRuinBatches: new Set(),
+    renderer: { shadowMap: {} },
+    terrain: { patch() {}, setDry() {} },
+  });
+  const events: WorkerMessage[] = [];
+  const s = create([], events);
+  s.setDestruction({ ...DEFAULT_DESTRUCTION, rubble: 0 });
+  const e = entity(0, 650, 650, [8, 5, 7]);
+  for (let i = 0; i < 100; i++) (s as any).staticFragment(e);
+  // A new material also replaces a queued record without changing its ID.
+  (s as any).staticFragment({ ...e, material: "wood" });
+  (s as any).flush();
+  const delta = events.find((event) => event.type === "delta")!;
+  expect(delta.settled).toHaveLength(12);
+  const apply = () => {
+    for (const event of events.splice(0))
+      if (event.type === "delta") view.delta(event);
+  };
+  apply();
+  const renderedBefore = view.ruins.size;
+  s.startLaser([650, 10, 650]);
+  for (let i = 0; i < 540; i++) s.step();
+  drain(s);
+  apply();
+  expect(s.terrain.sample(650, 650)).toBe(-490);
+  expect(s.ruins.size).toBe(0);
+  expect(view.ruins.size).toBe(0);
+  expect(renderedBefore).toBe(12);
+  s.dispose();
 });
 it("retains source dimensions and material volume when rubble budgets and saves overflow", () => {
   const s = create();

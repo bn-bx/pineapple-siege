@@ -1,16 +1,8 @@
 import * as THREE from "three";
+import { COSMETIC_LIMITS } from "../destruction-settings";
+import { CONFIG } from "../config";
 import type { FragmentEffect, Vec3 } from "../types";
-interface Piece {
-  p: Vec3;
-  v: Vec3;
-  size: Vec3;
-  spin: Vec3;
-  rotation: Vec3;
-  life: number;
-  total: number;
-  color: THREE.Color;
-  grounded: boolean;
-}
+
 const palette = {
   stone: 0xb8aa8c,
   wood: 0x916238,
@@ -19,20 +11,24 @@ const palette = {
   rock: 0x8d9191,
   plaster: 0xdfcaa5,
   roof: 0x835646,
+  sandstone: 0xcba56f,
+  slate: 0x43515a,
+  window: 0x32393c,
 };
+// Position, velocity, size, rotation, spin, life, color, grounded, clearance.
+const STRIDE = 21;
 /** Cosmetic ballistic chunks. Permanent, collidable rubble is owned by the worker. */
 export class Fragments {
-  readonly capacity = 16384;
-  private limit = 4096;
-  setLimit(value: number) {
-    this.limit = Math.max(1, Math.min(this.capacity, Math.floor(value)));
-    this.pieces.fill(undefined, this.limit);
-    this.update(0);
-  }
-  readonly mesh: THREE.InstancedMesh;
-  private pieces: (Piece | undefined)[] = new Array(this.capacity);
+  readonly capacity = Math.max(...COSMETIC_LIMITS);
+  private limit = COSMETIC_LIMITS[1];
+  private live = 0;
   private next = 0;
-  private dummy = new THREE.Object3D();
+  private dirty = false;
+  private colorsDirty = false;
+  private data = new Float32Array(this.capacity * STRIDE);
+  private color = new THREE.Color();
+  readonly mesh: THREE.InstancedMesh;
+
   constructor(private ground: (x: number, z: number) => number) {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const pos = geo.getAttribute("position");
@@ -51,6 +47,10 @@ export class Fragments {
       this.capacity,
     );
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity * 3),
+      3,
+    ).setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     this.mesh.castShadow = false;
@@ -59,116 +59,183 @@ export class Fragments {
   get count() {
     return this.mesh.count;
   }
+  setLimit(value: number) {
+    this.limit = Math.max(1, Math.min(this.capacity, Math.floor(value)));
+    this.live = Math.min(this.live, this.limit);
+    this.next %= this.limit;
+    this.dirty = this.colorsDirty = true;
+    this.update(0);
+  }
   emit(e: FragmentEffect, scale = 1) {
     let seed = e.seed | 0;
     const random = () => {
       seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
       return (seed >>> 0) / 4294967296;
     };
-    for (let i = 0; i < Math.floor(e.count * scale); i++) {
-      const a = random() * Math.PI * 2,
-        r = Math.sqrt(random()) * e.spread;
-      const p: Vec3 = [
-        e.p[0] + Math.cos(a) * r,
-        e.p[1] + random() * e.spread * 0.25,
-        e.p[2] + Math.sin(a) * r,
-      ];
-      p[1] = Math.max(p[1], this.ground(p[0], p[2]) + 1);
+    const d = this.data;
+    // A single burst cannot consume unbounded work while overwriting its own pool.
+    const count = Math.min(
+      this.limit,
+      Math.max(0, Math.floor(e.count * scale)),
+    );
+    if (count) this.dirty = this.colorsDirty = true;
+    for (let i = 0; i < count; i++) {
+      const slot =
+          this.live < this.limit ? this.live++ : this.next++ % this.limit,
+        j = slot * STRIDE,
+        a = random() * Math.PI * 2,
+        r = Math.sqrt(random()) * e.spread,
+        x = e.p[0] + Math.cos(a) * r,
+        y = e.p[1] + random() * e.spread * 0.25,
+        z = e.p[2] + Math.sin(a) * r;
       const angle =
-        Math.atan2(p[2] - e.origin[2], p[0] - e.origin[0]) +
-        (random() - 0.5) * 1.2;
-      const speed = e.speed * (0.45 + random() * 0.55),
+          Math.atan2(z - e.origin[2], x - e.origin[0]) + (random() - 0.5) * 1.2,
+        speed = e.speed * (0.45 + random() * 0.55),
         up = 0.3 + random() * 0.6,
-        horizontal = Math.sqrt(1 - up * up) * speed;
-      const size = 0.5 + random() * 2.5,
+        horizontal = Math.sqrt(1 - up * up) * speed,
+        size = 0.5 + random() * 2.5,
         wood = e.material === "wood",
         life = 8 + random() * 8;
-      this.pieces[this.next++ % this.limit] = {
-        p,
-        v: [
-          Math.cos(angle) * horizontal,
-          speed * up,
-          Math.sin(angle) * horizontal,
-        ],
-        size: [
-          size * (wood ? 0.35 : 1),
-          size * (wood ? 2.5 : 0.7),
-          size * 0.65,
-        ],
-        rotation: [random() * 6, random() * 6, random() * 6],
-        spin: [random() * 5 - 2.5, random() * 5 - 2.5, random() * 5 - 2.5],
-        life,
-        total: life,
-        color: new THREE.Color(palette[e.material]).multiplyScalar(
-          0.75 + random() * 0.5,
-        ),
-        grounded: false,
-      };
+      d[j] = x;
+      d[j + 1] = Math.max(y, this.ground(x, z) + 1);
+      d[j + 2] = z;
+      d[j + 3] = Math.cos(angle) * horizontal;
+      d[j + 4] = speed * up;
+      d[j + 5] = Math.sin(angle) * horizontal;
+      d[j + 6] = size * (wood ? 0.35 : 1);
+      d[j + 7] = size * (wood ? 2.5 : 0.7);
+      d[j + 8] = size * 0.65;
+      for (let k = 0; k < 3; k++) d[j + 9 + k] = random() * 6;
+      for (let k = 0; k < 3; k++) d[j + 12 + k] = random() * 5 - 2.5;
+      d[j + 15] = life;
+      this.color
+        .setHex(palette[e.material])
+        .multiplyScalar(0.75 + random() * 0.5);
+      d[j + 16] = this.color.r;
+      d[j + 17] = this.color.g;
+      d[j + 18] = this.color.b;
+      d[j + 19] = 0;
+      d[j + 20] = Math.min(d[j + 6], d[j + 7], d[j + 8]) * 0.5;
     }
   }
+  private remove(i: number) {
+    this.dirty = this.colorsDirty = true;
+    const last = --this.live;
+    if (i !== last)
+      this.data.copyWithin(i * STRIDE, last * STRIDE, (last + 1) * STRIDE);
+  }
   update(dt: number) {
-    let count = 0;
     dt = Math.min(dt, 0.08);
-    for (let i = 0; i < this.limit; i++) {
-      const p = this.pieces[i];
-      if (!p) continue;
-      p.life -= dt;
-      if (p.life <= 0) {
-        this.pieces[i] = undefined;
+    if (dt === 0 && !this.dirty) return;
+    if (!this.live) {
+      this.mesh.count = 0;
+      return;
+    }
+    const d = this.data,
+      matrices = this.mesh.instanceMatrix.array as Float32Array,
+      colors = this.mesh.instanceColor!.array as Float32Array;
+    for (let i = 0; i < this.live; ) {
+      const j = i * STRIDE;
+      d[j + 15] -= dt;
+      if (d[j + 15] <= 0) {
+        this.remove(i);
         continue;
       }
-      if (!p.grounded && dt > 0) {
-        // Sweep each segment against the same rendered heightfield, including new craters.
-        const steps = Math.max(1, Math.ceil((Math.hypot(...p.v) * dt) / 2)),
+      if (!d[j + 19] && dt > 0) {
+        // Sweep against the current canonical terrain, including fresh craters.
+        const steps = Math.max(
+            1,
+            Math.ceil((Math.hypot(d[j + 3], d[j + 4], d[j + 5]) * dt) / 2),
+          ),
           step = dt / steps;
         for (let s = 0; s < steps; s++) {
-          for (let k = 0; k < 3; k++) p.p[k] += p.v[k] * step;
-          p.v[1] -= 18 * step;
-          const floor = this.ground(p.p[0], p.p[2]) + Math.min(...p.size) * 0.5;
-          if (p.p[1] < floor) {
-            p.p[1] = floor;
-            p.v[1] = Math.abs(p.v[1]) * 0.22;
-            p.v[0] *= 0.45;
-            p.v[2] *= 0.45;
-            if (Math.hypot(...p.v) < 5) {
-              p.grounded = true;
-              p.life = Math.min(p.life, 3);
+          d[j] += d[j + 3] * step;
+          d[j + 1] += d[j + 4] * step;
+          d[j + 2] += d[j + 5] * step;
+          d[j + 4] -= CONFIG.debrisGravity * step;
+          const floor = this.ground(d[j], d[j + 2]) + d[j + 20];
+          if (d[j + 1] < floor) {
+            d[j + 1] = floor;
+            d[j + 4] = Math.abs(d[j + 4]) * 0.22;
+            d[j + 3] *= 0.45;
+            d[j + 5] *= 0.45;
+            if (Math.hypot(d[j + 3], d[j + 4], d[j + 5]) < 5) {
+              d[j + 19] = 1;
+              d[j + 15] = Math.min(d[j + 15], 3);
             }
             break;
           }
         }
-        for (let k = 0; k < 3; k++) p.rotation[k] += p.spin[k] * dt;
+        d[j + 9] += d[j + 12] * dt;
+        d[j + 10] += d[j + 13] * dt;
+        d[j + 11] += d[j + 14] * dt;
       }
-      const shrink = Math.min(1, p.life / 1.5);
-      this.dummy.position.fromArray(p.p);
-      this.dummy.rotation.set(...p.rotation);
-      this.dummy.scale.set(
-        p.size[0] * shrink,
-        p.size[1] * shrink,
-        p.size[2] * shrink,
-      );
-      this.dummy.updateMatrix();
-      this.mesh.setMatrixAt(count, this.dummy.matrix);
-      this.mesh.setColorAt(count, p.color);
-      count++;
+      // Compose directly into the GPU buffer. No per-piece Object3D, Matrix4,
+      // Euler, vector, or Color allocation/update is needed in this hot loop.
+      const a = Math.cos(d[j + 9]),
+        b = Math.sin(d[j + 9]),
+        c = Math.cos(d[j + 10]),
+        v = Math.sin(d[j + 10]),
+        e = Math.cos(d[j + 11]),
+        f = Math.sin(d[j + 11]),
+        shrink = Math.min(1, d[j + 15] / 1.5),
+        sx = d[j + 6] * shrink,
+        sy = d[j + 7] * shrink,
+        sz = d[j + 8] * shrink,
+        k = i * 16;
+      matrices[k] = c * e * sx;
+      matrices[k + 1] = (a * f + b * e * v) * sx;
+      matrices[k + 2] = (b * f - a * e * v) * sx;
+      matrices[k + 3] = 0;
+      matrices[k + 4] = -c * f * sy;
+      matrices[k + 5] = (a * e - b * f * v) * sy;
+      matrices[k + 6] = (b * e + a * f * v) * sy;
+      matrices[k + 7] = 0;
+      matrices[k + 8] = v * sz;
+      matrices[k + 9] = -b * c * sz;
+      matrices[k + 10] = a * c * sz;
+      matrices[k + 11] = 0;
+      matrices[k + 12] = d[j];
+      matrices[k + 13] = d[j + 1];
+      matrices[k + 14] = d[j + 2];
+      matrices[k + 15] = 1;
+      i++;
     }
-    this.mesh.count = count;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    if (this.colorsDirty)
+      for (let i = 0; i < this.live; i++) {
+        const j = i * STRIDE;
+        colors[i * 3] = d[j + 16];
+        colors[i * 3 + 1] = d[j + 17];
+        colors[i * 3 + 2] = d[j + 18];
+      }
+    this.mesh.count = this.live;
+    for (const [attribute, size] of [
+      [this.mesh.instanceMatrix, 16],
+      [this.mesh.instanceColor!, 3],
+    ] as const) {
+      attribute.clearUpdateRanges();
+      if (this.live && (size === 16 || this.colorsDirty)) {
+        attribute.addUpdateRange(0, this.live * size);
+        attribute.needsUpdate = true;
+      }
+    }
+    this.dirty = this.colorsDirty = false;
   }
   reset() {
-    this.pieces.fill(undefined);
+    this.live = 0;
+    this.next = 0;
     this.mesh.count = 0;
+    this.dirty = this.colorsDirty = false;
   }
   vaporize(center: Vec3, radius: number) {
-    for (let i = 0; i < this.limit; i++) {
-      const p = this.pieces[i];
+    for (let i = 0; i < this.live; ) {
+      const j = i * STRIDE;
       if (
-        p &&
-        Math.hypot(p.p[0] - center[0], p.p[2] - center[2]) <
-          radius + Math.max(...p.size)
+        Math.hypot(this.data[j] - center[0], this.data[j + 2] - center[2]) <
+        radius + Math.max(this.data[j + 6], this.data[j + 7], this.data[j + 8])
       )
-        this.pieces[i] = undefined;
+        this.remove(i);
+      else i++;
     }
   }
 }
