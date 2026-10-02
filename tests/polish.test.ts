@@ -183,3 +183,94 @@ it("reports the mean of the slowest one percent using uncapped recent frame time
   expect(frameStats(Array(99).fill(10)).lowFPS).toBeUndefined();
   expect(frameStats([500, ...Array(600).fill(20)]).worstMS).toBe(20);
 });
+it("normalizes saved render distance without resetting other preferences", () => {
+  expect(normalizePreferences().renderDistance).toBe(1200);
+  for (const [value, expected] of [
+    [NaN, 1200],
+    [Infinity, 1200],
+    [-1, 600],
+    [5000, 3000],
+    [1649, 1600],
+    [1650, 1700],
+  ]) {
+    const preferences = normalizePreferences({
+      revision: 3,
+      renderDistance: value,
+      monsterCount: 7,
+      nukeYield: "local",
+    });
+    expect(preferences.renderDistance).toBe(expected);
+    expect(preferences.monsterCount).toBe(7);
+    expect(preferences.nukeYield).toBe("local");
+  }
+});
+it("gives separate settlements independent draw bounds so distant structures can be culled", () => {
+  const view = {
+    world: {
+      entities: [200, 2200].map((z, id) => ({
+        id,
+        kind: "block",
+        material: "stone",
+        p: [0, 10, z],
+        s: [10, 10, 10],
+        variant: 0,
+      })),
+    },
+    scene: new THREE.Scene(),
+    refs: new Map(),
+    batches: [],
+    box: new THREE.BoxGeometry(2, 2, 2),
+    materials: { stone: new THREE.MeshStandardMaterial() },
+  };
+  (GameRenderer.prototype as any).buildBatches.call(view);
+  const camera = new THREE.PerspectiveCamera(64, 1, 0.5, 600);
+  camera.position.set(0, 10, 0);
+  camera.lookAt(0, 10, 1);
+  camera.updateMatrixWorld();
+  view.scene.updateMatrixWorld();
+  const frustum = new THREE.Frustum().setFromProjectionMatrix(
+    new THREE.Matrix4().multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse,
+    ),
+  );
+  expect(frustum.intersectsObject(view.refs.get(0)[0].batch.mesh)).toBe(true);
+  expect(frustum.intersectsObject(view.refs.get(1)[0].batch.mesh)).toBe(false);
+});
+it("keeps the near edge of oversized rubble visible inside render distance", () => {
+  const view = Object.assign(Object.create(GameRenderer.prototype), {
+    scene: new THREE.Scene(),
+    camera: { position: new THREE.Vector3(755, 10, 64) },
+    renderDistance: 600,
+    ruins: new Map(),
+    ruinCells: new Map(),
+    ruinGroups: new Map(),
+    dirtyRuinBatches: new Set(),
+    fractureBox: new THREE.BoxGeometry(2, 2, 2),
+    fragmentMaterials: { stone: new THREE.MeshStandardMaterial() },
+    fragmentColor: new THREE.Color(),
+  });
+  view.addRuin({
+    id: 0,
+    source: 0,
+    kind: "chunk",
+    material: "stone",
+    pile: true,
+    p: [127, 10, 64],
+    q: [0, 0, 0, 1],
+    s: [40, 20, 40],
+  });
+  view.updateRuins();
+  const group = [...view.ruinGroups.values()][0] as THREE.Group;
+  group.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(group);
+  expect(
+    view.camera.position.distanceTo(
+      bounds.clampPoint(view.camera.position, new THREE.Vector3()),
+    ),
+  ).toBeLessThan(600);
+  expect(group.visible).toBe(true);
+  view.camera.position.x = 2000;
+  view.updateRuins();
+  expect(group.visible).toBe(false);
+});

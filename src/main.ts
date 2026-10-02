@@ -26,6 +26,7 @@ import {
   DEFAULT_MONSTER_COUNT,
   LASER,
   normalizeMonsterCount,
+  normalizeRenderDistance,
   WEAPONS,
 } from "./config";
 import type {
@@ -127,6 +128,8 @@ function applyPreferences(p: Preferences) {
   sensitivity = p.sensitivity;
   nukeYield = p.nukeYield;
   monsterCount = extras.monsterCount ?? DEFAULT_MONSTER_COUNT;
+  view?.setRenderDistance(extras.renderDistance!);
+  updateRenderDistanceUI();
   view?.setGooglyEyes(extras.googlyEyes === true);
   destruction = normalizeDestruction(p.destruction);
   updateDestructionUI();
@@ -152,6 +155,16 @@ function updateMonsterCountUI() {
   $<HTMLInputElement>("monsterCount").value = String(monsterCount);
   $("monsterCountValue").textContent =
     monsterCount === 0 ? "Off" : String(monsterCount);
+}
+function updateRenderDistanceUI() {
+  const input = $<HTMLInputElement>("renderDistance");
+  input.value = String(extras.renderDistance);
+  input.setAttribute(
+    "aria-valuetext",
+    `${extras.renderDistance!.toLocaleString()} meters`,
+  );
+  $("renderDistanceValue").textContent =
+    `${extras.renderDistance!.toLocaleString()} m`;
 }
 function updateDestructionUI() {
   for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
@@ -511,6 +524,7 @@ async function load() {
     }
     view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
     view.setQuality(extras.quality!);
+    view.setRenderDistance(extras.renderDistance!);
     view.setReducedEffects(!!extras.reduceEffects);
     view.setGooglyEyes(extras.googlyEyes === true);
     view.setShake(!extras.reduceShake);
@@ -671,7 +685,10 @@ function frame(now: number) {
       frameTimes.length
     ) {
       const stats = frameStats(frameTimes);
-      const low = stats.lowFPS === undefined ? "warming up" : `${stats.lowFPS.toFixed(1)} FPS`;
+      const low =
+        stats.lowFPS === undefined
+          ? "warming up"
+          : `${stats.lowFPS.toFixed(1)} FPS`;
       perfSummary = `\nFrame median ${stats.medianMS.toFixed(1)} ms · p95 ${stats.p95MS.toFixed(1)} ms\n1% low ${low} · worst ${stats.worstMS.toFixed(1)} ms`;
       lastPerfSummary = now;
     }
@@ -747,6 +764,15 @@ $<HTMLSelectElement>("quality").onchange = (e) => {
   resetFrameStats();
   extras.quality = (e.target as HTMLSelectElement).value;
   view?.setQuality(extras.quality);
+  savePreferences();
+};
+$<HTMLInputElement>("renderDistance").oninput = (e) => {
+  extras.renderDistance = normalizeRenderDistance(
+    Number((e.target as HTMLInputElement).value),
+  );
+  view?.setRenderDistance(extras.renderDistance);
+  updateRenderDistanceUI();
+  resetFrameStats();
   savePreferences();
 };
 $<HTMLInputElement>("sensitivity").oninput = (e) => {

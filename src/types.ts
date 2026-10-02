@@ -45,6 +45,7 @@ export type CameraMode = "chase" | "cinematic" | "photo";
 export interface Preferences {
   revision?: number;
   quality?: string;
+  renderDistance?: number;
   reduceEffects?: boolean;
   googlyEyes?: boolean;
   reduceShake?: boolean;

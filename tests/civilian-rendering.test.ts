@@ -47,3 +47,16 @@ it("freezes resident poses with a paused snapshot and removes casualties from ev
     ),
   ).toBe(true);
 });
+it("hides distant residents at a short render distance and restores them when increased", () => {
+  const view = new CivilianView(1);
+  const snapshot = {
+    civilians: [
+      { id: 0, p: [900, 10, 0], yaw: 0, alive: true, mood: "sad", phase: 0 },
+    ],
+  } as SimulationSnapshot;
+  const camera = new THREE.Vector3(0, 40, 0);
+  view.update(snapshot, undefined, 1, camera, 600);
+  expect((view.group.children[0] as THREE.InstancedMesh).count).toBe(0);
+  view.update(snapshot, undefined, 1, camera, 1800);
+  expect((view.group.children[0] as THREE.InstancedMesh).count).toBe(1);
+});

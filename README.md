@@ -69,7 +69,9 @@ For collapses above 512 moving bodies, the 128 largest sections retain mutual co
 
 Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation share the buffered simulation timeline used by other moving objects, absorbing uneven worker delivery with about 100 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
 
-**Show performance** includes 1% low FPS and worst-frame milliseconds alongside median and p95 frame time. The 1% low is 1,000 divided by the mean duration of the slowest 1% of the last 600 active frames, including uncapped stalls. It warms up for 100 frames. At 60 FPS this window covers about ten seconds; at lower FPS it covers longer. Resume, world reset, render-quality changes, and performance-display toggles start fresh samples so menu/background gaps and previous settings do not skew the comparison. These readings measure frame delivery, not GPU execution time.
+**Render distance** in Graphics defaults to **1,200 meters**. Its slider ranges from **600 to 3,000 meters** in 100-meter steps and applies immediately. It controls terrain, buildings, trees, rubble, residents, monsters, camera clipping, and horizon fog; small section/batch margins keep objects at the boundary from disappearing early. Close-up detail thresholds remain fixed. Increasing distance draws more of the world and may reduce FPS; distant terrain streams in gradually. The setting persists through reloads and world resets, and Reset settings restores 1,200 meters. Rendering distance does not alter simulation, damage, or saved world contents.
+
+**Show performance** includes 1% low FPS and worst-frame milliseconds alongside median and p95 frame time. The 1% low is 1,000 divided by the mean duration of the slowest 1% of the last 600 active frames, including uncapped stalls. It warms up for 100 frames. At 60 FPS this window covers about ten seconds; at lower FPS it covers longer. Resume, world reset, render-quality/distance changes, and performance-display toggles start fresh samples so menu/background gaps and previous settings do not skew the comparison. These readings measure frame delivery, not GPU execution time.
 
 ## Weapons and fortress
 
@@ -158,7 +160,7 @@ Open with `#debug` to enable the `window.lanternVale` inspection API and perform
 
 Run `npm test` for the automated simulation, weapons, monster, rendering, and persistence checks. Older browser and performance reports are retained in Git history; their measurements do not describe the current build.
 
-With Python Playwright installed and Vite running at `http://127.0.0.1:5177`, run `python scripts/check-flight-browser.py` for the flight/destruction and performance-overlay browser checks. It uses a disposable profile, exercises GPU rendering, and disables drawing for isolated timing/lifecycle checks on headless software graphics. Results and a screenshot are written under `/tmp`; they are not hardware-performance measurements.
+With Python Playwright installed and Vite running at `http://127.0.0.1:5177`, run `python scripts/check-flight-browser.py` for the flight/destruction, performance-overlay, and render-distance browser checks. It exercises the native slider, visibility, saved settings, reload, and default reset. It uses a disposable profile, exercises GPU rendering, and disables drawing for isolated timing/lifecycle checks on headless software graphics. Results and screenshots are written under `/tmp`; they are not hardware-performance measurements.
 
 ## Nuke presentation and sound
 
@@ -168,7 +170,7 @@ Nukes have a longer white exposure flash, a 4.5-second white-to-gold fireball an
 
 Spatial audio supports both AudioParam-based listener positioning and Firefox's legacy listener methods. Weapon selection and the rest of the HUD continue updating during audible flight. The selector uses three stable button columns, with the cooldown bar beneath and a stronger selected-weapon highlight; small-window hints and telemetry stay clear of the buttons.
 
-The game is now **Pineapple Siege**. Existing browser saves remain in the same IndexedDB database. Preferences migrate independently: Valley-scale is selected once on upgrade, then later strength changes are remembered. Graphics quality, sound, reduced effects/shake, performance display, and hold-time now persist through reloads and world resets.
+The game is now **Pineapple Siege**. Existing browser saves remain in the same IndexedDB database. Preferences migrate independently: Valley-scale is selected once on upgrade, then later strength changes are remembered. Graphics quality/distance, sound, reduced effects/shake, performance display, and hold-time now persist through reloads and world resets.
 
 The full-screen menu always shows Flight, Destruction, Graphics, Audio, and World settings, with no sections to expand. **Reset settings to defaults** restores every preference (including Valley-scale nukes, Standard debris, normal cooldowns, Auto quality, and 35% sound volume) and afternoon time without erasing world damage. Settings reset persists across reloads; **Reset world** remains a separate confirmed action. The HUD shows weapon selectors, cooldown progress, objects destroyed, and height above the actual deformed ground (AGL).
 
