@@ -61,7 +61,9 @@ Raise both physics bodies and fragments to keep more building pieces in motion. 
 
 Nuke blast scale ranges from **1× to 3×** and multiplies the selected yield's damage radius, crater radius, and depth (still capped at 25 meters below the baseline). A 3× radius covers roughly 9× the ground area. Each airborne nuke captures its resolved profile when released; changing settings affects later drops. No cooldown applies to all three weapons, clears their timers, and bypasses the in-flight projectile and pending-damage admission limits. Holding fire launches once per simulation tick (60 shots per simulated second). Fragment budgets still follow the sliders, and detailed clouds remain capped at three.
 
-Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation now interpolate together; the chase camera smooths its aim, and camera shake no longer accumulates into its following position.
+Extreme settings can substantially reduce frame rate and enlarge saves. Reduced effects and render quality still reduce cosmetic output. The current settings are shown in the performance display. Aircraft translation and rotation interpolate on a buffered simulation timeline, absorbing uneven worker delivery with about 33 ms of presentation delay. The chase camera smooths its aim, and camera shake does not accumulate into its following position.
+
+**Show performance** includes 1% low FPS and worst-frame milliseconds alongside median and p95 frame time. The 1% low is 1,000 divided by the mean duration of the slowest 1% of the last 600 active frames, including uncapped stalls. It warms up for 100 frames. At 60 FPS this window covers about ten seconds; at lower FPS it covers longer. Resume, world reset, render-quality changes, and performance-display toggles start fresh samples so menu/background gaps and previous settings do not skew the comparison. These readings measure frame delivery, not GPU execution time.
 
 ## Weapons and fortress
 
@@ -131,6 +133,8 @@ The TypeScript source separates rendering, simulation, generation, persistence, 
 Open with `#debug` to enable the `window.lanternVale` inspection API and performance display. Debug hooks expose controlled blasts, aircraft placement, fixed-step advancement, snapshots, save requests, and inspection-camera views. They are absent from the normal game URL.
 
 Run `npm test` for the automated simulation, weapons, monster, rendering, and persistence checks. Older browser and performance reports are retained in Git history; their measurements do not describe the current build.
+
+With Python Playwright installed and Vite running at `http://127.0.0.1:5177`, run `python scripts/check-flight-browser.py` for the flight/destruction and performance-overlay browser checks. It uses a disposable profile, exercises GPU rendering, and disables drawing for isolated timing/lifecycle checks on headless software graphics. Results and a screenshot are written under `/tmp`; they are not hardware-performance measurements.
 
 ## Nuke presentation and sound
 

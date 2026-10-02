@@ -2,7 +2,7 @@ import { CameraRig } from "./camera-rig";
 import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
 import { makeMonster, makeDistantMonster } from "./monster";
-import { flightPose } from "./flight-pose";
+import { FlightTimeline, flightPose } from "./flight-pose";
 import * as THREE from "three";
 import { Water } from "three/addons/objects/Water.js";
 import {
@@ -78,6 +78,7 @@ export class GameRenderer {
   private last?: SimulationSnapshot;
   private previous?: SimulationSnapshot;
   private lastArrival = 0;
+  private flight = new FlightTimeline();
   private readyCamera = false;
   private cameraTarget = new THREE.Vector3();
   private cameraPosition = new THREE.Vector3();
@@ -454,6 +455,12 @@ export class GameRenderer {
     this.previous = this.last;
     this.last = snapshot;
     this.lastArrival = performance.now();
+    this.flight.receive({ time: snapshot.time, plane: snapshot.plane });
+  }
+  resumeFlight() {
+    this.flight.reset();
+    if (this.last)
+      this.flight.receive({ time: this.last.time, plane: this.last.plane });
   }
   reset(
     heights: Float32Array,
@@ -504,6 +511,8 @@ export class GameRenderer {
     for (const s of this.spikeMeshes) s.visible = false;
     this.readyCamera = false;
     this.previous = undefined;
+    this.last = undefined;
+    this.flight.reset();
     this.renderer.shadowMap.needsUpdate = true;
   }
   private hideEntity(id: number) {
@@ -736,11 +745,8 @@ export class GameRenderer {
     const alpha = active
       ? clamp((performance.now() - this.lastArrival) / (interval * 1000), 0, 1)
       : 1;
-    const { position, rotation, discontinuity } = flightPose(
-      this.previous?.plane,
-      p,
-      alpha,
-    );
+    const { position, rotation, discontinuity } =
+      this.flight.sample(performance.now(), active) ?? flightPose(undefined, p, 1);
     if (discontinuity) this.readyCamera = false;
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);

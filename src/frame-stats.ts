@@ -1,0 +1,15 @@
+/** Recent active frame intervals in milliseconds, including uncapped stalls. */
+export function frameStats(samples: number[]) {
+  const sorted = samples.slice(-600).sort((a, b) => a - b);
+  const count = sorted.length;
+  const slow = sorted.slice(-Math.ceil(count * 0.01));
+  return {
+    medianMS: sorted[Math.floor(count * 0.5)] ?? 0,
+    p95MS: sorted[Math.floor(count * 0.95)] ?? 0,
+    worstMS: sorted.at(-1) ?? 0,
+    lowFPS:
+      count >= 100
+        ? (1000 * slow.length) / slow.reduce((total, ms) => total + ms, 0)
+        : undefined,
+  };
+}
