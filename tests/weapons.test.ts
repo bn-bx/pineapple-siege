@@ -1,3 +1,4 @@
+import { CONFIG } from "../src/config";
 import { beforeAll, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -151,8 +152,8 @@ it("sweeps a falling nuke into the river and retains its released yield", () => 
   // Choose a flooded canonical sample, clear of the bridge and shoreline.
   let river = -1;
   for (let i = 0; i < s.terrain.flooded.length; i++) {
-    const x = (i % 1025) * 2,
-      z = Math.floor(i / 1025) * 2;
+    const x = (i % CONFIG.grid) * 2,
+      z = Math.floor(i / CONFIG.grid) * 2;
     if (
       x > 800 &&
       x < 1000 &&
@@ -166,8 +167,8 @@ it("sweeps a falling nuke into the river and retains its released yield", () => 
     }
   }
   expect(river).toBeGreaterThan(-1);
-  const x = (river % 1025) * 2,
-    z = Math.floor(river / 1025) * 2;
+  const x = (river % CONFIG.grid) * 2,
+    z = Math.floor(river / CONFIG.grid) * 2;
   s.projectiles.push({
     id: 99,
     weapon: "nuke",
@@ -187,5 +188,16 @@ it("sweeps a falling nuke into the river and retains its released yield", () => 
   while (s.pendingJobs.length) s.processDestruction(50);
   expect(s.terrain.sample(x, z)).toBeLessThan(base[river] - 10);
   expect(s.terrain.water(x, z)).toBe(true);
+  s.dispose();
+});
+
+it("fires three normal cannon rounds in 1.7 seconds with the faster cooldown", () => {
+  const s = sim();
+  s.setMonsterCount(0);
+  s.plane.p = [1024, 700, 650];
+  s.input.fire = true;
+  for (let i = 0; i < 102; i++) s.step();
+  expect(s.snapshot().stats.shots).toBe(3);
+  expect(s.projectiles).toHaveLength(3);
   s.dispose();
 });

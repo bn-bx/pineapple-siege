@@ -282,16 +282,16 @@
             <h3 id="heading-world">World</h3>
             <div class="settings-grid">
               <label
-                >Pineapple monsters <output id="monsterCountValue" for="monsterCount">20</output
+                >Pineapple monsters
+                <output id="monsterCountValue" for="monsterCount">120</output
                 ><input
                   id="monsterCount"
                   type="range"
                   min="0"
-                  max="200"
+                  max="400"
                   step="1"
-                  value="20"
-                /></label
-              >
+                  value="120"
+              /></label>
               <label
                 >Time of day<input
                   id="time"
@@ -340,10 +340,21 @@
           <div class="cooldown-bar"><span id="cooldownFill"></span></div>
         </div>
       </div>
+      <aside
+        class="civilian-status"
+        aria-label="Civilian population and morale"
+      >
+        <div>
+          <span>Population</span><strong id="populationTotal">600</strong>
+        </div>
+        <div>
+          <span>Happiness</span><strong id="happinessValue">65 / 100</strong>
+        </div>
+      </aside>
       <div class="world-status">
         <span id="region">VALLEY</span
         ><span id="damage">Objects destroyed: 0</span
-        ><span id="monstersRemaining">Monsters: 8</span>
+        ><span id="monstersRemaining">Monsters: 120</span>
       </div>
     </div>
     <aside id="touchControls" hidden aria-label="Touch flight controls">

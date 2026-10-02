@@ -185,6 +185,57 @@ export class GameAudio {
       kind === "defeat" ? 300 : kind === "throw" ? 520 : 900,
     );
   }
+  settlement(p: Vec3, kind: "cheer" | "sad") {
+    if (!this.ctx || this.ctx.state !== "running") return;
+    const c = this.ctx;
+    if (this.voices.length >= 24) this.voices[0]();
+    const pan = c.createPanner();
+    pan.distanceModel = "inverse";
+    pan.refDistance = 90;
+    pan.maxDistance = 1800;
+    pan.rolloffFactor = 1.1;
+    setAudioPosition(pan, p);
+    pan.connect(this.mix!);
+    const gain = c.createGain();
+    gain.connect(pan);
+    const duration = kind === "cheer" ? 1.5 : 1.8;
+    gain.gain.setValueAtTime(0, c.currentTime);
+    gain.gain.linearRampToValueAtTime(0.06, c.currentTime + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
+    const nodes: OscillatorNode[] = [];
+    for (let i = 0; i < 3; i++) {
+      const voice = c.createOscillator();
+      voice.type = "triangle";
+      const start = (kind === "cheer" ? 280 : 240) * (1 + i * 0.23);
+      voice.frequency.setValueAtTime(start, c.currentTime);
+      voice.frequency.linearRampToValueAtTime(
+        start * (kind === "cheer" ? 1.55 : 0.65),
+        c.currentTime + duration * 0.65,
+      );
+      voice.connect(gain);
+      voice.start();
+      voice.stop(c.currentTime + duration);
+      nodes.push(voice);
+    }
+    let ended = false;
+    const finish = () => {
+      if (ended) return;
+      ended = true;
+      for (const v of nodes) v.disconnect();
+      gain.disconnect();
+      pan.disconnect();
+      this.voices = this.voices.filter((v) => v !== stop);
+    };
+    const stop = () => {
+      for (const v of nodes)
+        try {
+          v.stop();
+        } catch {}
+      finish();
+    };
+    nodes[0].onended = finish;
+    this.voices.push(stop);
+  }
   reset() {
     this.lastDiscoStep = -1;
     for (const voice of this.laserVoices.values()) voice.stop();
@@ -255,7 +306,11 @@ export class GameAudio {
     hat.connect(filter).connect(hatGain).connect(this.mix);
     hat.start(now);
     hat.stop(now + 0.1);
-    hat.onended = () => { hat.disconnect(); filter.disconnect(); hatGain.disconnect(); };
+    hat.onended = () => {
+      hat.disconnect();
+      filter.disconnect();
+      hatGain.disconnect();
+    };
     if (step % 2 === 0) {
       const kick = ctx.createOscillator();
       kick.type = "sine";
@@ -267,7 +322,10 @@ export class GameAudio {
       kick.connect(gain).connect(this.mix);
       kick.start(now);
       kick.stop(now + 0.24);
-      kick.onended = () => { kick.disconnect(); gain.disconnect(); };
+      kick.onended = () => {
+        kick.disconnect();
+        gain.disconnect();
+      };
     }
   }
   syncLasers(lasers: LaserStrike[], listener: Vec3) {

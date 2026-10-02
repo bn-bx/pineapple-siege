@@ -21,7 +21,7 @@ import type { Entity, Ruin, WorldData } from "../src/types";
 
 beforeAll(initializePhysics);
 const world: WorldData = JSON.parse(readFileSync("public/world.json", "utf8"));
-const flat = new Float32Array(1025 * 1025);
+const flat = new Float32Array(CONFIG.grid * CONFIG.grid);
 const roofs: Entity[] = ["roof", "slate"].map((material, id) => ({
   id,
   kind: "block",

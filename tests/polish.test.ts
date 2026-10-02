@@ -35,10 +35,10 @@ it("normalizes every persistent setting independently", () => {
   });
   expect(normalizePreferences({ ...p, volume: 9 }).volume).toBe(1);
 });
-it("defaults to eyes off and 20 monsters, migrating the old default only once", () => {
+it("defaults to eyes off and 120 monsters while preserving saved population choices", () => {
   expect(normalizePreferences()).toMatchObject({
     googlyEyes: false,
-    monsterCount: 20,
+    monsterCount: 120,
   });
   const migrated = normalizePreferences({
     revision: 1,
@@ -47,7 +47,7 @@ it("defaults to eyes off and 20 monsters, migrating the old default only once", 
   });
   expect(migrated).toMatchObject({
     googlyEyes: false,
-    monsterCount: 20,
+    monsterCount: 8,
     nukeYield: "local",
   });
   expect(
@@ -79,17 +79,19 @@ it("turns the old automatic-on eyes off once and preserves later choices", () =>
     normalizePreferences({ ...migrated, googlyEyes: false }).googlyEyes,
   ).toBe(false);
 });
-it("persists integer monster counts across 0–200 and normalizes invalid values", () => {
-  for (const monsterCount of [0, 1, 7, 20, 99, 199, 200]) {
+it("persists integer monster counts across 0–400 and normalizes invalid values", () => {
+  for (const monsterCount of [0, 1, 7, 20, 99, 199, 200, 399, 400]) {
     const preferences = normalizePreferences({ revision: 3, monsterCount });
     expect(preferences.monsterCount).toBe(monsterCount);
     expect(normalizePreferences(preferences).monsterCount).toBe(monsterCount);
   }
   expect(normalizePreferences({ monsterCount: -1 }).monsterCount).toBe(0);
-  expect(normalizePreferences({ monsterCount: 201 }).monsterCount).toBe(200);
+  expect(normalizePreferences({ monsterCount: 401 }).monsterCount).toBe(400);
   expect(normalizePreferences({ monsterCount: 7.6 }).monsterCount).toBe(8);
-  expect(normalizePreferences({ monsterCount: NaN }).monsterCount).toBe(20);
-  expect(normalizePreferences({ monsterCount: Infinity }).monsterCount).toBe(20);
+  expect(normalizePreferences({ monsterCount: NaN }).monsterCount).toBe(120);
+  expect(normalizePreferences({ monsterCount: Infinity }).monsterCount).toBe(
+    120,
+  );
 });
 it("cinematic shots remain finite and cycle with a level target", () => {
   const r = new CameraRig();

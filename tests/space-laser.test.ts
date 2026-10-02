@@ -1,3 +1,5 @@
+import { CHUNKS } from "../src/config";
+import { CONFIG } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -15,7 +17,7 @@ import type { Entity, Vec3, WorldData, WorkerMessage } from "../src/types";
 const manifest: WorldData = JSON.parse(
   readFileSync("public/world.json", "utf8"),
 );
-const flat = new Float32Array(1025 * 1025).fill(10);
+const flat = new Float32Array(CONFIG.grid * CONFIG.grid).fill(10);
 beforeAll(initializePhysics);
 function create(entities: Entity[] = [], events: WorkerMessage[] = []) {
   return new Simulation(
@@ -135,7 +137,7 @@ it("locks fresh aimed targets, rejects sky shots and keeps independent cooldowns
   s.input.fire = true;
   s.step();
   expect(s.projectiles[0].weapon).toBe("cannon");
-  expect(s.cooldowns.cannon).toBe(1);
+  expect(s.cooldowns.cannon).toBe(0.75);
   const cooldown = s.cooldowns.laser;
   s.respawn();
   expect(s.cooldowns.laser).toBe(cooldown);
@@ -190,7 +192,7 @@ it("coalesces overlapping excavation without exceeding bedrock and resumes unfin
   resumed.dispose();
 });
 it("removes existing water, clips edge strikes safely and restores the dry mask", () => {
-  const base = new Float32Array(1025 * 1025).fill(-4);
+  const base = new Float32Array(CONFIG.grid * CONFIG.grid).fill(-4);
   const t = new Terrain(base);
   expect(t.water(2, 2)).toBe(true);
   const result = t.laserCrater(2, 2, 1, 0);
@@ -411,7 +413,7 @@ it("normalizes laser controls and captures settings independently at launch", ()
   ).toMatchObject({ laserSize: 0, laserDepth: 25, laserBrightness: 2 });
   expect(
     laserProfile({ ...DEFAULT_DESTRUCTION, laserSize: 100 }).radius,
-  ).toBeCloseTo(3000);
+  ).toBeCloseTo(CONFIG.worldSize * Math.SQRT2 + CONFIG.spacing);
   const s = create();
   s.startLaser([256, 10, 256]);
   s.setDestruction({
@@ -425,7 +427,7 @@ it("normalizes laser controls and captures settings independently at launch", ()
   expect(s.lasers[1].profile).toEqual(laserProfile(s.destruction));
   s["scheduleLaser"](s.lasers[0], 1);
   s["scheduleLaser"](s.lasers[1], 1);
-  expect(s.laserWork.get(4 * 32 + 4)!.targets).toHaveLength(2);
+  expect(s.laserWork.get(4 * CHUNKS + 4)!.targets).toHaveLength(2);
   s.lasers.forEach((l) => (l.phase = "finishing"));
   const save = s.save();
   const restored = new Simulation(s.world, flat, () => {}, save);
@@ -464,7 +466,7 @@ it("loads version-5 strikes and excavation work without the new profile fields",
   restored.dispose();
 });
 it("maximum size clears all sections and water from a corner, with resumable queued cleanup", () => {
-  const base = new Float32Array(1025 * 1025).fill(-4);
+  const base = new Float32Array(CONFIG.grid * CONFIG.grid).fill(-4);
   const entities = [
     entity(0, 0, 0),
     entity(1, 2048, 2048),
@@ -480,7 +482,7 @@ it("maximum size clears all sections and water from a corner, with resumable que
   s.lasers[0].phase = "finishing";
   s.lasers[0].age = 9;
   s["scheduleLaser"](s.lasers[0], 1);
-  expect(s.laserWork.size).toBe(1024);
+  expect(s.laserWork.size).toBe(CHUNKS * CHUNKS);
   s.processLaserWork(0.01);
   expect(s.laserWork.size).toBeGreaterThan(0);
   const saved = s.save();
@@ -521,6 +523,6 @@ it("scaled aircraft collision matches the captured beam and ignores brightness",
   expect(
     s["laserPlaneHit"]([1400, 300, 1024], [1401, 300, 1024]),
   ).not.toBeNull();
-  expect(s["laserPlaneHit"]([1524, 300, 1024], [1525, 300, 1024])).toBeNull();
+  expect(s["laserPlaneHit"]([2400, 300, 1024], [2401, 300, 1024])).toBeNull();
   s.dispose();
 });

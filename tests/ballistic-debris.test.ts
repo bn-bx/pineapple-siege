@@ -1,3 +1,4 @@
+import { CONFIG } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -13,7 +14,7 @@ import type { Entity, WorldData } from "../src/types";
 
 beforeAll(initializePhysics);
 const world: WorldData = JSON.parse(readFileSync("public/world.json", "utf8"));
-const flat = new Float32Array(1025 * 1025);
+const flat = new Float32Array(CONFIG.grid * CONFIG.grid);
 const entity: Entity = {
   id: 0,
   kind: "block",
@@ -70,7 +71,7 @@ it("flies continuously, tumbles, bounces and only settles after touching ground"
 
 it("sweeps fast debris against a narrow terrain ridge", () => {
   const heights = flat.slice();
-  for (let z = 0; z < 1025; z++) heights[z * 1025 + 305] = 80;
+  for (let z = 0; z < CONFIG.grid; z++) heights[z * CONFIG.grid + 305] = 80;
   const m = debris();
   m.view.p = [608, 20, 600];
   m.velocity = [600, -5, 0];

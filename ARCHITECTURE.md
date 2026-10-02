@@ -2,7 +2,7 @@
 
 ## Canonical world
 
-The build-time generator produces a 2048 × 2048-meter region, a 1025 × 1025 Float32 heightfield at two-meter spacing, and entities with stable IDs. The original valley occupies the central region. The manifest currently contains 5,773 structural parts and 12,593 total entities, including 21 distributed landmark sites.
+The build-time generator produces a 6144 × 6144-meter region, a 3073 × 3073 Float32 heightfield at two-meter spacing, and entities with stable IDs. The original valley retains its existing coordinates in the southwest region. The manifest currently contains 7,333 structural parts and 20,998 total entities, including 37 distributed landmark sites and 600 civilian spawns.
 
 The generated files are authoritative baseline assets. Runtime clients do not need matching JavaScript trigonometry implementations to regenerate that baseline. Increment the world version when changing generation rules or entity ordering so an old saved list of component IDs cannot be applied to a different castle.
 
@@ -10,7 +10,7 @@ Terrain sections are 64 meters wide. Rendering chooses two-, four-, or eight-met
 
 ## Simulation authority
 
-The worker owns the aircraft, projectiles, destruction, Rapier world, and time. Commands are ordered worker messages. The fixed-step loop advances at 60 Hz and bounds catch-up work after scheduling delays. The main thread interpolates aircraft positions and quaternion orientations on the same snapshot timeline, follows with a spring camera, renders effects, and handles UI and audio.
+The worker owns the aircraft, projectiles, destruction, Rapier world, and time. Commands are ordered worker messages. The fixed-step loop advances at 60 Hz. Each worker callback runs at most two ticks and yields after eight milliseconds of work; backlog is bounded to 100 ms. Routine snapshots publish at up to 30 Hz, while command/pause snapshots remain immediate. All moving projectiles have stable IDs for interpolation. The main thread buffers worker snapshots for 100 ms and advances a monotonic simulation playback clock using the browser animation-frame timestamp, interpolating aircraft positions, quaternion orientations, residents, and moving bodies on the same timeline. Duplicate command snapshots replace equal-time states without restarting interpolation; pause uses the latest state and respawn/reset clears the buffer. It follows with a spring camera, renders effects, and handles UI and audio.
 
 Flight uses an arcade steering model, not an aerodynamic solver. Aircraft and projectiles use swept queries plus heightfield sampling. Physics bodies are reserved for substantial fragments; the aircraft and projectiles are analytically advanced.
 
@@ -89,7 +89,7 @@ Rendering uses shared instanced cylinders, rings, impact discs, and a fixed elec
 
 ## Configurable space laser
 
-Destruction preferences normalize laser size (0–100, logarithmic 190–3,000 m radius), depth (25–500 m), and brightness (0.25–2). Launch captures a profile on each strike; physics, visuals, and saved work use that profile independently of later preference changes. Older version-5 profiles and work targets resolve to defaults without replacing the world.
+Destruction preferences normalize laser size (0–100, logarithmic 190–approximately 8,691 m radius), depth (25–500 m), and brightness (0.25–2). Launch captures a profile on each strike; physics, visuals, and saved work use that profile independently of later preference changes. Older version-5 profiles and work targets resolve to defaults without replacing the world.
 
 Excavation targets carry radius/depth and coalesce only when center and both dimensions match. Work yields between terrain sections and between independent targets. For radii over 500 m, section work also performs static object and settled-rubble cleanup across all map sections, including fragments whose centers lie outside the footprint but whose dimensions intersect it. Moving debris and cosmetic chunks are cleared during the burn; newly settling fragments are suppressed by the active footprint. Final section acknowledgements retain each finishing strike until its cleanup completes.
 
@@ -116,3 +116,14 @@ The ballistic update benchmark added on 2026-10-01 measured airborne batches at 
 Debris gravity is shared by Rapier bodies, worker ballistic wreckage, and cosmetic chips at 21.6 m/s² (20% above the earlier 18). Weapon projectile gravity is unchanged. Roof and slate sections fracture into four closed tetrahedral wedges that exactly partition the intact pointed roof. Each wedge retains its original sloped exterior and has two exposed cut faces. Moving and settled colliders share the same vertices as rendering, and lightweight landing and save capture use each rotated wedge's lowest corner. Roof wedges remain independent through support collapse, physics budget overflow, settlement, reblasting and save restoration. Four cached geometries are instanced by material and shape. The optional `roofPart` tag occupies spare bits in the kind byte, keeping packed body buffers at 50 bytes and old saves compatible. Rubble consolidation retains actual pyramid/wedge volume and clears the individual shape tag when creating a pile.
 
 Nuke exposure reaches 2,200–6,000 meters according to yield/scale, giving a visible atmospheric wash across the whole valley even when the blast is behind the camera. Looking toward the blast remains brighter. Pulse durations, strongest-only overlapping contributions, pause/reset behavior, and the reduced-effects opacity cap and short fade remain unchanged.
+
+
+## Expanded terrain and civilian simulation (version 7)
+
+Map section indices derive from the shared 96-section row width, independently of the 32 samples per 64 m section. Water textures and save validation use the 3,073-sample terrain row stride. TerrainView allocates section records up front, builds coarse geometry near spawn, then loads/refines at most eight sections per render frame and discards meshes beyond 2,100 m. Height edits survive unloads, so subsequent builds include craters and dry laser shafts. Physical terrain continues streaming around aircraft and activity.
+
+Civilian spawn metadata identifies stable IDs, home assemblies, and settlement IDs. The worker owns movement, casualties, settlement timers, and structural-loss counts. Resident spatial cells bound swept aircraft/wreckage queries; residents do not add Rapier bodies. Structure removal updates mourning and overlap hazards, and both rigid and ballistic wreckage sweep expanded boxes against nearby residents. Monster damage compares the active population before and after the batch to identify local clears and final victory. Population settings rebaseline threats without emitting celebrations. Reaction events are coalesced per settlement until the end of the frame; sadness cancels simultaneous cheering.
+
+CivilianState and SettlementState accompany simulation snapshots and saves. Shared instanced body parts animate from snapshot phase, with no independent wall-clock animation during pause/photo. Generated spatial voice chords use the existing mixer, volume, voice budget, and reset/pause lifecycle. Version-7 world/save compatibility prevents old sample indices and structural IDs from being interpreted against the expanded map; preferences remain independently compatible.
+
+Terrain rendering merges editable 64-meter sections into 256-meter draw tiles. Section rebuilds and tile merges have per-frame count and time budgets; authoritative height data remains available while meshes stream. Water reflections refresh every sixth frame. Terrain and water textures upload only affected row spans after edits; resets and context recovery upload the full field. Distant monsters use four shared instance batches. Civilian threat detection uses a 192-meter spatial index. Population summaries are computed in the worker and shown in the flight HUD. Added residents keep the original spawn IDs stable so version-7 casualties still restore.

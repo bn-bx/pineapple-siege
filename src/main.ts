@@ -19,7 +19,13 @@ import { bindTouchControls, pointerSteering } from "./input";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
 import { SaveStore, compatible } from "./storage";
-import { clamp, DEFAULT_MONSTER_COUNT, LASER, normalizeMonsterCount, WEAPONS } from "./config";
+import {
+  clamp,
+  DEFAULT_MONSTER_COUNT,
+  LASER,
+  normalizeMonsterCount,
+  WEAPONS,
+} from "./config";
 import type {
   WorldData,
   SaveSnapshot,
@@ -136,7 +142,8 @@ function applyPreferences(p: Preferences) {
 }
 function updateMonsterCountUI() {
   $<HTMLInputElement>("monsterCount").value = String(monsterCount);
-  $("monsterCountValue").textContent = monsterCount === 0 ? "Off" : String(monsterCount);
+  $("monsterCountValue").textContent =
+    monsterCount === 0 ? "Off" : String(monsterCount);
 }
 function updateDestructionUI() {
   for (const key of ["bodies", "fragments", "cosmetics", "rubble"] as const)
@@ -363,12 +370,22 @@ function handle(message: WorkerMessage) {
     case "contactSound":
       audio.contact(message);
       break;
+    case "settlementEvent":
+      audio.settlement(message.p, message.kind);
+      break;
     case "monsterEvent":
       audio.monster(message.p, message.kind);
       if (message.kind === "defeat")
-        view.fragment({ type: "fragments", p: message.p, origin: message.p,
-          material: "foliage", seed: Math.floor(performance.now()), count: 100,
-          speed: 40, spread: 12 });
+        view.fragment({
+          type: "fragments",
+          p: message.p,
+          origin: message.p,
+          material: "foliage",
+          seed: Math.floor(performance.now()),
+          count: 100,
+          speed: 40,
+          spread: 12,
+        });
       break;
     case "ready":
       audio.reset();
@@ -502,9 +519,18 @@ async function load() {
       handle(event.data);
     worker.onerror = (e) =>
       fatal("The simulation worker could not start.", e.message);
-    send({ type: "init", world, heights: bytes, save, debug, destruction, monsterCount }, [
-      bytes,
-    ]);
+    send(
+      {
+        type: "init",
+        world,
+        heights: bytes,
+        save,
+        debug,
+        destruction,
+        monsterCount,
+      },
+      [bytes],
+    );
     requestAnimationFrame(frame);
     if (debug) installDebug();
   } catch (e) {
@@ -534,7 +560,7 @@ function frame(now: number) {
     if (now - lastSaveAt > 1000) saveNow();
   }
   try {
-    view.render(renderDT, active);
+    view.render(renderDT, active, now);
   } catch (e) {
     fatal("The graphics renderer was interrupted.", String(e));
     return;
@@ -623,7 +649,11 @@ function frame(now: number) {
     $("damage").textContent = snapshot.stats.removed
       ? `Objects destroyed: ${snapshot.stats.removed}`
       : "Objects destroyed: 0";
-    $("monstersRemaining").textContent = `Monsters: ${snapshot.monsters.filter((m) => !m.defeated).length}/${snapshot.monsterCount}`;
+    $("monstersRemaining").textContent =
+      `Monsters: ${snapshot.monsters.filter((m) => !m.defeated).length}/${snapshot.monsterCount}`;
+    const population = snapshot.population;
+    $("populationTotal").textContent = String(population.alive);
+    $("happinessValue").textContent = `${population.happiness} / 100`;
     $("warning").hidden = !active || (!p.boundary && p.crashed <= 0);
     $("warning").textContent =
       p.crashed > 0
@@ -688,7 +718,9 @@ $("defaultSettings").onclick = () => {
   void saveNow(true);
 };
 $<HTMLInputElement>("monsterCount").oninput = (event) => {
-  monsterCount = normalizeMonsterCount(Number((event.target as HTMLInputElement).value));
+  monsterCount = normalizeMonsterCount(
+    Number((event.target as HTMLInputElement).value),
+  );
   extras.monsterCount = monsterCount;
   updateMonsterCountUI();
   send({ type: "monsterCount", value: monsterCount });
@@ -952,6 +984,7 @@ canvas.addEventListener("webglcontextlost", (e) => {
 canvas.addEventListener("webglcontextrestored", () => {
   queueMicrotask(() => {
     contextLost = false;
+    view.terrain.fullTextureUpload();
     view.renderer.shadowMap.needsUpdate = true;
     view.resize();
     enterButton.disabled = false;

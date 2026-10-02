@@ -1,7 +1,7 @@
 import { normalizePreferences } from "./preferences";
 import { NUKE_LIMITS } from "./destruction-settings";
 import type { SaveSnapshot, Preferences } from "./types";
-import { CONFIG, DEFAULT_MONSTER_COUNT, MAX_MONSTER_COUNT } from "./config";
+import { CONFIG, CHUNKS, MAX_MONSTER_COUNT } from "./config";
 export class SaveStore {
   private db?: IDBDatabase;
   async open() {
@@ -89,12 +89,40 @@ export function compatible(
     Number.isFinite(s.laserCooldown) &&
     s.laserCooldown >= 0 &&
     s.laserDry instanceof Uint32Array &&
-    s.laserDry.every((i) => i < 1025 * 1025) &&
+    s.laserDry.every((i) => i < CONFIG.grid * CONFIG.grid) &&
+    (s.civilians === undefined ||
+      (Array.isArray(s.civilians) &&
+        s.civilians.length <= 1000 &&
+        s.civilians.every(
+          (c, id) =>
+            c &&
+            c.id === id &&
+            validPoint(c.p) &&
+            typeof c.alive === "boolean" &&
+            ["walk", "flee", "cheer", "sad"].includes(c.mood) &&
+            Number.isFinite(c.yaw) &&
+            Number.isFinite(c.phase) &&
+            c.phase >= 0,
+        ))) &&
+    (s.settlements === undefined ||
+      (Array.isArray(s.settlements) &&
+        s.settlements.length <= 100 &&
+        s.settlements.every(
+          (s) =>
+            s &&
+            typeof s.id === "string" &&
+            typeof s.threatened === "boolean" &&
+            Number.isFinite(s.cheer) &&
+            s.cheer >= 0 &&
+            s.cheer <= 6 &&
+            Number.isFinite(s.sad) &&
+            s.sad >= 0 &&
+            s.sad <= 10,
+        ))) &&
     Array.isArray(s.vaporized) &&
     s.vaporized.every(Number.isInteger) &&
     (s.monsters === undefined ||
       (Array.isArray(s.monsters) &&
-        s.monsters.length >= DEFAULT_MONSTER_COUNT &&
         s.monsters.length <= MAX_MONSTER_COUNT &&
         s.monsters.every(
           (m, id) =>
@@ -104,7 +132,7 @@ export function compatible(
             Number.isFinite(m.yaw) &&
             Number.isFinite(m.health) &&
             m.health >= 0 &&
-            m.health <= 3 &&
+            m.health <= 5 &&
             typeof m.defeated === "boolean" &&
             Number.isFinite(m.phase) &&
             Number.isFinite(m.windup) &&
@@ -124,7 +152,9 @@ export function compatible(
         ["charging", "burning", "finishing"].includes(l.phase) &&
         (l.pending === undefined ||
           (Array.isArray(l.pending) &&
-            l.pending.every((i) => Number.isInteger(i) && i >= 0 && i < 1024))),
+            l.pending.every(
+              (i) => Number.isInteger(i) && i >= 0 && i < CHUNKS * CHUNKS,
+            ))),
     ) &&
     Array.isArray(s.laserWork) &&
     s.laserWork.every(
@@ -132,7 +162,7 @@ export function compatible(
         w &&
         Number.isInteger(w.section) &&
         w.section >= 0 &&
-        w.section < 1024 &&
+        w.section < CHUNKS * CHUNKS &&
         Array.isArray(w.targets) &&
         w.targets.every(
           (t) =>
@@ -155,7 +185,9 @@ export function compatible(
         Number.isInteger(j.cursor) &&
         j.cursor >= 0 &&
         Array.isArray(j.chunks) &&
-        j.chunks.every((i) => Number.isInteger(i) && i >= 0 && i < 1024) &&
+        j.chunks.every(
+          (i) => Number.isInteger(i) && i >= 0 && i < CHUNKS * CHUNKS,
+        ) &&
         Array.isArray(j.entities) &&
         j.entities.every(Number.isInteger) &&
         Array.isArray(j.assemblies) &&
@@ -224,23 +256,23 @@ function validPoint(p: unknown): boolean {
 function validTerrain(data: SaveSnapshot["terrain"]) {
   if (data instanceof Float32Array)
     return (
-      data.length <= 1025 * 1025 * 2 &&
+      data.length <= CONFIG.grid * CONFIG.grid * 2 &&
       data.length % 2 === 0 &&
       data.every((v, i) =>
         i % 2
           ? Number.isFinite(v)
-          : Number.isInteger(v) && v >= 0 && v < 1025 * 1025,
+          : Number.isInteger(v) && v >= 0 && v < CONFIG.grid * CONFIG.grid,
       )
     );
   return (
     Array.isArray(data) &&
-    data.length <= 1025 * 1025 &&
+    data.length <= CONFIG.grid * CONFIG.grid &&
     data.every(
       (p) =>
         Array.isArray(p) &&
         Number.isInteger(p[0]) &&
         p[0] >= 0 &&
-        p[0] < 1025 * 1025 &&
+        p[0] < CONFIG.grid * CONFIG.grid &&
         Number.isFinite(p[1]),
     )
   );

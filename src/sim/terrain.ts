@@ -1,4 +1,4 @@
-import { CONFIG, LASER, clamp } from "../config";
+import { CONFIG, CHUNKS, CHUNK_SAMPLES, LASER, clamp } from "../config";
 import type { TerrainPatch } from "../types";
 export class Terrain {
   readonly base: Float32Array;
@@ -7,31 +7,39 @@ export class Terrain {
   readonly flooded = new Uint8Array(CONFIG.grid * CONFIG.grid);
   readonly laserDry = new Uint8Array(CONFIG.grid * CONFIG.grid);
   private floodQueue = new Uint32Array(CONFIG.grid * CONFIG.grid);
-  private ceilings = new Float32Array(32 * 32);
+  private ceilings = new Float32Array(CHUNKS * CHUNKS);
   constructor(base: Float32Array) {
     this.base = base.slice();
     this.heights = base.slice();
     // All terrain edits lower the baseline. Include shared section edges so
     // this remains a conservative bound after craters, shafts, and restoration.
-    for (let cz = 0; cz < 32; cz++)
-      for (let cx = 0; cx < 32; cx++) {
+    for (let cz = 0; cz < CHUNKS; cz++)
+      for (let cx = 0; cx < CHUNKS; cx++) {
         let highest = -Infinity;
-        for (let z = cz * 32; z <= cz * 32 + 32; z++)
-          for (let x = cx * 32; x <= cx * 32 + 32; x++)
-            highest = Math.max(highest, base[z * 1025 + x]);
-        this.ceilings[cz * 32 + cx] = highest;
+        for (
+          let z = cz * CHUNK_SAMPLES;
+          z <= cz * CHUNK_SAMPLES + CHUNK_SAMPLES;
+          z++
+        )
+          for (
+            let x = cx * CHUNK_SAMPLES;
+            x <= cx * CHUNK_SAMPLES + CHUNK_SAMPLES;
+            x++
+          )
+            highest = Math.max(highest, base[z * CONFIG.grid + x]);
+        this.ceilings[cz * CHUNKS + cx] = highest;
       }
     this.initializeFlood();
   }
   aboveSurface(a: readonly number[], b: readonly number[], clearance: number) {
     const bottom = Math.min(a[1], b[1]) - clearance;
-    const x0 = clamp(Math.floor(Math.min(a[0], b[0]) / 64), 0, 31),
-      x1 = clamp(Math.floor(Math.max(a[0], b[0]) / 64), 0, 31),
-      z0 = clamp(Math.floor(Math.min(a[2], b[2]) / 64), 0, 31),
-      z1 = clamp(Math.floor(Math.max(a[2], b[2]) / 64), 0, 31);
+    const x0 = clamp(Math.floor(Math.min(a[0], b[0]) / 64), 0, CHUNKS - 1),
+      x1 = clamp(Math.floor(Math.max(a[0], b[0]) / 64), 0, CHUNKS - 1),
+      z0 = clamp(Math.floor(Math.min(a[2], b[2]) / 64), 0, CHUNKS - 1),
+      z1 = clamp(Math.floor(Math.max(a[2], b[2]) / 64), 0, CHUNKS - 1);
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++)
-        if (bottom <= this.ceilings[z * 32 + x]) return false;
+        if (bottom <= this.ceilings[z * CHUNKS + x]) return false;
     return true;
   }
   sample(x: number, z: number) {
@@ -54,8 +62,8 @@ export class Terrain {
   water(x: number, z: number) {
     return (
       this.flooded[
-        clamp(Math.round(z / 2), 0, 1024) * 1025 +
-          clamp(Math.round(x / 2), 0, 1024)
+        clamp(Math.round(z / 2), 0, CONFIG.grid - 1) * CONFIG.grid +
+          clamp(Math.round(x / 2), 0, CONFIG.grid - 1)
       ] === 1 && this.sample(x, z) < 0
     );
   }
@@ -74,13 +82,13 @@ export class Terrain {
     const newCells: number[] = [];
     while (head < n) {
       const i = this.floodQueue[head++],
-        x = i % 1025,
-        z = Math.floor(i / 1025);
+        x = i % CONFIG.grid,
+        z = Math.floor(i / CONFIG.grid);
       for (const j of [
         x > 0 ? i - 1 : -1,
-        x < 1024 ? i + 1 : -1,
-        z > 0 ? i - 1025 : -1,
-        z < 1024 ? i + 1025 : -1,
+        x < CONFIG.grid - 1 ? i + 1 : -1,
+        z > 0 ? i - CONFIG.grid : -1,
+        z < CONFIG.grid - 1 ? i + CONFIG.grid : -1,
       ])
         if (
           j >= 0 &&
@@ -99,16 +107,16 @@ export class Terrain {
     let n = 0;
     for (const i of indices) {
       if (this.laserDry[i]) continue;
-      const x = i % 1025,
-        z = Math.floor(i / 1025);
+      const x = i % CONFIG.grid,
+        z = Math.floor(i / CONFIG.grid);
       if (this.flooded[i]) this.floodQueue[n++] = i;
       else if (
         this.heights[i] < -0.06 &&
         [
           x > 0 ? i - 1 : -1,
-          x < 1024 ? i + 1 : -1,
-          z > 0 ? i - 1025 : -1,
-          z < 1024 ? i + 1025 : -1,
+          x < CONFIG.grid - 1 ? i + 1 : -1,
+          z > 0 ? i - CONFIG.grid : -1,
+          z < CONFIG.grid - 1 ? i + CONFIG.grid : -1,
         ].some((j) => j >= 0 && this.flooded[j])
       ) {
         this.flooded[i] = 1;
@@ -130,17 +138,27 @@ export class Terrain {
     const indices: number[] = [],
       values: number[] = [],
       chunks = new Set<number>();
-    let x0 = clamp(Math.floor((x - radius) / 2), 0, 1024),
-      x1 = clamp(Math.ceil((x + radius) / 2), 0, 1024),
-      z0 = clamp(Math.floor((z - radius) / 2), 0, 1024),
-      z1 = clamp(Math.ceil((z + radius) / 2), 0, 1024);
+    let x0 = clamp(Math.floor((x - radius) / 2), 0, CONFIG.grid - 1),
+      x1 = clamp(Math.ceil((x + radius) / 2), 0, CONFIG.grid - 1),
+      z0 = clamp(Math.floor((z - radius) / 2), 0, CONFIG.grid - 1),
+      z1 = clamp(Math.ceil((z + radius) / 2), 0, CONFIG.grid - 1);
     if (section !== undefined) {
-      const cx = section % 32,
-        cz = Math.floor(section / 32);
-      x0 = Math.max(x0, cx * 32);
-      x1 = Math.min(x1, cx === 31 ? 1024 : cx * 32 + 31);
-      z0 = Math.max(z0, cz * 32);
-      z1 = Math.min(z1, cz === 31 ? 1024 : cz * 32 + 31);
+      const cx = section % CHUNKS,
+        cz = Math.floor(section / CHUNKS);
+      x0 = Math.max(x0, cx * CHUNK_SAMPLES);
+      x1 = Math.min(
+        x1,
+        cx === CHUNKS - 1
+          ? CONFIG.grid - 1
+          : cx * CHUNK_SAMPLES + CHUNK_SAMPLES - 1,
+      );
+      z0 = Math.max(z0, cz * CHUNK_SAMPLES);
+      z1 = Math.min(
+        z1,
+        cz === CHUNKS - 1
+          ? CONFIG.grid - 1
+          : cz * CHUNK_SAMPLES + CHUNK_SAMPLES - 1,
+      );
     }
     for (let iz = z0; iz <= z1; iz++)
       for (let ix = x0; ix <= x1; ix++) {
@@ -152,7 +170,7 @@ export class Terrain {
               Math.sin(angle * 7 + x * 0.13) * Math.cos(angle * 11 + z * 0.11));
         let d = Math.hypot(ix * 2 - x, iz * 2 - z) / (radius * edge);
         if (d >= 1) continue;
-        let i = iz * 1025 + ix,
+        let i = iz * CONFIG.grid + ix,
           value = Math.fround(
             Math.max(
               Math.min(this.base[i] - CONFIG.bedrock, this.heights[i]),
@@ -165,16 +183,16 @@ export class Terrain {
         indices.push(i);
         values.push(value);
         for (
-          let cz = clamp(Math.floor((iz * 2 - 2) / 64), 0, 31);
-          cz <= clamp(Math.floor((iz * 2 + 2) / 64), 0, 31);
+          let cz = clamp(Math.floor((iz * 2 - 2) / 64), 0, CHUNKS - 1);
+          cz <= clamp(Math.floor((iz * 2 + 2) / 64), 0, CHUNKS - 1);
           cz++
         )
           for (
-            let cx = clamp(Math.floor((ix * 2 - 2) / 64), 0, 31);
-            cx <= clamp(Math.floor((ix * 2 + 2) / 64), 0, 31);
+            let cx = clamp(Math.floor((ix * 2 - 2) / 64), 0, CHUNKS - 1);
+            cx <= clamp(Math.floor((ix * 2 + 2) / 64), 0, CHUNKS - 1);
             cx++
           )
-            chunks.add(cz * 32 + cx);
+            chunks.add(cz * CHUNKS + cx);
       }
     return {
       indices: new Uint32Array(indices),
@@ -197,12 +215,12 @@ export class Terrain {
       values: number[] = [],
       dry: number[] = [],
       chunks = new Set<number>();
-    const cx = section % 32,
-      cz = Math.floor(section / 32);
-    const x0 = cx * 32,
-      x1 = cx === 31 ? 1024 : x0 + 31;
-    const z0 = cz * 32,
-      z1 = cz === 31 ? 1024 : z0 + 31;
+    const cx = section % CHUNKS,
+      cz = Math.floor(section / CHUNKS);
+    const x0 = cx * CHUNK_SAMPLES,
+      x1 = cx === CHUNKS - 1 ? CONFIG.grid - 1 : x0 + CHUNK_SAMPLES - 1;
+    const z0 = cz * CHUNK_SAMPLES,
+      z1 = cz === CHUNKS - 1 ? CONFIG.grid - 1 : z0 + CHUNK_SAMPLES - 1;
     for (let iz = z0; iz <= z1; iz++)
       for (let ix = x0; ix <= x1; ix++) {
         const d = Math.hypot(ix * 2 - x, iz * 2 - z) / radius;
@@ -227,16 +245,16 @@ export class Terrain {
         indices.push(i);
         values.push(value);
         for (
-          let zz = clamp(Math.floor((iz * 2 - 2) / 64), 0, 31);
-          zz <= clamp(Math.floor((iz * 2 + 2) / 64), 0, 31);
+          let zz = clamp(Math.floor((iz * 2 - 2) / 64), 0, CHUNKS - 1);
+          zz <= clamp(Math.floor((iz * 2 + 2) / 64), 0, CHUNKS - 1);
           zz++
         )
           for (
-            let xx = clamp(Math.floor((ix * 2 - 2) / 64), 0, 31);
-            xx <= clamp(Math.floor((ix * 2 + 2) / 64), 0, 31);
+            let xx = clamp(Math.floor((ix * 2 - 2) / 64), 0, CHUNKS - 1);
+            xx <= clamp(Math.floor((ix * 2 + 2) / 64), 0, CHUNKS - 1);
             xx++
           )
-            chunks.add(zz * 32 + xx);
+            chunks.add(zz * CHUNKS + xx);
       }
     return {
       patch: {

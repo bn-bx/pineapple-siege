@@ -1,3 +1,5 @@
+import { CHUNKS } from "../src/config";
+import { CONFIG } from "../src/config";
 import { beforeAll, describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { Terrain } from "../src/sim/terrain";
@@ -18,7 +20,7 @@ describe("terrain authority", () => {
     const t = new Terrain(base),
       x = 1088,
       z = 1024,
-      i = (z / 2) * 1025 + x / 2;
+      i = (z / 2) * CONFIG.grid + x / 2;
     const patch = t.crater(x, z);
     expect(patch.chunks.length).toBeGreaterThanOrEqual(4);
     expect(t.sample(x, z)).toBeCloseTo(base[i] - 5, 3);
@@ -194,8 +196,8 @@ it("preserves supported neighbors, breaches bridge collision, and reactivates ne
   const cells = new Map<number, number>();
   for (const r of sim.save().ruins) {
     const id =
-      Math.max(0, Math.min(31, Math.floor(r.p[2] / 64))) * 32 +
-      Math.max(0, Math.min(31, Math.floor(r.p[0] / 64)));
+      Math.max(0, Math.min(CHUNKS - 1, Math.floor(r.p[2] / 64))) * CHUNKS +
+      Math.max(0, Math.min(CHUNKS - 1, Math.floor(r.p[0] / 64)));
     cells.set(id, (cells.get(id) || 0) + 1);
   }
   expect(Math.max(...cells.values())).toBeLessThanOrEqual(36);

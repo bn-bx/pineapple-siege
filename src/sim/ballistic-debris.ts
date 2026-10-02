@@ -57,8 +57,8 @@ export function advanceDebris(
     for (let k = 0; k < 3; k++) p[k] += v[k] * step;
     v[1] -= CONFIG.debrisGravity * step;
     for (const k of [0, 2]) {
-      if (p[k] < 8 || p[k] > 2040) {
-        p[k] = Math.max(8, Math.min(2040, p[k]));
+      if (p[k] < 8 || p[k] > CONFIG.worldSize - 8) {
+        p[k] = Math.max(8, Math.min(CONFIG.worldSize - 8, p[k]));
         v[k] *= -0.25;
       }
     }

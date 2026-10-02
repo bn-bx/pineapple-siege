@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-const SIZE = 2048,
+const SIZE = 6144,
   STEP = 2,
   GRID = SIZE / STEP + 1,
   OFFSET = 768,
@@ -131,7 +131,18 @@ function raw(x, z) {
     12 +
     fbm(x * 0.004, z * 0.004) * 90 +
     Math.pow(fbm(x * 0.008 + 42, z * 0.008 + 19), 2) * 85;
-  h += smooth(790, 1024, Math.max(Math.abs(x - 1024), Math.abs(z - 1024))) * 80;
+  // Retain the original valley rim, then blend into the surrounding countryside.
+  const legacyDistance = Math.max(0, x - 2048, z - 2048);
+  h +=
+    smooth(790, 1024, Math.max(Math.abs(x - 1024), Math.abs(z - 1024))) *
+    80 *
+    (1 - smooth(0, 650, legacyDistance));
+  h +=
+    smooth(
+      SIZE / 2 - 350,
+      SIZE / 2,
+      Math.max(Math.abs(x - SIZE / 2), Math.abs(z - SIZE / 2)),
+    ) * 80;
   let rd = Math.abs(lx - riverX(lz)),
     rw = riverW(lz);
   h = mix(-3.5 + (rd / rw) * 0.8, h, smooth(rw, rw + 42, rd));
@@ -194,9 +205,76 @@ for (const p of [
 ])
   site("logging", ...p, 36);
 site("quarry", 1670, 820, 52);
+// Fixed candidates with deterministic slope/land checks keep settlement pads suitable.
+function outerSite(kind, x, z, radius) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const px = x + (hash(attempt, x) - 0.5) * 240;
+    const pz = z + (hash(attempt, z) - 0.5) * 240;
+    const h = raw(px, pz);
+    if (
+      h < 8 ||
+      sites.some(
+        (s) => Math.hypot(s.p[0] - px, s.p[2] - pz) < s.radius + radius + 160,
+      )
+    )
+      continue;
+    if (
+      [
+        [radius, 0],
+        [-radius, 0],
+        [0, radius],
+        [0, -radius],
+      ].some(([dx, dz]) => Math.abs(raw(px + dx, pz + dz) - h) > 18)
+    )
+      continue;
+    site(kind, px, pz, radius);
+    return;
+  }
+  throw Error(`No suitable ground for ${kind} at ${x},${z}`);
+}
+for (const [x, z] of [
+  [2600, 700],
+  [3900, 900],
+  [5200, 1300],
+  [2800, 2600],
+  [4600, 3300],
+  [900, 3700],
+  [2200, 5100],
+  [4900, 5100],
+])
+  outerSite("hamlet", x, z, 65);
+for (const [x, z] of [
+  [3300, 1500],
+  [5300, 2600],
+  [1500, 4400],
+  [3600, 5300],
+])
+  outerSite("farm", x, z, 48);
+for (const [x, z] of [
+  [3500, 3100],
+  [4100, 4700],
+])
+  outerSite("windmill", x, z, 24);
+for (const z of [3100, 4700])
+  site("crossing", OFFSET + riverX(z - OFFSET), z, 60);
 for (const s of sites) {
   const [x, , z] = s.p;
   if (s.kind === "crossing") continue;
+  if (x > 2048 || z > 2048) {
+    const nearest = sites
+      .filter((other) => other !== s && (other.p[0] < x || other.p[2] < z))
+      .sort(
+        (a, b) =>
+          Math.hypot(a.p[0] - x, a.p[2] - z) -
+          Math.hypot(b.p[0] - x, b.p[2] - z),
+      )[0];
+    if (nearest)
+      paths.push([
+        [x - OFFSET, z - OFFSET],
+        [nearest.p[0] - OFFSET, nearest.p[2] - OFFSET],
+      ]);
+    continue;
+  }
   paths.push([
     [x - OFFSET, z - OFFSET],
     [x - OFFSET + (x < 1024 ? 60 : -60), z - OFFSET],
@@ -641,7 +719,9 @@ for (let i = 0; i < 16; i++) {
   }
 }
 const castleCount = entities.filter((e) => e.assembly !== "bridge").length;
+const homes = [];
 function building(name, x, z, w = 14, d = 18, h = 13, material = "plaster") {
+  if (name.includes("-house")) homes.push({ assembly: name, x, z, w, d });
   const y = sample(x, z);
   // Interlocking wall courses with a clear doorway; independently breakable roof sections.
   for (let level = 0; level < 3; level++) {
@@ -937,7 +1017,7 @@ for (const s of sites) {
   }
   s.assemblies = [...new Set(entities.slice(begin).map((e) => e.assembly))];
 }
-if (castleCount > 5000 || entities.length > 8000)
+if (castleCount > 5000 || entities.length > 16000)
   throw Error(`Structure budget exceeded: ${castleCount}/${entities.length}`);
 // Build adjacency only within each assembly, avoiding a world-wide quadratic scan.
 const groups = new Map();
@@ -960,8 +1040,9 @@ for (const group of groups.values())
   }
 const structureCount = entities.length;
 // Preserve the central forest and use larger spacing in the surrounding flight region.
-for (let z = 24; z < 2024; z += 14)
-  for (let x = 24; x < 2024; x += 14) {
+for (let z = 24; z < SIZE - 24; z += 14)
+  for (let x = 24; x < SIZE - 24; x += 14) {
+    if ((x > 2024 || z > 2024) && (x % 42 !== 24 || z % 42 !== 24)) continue;
     let px = x + (hash(x, z) - 0.5) * 9,
       pz = z + (hash(x + 6, z + 9) - 0.5) * 9,
       lx = px - OFFSET,
@@ -1023,9 +1104,9 @@ for (let z = 790; z < 1258; z += 8)
     let tall = 15 + hash(x + 3, z + 3) * 11;
     add("tree", x, h + tall / 2, z, 3, tall / 2, 3, "foliage", "", true);
   }
-for (let i = 0; i < 170; i++) {
-  let x = 40 + hash(i, 77) * 1968,
-    z = 40 + hash(i, 78) * 1968,
+for (let i = 0; i < 510; i++) {
+  let x = 40 + hash(i, 77) * (i < 170 ? 1968 : SIZE - 80),
+    z = 40 + hash(i, 78) * (i < 170 ? 1968 : SIZE - 80),
     h = sample(x, z);
   if (
     h < 2 ||
@@ -1035,8 +1116,78 @@ for (let i = 0; i < 170; i++) {
   let s = 1.5 + hash(i, 79) * 3;
   add("rock", x, h + s * 0.4, z, s, s * 0.6, s * 0.85, "rock", "", true);
 }
+const civilians = [];
+function civilian(home, settlement, x, z) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const a = attempt * 2.399963;
+    const r = attempt === 0 ? 0 : 4 + Math.floor(attempt / 8) * 3;
+    const px = x + Math.sin(a) * r,
+      pz = z + Math.cos(a) * r;
+    const h = sample(px, pz);
+    if (h < 1 || px < 5 || pz < 5 || px > SIZE - 5 || pz > SIZE - 5) continue;
+    if (
+      entities.some(
+        (e) =>
+          e.kind === "block" &&
+          Math.abs(e.p[0] - px) < e.s[0] + 1.5 &&
+          Math.abs(e.p[2] - pz) < e.s[2] + 1.5 &&
+          e.p[1] + e.s[1] > h &&
+          e.p[1] - e.s[1] < h + 5,
+      )
+    )
+      continue;
+    if (civilians.some((c) => Math.hypot(c.p[0] - px, c.p[2] - pz) < 2))
+      continue;
+    civilians.push({ id: civilians.length, home, settlement, p: [px, h, pz] });
+    return;
+  }
+  throw Error(`No safe civilian spawn near ${home}`);
+}
+for (const home of homes) {
+  const settlement = sites.find((s) =>
+    s.assemblies.includes(home.assembly),
+  )?.id;
+  if (!settlement) throw Error(`No settlement for ${home.assembly}`);
+  for (let i = 0; i < 3; i++)
+    civilian(
+      home.assembly,
+      settlement,
+      home.x + (i - 1) * 5,
+      home.z + home.d / 2 + 5,
+    );
+}
+for (let i = 0; i < 24; i++) {
+  const courtyard = i < 12;
+  civilian(
+    "castle",
+    "castle",
+    FX + ((i % 6) - 2.5) * 34,
+    FZ +
+      (courtyard
+        ? -150 + Math.floor(i / 6) * 70
+        : -CASTLE_Z - 30 - Math.floor((i - 12) / 6) * 12),
+  );
+}
+// Append residents so existing saves retain the original 225 civilian IDs.
+for (const home of homes) {
+  const settlement = sites.find((s) => s.assemblies.includes(home.assembly)).id;
+  for (let i = 0; i < 5; i++)
+    civilian(
+      home.assembly,
+      settlement,
+      home.x + (i - 2) * 5,
+      home.z - home.d / 2 - 5,
+    );
+}
+for (let i = 0; i < 40; i++)
+  civilian(
+    "castle",
+    "castle",
+    FX + ((i % 8) - 3.5) * 25,
+    FZ - CASTLE_Z - 65 - Math.floor(i / 8) * 12,
+  );
 const world = {
-  version: 6,
+  version: 7,
   seed: SEED,
   size: SIZE,
   step: STEP,
@@ -1060,6 +1211,7 @@ const world = {
   structureCount,
   castleCount,
   sites,
+  civilians,
   entities,
 };
 mkdirSync("public", { recursive: true });
