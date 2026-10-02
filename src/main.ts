@@ -1,4 +1,5 @@
 import { unpackBodies } from "./sim/body-buffer";
+import { loadTerrain } from "./world-loader";
 import { normalizePreferences } from "./preferences";
 import { discoActive } from "./disco";
 import {
@@ -457,18 +458,11 @@ function handle(message: WorkerMessage) {
 }
 async function load() {
   try {
-    const [data, response] = await Promise.all([
-      fetch(`${import.meta.env.BASE_URL}world.json`).then((r) => {
-        if (!r.ok) throw Error("World data did not load");
-        return r.json();
-      }),
-      fetch(`${import.meta.env.BASE_URL}world.bin`),
-    ]);
-    if (!response.ok) throw Error("Terrain data did not load");
-    world = data;
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength !== world.grid * world.grid * 4)
-      throw Error("Terrain data is incomplete");
+    world = await fetch(`${import.meta.env.BASE_URL}world.json`).then((r) => {
+      if (!r.ok) throw Error("World data did not load");
+      return r.json();
+    });
+    const bytes = await loadTerrain(world, import.meta.env.BASE_URL);
     let save: SaveSnapshot | undefined;
     try {
       await store.open();
