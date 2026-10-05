@@ -1,3 +1,4 @@
+import { terrainFogVertex } from "./terrain-fog";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData } from "../types";
@@ -15,6 +16,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
     side: THREE.DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
+    shader.vertexShader = terrainFogVertex(shader.vertexShader);
     shader.uniforms.uTerrain = { value: terrain.heightTexture };
     shader.uniforms.uWet = { value: terrain.floodTexture };
     shader.vertexShader = shader.vertexShader

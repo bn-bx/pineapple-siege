@@ -1,5 +1,6 @@
 import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
+import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 
 let template: THREE.Group | undefined;
 const cylinder = (
@@ -194,8 +195,12 @@ export function makeDistantMonster() {
 /** Four shared draws for all distant enemies, including their disco transforms. */
 export class DistantMonsterView {
   readonly group = new THREE.Group();
-  private faceMesh?:THREE.InstancedMesh;
-  private faceLocal=new THREE.Matrix4().compose(new THREE.Vector3(0,18.5,0),new THREE.Quaternion(),new THREE.Vector3(7,5,8.5));
+  private faceMesh?: THREE.InstancedMesh;
+  private faceLocal = new THREE.Matrix4().compose(
+    new THREE.Vector3(0, 18.5, 0),
+    new THREE.Quaternion(),
+    new THREE.Vector3(7, 5, 8.5),
+  );
   readonly parts: THREE.InstancedMesh[];
   private local: THREE.Matrix4[];
   private matrix = new THREE.Matrix4();
@@ -220,25 +225,43 @@ export class DistantMonsterView {
     });
   }
   get faces() {
-    if(!this.faceMesh) {
-      const material=new THREE.MeshBasicMaterial();material.visible=false;
-      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(2,2,2),material,this.capacity);
-      mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.faceMesh=mesh;this.group.add(mesh);
+    if (!this.faceMesh) {
+      const material = new THREE.MeshBasicMaterial();
+      material.visible = false;
+      const mesh = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        material,
+        this.capacity,
+      );
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.faceMesh = mesh;
+      this.group.add(mesh);
     }
     return this.faceMesh;
   }
-  private finishFaces(eyes:boolean) {
-    const mesh=this.faceMesh;if(!mesh)return;
-    mesh.count=eyes ? this.count : 0;mesh.visible=eyes;
-    mesh.instanceMatrix.clearUpdateRanges();if(mesh.count)mesh.instanceMatrix.addUpdateRange(0,mesh.count*16);mesh.instanceMatrix.needsUpdate=true;
+  private finishFaces(eyes: boolean) {
+    const mesh = this.faceMesh;
+    if (!mesh) return;
+    mesh.count = eyes ? this.count : 0;
+    mesh.visible = eyes;
+    mesh.instanceMatrix.clearUpdateRanges();
+    if (mesh.count) mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+    mesh.instanceMatrix.needsUpdate = true;
   }
   disposeFaces() {
-    const mesh=this.faceMesh;if(!mesh)return;
-    this.group.remove(mesh);mesh.dispose();mesh.geometry.dispose();(mesh.material as THREE.Material).dispose();this.faceMesh=undefined;
+    const mesh = this.faceMesh;
+    if (!mesh) return;
+    this.group.remove(mesh);
+    mesh.dispose();
+    mesh.geometry.dispose();
+    (mesh.material as THREE.Material).dispose();
+    this.faceMesh = undefined;
   }
-  begin(eyes=false) {
-    this.count = 0;if(eyes)void this.faces;
+  begin(eyes = false) {
+    this.count = 0;
+    if (eyes) void this.faces;
   }
   add(root: THREE.Object3D) {
     root.updateMatrix();
@@ -247,10 +270,13 @@ export class DistantMonsterView {
         this.count,
         this.matrix.multiplyMatrices(root.matrix, this.local[i]),
       );
-    this.faceMesh?.setMatrixAt(this.count,this.matrix.multiplyMatrices(root.matrix,this.faceLocal));
+    this.faceMesh?.setMatrixAt(
+      this.count,
+      this.matrix.multiplyMatrices(root.matrix, this.faceLocal),
+    );
     this.count++;
   }
-  finish(eyes=false) {
+  finish(eyes = false) {
     this.finishFaces(eyes);
     for (const part of this.parts) {
       part.count = this.count;
@@ -264,72 +290,270 @@ export class DistantMonsterView {
 /** Animated material/limb batches replace hundreds of cloned render hierarchies. */
 export class NearMonsterView {
   readonly group = new THREE.Group();
-  readonly parts: { mesh: THREE.InstancedMesh; limb: string; local: THREE.Matrix4 }[] = [];
-  private faceMesh?:THREE.InstancedMesh;
+  readonly parts: {
+    mesh: THREE.InstancedMesh;
+    limb: string;
+    local: THREE.Matrix4;
+  }[] = [];
+  private faceMesh?: THREE.InstancedMesh;
   private count = 0;
   private matrix = new THREE.Matrix4();
   private pivot = new THREE.Object3D();
-  private faceLocal = new THREE.Matrix4().compose(new THREE.Vector3(0,18.5,0),new THREE.Quaternion(),new THREE.Vector3(7,5,8.5));
+  private faceLocal = new THREE.Matrix4().compose(
+    new THREE.Vector3(0, 18.5, 0),
+    new THREE.Quaternion(),
+    new THREE.Vector3(7, 5, 8.5),
+  );
   constructor(private capacity: number) {
-    const template = makeMonster(); template.updateMatrixWorld(true);
-    const groups = new Map<string,{ limb: string; local: THREE.Matrix4; material: THREE.Material; geometries: THREE.BufferGeometry[] }>();
-    for(const child of template.children) {
-      const limb = child.name || 'body';
-      const local = child instanceof THREE.Group ? child.matrix.clone() : new THREE.Matrix4();
+    const template = makeMonster();
+    template.updateMatrixWorld(true);
+    const groups = new Map<
+      string,
+      {
+        limb: string;
+        local: THREE.Matrix4;
+        material: THREE.Material;
+        geometries: THREE.BufferGeometry[];
+      }
+    >();
+    for (const child of template.children) {
+      const limb = child.name || "body";
+      const local =
+        child instanceof THREE.Group
+          ? child.matrix.clone()
+          : new THREE.Matrix4();
       const inverse = local.clone().invert();
-      child.traverse(o => {
-        if(!(o instanceof THREE.Mesh)) return;
-        const material = o.material as THREE.Material, key = limb+material.uuid;
-        let group=groups.get(key);
-        if(!group) groups.set(key,group={limb,local,material,geometries:[]});
-        group.geometries.push(o.geometry.clone().applyMatrix4(inverse.clone().multiply(o.matrixWorld)));
+      child.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        const material = o.material as THREE.Material,
+          key = limb + material.uuid;
+        let group = groups.get(key);
+        if (!group)
+          groups.set(key, (group = { limb, local, material, geometries: [] }));
+        group.geometries.push(
+          o.geometry
+            .clone()
+            .applyMatrix4(inverse.clone().multiply(o.matrixWorld)),
+        );
       });
     }
-    for(const g of groups.values()) {
-      const geometry=mergeMonsterGeometry(g.geometries)!;
-      for(const piece of g.geometries) piece.dispose();
-      const mesh=new THREE.InstancedMesh(geometry,g.material,capacity); mesh.count=0; mesh.frustumCulled=false;
-      mesh.castShadow=true; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); this.group.add(mesh);
-      this.parts.push({mesh,limb:g.limb,local:g.local});
+    for (const g of groups.values()) {
+      const geometry = mergeMonsterGeometry(g.geometries)!;
+      for (const piece of g.geometries) piece.dispose();
+      const mesh = new THREE.InstancedMesh(geometry, g.material, capacity);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.castShadow = true;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.group.add(mesh);
+      this.parts.push({ mesh, limb: g.limb, local: g.local });
     }
   }
   get faces() {
-    if(!this.faceMesh) {
-      const material=new THREE.MeshBasicMaterial();material.visible=false;
-      const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(2,2,2),material,this.capacity);
-      mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.faceMesh=mesh;this.group.add(mesh);
+    if (!this.faceMesh) {
+      const material = new THREE.MeshBasicMaterial();
+      material.visible = false;
+      const mesh = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        material,
+        this.capacity,
+      );
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.faceMesh = mesh;
+      this.group.add(mesh);
     }
     return this.faceMesh;
   }
-  private finishFaces(eyes:boolean) {
-    const mesh=this.faceMesh;if(!mesh)return;
-    mesh.count=eyes ? this.count : 0;mesh.visible=eyes;
-    mesh.instanceMatrix.clearUpdateRanges();if(mesh.count)mesh.instanceMatrix.addUpdateRange(0,mesh.count*16);mesh.instanceMatrix.needsUpdate=true;
+  private finishFaces(eyes: boolean) {
+    const mesh = this.faceMesh;
+    if (!mesh) return;
+    mesh.count = eyes ? this.count : 0;
+    mesh.visible = eyes;
+    mesh.instanceMatrix.clearUpdateRanges();
+    if (mesh.count) mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+    mesh.instanceMatrix.needsUpdate = true;
   }
   disposeFaces() {
-    const mesh=this.faceMesh;if(!mesh)return;
-    this.group.remove(mesh);mesh.dispose();mesh.geometry.dispose();(mesh.material as THREE.Material).dispose();this.faceMesh=undefined;
+    const mesh = this.faceMesh;
+    if (!mesh) return;
+    this.group.remove(mesh);
+    mesh.dispose();
+    mesh.geometry.dispose();
+    (mesh.material as THREE.Material).dispose();
+    this.faceMesh = undefined;
   }
-  begin(eyes=false) {this.count=0;if(eyes)void this.faces;}
+  begin(eyes = false) {
+    this.count = 0;
+    if (eyes) void this.faces;
+  }
   add(root: THREE.Object3D, left: number, right: number, crown: number) {
     root.updateMatrix();
-    for(const part of this.parts) {
+    for (const part of this.parts) {
       this.pivot.matrix.copy(part.local);
-      if(part.limb==='leftArm' || part.limb==='rightArm' || part.limb==='crown') {
-        part.local.decompose(this.pivot.position,this.pivot.quaternion,this.pivot.scale);
-        this.pivot.rotation.z=part.limb==='leftArm' ? left : part.limb==='rightArm' ? right : crown;
+      if (
+        part.limb === "leftArm" ||
+        part.limb === "rightArm" ||
+        part.limb === "crown"
+      ) {
+        part.local.decompose(
+          this.pivot.position,
+          this.pivot.quaternion,
+          this.pivot.scale,
+        );
+        this.pivot.rotation.z =
+          part.limb === "leftArm"
+            ? left
+            : part.limb === "rightArm"
+              ? right
+              : crown;
         this.pivot.updateMatrix();
       }
-      part.mesh.setMatrixAt(this.count,this.matrix.multiplyMatrices(root.matrix,this.pivot.matrix));
+      part.mesh.setMatrixAt(
+        this.count,
+        this.matrix.multiplyMatrices(root.matrix, this.pivot.matrix),
+      );
     }
-    this.faceMesh?.setMatrixAt(this.count,this.matrix.multiplyMatrices(root.matrix,this.faceLocal)); this.count++;
+    this.faceMesh?.setMatrixAt(
+      this.count,
+      this.matrix.multiplyMatrices(root.matrix, this.faceLocal),
+    );
+    this.count++;
   }
   finish(eyes: boolean) {
-    for(const {mesh,limb} of this.parts) {
-      mesh.visible=limb!=='native-eyes' || !eyes; mesh.count=this.count;
-      mesh.instanceMatrix.clearUpdateRanges(); if(this.count) mesh.instanceMatrix.addUpdateRange(0,this.count*16); mesh.instanceMatrix.needsUpdate=true;
+    for (const { mesh, limb } of this.parts) {
+      mesh.visible = limb !== "native-eyes" || !eyes;
+      mesh.count = this.count;
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (this.count) mesh.instanceMatrix.addUpdateRange(0, this.count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
     }
     this.finishFaces(eyes);
+  }
+}
+
+/** Detached body, crown and two arms share material batches across all defeats. */
+export class MonsterFragmentView {
+  readonly group = new THREE.Group();
+  private faceMesh?: THREE.InstancedMesh;
+  private faceCount = 0;
+  private faceMatrix = new THREE.Matrix4();
+  private faceLocal = new THREE.Matrix4().compose(
+    new THREE.Vector3(0, 3.5, 0),
+    new THREE.Quaternion(),
+    new THREE.Vector3(7, 5, 8.5),
+  );
+  private batches: {
+    mesh: THREE.InstancedMesh;
+    part: number;
+    count: number;
+  }[] = [];
+  constructor(capacity: number) {
+    const template = makeMonster();
+    template.updateMatrixWorld(true);
+    const groups = new Map<
+      string,
+      {
+        part: number;
+        material: THREE.Material;
+        geometries: THREE.BufferGeometry[];
+      }
+    >();
+    for (const child of template.children) {
+      const part =
+        child.name === "crown"
+          ? 1
+          : child.name === "leftArm"
+            ? 2
+            : child.name === "rightArm"
+              ? 3
+              : 0;
+      const center = MONSTER_FRAGMENT_CENTERS[part];
+      child.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        const material = o.material as THREE.Material;
+        const key = `${part}:${material.uuid}`;
+        let batch = groups.get(key);
+        if (!batch)
+          groups.set(key, (batch = { part, material, geometries: [] }));
+        batch.geometries.push(
+          o.geometry
+            .clone()
+            .applyMatrix4(o.matrixWorld)
+            .translate(-center[0], -center[1], -center[2]),
+        );
+      });
+    }
+    for (const batch of groups.values()) {
+      const geometry = mergeMonsterGeometry(batch.geometries)!;
+      for (const g of batch.geometries) g.dispose();
+      const mesh = new THREE.InstancedMesh(geometry, batch.material, capacity);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.castShadow = true;
+      mesh.count = 0;
+      this.group.add(mesh);
+      this.batches.push({ mesh, part: batch.part, count: 0 });
+    }
+  }
+  get faces() {
+    if (!this.faceMesh) {
+      const material = new THREE.MeshBasicMaterial();
+      material.visible = false;
+      const mesh = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        material,
+        this.batches[0].mesh.instanceMatrix.count,
+      );
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      this.faceMesh = mesh;
+      this.group.add(mesh);
+    }
+    return this.faceMesh;
+  }
+  disposeFaces() {
+    const mesh = this.faceMesh;
+    if (!mesh) return;
+    this.group.remove(mesh);
+    mesh.dispose();
+    mesh.geometry.dispose();
+    (mesh.material as THREE.Material).dispose();
+    this.faceMesh = undefined;
+  }
+  begin(eyes = false) {
+    this.faceCount = 0;
+    if (eyes) void this.faces;
+    for (const batch of this.batches) batch.count = 0;
+  }
+  add(part: number, root: THREE.Object3D) {
+    root.updateMatrix();
+    if (part === 0 && this.faceMesh)
+      this.faceMesh.setMatrixAt(
+        this.faceCount++,
+        this.faceMatrix.multiplyMatrices(root.matrix, this.faceLocal),
+      );
+    for (const batch of this.batches)
+      if (batch.part === part)
+        batch.mesh.setMatrixAt(batch.count++, root.matrix);
+  }
+  finish(eyes = false) {
+    const face = this.faceMesh;
+    if (face) {
+      face.count = eyes ? this.faceCount : 0;
+      face.visible = eyes;
+      face.instanceMatrix.clearUpdateRanges();
+      if (face.count) face.instanceMatrix.addUpdateRange(0, face.count * 16);
+      face.instanceMatrix.needsUpdate = true;
+    }
+    for (const batch of this.batches) {
+      batch.mesh.count = batch.count;
+      batch.mesh.instanceMatrix.clearUpdateRanges();
+      if (batch.count)
+        batch.mesh.instanceMatrix.addUpdateRange(0, batch.count * 16);
+      batch.mesh.instanceMatrix.needsUpdate = true;
+    }
   }
 }

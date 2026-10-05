@@ -1,3 +1,4 @@
+import { terrainScarColor, terrainSurfaceColor } from "./terrain-colors";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
 import { CONFIG, CHUNKS, clamp } from "../config";
@@ -50,28 +51,7 @@ export class TerrainMesher {
       ? a + (b - a) * u + (c - a) * v
       : d + (c - d) * (1 - u) + (b - d) * (1 - v);
   }
-  private scar(
-    color: THREE.Color,
-    x: number,
-    z: number,
-    h: number,
-    damage: number,
-    slope: number,
-  ) {
-    const strata = 0.5 + 0.5 * Math.sin(h * 0.8 + x * 0.025 + z * 0.035);
-    const grain =
-      0.5 + 0.5 * Math.sin(x * 0.73 + z * 0.29) * Math.cos(z * 0.51 - x * 0.23);
-    const rock = clamp((slope - 0.65) * 0.45 + damage / 32, 0, 1);
-    color.setRGB(
-      0.3 + strata * 0.1 + grain * 0.045,
-      0.19 + strata * 0.075 + grain * 0.04,
-      0.115 + strata * 0.055 + grain * 0.035,
-    );
-    const grey = 0.32 + grain * 0.12 + strata * 0.055;
-    color.r += (grey - color.r) * rock;
-    color.g += (grey * 0.97 - color.g) * rock;
-    color.b += (grey * 0.87 - color.b) * rock;
-  }
+
   build(chunk: MeshChunk, step: number) {
     const cx = (chunk.id % CHUNKS) * 64,
       cz = Math.floor(chunk.id / CHUNKS) * 64;
@@ -83,7 +63,6 @@ export class TerrainMesher {
       indices: number[] = [];
     const cache = new Map<number, number>(),
       c = new THREE.Color(),
-      stone = new THREE.Color("#8c9187"),
       sand = new THREE.Color("#a69c73"),
       earth = new THREE.Color("#705139");
     const vertex = (x: number, z: number) => {
@@ -105,23 +84,11 @@ export class TerrainMesher {
             this.sample(wx, wz - 2, this.section!.base) -
               this.sample(wx, wz + 2, this.section!.base),
           ) * 0.25,
-        damage = baseHeight - h,
-        noise =
-          Math.sin(wx * 0.04 + wz * 0.019) *
-            Math.sin(wz * 0.063 - wx * 0.02) *
-            0.5 +
-          0.5;
+        damage = baseHeight - h;
       positions.push(wx, h, wz);
       normals.push(dx / length, 4 / length, dz / length);
       uv.push(wx * 0.07, wz * 0.07);
-      c.setRGB(0.21 + noise * 0.08, 0.34 + noise * 0.09, 0.095 + noise * 0.04);
-      c.lerp(
-        stone,
-        Math.max(
-          clamp((slope - 0.6) * 1.4, 0, 1),
-          clamp((baseHeight - 135) / 50, 0, 1),
-        ),
-      );
+      terrainSurfaceColor(c, wx, wz, baseHeight, slope);
       if (
         this.pathDistance(wx, wz) < 3.2 ||
         this.castleBounds.some(
@@ -133,7 +100,7 @@ export class TerrainMesher {
       if (baseHeight < 6)
         c.lerp(sand, clamp((6 - baseHeight) / 6, 0, 1) * 0.85);
       baseColors.push(c.r, c.g, c.b);
-      this.scar(earth, wx, wz, h, damage, Math.hypot(dx, dz) / 4);
+      terrainScarColor(earth, wx, wz, h, damage, Math.hypot(dx, dz) / 4);
       if (damage > 0.1) c.lerp(earth, clamp(damage / 0.6, 0, 1));
       colors.push(c.r, c.g, c.b);
       cache.set(key, index);

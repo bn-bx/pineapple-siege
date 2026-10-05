@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
-const code = process.env.ISLAND_CODE ?? "PS1-0000A301";
+const code = process.env.ISLAND_CODE ?? "PS2-0000A301";
 const output = `/tmp/island-qa/${code}`;
 const browser = await chromium.launch({
   executablePath:

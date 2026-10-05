@@ -8,7 +8,7 @@ export interface IslandBaseline {
   world: WorldData;
   heights: Float32Array;
 }
-export function seedCode(seed: number): string;
+export function seedCode(seed: number, revision?: number): string;
 export function parseSeedCode(code: string): number;
 export function islandLink(code: string, base: string): string;
 export function hashFor(seed: number): (x: number, z: number) => number;

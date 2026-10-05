@@ -60,7 +60,15 @@ export interface Preferences {
   destruction?: DestructionSettings;
   monsterCount?: number;
 }
+export interface MonsterFragment {
+  part: number;
+  p: Vec3;
+  q: Quat;
+}
 export interface MonsterState {
+  fragments?: MonsterFragment[];
+  /** Root orientation for a defeated monster retained as fallen wreckage. */
+  ragdoll?: Quat;
   id: number;
   p: Vec3;
   yaw: number;
@@ -151,6 +159,7 @@ export interface RiverData {
   points: Vec3[];
 }
 export interface WorldData {
+  passes?: { p: Vec3; radius: number }[];
   generatorVersion?: number;
   castles?: CastleSite[];
   rivers?: RiverData[];
@@ -311,6 +320,7 @@ export interface SimulationSnapshot {
   };
 }
 export interface PackedMotion {
+  fragmentCount?: number;
   buffer: ArrayBuffer;
   counts: [number, number, number, number];
 }

@@ -40,9 +40,11 @@ export function drawIslandPreview(
             ]
           : h < 6
             ? [192, 183, 132]
-            : h > 190
+            : h > 550
               ? [139, 150, 141]
-              : [92, 134, 75];
+              : h > 250
+                ? [110, 128, 87]
+                : [92, 134, 75];
       image.data[i] = color[0] * (h < 0 ? 1 : light);
       image.data[i + 1] = color[1] * (h < 0 ? 1 : light);
       image.data[i + 2] = color[2] * (h < 0 ? 1 : light);
@@ -203,10 +205,13 @@ export class IslandPreview {
         this.candidate = { world: message.world, heights: message.heights };
         drawIslandPreview(get("islandMap"), this.candidate);
         get("islandMap").hidden = false;
+        let peak = 0;
+        for (const height of this.candidate.heights)
+          peak = Math.max(peak, height);
         get("islandLandmarks").textContent =
-          `3 castles · 2 harbors · 2 lighthouses · ${message.world.rivers.length} rivers · 664 residents`;
+          `3 castles · 2 harbors · 2 lighthouses · ${message.world.rivers.length} rivers · 664 residents · Highest peak ${Math.round(peak)} m`;
         this.status(
-          "Your island is ready. Reroll, enter another seed, or keep this one.",
+          `Your island is ready. Highest peak: ${Math.round(peak)} m. Reroll, enter another seed, or keep this one.`,
         );
         get<HTMLButtonElement>("keepIsland").disabled = false;
         get<HTMLProgressElement>("islandProgress").value = 1;

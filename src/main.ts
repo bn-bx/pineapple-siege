@@ -1,3 +1,5 @@
+import { CONFIG } from "./config";
+import { AltitudeWarning } from "./altitude-warning";
 import { SaveCaptureCoordinator } from "./save-capture";
 import { SaveWriter } from "./save-writer";
 import { unpackBodies } from "./sim/body-buffer";
@@ -92,6 +94,7 @@ let perfSummary = "",
   lastPerfSummary = 0;
 let queuedReset = false,
   saveEpoch = 0;
+const altitudeWarning = new AltitudeWarning();
 let islandChanging = false;
 let islandLinkError = "";
 const islandPreview = new IslandPreview();
@@ -213,6 +216,7 @@ function pause() {
   document.body.classList.remove("cinematic", "photo");
   $("photoToolbar").hidden = true;
   active = false;
+  $("ceilingWarning").hidden = true;
   clearInput();
   send({ type: "pause", paused: true });
   audio.pause();
@@ -488,6 +492,7 @@ function consumeIslandLink() {
   history.replaceState(null, "", url);
 }
 function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot) {
+  altitudeWarning.reset();
   saveEpoch++;
   saveCaptures.retire();
   worker?.terminate();
@@ -503,8 +508,14 @@ function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot) {
   lastSavedHour = -1;
   enterButton.disabled = true;
   $("enterLabel").textContent = "Loading island…";
-  $("currentSeed").setAttribute("value", seedCode(world.seed));
-  $<HTMLInputElement>("currentSeed").value = seedCode(world.seed);
+  $("currentSeed").setAttribute(
+    "value",
+    seedCode(world.seed, world.generatorVersion),
+  );
+  $<HTMLInputElement>("currentSeed").value = seedCode(
+    world.seed,
+    world.generatorVersion,
+  );
   view = new GameRenderer(canvas, world, baseline.heights.slice(), (s) => {
     if (
       s.epoch !== undefined &&
@@ -590,7 +601,7 @@ async function newIsland(seed?: number) {
 }
 async function copyIsland(kind: "seed" | "link") {
   if (!world) return;
-  const code = seedCode(world.seed),
+  const code = seedCode(world.seed, world.generatorVersion),
     text = kind === "seed" ? code : islandLink(code, location.href);
   try {
     await navigator.clipboard.writeText(text);
@@ -648,7 +659,12 @@ async function load() {
     if (
       baseline &&
       (!stored ||
-        compatible(stored, baseline.world.version, baseline.world.seed))
+        compatible(
+          stored,
+          baseline.world.version,
+          baseline.world.seed,
+          baseline.world.generatorVersion,
+        ))
     ) {
       save = stored;
       hasSave = !!save;
@@ -743,6 +759,12 @@ function frame(now: number) {
       0,
       Math.round(p.p[1] - view.terrain.sample(p.p[0], p.p[2])),
     ).toString();
+    if (p.crashed > 0) altitudeWarning.reset();
+    const ceilingMessage = altitudeWarning.update(p.p[1]);
+    $("ceilingWarning").hidden = !active || p.crashed > 0 || !ceilingMessage;
+    $("ceilingWarning").textContent = ceilingMessage
+      ? `${ceilingMessage} · ${Math.round(p.p[1])} M ABOVE SEA LEVEL · LIMIT ${CONFIG.ceiling} M`
+      : "";
     $("throttleFill").style.height =
       clamp(((p.speed - 35) / 85) * 100, 5, 100) + "%";
     $("clock").textContent =
@@ -985,6 +1007,7 @@ function togglePhoto() {
   photoPending = true;
   touchControls.hidden = true;
   active = false;
+  $("ceilingWarning").hidden = true;
   clearInput();
   send({ type: "pause", paused: true });
   audio.pause();

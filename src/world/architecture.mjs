@@ -135,7 +135,14 @@ export function createArchitecture(layout, sample, hash) {
         for (let x = 0; x < 3; x++)
           for (let z = 0; z < 3; z++) {
             if (x === 1 && z === 1) continue;
-            if (l % 4 === 2 && x === 1 && z === 0) continue;
+            // Keep the top course closed so its central battlement has support.
+            if (
+              l % 4 === 2 &&
+              l < Math.ceil(height / 5) - 1 &&
+              x === 1 &&
+              z === 0
+            )
+              continue;
             add(
               "block",
               cx + (x - 1) * cell,

@@ -1,5 +1,5 @@
 import { CHUNKS } from "../src/config";
-import { CONFIG } from "../src/config";
+import { CONFIG, LASER } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -391,7 +391,9 @@ it("sweeps the finite firing shaft without making the excavation footprint letha
   s.lasers[0].phase = "burning";
   expect(hit([220, 300, 256], [292, 300, 256])).not.toBeNull();
   expect(hit([300, 300, 256], [300, 300, 257])).toBeNull();
-  expect(hit([256, 1500, 256], [256, 1501, 256])).toBeNull();
+  expect(
+    hit([256, LASER.top + 10, 256], [256, LASER.top + 11, 256]),
+  ).toBeNull();
   expect(hit([256, -100, 256], [256, -99, 256])).toBeNull();
   s.lasers[0].phase = "finishing";
   expect(hit([256, 300, 256], [256, 300, 257])).toBeNull();

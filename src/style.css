@@ -1086,3 +1086,22 @@ body.photo #perf {
 #islandSeedNotice:not(:empty) {
   color: #f2c28e;
 }
+
+#ceilingWarning {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  text-align: center;
+  color: #ffe09a;
+  background: rgba(20, 28, 32, 0.85);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+}
+body.photo #ceilingWarning,
+body.cinematic #ceilingWarning {
+  display: none;
+}

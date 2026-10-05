@@ -226,13 +226,17 @@ describe("giant pineapple monsters", () => {
     expect(sim.monsters.states[1].health).toBe(5);
     expect(sim.plane.crashed).toBeGreaterThan(0);
     expect(
-      events.filter((e: any) => e.type === "monsterEvent" && e.kind === "defeat"),
+      events.filter(
+        (e: any) => e.type === "monsterEvent" && e.kind === "defeat",
+      ),
     ).toHaveLength(1);
     const restored = new Simulation(world, base, () => {}, sim.save());
     expect(restored.monsters.states[0].defeated).toBe(true);
     sim.step();
     expect(
-      events.filter((e: any) => e.type === "monsterEvent" && e.kind === "defeat"),
+      events.filter(
+        (e: any) => e.type === "monsterEvent" && e.kind === "defeat",
+      ),
     ).toHaveLength(1);
     restored.dispose();
     sim.dispose();
@@ -276,6 +280,10 @@ describe("giant pineapple monsters", () => {
     const restored = new Simulation(world, base, () => {}, save);
     expect(restored.monsters.states[0].defeated).toBe(true);
     expect(restored.monsters.states[1].defeated).toBe(true);
+    expect(restored.monsters.states[0].ragdoll).toEqual(m.ragdoll);
+    expect(restored.monsters.states[0].fragments).toEqual(m.fragments);
+    expect(restored.monsters.states[0].p).toEqual(m.p);
+    expect(restored.monsterRagdolls.moving.has(m.id)).toBe(true);
     const older = { ...save, monsters: undefined };
     expect(compatible(older, world.version, world.seed)).toBe(true);
     const upgraded = new Simulation(world, base, () => {}, older);

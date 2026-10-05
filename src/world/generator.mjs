@@ -1,5 +1,7 @@
+import { createMountainLayout, mountainRelief } from "./mountains.mjs";
 import { createArchitecture } from "./architecture.mjs";
-export const GENERATOR_VERSION = 1;
+import { VERTICAL_LIMITS } from "./vertical-limits.mjs";
+export const GENERATOR_VERSION = 2;
 export const WORLD_VERSION = 8;
 export const SIZE = 6144;
 export const STEP = 2;
@@ -11,13 +13,13 @@ const smooth = (a, b, v) => {
   return t * t * (3 - 2 * t);
 };
 const quantize = (v) => Math.round(v * 1024) / 1024;
-export function seedCode(seed) {
-  return `PS${GENERATOR_VERSION}-${(seed >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
+export function seedCode(seed, revision = GENERATOR_VERSION) {
+  return `PS${revision}-${(seed >>> 0).toString(16).padStart(8, "0").toUpperCase()}`;
 }
 export function parseSeedCode(code) {
   const match = /^PS(\d+)-([\da-f]{8})$/i.exec(code.trim());
-  if (!match) throw Error("Enter a seed code such as PS1-0000A301.");
-  if (Number(match[1]) !== GENERATOR_VERSION)
+  if (!match) throw Error("Enter a seed code such as PS2-0000A301.");
+  if (![1, GENERATOR_VERSION].includes(Number(match[1])))
     throw Error("This seed uses an unsupported island generator version.");
   return parseInt(match[2], 16) >>> 0;
 }
@@ -158,55 +160,95 @@ function generateCandidate(seed, report, attempt) {
     noise(x * 2.03 + 19, z * 2.03 + 9) * 0.28 +
     noise(x * 4.07, z * 4.07) * 0.14;
   report("Shaping coastline and mountain ridges", 0.02);
-  const cx = 3072 + (hash(1, 1) - 0.5) * 120,
-    cz = 3072 + (hash(1, 2) - 0.5) * 120;
-  const direction = hash(2, 2) > 0.5,
-    shift = (hash(2, 3) - 0.5) * 450;
-  const shoreRadii = Array.from(
-    { length: 16 },
-    (_, i) => 2780 + hash(i, 401) * 440,
-  );
-  // Broad bays and headlands; cardinal coasts leave ocean between land and the map edge.
-  for (const i of [0, 4, 8, 12]) shoreRadii[i] = Math.min(shoreRadii[i], 2900);
-  for (let i = 0; i < 3; i++) {
-    const k = Math.floor(hash(i, 402) * 16);
-    shoreRadii[k] -= 280 + hash(i, 403) * 180;
-  }
-
+  const cx = 3072 + (hash(1, 1) - 0.5) * 100,
+    cz = 3072 + (hash(1, 2) - 0.5) * 100,
+    rotation = hash(2, 2) * Math.PI * 2,
+    cos = Math.cos(rotation),
+    sin = Math.sin(rotation);
+  // Leave a wider ocean margin while scaling mountains and saddles with the coast.
+  const islandScale = 0.94;
+  const local = (x, z) => [
+    ((x - cx) * cos + (z - cz) * sin) / islandScale,
+    (-(x - cx) * sin + (z - cz) * cos) / islandScale,
+  ];
+  // Overlapping lobes give one large island; bays warp its broad silhouette.
+  const lobes = [
+    [0, 0, 2480, 2550],
+    [-650, -180, 2050 + hash(3, 401) * 180, 2050],
+    [700, 240, 2100, 2100 + hash(4, 401) * 180],
+  ];
+  const bays = Array.from({ length: 3 }, (_, i) => ({
+    angle: hash(i, 402) * Math.PI * 2,
+    depth: 180 + hash(i, 403) * 300,
+    width: 0.16 + hash(i, 404) * 0.12,
+  }));
+  const mountainLayout = createMountainLayout(hash);
+  const passes = mountainLayout.passes.map((pass) => ({
+    p: [
+      quantize(cx + (pass.x * cos - pass.z * sin) * islandScale),
+      0,
+      quantize(cz + (pass.x * sin + pass.z * cos) * islandScale),
+    ],
+    radius: 180 * islandScale,
+  }));
   const coarseGrid = 385,
-    coarse = new Float32Array(coarseGrid ** 2);
+    coarse = new Float32Array(coarseGrid ** 2),
+    mountain = new Float32Array(coarse.length);
+  let highestMountain = 0;
   for (let z = 0; z < coarseGrid; z++)
     for (let x = 0; x < coarseGrid; x++) {
       const wx = x * 16,
         wz = z * 16,
-        nx = (wx - cx) / 2820,
-        nz = (wz - cz) / 2820;
-      const angle = ((Math.atan2(nz, nx) / (Math.PI * 2) + 1) % 1) * 16,
-        segment = Math.floor(angle),
-        t = smooth(0, 1, angle - segment);
-      const radius =
-        mix(shoreRadii[segment], shoreRadii[(segment + 1) % 16], t) +
-        (noise(wx / 260 + 11, wz / 260 + 27) - 0.5) * 55;
-      const r = Math.hypot(wx - cx, wz - cz) / radius,
-        inland =
-          smooth(1.04, 0.92, r) *
-          smooth(70, 220, Math.min(wx, wz, SIZE - wx, SIZE - wz));
-      const ridgeX = direction ? wx : wz,
-        ridgeZ = direction ? wz : wx;
-      const ridgeCenter =
-        3072 + shift + (noise(ridgeX / 900 + 7, 19) - 0.5) * 850;
-      const ridge =
-        Math.exp(-(((ridgeZ - ridgeCenter) / 550) ** 2)) *
-        Math.exp(-(((ridgeX - 3072) / 1750) ** 4));
-      const peaks =
-        0.7 + 0.3 * (1 - Math.abs(2 * noise(wx / 420 + 31, wz / 420 + 37) - 1));
+        [lx, lz] = local(wx, wz);
+      const warpedX = lx + (noise(wx / 700 + 11, wz / 700 + 27) - 0.5) * 230,
+        warpedZ = lz + (noise(wx / 700 + 39, wz / 700 + 7) - 0.5) * 230;
+      let r = Infinity;
+      for (const [ox, oz, rx, rz] of lobes)
+        r = Math.min(
+          r,
+          Math.hypot(
+            (warpedX - ox) / (rx * 1.08),
+            (warpedZ - oz) / (rz * 1.08),
+          ),
+        );
+      const angle = Math.atan2(lz, lx);
+      for (const bay of bays) {
+        const d = Math.atan2(
+          Math.sin(angle - bay.angle),
+          Math.cos(angle - bay.angle),
+        );
+        r += (bay.depth / 2600) * Math.exp(-((d / bay.width) ** 2));
+      }
+      r += (noise(wx / 180 + 71, wz / 180 + 53) - 0.5) * 0.018;
+      const inland =
+        smooth(1.035, 0.955, r) *
+        smooth(70, 220, Math.min(wx, wz, SIZE - wx, SIZE - wz));
+      const relief =
+        mountainRelief(mountainLayout, lx, lz) *
+        (0.84 +
+          0.16 * (1 - Math.abs(2 * noise(wx / 290 + 31, wz / 290 + 37) - 1)));
       const hills =
         12 +
         fbm(wx / 560, wz / 560) * 38 +
         fbm(wx / 230 + 35, wz / 230 + 27) * 15;
-      const h = mix(-26, hills + 275 * ridge * peaks, inland);
-      coarse[z * coarseGrid + x] = quantize(h);
+      const id = z * coarseGrid + x;
+      coarse[id] = mix(-26, hills, inland);
+      mountain[id] = relief * inland;
+      highestMountain = Math.max(highestMountain, mountain[id]);
     }
+  const targetPeak = 730 + hash(5, 411) * 250;
+  // Normalize relief alone, leaving fertile lowlands at their original scale.
+  let peak = 0;
+  for (let i = 0; i < coarse.length; i++)
+    peak = Math.max(
+      peak,
+      coarse[i] + (mountain[i] / highestMountain) * targetPeak,
+    );
+  const reliefScale = (targetPeak - 50) / (peak - 50);
+  for (let i = 0; i < coarse.length; i++)
+    coarse[i] = quantize(
+      coarse[i] + (mountain[i] / highestMountain) * targetPeak * reliefScale,
+    );
   const raw = (x, z) => {
     const gx = clamp(x / 16, 0, 383.9999),
       gz = clamp(z / 16, 0, 383.9999),
@@ -232,7 +274,7 @@ function generateCandidate(seed, report, attempt) {
     level = new Float64Array(N).fill(Infinity),
     parent = new Int32Array(N).fill(-1),
     heap = new Heap();
-  const neighbors = (id) => {
+  const roadNeighbors = (id) => {
     const x = id % R,
       z = Math.floor(id / R),
       out = [];
@@ -242,6 +284,21 @@ function generateCandidate(seed, report, attempt) {
     if (z < R - 1) out.push(id + R);
     return out;
   };
+  const neighbors = (id) => {
+    const out = roadNeighbors(id),
+      x = id % R,
+      z = Math.floor(id / R);
+    for (const [dx, dz] of [
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ])
+      if (x + dx >= 0 && x + dx < R && z + dz >= 0 && z + dz < R)
+        out.push(id + dx + dz * R);
+    return out;
+  };
+  const drainageOrder = [];
   for (let id = 0; id < N; id++) {
     const h = raw((id % R) * 64, Math.floor(id / R) * 64);
     if (h < 0) {
@@ -252,6 +309,7 @@ function generateCandidate(seed, report, attempt) {
   while (heap.length) {
     const [id, cost] = heap.pop();
     if (cost !== level[id]) continue;
+    drainageOrder.push(id);
     for (const j of neighbors(id)) {
       const h = raw((j % R) * 64, Math.floor(j / R) * 64),
         v = Math.max(cost + 0.005, h);
@@ -261,6 +319,11 @@ function generateCandidate(seed, report, attempt) {
         heap.push(j, v);
       }
     }
+  }
+  const catchment = new Uint32Array(N).fill(1);
+  for (let i = drainageOrder.length - 1; i >= 0; i--) {
+    const id = drainageOrder[i];
+    if (parent[id] >= 0) catchment[parent[id]] += catchment[id];
   }
   function roundRiver(points) {
     const out = [points[0]];
@@ -293,18 +356,21 @@ function generateCandidate(seed, report, attempt) {
     let source = -1,
       best = -Infinity;
     for (let a = 0; a < 1200; a++) {
-      const x = 17 + Math.floor(hash(r * 1900 + a, 81) * 63),
-        z = 17 + Math.floor(hash(r * 1900 + a, 82) * 63),
+      const x = 5 + Math.floor(hash(r * 1900 + a, 81) * 87),
+        z = 5 + Math.floor(hash(r * 1900 + a, 82) * 87),
         h = raw(x * 64, z * 64);
       if (
-        h < 150 ||
+        h < 250 ||
         rivers.some(
           (v) =>
             Math.hypot(x * 64 - v.points[0][0], z * 64 - v.points[0][2]) < 650,
         )
       )
         continue;
-      const score = h + hash(a, r + 91) * 90;
+      const score =
+        h * 0.35 +
+        Math.min(90, catchment[z * R + x]) * 5 +
+        hash(a, r + 91) * 40;
       if (score > best) {
         best = score;
         source = z * R + x;
@@ -320,6 +386,23 @@ function generateCandidate(seed, report, attempt) {
         z = Math.floor(id / R) * 64,
         h = raw(x, z);
       const water = quantize(Math.max(0, Math.min(last, level[id] - 1.5)));
+      if (used.has(id)) {
+        // Join an existing rendered reach rather than carving it a second time.
+        let join,
+          distance = Infinity;
+        for (const river of rivers)
+          for (const p of river.points) {
+            const d = Math.hypot(p[0] - x, p[2] - z);
+            if (d < distance && p[1] <= last) {
+              join = p;
+              distance = d;
+            }
+          }
+        if (join) {
+          points.push([...join]);
+          break;
+        }
+      }
       points.push([x, water, z]);
       used.add(id);
       last = water;
@@ -354,6 +437,7 @@ function generateCandidate(seed, report, attempt) {
         dz = b[2] - a[2],
         l = dx * dx + dz * dz,
         w = river.width;
+      if (!l) continue;
       eachRect(
         Math.min(a[0], b[0]) - w - 24,
         Math.min(a[2], b[2]) - w - 24,
@@ -377,6 +461,26 @@ function generateCandidate(seed, report, attempt) {
     128,
     400,
   );
+  // Use the same nearest heightfield sample as RiverField when sizing decks.
+  const waterAt = (x, z) => {
+    x = Math.round(x / STEP) * STEP;
+    z = Math.round(z / STEP) * STEP;
+    let height = -Infinity;
+    for (const river of rivers)
+      for (let i = 1; i < river.points.length; i++) {
+        const a = river.points[i - 1],
+          b = river.points[i],
+          dx = b[0] - a[0],
+          dz = b[2] - a[2],
+          length = dx * dx + dz * dz;
+        if (!length) continue;
+        const t = clamp(((x - a[0]) * dx + (z - a[2]) * dz) / length, 0, 1);
+        if (Math.hypot(x - a[0] - dx * t, z - a[2] - dz * t) <= river.width)
+          height = Math.max(height, mix(a[1], b[1], t));
+      }
+    return height;
+  };
+  validateConnectedLand(heights);
   const sites = [],
     castles = [];
   const site = (kind, x, z, radius, extra = {}) => {
@@ -522,7 +626,7 @@ function generateCandidate(seed, report, attempt) {
   }
   for (const kind of ["harbor", "lighthouse", "coastal-ruin"])
     for (let k = 0; k < 2; k++) coastalSite(kind, k + serial++);
-  // Select cardinal river reaches for existing mills and crossings.
+  // Cardinal structures can cross oblique reaches using measured bank spans.
   function riverSite(kind, index) {
     for (let a = 0; a < 4000; a++) {
       const river = rivers[(index + a) % rivers.length],
@@ -531,26 +635,37 @@ function generateCandidate(seed, report, attempt) {
       const j = 2 + Math.floor(hash(a + index * 117, 220) * (n - 5)),
         p = river.points[j],
         prev = river.points[j - 1],
-        axis = prev[0] === p[0] ? 0 : 1;
+        axis = Math.abs(p[2] - prev[2]) >= Math.abs(p[0] - prev[0]) ? 0 : 1;
       const x = (p[0] + prev[0]) / 2,
         z = (p[2] + prev[2]) / 2,
         water = (p[1] + prev[1]) / 2;
-      if (
-        (p[0] !== prev[0] && p[2] !== prev[2]) ||
-        Math.hypot(p[0] - prev[0], p[2] - prev[2]) < 25
-      )
-        continue;
+      if (Math.hypot(p[0] - prev[0], p[2] - prev[2]) < 5) continue;
       if (water < 3 || water > 140) continue;
       if (kind === "watermill") {
-        const mx = x + (axis === 0 ? river.width + 18 : 0),
-          mz = z + (axis === 1 ? river.width + 18 : 0);
+        const offset = river.width * 1.5 + 22,
+          mx = x + (axis === 0 ? offset : 0),
+          mz = z + (axis === 1 ? offset : 0);
         if (occupied(mx, mz, 52) || sample(mx, mz) < water + 0.2) continue;
         return site(kind, mx, mz, 52, {
           turn: axis === 1 ? 1 : 0,
           waterLevel: water,
         });
       }
-      const span = river.width * 2 + 64;
+      let bank = river.width + 8;
+      for (; bank < 100; bank += 4)
+        if (
+          [-1, 1].every(
+            (sign) =>
+              riverDistance(
+                x + (axis === 0 ? bank * sign : 0),
+                z + (axis === 1 ? bank * sign : 0),
+              ) >
+              river.width + 8,
+          )
+        )
+          break;
+      if (bank >= 100) continue;
+      const span = bank * 2 + 32;
       if (
         occupied(x, z, span / 2) ||
         sample(
@@ -578,19 +693,36 @@ function generateCandidate(seed, report, attempt) {
       castle = castles.find((c) => c.id === s.id);
     const hx = castle ? (s.bounds.max[0] - s.bounds.min[0]) / 2 : s.radius,
       hz = castle ? (s.bounds.max[1] - s.bounds.min[1]) / 2 : s.radius;
+    const edgeRelief = Math.max(
+      ...[
+        [-hx, -hz],
+        [hx, -hz],
+        [-hx, hz],
+        [hx, hz],
+      ].map(([dx, dz]) => Math.abs(sample(x + dx, z + dz) - y)),
+    );
+    const blend = clamp(30 + edgeRelief * 2, 30, 100);
     eachRect(
-      x - hx - 30,
-      z - hz - 30,
-      x + hx + 30,
-      z + hz + 30,
+      x - hx - blend,
+      z - hz - blend,
+      x + hx + blend,
+      z + hz + blend,
       (wx, wz, i) => {
         if (
-          s.kind === "watermill" &&
-          riverDistance(wx, wz) < Math.max(...rivers.map((r) => r.width)) + 3
+          sample(wx, wz) < 1 ||
+          riverDistance(wx, wz) < Math.max(...rivers.map((r) => r.width)) + 3 ||
+          sites.some(
+            (other) =>
+              other !== s &&
+              wx >= other.bounds.min[0] &&
+              wx <= other.bounds.max[0] &&
+              wz >= other.bounds.min[1] &&
+              wz <= other.bounds.max[1],
+          )
         )
           return;
         const d = Math.max(Math.abs(wx - x) - hx, Math.abs(wz - z) - hz);
-        heights[i] = mix(y, heights[i], smooth(0, 30, d));
+        heights[i] = mix(y, heights[i], smooth(0, blend, d));
       },
     );
   }
@@ -646,6 +778,7 @@ function generateCandidate(seed, report, attempt) {
   )) {
     const x = Math.round(s.p[0] / 64),
       z = Math.round(s.p[2] / 64);
+    s.waterLevel = Math.max(s.waterLevel, waterAt(s.p[0], s.p[2]));
     s.deck = s.waterLevel + 3;
     for (let t = -s.span / 2; t <= s.span / 2; t += 4)
       s.deck = Math.max(
@@ -654,6 +787,10 @@ function generateCandidate(seed, report, attempt) {
           s.p[0] + (s.axis === 0 ? t : 0),
           s.p[2] + (s.axis === 1 ? t : 0),
         ) + 1.5,
+        waterAt(
+          s.p[0] + (s.axis === 0 ? t : 0),
+          s.p[2] + (s.axis === 1 ? t : 0),
+        ) + 3,
       );
     for (let d = -2; d <= 2; d++) {
       const xx = x + (s.axis === 0 ? d : 0),
@@ -708,13 +845,25 @@ function generateCandidate(seed, report, attempt) {
       const [id, c] = queue.pop();
       if (c !== cost[id]) continue;
       if (id === goal) break;
-      for (const j of neighbors(id)) {
+      for (const j of roadNeighbors(id)) {
         if (wet[j]) continue;
         const slope = Math.abs(roadH[id] - roadH[j]) / 64;
         if (slope > 0.5 && !bridgeCells.has(id) && !bridgeCells.has(j))
           continue;
         const v =
-          c + 64 * (1 + slope * slope * 60) + (bridgeCells.has(j) ? 20 : 0);
+          c +
+          64 *
+            (1 + slope * slope * 60) *
+            (passes.some(
+              (pass) =>
+                Math.hypot(
+                  (j % R) * 64 - pass.p[0],
+                  Math.floor(j / R) * 64 - pass.p[2],
+                ) < 300,
+            )
+              ? 0.8
+              : 1) +
+          (bridgeCells.has(j) ? 20 : 0);
         if (v < cost[j]) {
           cost[j] = v;
           from[j] = id;
@@ -852,7 +1001,10 @@ function generateCandidate(seed, report, attempt) {
     main.p[2] +
       (main.turn === 0 ? -gateOffset : main.turn === 2 ? gateOffset : 0),
   ];
-  spawn[1] = Math.min(430, Math.max(280, sample(spawn[0], spawn[2]) + 170));
+  spawn[1] = Math.min(
+    VERTICAL_LIMITS.assistance - 70,
+    Math.max(280, sample(spawn[0], spawn[2]) + 170),
+  );
   report("Building breakable castles and coastal landmarks", 0.5);
   const architecture = createArchitecture({ sites, castles }, sample, hash),
     { entities, homes } = architecture;
@@ -877,10 +1029,11 @@ function generateCandidate(seed, report, attempt) {
         ) / 16;
       if (
         h < 5 ||
-        h > 260 ||
+        h > 650 ||
         slope > 0.65 ||
         cluster < 0.38 ||
-        hash(x + 3, z) > 0.78 ||
+        hash(x + 3, z) >
+          0.78 * (1 - smooth(250, 650, h)) * (1 - smooth(0.3, 0.65, slope)) ||
         distanceToRoad(px, pz) < 11 ||
         sites.some(
           (s) =>
@@ -1014,6 +1167,10 @@ function generateCandidate(seed, report, attempt) {
     landmarks: main.landmarks,
     castles: castles.map(({ halfX, halfZ, scaleX, scaleY, scaleZ, ...c }) => c),
     rivers,
+    passes: passes.map((pass) => ({
+      ...pass,
+      p: [pass.p[0], sample(pass.p[0], pass.p[2]), pass.p[2]],
+    })),
     banners: architecture.banners,
     lights: architecture.lights,
     bridge: sites.find((s) => s.kind === "bridge").p.filter((_, i) => i !== 1),
@@ -1026,15 +1183,54 @@ function generateCandidate(seed, report, attempt) {
     civilians,
     entities,
   };
-  validateIsland(world, heights);
+  const { landFraction } = validateIsland(world, heights);
+  // Newly generated islands use the smaller footprint; older stored PS2 baselines
+  // retain their original coastlines and remain valid when reloaded.
+  if (landFraction < 0.53 || landFraction > 0.62)
+    throw Error("Island footprint failed generation validation.");
   report("Island ready", 1);
   return { world, heights };
 }
+function validateConnectedLand(heights) {
+  // Flood-fill a coarse land mask before accepting content on disconnected land.
+  const side = 193,
+    mask = new Uint8Array(side * side),
+    queue = [];
+  for (let z = 0; z < side; z++)
+    for (let x = 0; x < side; x++)
+      mask[z * side + x] = sampleHeight(heights, x * 32, z * 32) > 0 ? 1 : 0;
+  const start = mask.indexOf(1);
+  if (start >= 0) {
+    mask[start] = 2;
+    queue.push(start);
+  }
+  for (let h = 0; h < queue.length; h++) {
+    const id = queue[h],
+      x = id % side,
+      z = Math.floor(id / side);
+    for (const [dx, dz] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      const nx = x + dx,
+        nz = z + dz,
+        next = nz * side + nx;
+      if (nx >= 0 && nx < side && nz >= 0 && nz < side && mask[next] === 1) {
+        mask[next] = 2;
+        queue.push(next);
+      }
+    }
+  }
+  if (mask.includes(1)) throw Error("Island land must be connected.");
+}
+
 export function validateIsland(world, heights) {
   if (
     heights.length !== GRID ** 2 ||
     world.version !== WORLD_VERSION ||
-    world.generatorVersion !== GENERATOR_VERSION
+    ![1, GENERATOR_VERSION].includes(world.generatorVersion)
   )
     throw Error("Island baseline is incomplete.");
   if (
@@ -1047,16 +1243,20 @@ export function validateIsland(world, heights) {
     land = 0;
   for (let i = 0; i < heights.length; i++) {
     const h = heights[i];
-    if (!Number.isFinite(h) || h > 390 || h < -100)
+    if (
+      !Number.isFinite(h) ||
+      h > (world.generatorVersion === 1 ? 390 : VERTICAL_LIMITS.maxPeak) ||
+      h < -100
+    )
       throw Error("Island terrain is invalid.");
     peak = Math.max(peak, h);
     if (h > 0) land++;
   }
   if (
-    land / heights.length < 0.57 ||
+    land / heights.length < (world.generatorVersion === 1 ? 0.57 : 0.53) ||
     land / heights.length > 0.72 ||
-    peak < 250 ||
-    peak > 350
+    peak < (world.generatorVersion === 1 ? 250 : VERTICAL_LIMITS.minPeak) ||
+    peak > (world.generatorVersion === 1 ? 350 : VERTICAL_LIMITS.maxPeak)
   )
     throw Error("Island coastline or mountain heights failed validation.");
   for (let i = 0; i < GRID; i++)
@@ -1067,6 +1267,20 @@ export function validateIsland(world, heights) {
       heights[i * GRID + GRID - 1] >= 0
     )
       throw Error("Island must be surrounded by ocean.");
+  if (world.generatorVersion === GENERATOR_VERSION) {
+    validateConnectedLand(heights);
+    if (
+      !world.passes ||
+      world.passes.length < 2 ||
+      world.passes.some(
+        (pass) =>
+          !Number.isFinite(pass.p[1]) ||
+          pass.p[1] <= 0 ||
+          pass.p[1] >= VERTICAL_LIMITS.passHeight,
+      )
+    )
+      throw Error("Mountain passes lack safe saddle clearance.");
+  }
   if (
     sampleHeight(heights, world.spawn[0], world.spawn[2]) + 100 >
     world.spawn[1]

@@ -217,7 +217,16 @@ export class SaveStore {
         sectioned: undefined,
       };
     }
-    if (save.version === 8 && compatible(save, save.worldVersion, save.seed)) {
+    if (
+      save.version === 8 &&
+      compatible(
+        save,
+        save.worldVersion,
+        save.seed,
+        (this.acceptedBaseline ?? (await this.baseline()))?.world
+          .generatorVersion,
+      )
+    ) {
       const migrated = { ...save, version: CONFIG.version };
       // Original record remains untouched if any request or commit fails.
       try {
@@ -404,6 +413,7 @@ export function compatible(
   save: unknown,
   worldVersion: number,
   seed: number,
+  generatorVersion = GENERATOR_VERSION,
 ): save is SaveSnapshot {
   if (!save || typeof save !== "object") return false;
   const s = save as SaveSnapshot;
@@ -411,7 +421,7 @@ export function compatible(
     (s.version === CONFIG.version || s.version === 8) &&
     s.worldVersion === worldVersion &&
     s.seed === seed &&
-    (worldVersion < 8 || s.generatorVersion === GENERATOR_VERSION) &&
+    (worldVersion < 8 || s.generatorVersion === generatorVersion) &&
     (s.supportJobs === undefined ||
       (Array.isArray(s.supportJobs) &&
         s.supportJobs.every(

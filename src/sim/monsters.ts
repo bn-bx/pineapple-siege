@@ -35,8 +35,13 @@ export class Monsters {
     private terrain: Terrain,
     saved?: MonsterState[],
   ) {
-    this.castleBounds=world.castles?.map(c=>c.bounds) ?? [world.castleBounds];
-    this.settlementCenters=[...(world.castles?.map(c=>c.p) ?? [world.castle]),...world.sites.filter(s=>s.kind==='hamlet').map(s=>s.p)];
+    this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
+      world.castleBounds,
+    ];
+    this.settlementCenters = [
+      ...(world.castles?.map((c) => c.p) ?? [world.castle]),
+      ...world.sites.filter((s) => s.kind === "hamlet").map((s) => s.p),
+    ];
     this.ensureStates(
       Math.min(
         MAX_MONSTER_COUNT,
@@ -51,7 +56,19 @@ export class Monsters {
       const old = saved?.find((m) => m?.id === id);
       this.states.push(
         old
-          ? { ...old, p: this.restorePosition(old.p, p), windup: 0, stagger: 0 }
+          ? {
+              ...old,
+              p:
+                old.defeated && old.ragdoll
+                  ? [...old.p]
+                  : this.restorePosition(old.p, p),
+              ragdoll: old.ragdoll ? [...old.ragdoll] : undefined,
+              fragments: old.fragments
+                ? structuredClone(old.fragments)
+                : undefined,
+              windup: 0,
+              stagger: 0,
+            }
           : {
               id,
               p,
@@ -95,7 +112,7 @@ export class Monsters {
       this.walkable(x, z) &&
       this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= spacing);
     for (let attempt = 0; attempt < 1000; attempt++) {
-      const settlements=this.settlementCenters;
+      const settlements = this.settlementCenters;
       const center = settlements[id % settlements.length];
       const angle =
         hash(id * 887 + attempt * 31 + this.world.seed) * Math.PI * 2;
@@ -310,9 +327,13 @@ export class Monsters {
         m.windup = 0.75;
         continue;
       }
-      const range=distanceXZ(m.p,plane), period=near ? 1 : range<900 ? 2 : 6;
-      if((this.tick+m.id)%period) {m.phase+=dt*4.5;continue;}
-      const navDT=dt*period;
+      const range = distanceXZ(m.p, plane),
+        period = near ? 1 : range < 900 ? 2 : 6;
+      if ((this.tick + m.id) % period) {
+        m.phase += dt * 4.5;
+        continue;
+      }
+      const navDT = dt * period;
       const desired = near
         ? Math.atan2(plane[0] - m.p[0], plane[2] - m.p[2])
         : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;

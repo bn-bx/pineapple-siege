@@ -1,3 +1,4 @@
+import { VERTICAL_LIMITS } from "../world/vertical-limits.mjs";
 import { packMotion } from "./motion-buffer";
 import { StaticBlockerIndex } from "./static-blockers";
 import { SparseIndices } from "./sparse-indices";
@@ -25,6 +26,7 @@ import {
   lerp,
 } from "../config";
 import { Terrain } from "./terrain";
+import { MonsterRagdolls } from "./monster-ragdolls";
 import { Monsters } from "./monsters";
 import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
@@ -132,6 +134,7 @@ export class Simulation {
     this.bump();
   }
   readonly physics: RAPIER.World;
+  readonly monsterRagdolls: MonsterRagdolls;
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
   private bodyPoses = new BodyPoseCache();
@@ -252,6 +255,9 @@ export class Simulation {
     this.terrain = new Terrain(heights, world.rivers, incremental);
     this.monsters = new Monsters(world, this.terrain, save?.monsters);
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
+    this.monsterRagdolls = new MonsterRagdolls(this.physics, this.terrain);
+    for (const m of this.monsters.states)
+      if (m.defeated && m.ragdoll) this.monsterRagdolls.start(m);
     this.physics.timestep = CONFIG.dt;
     this.physics.numSolverIterations = 4;
     this.plane = {
@@ -432,6 +438,8 @@ export class Simulation {
     };
     near(this.plane.p, 85);
     for (const m of this.moving.values()) near(m.view.p, 38);
+    for (const { body } of this.monsterRagdolls.moving.values())
+      near(arr(body.translation()), 38);
     for (const s of this.projectiles) near(s.p, 12);
     for (const id of wanted)
       if (!this.terrainColliders.has(id)) {
@@ -492,6 +500,8 @@ export class Simulation {
         }
     };
     add(this.plane.p, 110);
+    for (const { body } of this.monsterRagdolls.moving.values())
+      add(arr(body.translation()), 45);
     for (const m of this.moving.values()) {
       const v = m.body.linvel();
       add(
@@ -1890,8 +1900,9 @@ export class Simulation {
       CONFIG.maxPitch,
     );
     if (!pitch) p.pitch = lerp(p.pitch, 0, dt * 0.08);
-    if (p.p[1] > 450) p.pitch = Math.min(p.pitch, (500 - p.p[1]) * 0.008);
-    if (p.p[1] > 500) p.pitch = lerp(p.pitch, -0.2, dt * 2);
+    if (p.p[1] > VERTICAL_LIMITS.assistance)
+      p.pitch = Math.min(p.pitch, (CONFIG.ceiling - p.p[1]) * 0.008);
+    if (p.p[1] > CONFIG.ceiling) p.pitch = lerp(p.pitch, -0.2, dt * 2);
     p.roll = lerp(p.roll, -turn * 0.95, 1 - Math.exp(-dt * 5));
     let f: Vec3 = [
       Math.sin(p.yaw) * Math.cos(p.pitch),
@@ -2052,6 +2063,7 @@ export class Simulation {
     for (const m of laserColumn
       ? this.monsters.burn(p, radius, amount)
       : this.monsters.blast(p, radius, amount)) {
+      if (m.defeated) this.monsterRagdolls.start(m, p);
       this.bump();
       this.emit({
         type: "monsterEvent",
@@ -2423,6 +2435,7 @@ export class Simulation {
         const before = this.monsters.active();
         const m = bodyHit.monster;
         this.monsters.damage(m, m.health);
+        this.monsterRagdolls.start(m, previousPlanePosition);
         this.bump();
         this.emit({
           type: "monsterEvent",
@@ -2503,6 +2516,7 @@ export class Simulation {
     this.processTerrainColliders(0.5);
     const start = performance.now();
     this.physics.step(this.events);
+    this.monsterRagdolls.update(dt);
     this.stageMS.physics = performance.now() - start;
     this.physicsMS = lerp(this.physicsMS, this.stageMS.physics, 0.05);
     const cascade = new Set<number>();
@@ -2824,7 +2838,12 @@ export class Simulation {
       })),
       civilians: this.civilians.states.map((c) => ({ ...c, p: [...c.p] })),
       settlements: this.civilians.settlements.map((s) => ({ ...s })),
-      monsters: this.monsters.states.map((m) => ({ ...m, p: [...m.p] })),
+      monsters: this.monsters.states.map((m) => ({
+        ...m,
+        p: [...m.p],
+        ragdoll: m.ragdoll ? [...m.ragdoll] : undefined,
+        fragments: m.fragments ? structuredClone(m.fragments) : undefined,
+      })),
     };
     // Airborne pieces have no permanent record yet. Capture their bounded pose list
     // at the same tick; save-only compaction preserves the running physics state.

@@ -1,3 +1,4 @@
+import { VERTICAL_LIMITS } from "./world/vertical-limits.mjs";
 import type { BlastProfile, NukeYield } from "./types";
 export const WORLD_SIZE = 6144;
 export const TERRAIN_SPACING = 2;
@@ -14,7 +15,7 @@ export const CONFIG = {
   turnSpeed: 1.05,
   pitchSpeed: 0.75,
   maxPitch: 1.12,
-  ceiling: 500,
+  ceiling: VERTICAL_LIMITS.ceiling,
   fireCooldown: 1,
   projectileSpeed: 140,
   projectileGravity: 5,
@@ -104,7 +105,7 @@ export const WEAPONS = {
 };
 export const LASER = {
   beamRadius: 28,
-  top: 1400,
+  top: VERTICAL_LIMITS.laserTop,
   charge: 4,
   beam: 5,
   recharge: 15,

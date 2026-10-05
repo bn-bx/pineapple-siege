@@ -1,3 +1,4 @@
+import { terrainFogVertex } from "./terrain-fog";
 import {
   prepareDebrisMotion,
   resizeDebrisMotion,
@@ -27,6 +28,7 @@ import {
   makeDistantMonster,
   DistantMonsterView,
   NearMonsterView,
+  MonsterFragmentView,
 } from "./monster";
 import { flightPose } from "./flight-pose";
 import * as THREE from "three";
@@ -116,6 +118,9 @@ export class GameRenderer {
   private wasActive = false;
   private lightPool: THREE.PointLight[] = [];
   private eyeRoots: THREE.Object3D[] = [];
+  private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
+  private monsterFragmentRoot = new THREE.Object3D();
+  private monsterFragmentQuaternion = new THREE.Quaternion();
   private nearMonsterView = new NearMonsterView(MAX_MONSTER_COUNT);
   readonly eyes = new GooglyEyes();
   readonly materials: ReturnType<typeof createMaterials>["materials"];
@@ -304,7 +309,11 @@ export class GameRenderer {
       this.ambient,
     );
     this.ensureMonsterMeshes(DEFAULT_MONSTER_COUNT);
-    this.scene.add(this.distantMonsterView.group, this.nearMonsterView.group);
+    this.scene.add(
+      this.distantMonsterView.group,
+      this.nearMonsterView.group,
+      this.monsterFragmentView.group,
+    );
     this.scene.fog = new THREE.FogExp2("#98b5bb", 0.00065);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -314,7 +323,7 @@ export class GameRenderer {
       top: 220,
       bottom: -220,
       near: 1,
-      far: 850,
+      far: 2000,
     });
     this.sun.shadow.bias = -0.00015;
     this.sun.shadow.normalBias = 0.5;
@@ -377,6 +386,7 @@ export class GameRenderer {
     this.water.rotation.x = -Math.PI / 2;
     this.water.position.set(CONFIG.worldSize / 2, 0.04, CONFIG.worldSize / 2);
     const mat = this.water.material;
+    mat.vertexShader = terrainFogVertex(mat.vertexShader);
     mat.uniforms.uFlood = { value: this.terrain.floodTexture };
     mat.uniforms.uHeight = { value: this.terrain.heightTexture };
     mat.uniforms.uDiscoAmount = this.disco.amount;
@@ -753,7 +763,7 @@ export class GameRenderer {
   }
   setRenderDistance(value: number) {
     this.renderDistance = normalizeRenderDistance(value);
-    this.camera.far = this.renderDistance + 256;
+    this.camera.far = Math.hypot(this.renderDistance, CONFIG.ceiling) + 256;
     this.camera.updateProjectionMatrix();
     this.sky.scale.setScalar((this.camera.far * 0.9) / 2500);
     this.lastLOD = -Infinity;
@@ -1746,14 +1756,46 @@ export class GameRenderer {
       this.camera,
     );
     this.ensureMonsterMeshes(snap.monsters.length);
+    this.monsterFragmentView.begin(this.googlyEyes);
     this.nearMonsterView.begin(this.googlyEyes);
     this.distantMonsterView.begin(this.googlyEyes);
     for (let i = 0; i < this.monsterMeshes.length; i++) {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];
       const m = snap.monsters[i];
-      mesh.visible = distant.visible = !!m && !m.defeated;
-      if (!m || m.defeated) {
+      mesh.visible = distant.visible = !!m && (!m.defeated || !!m.ragdoll);
+      if (m?.fragments?.length) {
+        const previous = this.previous?.monsters[m.id]?.fragments;
+        const root = this.monsterFragmentRoot;
+        for (const fragment of m.fragments) {
+          if (
+            (fragment.p[0] - this.camera.position.x) ** 2 +
+              (fragment.p[2] - this.camera.position.z) ** 2 >
+            (this.renderDistance + 40) ** 2
+          )
+            continue;
+          const old = previous?.find((p) => p.part === fragment.part);
+          root.position.fromArray(fragment.p);
+          root.quaternion.fromArray(fragment.q);
+          if (old) {
+            root.position.set(
+              ...(fragment.p.map((v, i) =>
+                THREE.MathUtils.lerp(old.p[i], v, alpha),
+              ) as [number, number, number]),
+            );
+            root.quaternion
+              .fromArray(old.q)
+              .slerp(
+                this.monsterFragmentQuaternion.fromArray(fragment.q),
+                alpha,
+              );
+          }
+          root.scale.setScalar(MONSTER_SCALE);
+          this.monsterFragmentView.add(fragment.part, root);
+        }
+        continue;
+      }
+      if (!m || (m.defeated && !m.ragdoll)) {
         if (mesh.parent) this.scene.remove(mesh);
         if (distant.parent) this.scene.remove(distant);
         continue;
@@ -1769,13 +1811,31 @@ export class GameRenderer {
         continue;
       }
       const old = this.previous?.monsters[m.id];
-      if (old && !old.defeated)
+      if (old && old.defeated === m.defeated)
         mesh.position.set(
           THREE.MathUtils.lerp(old.p[0], m.p[0], alpha),
           THREE.MathUtils.lerp(old.p[1], m.p[1], alpha),
           THREE.MathUtils.lerp(old.p[2], m.p[2], alpha),
         );
       else mesh.position.fromArray(m.p);
+      if (m.ragdoll) {
+        mesh.quaternion.fromArray(m.ragdoll);
+        if (old?.ragdoll) {
+          mesh.quaternion
+            .fromArray(old.ragdoll)
+            .slerp(new THREE.Quaternion().fromArray(m.ragdoll), alpha);
+        }
+        mesh.scale.setScalar(MONSTER_SCALE);
+        distant.position.copy(mesh.position);
+        distant.quaternion.copy(mesh.quaternion);
+        distant.scale.setScalar(MONSTER_SCALE);
+        if (this.camera.position.distanceTo(mesh.position) < 480) {
+          const sway = Math.sin(m.phase) * m.stagger * 0.25;
+          this.nearMonsterView.add(mesh, 0.35 + sway, -0.35 - sway, sway * 0.2);
+        } else this.distantMonsterView.add(distant);
+        continue;
+      }
+      mesh.rotation.x = 0;
       const beat = Math.sin(snap.time * Math.PI * 4 + m.id * 0.7);
       mesh.rotation.y = m.yaw + (dancing ? beat * 0.28 : 0);
       mesh.rotation.z = dancing ? beat * 0.1 : 0;
@@ -1807,6 +1867,7 @@ export class GameRenderer {
         Math.sin(m.phase * 0.09) * 0.08,
       );
     }
+    this.monsterFragmentView.finish(this.googlyEyes);
     this.nearMonsterView.finish(this.googlyEyes);
     this.distantMonsterView.finish(this.googlyEyes);
     while (this.spikeMeshes.length < snap.monsterSpikes.length) {
@@ -1939,7 +2000,7 @@ export class GameRenderer {
       Math.max(0, this.terrain.sample(position.x, position.z)),
       position.z,
     );
-    this.sun.position.copy(shadowCenter).addScaledVector(ld, 350);
+    this.sun.position.copy(shadowCenter).addScaledVector(ld, 1000);
     this.sun.target.position.copy(shadowCenter);
     this.sun.intensity = 0.3 + day * 2.7;
     this.sun.color.set(day > 0.2 ? "#ffe6ba" : "#9ebdeb");
@@ -2081,6 +2142,7 @@ export class GameRenderer {
         this.disco.ball,
         this.nearMonsterView.faces,
         this.distantMonsterView.faces,
+        this.monsterFragmentView.faces,
         this.fallenPines,
         this.fallenTrunks,
         this.effects.fragments.mesh,
@@ -2161,6 +2223,7 @@ export class GameRenderer {
     this.eyes.dispose();
     this.nearMonsterView.disposeFaces();
     this.distantMonsterView.disposeFaces();
+    this.monsterFragmentView?.disposeFaces();
     const geometries = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(),
       textures = new Set<THREE.Texture>();

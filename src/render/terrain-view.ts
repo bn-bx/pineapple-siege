@@ -1,3 +1,5 @@
+import { terrainFogVertex } from "./terrain-fog";
+import { terrainScarColor } from "./terrain-colors";
 import { TerrainMesher, type SectionData } from "./terrain-mesher";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
@@ -148,6 +150,14 @@ export class TerrainView {
       vertexColors: true,
       roughness: 0.93,
     });
+    this.material.onBeforeCompile = (shader) => {
+      shader.vertexShader = terrainFogVertex(shader.vertexShader);
+      // A neutral detail texture lets vertex colors distinguish grass from rock.
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        "#include <map_fragment>\n diffuseColor.rgb = vec3(dot(diffuseColor.rgb, vec3(.2126,.7152,.0722)));",
+      );
+    };
     for (let z = 0; z < CHUNKS; z++)
       for (let x = 0; x < CHUNKS; x++) {
         let mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
@@ -249,28 +259,7 @@ export class TerrainView {
     this.mesher.section = this.section(chunk.id);
     this.mesher.build(chunk, step);
   }
-  private scar(
-    color: THREE.Color,
-    x: number,
-    z: number,
-    h: number,
-    damage: number,
-    slope: number,
-  ) {
-    const strata = 0.5 + 0.5 * Math.sin(h * 0.8 + x * 0.025 + z * 0.035);
-    const grain =
-      0.5 + 0.5 * Math.sin(x * 0.73 + z * 0.29) * Math.cos(z * 0.51 - x * 0.23);
-    const rock = clamp((slope - 0.65) * 0.45 + damage / 32, 0, 1);
-    color.setRGB(
-      0.3 + strata * 0.1 + grain * 0.045,
-      0.19 + strata * 0.075 + grain * 0.04,
-      0.115 + strata * 0.055 + grain * 0.035,
-    );
-    const grey = 0.32 + grain * 0.12 + strata * 0.055;
-    color.r += (grey - color.r) * rock;
-    color.g += (grey * 0.97 - color.g) * rock;
-    color.b += (grey * 0.87 - color.b) * rock;
-  }
+
   private refresh(chunk: Chunk) {
     const geo = chunk.mesh.geometry,
       positions = geo.getAttribute("position"),
@@ -287,7 +276,7 @@ export class TerrainView {
         length = Math.hypot(dx, 4, dz),
         damage = this.sample(x, z, this.base) - h,
         mix = damage > 0.1 ? clamp(damage / 0.6, 0, 1) : 0;
-      this.scar(earth, x, z, h, damage, Math.hypot(dx, dz) / 4);
+      terrainScarColor(earth, x, z, h, damage, Math.hypot(dx, dz) / 4);
       positions.setY(i, h);
       normals.setXYZ(i, dx / length, 4 / length, dz / length);
       colors.setXYZ(

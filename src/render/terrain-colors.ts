@@ -1,0 +1,49 @@
+import type { Color } from "three";
+import { clamp } from "../config";
+
+/** World-space shading shared by streamed meshes and immediate damage refresh. */
+export function terrainSurfaceColor(
+  color: Color,
+  x: number,
+  z: number,
+  height: number,
+  slope: number,
+) {
+  const grain =
+    Math.sin(x * 0.04 + z * 0.019) * Math.sin(z * 0.063 - x * 0.02) * 0.5 + 0.5;
+  color.setRGB(0.21 + grain * 0.08, 0.34 + grain * 0.09, 0.095 + grain * 0.04);
+  const rock = Math.max(
+    clamp((slope - 0.45) * 1.6, 0, 1),
+    clamp((height - 550) / 300, 0, 1),
+  );
+  const scree =
+    clamp((height - 250) / 350, 0, 1) * clamp((slope - 0.2) / 0.35, 0, 1);
+  const blend = Math.max(rock, scree * 0.65);
+  const grey = 0.37 + grain * 0.11;
+  color.r += (grey - color.r) * blend;
+  color.g += (grey * 1.02 - color.g) * blend;
+  color.b += (grey * 0.95 - color.b) * blend;
+}
+
+export function terrainScarColor(
+  color: Color,
+  x: number,
+  z: number,
+  h: number,
+  damage: number,
+  slope: number,
+) {
+  const strata = 0.5 + 0.5 * Math.sin(h * 0.8 + x * 0.025 + z * 0.035);
+  const grain =
+    0.5 + 0.5 * Math.sin(x * 0.73 + z * 0.29) * Math.cos(z * 0.51 - x * 0.23);
+  const rock = clamp((slope - 0.65) * 0.45 + damage / 32, 0, 1);
+  color.setRGB(
+    0.3 + strata * 0.1 + grain * 0.045,
+    0.19 + strata * 0.075 + grain * 0.04,
+    0.115 + strata * 0.055 + grain * 0.035,
+  );
+  const grey = 0.32 + grain * 0.12 + strata * 0.055;
+  color.r += (grey - color.r) * rock;
+  color.g += (grey * 0.97 - color.g) * rock;
+  color.b += (grey * 0.87 - color.b) * rock;
+}

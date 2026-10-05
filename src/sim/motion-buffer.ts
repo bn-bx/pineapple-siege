@@ -8,7 +8,7 @@ import type {
   PackedMotion,
 } from "../types";
 import { bindBodies, type BodyFrame } from "./body-buffer";
-const STRIDE = 12;
+const STRIDE = 16;
 const moods = ["walk", "flee", "cheer", "sad"] as const;
 export function packMotion(
   civilians: CivilianState[],
@@ -23,7 +23,12 @@ export function packMotion(
     projectiles.length,
     spikes.length,
   ] as [number, number, number, number];
-  const bytes = counts.reduce((a, b) => a + b, 0) * STRIDE * 4;
+  const fragmentCount = monsters.reduce(
+    (n, m) => n + (m.fragments?.length ?? 0),
+    0,
+  );
+  const bytes =
+    (counts.reduce((a, b) => a + b, 0) * STRIDE + fragmentCount * 9) * 4;
   const buffer =
     reuse && reuse.byteLength >= bytes
       ? reuse
@@ -52,6 +57,8 @@ export function packMotion(
     data[offset + 7] = m.phase;
     data[offset + 8] = m.windup;
     data[offset + 9] = m.stagger;
+    data[offset + 14] = m.ragdoll ? 1 : 0;
+    for (let k = 0; k < 4; k++) data[offset + 10 + k] = m.ragdoll?.[k] ?? 0;
     offset += STRIDE;
   }
   for (const p of projectiles) {
@@ -77,7 +84,14 @@ export function packMotion(
     data[offset + 7] = s.age;
     offset += STRIDE;
   }
-  return { buffer, counts };
+  for (const m of monsters)
+    for (const f of m.fragments ?? []) {
+      data[offset++] = m.id;
+      data[offset++] = f.part;
+      for (const v of f.p) data[offset++] = v;
+      for (const v of f.q) data[offset++] = v;
+    }
+  return { buffer, counts, fragmentCount };
 }
 /** Stable vector wrappers borrow the transferable Float32 storage without copying poses. */
 export class PacketVector {
@@ -183,6 +197,15 @@ export function bindMotion(
         v.phase = data[offset + 7];
         v.windup = data[offset + 8];
         v.stagger = data[offset + 9];
+        v.fragments = undefined;
+        v.ragdoll = data[offset + 14]
+          ? [
+              data[offset + 10],
+              data[offset + 11],
+              data[offset + 12],
+              data[offset + 13],
+            ]
+          : undefined;
       } else {
         (v.v as unknown as PacketVector).bind(data, offset + 4);
         if (kind === 2) {
@@ -191,6 +214,20 @@ export function bindMotion(
         } else v.age = data[offset + 7];
       }
     }
+  }
+  for (let i = 0; i < (motion.fragmentCount ?? 0); i++, offset += 9) {
+    const m = frame.monsters[data[offset]];
+    if (m)
+      (m.fragments ??= []).push({
+        part: data[offset + 1],
+        p: [data[offset + 2], data[offset + 3], data[offset + 4]],
+        q: [
+          data[offset + 5],
+          data[offset + 6],
+          data[offset + 7],
+          data[offset + 8],
+        ],
+      });
   }
   snapshot.civilians = frame.civilians;
   snapshot.monsters = frame.monsters;

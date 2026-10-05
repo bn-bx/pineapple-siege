@@ -17,7 +17,7 @@ export async function checkStorage(baseline: IslandBaseline) {
   const save: SaveSnapshot = {
     version: 8,
     worldVersion: baseline.world.version,
-    generatorVersion: 1,
+    generatorVersion: baseline.world.generatorVersion,
     seed: baseline.world.seed,
     revision: 1,
     hour: 15,
@@ -56,7 +56,12 @@ export async function checkStorage(baseline: IslandBaseline) {
     const migrated = await store.load();
     assert(
       migrated?.version === CONFIG.version &&
-        compatible(migrated, baseline.world.version, baseline.world.seed),
+        compatible(
+          migrated,
+          baseline.world.version,
+          baseline.world.seed,
+          baseline.world.generatorVersion,
+        ),
       "Version 8 migrates atomically to version 9",
     );
     assert(
