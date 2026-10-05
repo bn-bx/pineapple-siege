@@ -11,7 +11,7 @@ export function terrainSurfaceColor(
 ) {
   const grain =
     Math.sin(x * 0.04 + z * 0.019) * Math.sin(z * 0.063 - x * 0.02) * 0.5 + 0.5;
-  color.setRGB(0.21 + grain * 0.08, 0.34 + grain * 0.09, 0.095 + grain * 0.04);
+  color.setRGB(0.18 + grain * 0.1, 0.31 + grain * 0.13, 0.075 + grain * 0.045);
   const rock = Math.max(
     clamp((slope - 0.45) * 1.6, 0, 1),
     clamp((height - 550) / 300, 0, 1),
@@ -19,7 +19,7 @@ export function terrainSurfaceColor(
   const scree =
     clamp((height - 250) / 350, 0, 1) * clamp((slope - 0.2) / 0.35, 0, 1);
   const blend = Math.max(rock, scree * 0.65);
-  const grey = 0.37 + grain * 0.11;
+  const grey = 0.39 + grain * 0.13;
   color.r += (grey - color.r) * blend;
   color.g += (grey * 1.02 - color.g) * blend;
   color.b += (grey * 0.95 - color.b) * blend;

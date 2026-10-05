@@ -1,5 +1,4 @@
-import { terrainFogVertex } from "./terrain-fog";
-import { terrainScarColor } from "./terrain-colors";
+import { terrainSurfaceColor, terrainScarColor } from "./terrain-colors";
 import { TerrainMesher, type SectionData } from "./terrain-mesher";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
@@ -55,8 +54,15 @@ export class TerrainView {
   private lastDetail = 0;
   private coarseIndices?: Uint16Array | Uint32Array;
   private coarse?: THREE.Mesh;
+  private coarseCovered = new Uint8Array(CHUNKS * CHUNKS);
+  private coarseColor = new THREE.Color();
+  private coarseBaseColors = new Float32Array((CHUNKS + 1) ** 2 * 3).fill(NaN);
+  private coarseDirty = new Set<number>();
+  private sandColor = new THREE.Color("#a69c73");
+  private scarColor = new THREE.Color();
   queueDepth = 0;
   workerMS = 0;
+  private castleBounds: WorldData["castleBounds"][];
   private pathBounds: number[];
   private roadDistance: (x: number, z: number) => number;
   private fullHeightUpload = true;
@@ -75,6 +81,9 @@ export class TerrainView {
     grass: THREE.Texture,
   ) {
     this.mesher = new TerrainMesher(world);
+    this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
+      world.castleBounds,
+    ];
     if (typeof Worker !== "undefined") {
       this.worker = new Worker(
         new URL("./terrain-mesh-worker.ts", import.meta.url),
@@ -112,6 +121,17 @@ export class TerrainView {
         this.worker?.terminate();
         this.worker = undefined;
         this.inFlight.clear();
+        for (const [key, tile] of this.tiles) {
+          this.group.remove(tile.mesh);
+          tile.mesh.geometry.dispose();
+          this.coverCoarse(key, false);
+        }
+        this.tiles.clear();
+        this.completed.length = 0;
+        for (const c of this.chunks) {
+          c.step = 0;
+          c.dirty = true;
+        }
       };
     }
     this.roadDistance = pathIndex(world.paths);
@@ -151,7 +171,6 @@ export class TerrainView {
       roughness: 0.93,
     });
     this.material.onBeforeCompile = (shader) => {
-      shader.vertexShader = terrainFogVertex(shader.vertexShader);
       // A neutral detail texture lets vertex colors distinguish grass from rock.
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
@@ -183,7 +202,7 @@ export class TerrainView {
         )
           this.build(c, 16);
       }
-    if (this.worker) {
+    {
       const g = new THREE.PlaneGeometry(
         CONFIG.worldSize,
         CONFIG.worldSize,
@@ -192,21 +211,25 @@ export class TerrainView {
       );
       g.rotateX(-Math.PI / 2);
       g.translate(CONFIG.worldSize / 2, 0, CONFIG.worldSize / 2);
-      const pos = g.getAttribute("position"),
-        colors = new Float32Array(pos.count * 3),
-        c = new THREE.Color();
-      for (let i = 0; i < pos.count; i++) {
-        const h = this.sample(pos.getX(i), pos.getZ(i));
-        pos.setY(i, h - 1);
-        c.set(h < 6 ? "#a69c73" : h > 135 ? "#8c9187" : "#4b672b");
-        c.toArray(colors, i * 3);
-      }
-      g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-      g.computeVertexNormals();
+      g.setAttribute(
+        "color",
+        new THREE.BufferAttribute(
+          new Float32Array(g.getAttribute("position").count * 3),
+          3,
+        ),
+      );
+      g.setAttribute(
+        "uv",
+        new THREE.BufferAttribute(
+          new Float32Array(g.getAttribute("position").count * 2),
+          2,
+        ),
+      );
       this.coarseIndices = (g.index!.array as Uint16Array).slice();
       this.coarse = new THREE.Mesh(g, this.material);
       this.coarse.receiveShadow = true;
       this.coarse.matrixAutoUpdate = false;
+      this.refreshCoarse();
       this.group.add(this.coarse);
     }
   }
@@ -298,6 +321,9 @@ export class TerrainView {
     budgetMS = 2,
     detailScale = 1,
   ) {
+    const coarseStarted = performance.now();
+    this.refreshCoarse(false, Math.min(0.35, Math.max(0, budgetMS) * 0.25));
+    budgetMS = Math.max(0, budgetMS - (performance.now() - coarseStarted));
     if (this.worker) {
       this.updateAsync(camera, renderDistance, budgetMS, detailScale);
       return;
@@ -417,13 +443,17 @@ export class TerrainView {
             tile.mesh.castShadow =
               Math.hypot(x * 256 + 128 - camera.x, z * 256 + 128 - camera.z) <
               400;
-            if (!tile.mesh.parent) this.group.add(tile.mesh);
+            if (!tile.mesh.parent) {
+              this.group.add(tile.mesh);
+              this.coverCoarse(key, true);
+            }
           }
         }
       for (const key of this.activeTiles)
         if (!next.has(key)) {
           const tile = this.tiles.get(key);
           if (tile) this.group.remove(tile.mesh);
+          this.coverCoarse(key, false);
           this.dirtyTiles.delete(key);
         }
       this.activeTiles = next;
@@ -536,23 +566,139 @@ export class TerrainView {
     this.queueDepth =
       this.dirtyTiles.size + this.completed.length + this.inFlight.size;
   }
-  private coverCoarse(tile: number, covered: boolean) {
-    if (!this.coarse || !this.coarseIndices) return;
+  private coverCoarseChunk(id: number, covered: boolean) {
+    if (
+      !this.coarse ||
+      !this.coarseIndices ||
+      this.coarseCovered[id] === Number(covered)
+    )
+      return;
+    this.coarseCovered[id] = Number(covered);
     const index = this.coarse.geometry.index!,
-      x = (tile % (CHUNKS / 4)) * 4,
-      z = Math.floor(tile / (CHUNKS / 4)) * 4;
-    for (let row = z; row < z + 4; row++) {
-      const start = (row * CHUNKS + x) * 6;
-      for (let i = start; i < start + 24; i++)
-        index.array[i] = covered ? 0 : this.coarseIndices[i];
-      index.addUpdateRange(start, 24);
-    }
+      start = id * 6;
+    for (let i = start; i < start + 6; i++)
+      index.array[i] = covered ? 0 : this.coarseIndices[i];
+    index.addUpdateRange(start, 6);
     index.needsUpdate = true;
   }
+  private coverCoarse(tile: number, covered: boolean) {
+    const x = (tile % (CHUNKS / 4)) * 4,
+      z = Math.floor(tile / (CHUNKS / 4)) * 4;
+    for (let row = z; row < z + 4; row++)
+      for (let col = x; col < x + 4; col++)
+        this.coverCoarseChunk(row * CHUNKS + col, covered);
+  }
+  private refreshCoarse(full = true, budgetMS = Infinity) {
+    if (!this.coarse) return;
+    const geometry = this.coarse.geometry;
+    const p = geometry.getAttribute("position") as THREE.BufferAttribute,
+      n = geometry.getAttribute("normal") as THREE.BufferAttribute,
+      colors = geometry.getAttribute("color") as THREE.BufferAttribute,
+      uv = geometry.getAttribute("uv") as THREE.BufferAttribute;
+    const update = (i: number) => {
+      const x = p.getX(i),
+        z = p.getZ(i),
+        h = this.sample(x, z),
+        base = this.sample(x, z, this.base);
+      const dx = this.sample(x - 2, z) - this.sample(x + 2, z),
+        dz = this.sample(x, z - 2) - this.sample(x, z + 2),
+        length = Math.hypot(dx, 4, dz);
+      if (Number.isNaN(this.coarseBaseColors[i * 3])) {
+        const slope =
+          Math.hypot(
+            this.sample(x - 2, z, this.base) - this.sample(x + 2, z, this.base),
+            this.sample(x, z - 2, this.base) - this.sample(x, z + 2, this.base),
+          ) * 0.25;
+        terrainSurfaceColor(this.coarseColor, x, z, base, slope);
+        if (
+          this.pathDistance(x, z) < 3.2 ||
+          this.castleBounds.some(
+            (b) => x > b.min[0] && x < b.max[0] && z > b.min[1] && z < b.max[1],
+          )
+        )
+          this.coarseColor.set("#a5966f");
+        if (base < 6)
+          this.coarseColor.lerp(
+            this.sandColor,
+            clamp((6 - base) / 6, 0, 1) * 0.85,
+          );
+        this.coarseColor.toArray(this.coarseBaseColors, i * 3);
+      } else this.coarseColor.fromArray(this.coarseBaseColors, i * 3);
+      const damage = base - h;
+      if (damage > 0.1) {
+        terrainScarColor(
+          this.scarColor,
+          x,
+          z,
+          h,
+          damage,
+          Math.hypot(dx, dz) * 0.25,
+        );
+        this.coarseColor.lerp(this.scarColor, clamp(damage / 0.6, 0, 1));
+      }
+      p.setY(i, h - 1);
+      n.setXYZ(i, dx / length, 4 / length, dz / length);
+      colors.setXYZ(
+        i,
+        this.coarseColor.r,
+        this.coarseColor.g,
+        this.coarseColor.b,
+      );
+      uv.setXY(i, x * 0.07, z * 0.07);
+      if (!full) {
+        p.addUpdateRange(i * 3, 3);
+        n.addUpdateRange(i * 3, 3);
+        colors.addUpdateRange(i * 3, 3);
+      }
+    };
+    if (full) {
+      this.coarseDirty.clear();
+      for (let i = 0; i < p.count; i++) update(i);
+      uv.needsUpdate = true;
+      // Damage only lowers terrain. Reserve depth once rather than scanning every patch.
+      geometry.computeBoundingBox();
+      geometry.boundingBox!.min.y = Math.min(
+        -1024,
+        geometry.boundingBox!.min.y,
+      );
+      geometry.boundingBox!.max.y = Math.max(
+        CONFIG.ceiling,
+        geometry.boundingBox!.max.y,
+      );
+      geometry.boundingSphere = geometry.boundingBox!.getBoundingSphere(
+        new THREE.Sphere(),
+      );
+    } else {
+      if (!this.coarseDirty.size || budgetMS <= 0) return;
+      const deadline = performance.now() + budgetMS;
+      for (const i of this.coarseDirty) {
+        if (performance.now() >= deadline) break;
+        update(i);
+        this.coarseDirty.delete(i);
+      }
+    }
+    p.needsUpdate = n.needsUpdate = colors.needsUpdate = true;
+  }
+  private queueCoarse(chunks: number[]) {
+    // Neighboring samples keep normals current on edit edges. The set is bounded by the backdrop grid.
+    for (const id of chunks) {
+      const x = id % CHUNKS,
+        z = Math.floor(id / CHUNKS);
+      for (let row = Math.max(0, z - 1); row <= Math.min(CHUNKS, z + 2); row++)
+        for (
+          let col = Math.max(0, x - 1);
+          col <= Math.min(CHUNKS, x + 2);
+          col++
+        )
+          this.coarseDirty.add(row * (CHUNKS + 1) + col);
+    }
+  }
+
   dispose() {
     this.textureUploads?.dispose();
     this.worker?.terminate();
     this.completed.length = 0;
+    this.coarseDirty.clear();
     this.inFlight.clear();
     for (const tile of this.tiles.values()) tile.mesh.geometry.dispose();
     this.tiles.clear();
@@ -621,6 +767,17 @@ export class TerrainView {
           this.group.remove(c.mesh);
       }
     }
+    for (const c of this.chunks) {
+      const key =
+        Math.floor((c.id % CHUNKS) / 4) +
+        Math.floor(c.id / CHUNKS / 4) * (CHUNKS / 4);
+      const tile = this.tiles.get(key);
+      this.coverCoarseChunk(
+        c.id,
+        !!(c.mesh.visible && c.mesh.parent === this.group) ||
+          !!(tile?.mesh.parent && tile.members.has(c.id)),
+      );
+    }
     for (const c of this.chunks)
       if (!c.mesh.visible && c.mesh.parent === this.group)
         this.group.remove(c.mesh);
@@ -637,6 +794,7 @@ export class TerrainView {
           Math.floor(id / CHUNKS / 4) * (CHUNKS / 4),
       );
     }
+    this.queueCoarse(p.chunks);
     this.uploadRows(this.heightTexture, p.indices, this.fullHeightUpload);
   }
   private uploadRows(
@@ -694,12 +852,7 @@ export class TerrainView {
   restore(h: Float32Array) {
     this.textureUploads?.reset();
     this.heights.set(h);
-    if (this.coarse) {
-      const p = this.coarse.geometry.getAttribute("position");
-      for (let i = 0; i < p.count; i++)
-        p.setY(i, this.sample(p.getX(i), p.getZ(i)) - 1);
-      p.needsUpdate = true;
-    }
+    this.refreshCoarse();
     this.epoch++;
     this.inFlight.clear();
     this.completed.length = 0;
@@ -710,6 +863,7 @@ export class TerrainView {
       }
       this.tiles.clear();
       if (this.coarse && this.coarseIndices) {
+        this.coarseCovered.fill(0);
         this.coarse.geometry.index!.array.set(this.coarseIndices);
         this.coarse.geometry.index!.needsUpdate = true;
       }

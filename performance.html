@@ -65,6 +65,7 @@
           <select id="viewpoint">
             <option value="castle">Castle</option>
             <option value="coast">Coast</option>
+            <option value="village">Village</option>
             <option value="mountain">Mountain</option>
             <option value="pine">Pines</option>
             <option value="broadleaf">Broadleaf forest</option>
@@ -73,10 +74,26 @@
         ><label
           >Distance
           <select id="distance">
-            <option>1200</option>
+            <option>600</option>
+            <option selected>1200</option>
             <option>3000</option>
           </select></label
-        ><label><input id="night" type="checkbox" />Night</label
+        ><label
+          >Time
+          <select id="hour">
+            <option value="6">Sunrise</option>
+            <option value="14" selected>Midday</option>
+            <option value="17.8">Sunset</option>
+            <option value="18.5">Twilight</option>
+            <option value="0">Midnight</option>
+          </select></label
+        ><label
+          >Altitude
+          <select id="altitude">
+            <option value="120">Overview</option>
+            <option value="12">Ground</option>
+            <option value="1200">High</option>
+          </select></label
         ><label><input id="eyes" type="checkbox" />Eyes</label
         ><button id="tour">Play inspection</button
         ><button id="pause-tour">Pause inspection</button>

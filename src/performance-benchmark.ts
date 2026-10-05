@@ -550,6 +550,13 @@ function inspect() {
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
     ).slice();
+  else if (kind === "village")
+    p = (
+      world.sites.find((s) => /hamlet|village|town|settlement/.test(s.kind))
+        ?.p ??
+      world.lights[0]?.p ??
+      world.castle
+    ).slice();
   else if (["pine", "broadleaf", "riverside"].includes(kind))
     p = (
       world.entities.find(
@@ -567,10 +574,24 @@ function inspect() {
         }
       }
   }
-  view.inspectCamera([p[0] - 100, p[1] + 120, p[2] - 180], p);
+  const altitude = Number(
+    (document.querySelector("#altitude") as HTMLSelectElement).value,
+  );
+  const offset = altitude === 12 ? 90 : altitude === 1200 ? 1200 : 180;
+  const hour = Number(
+    (document.querySelector("#hour") as HTMLSelectElement).value,
+  );
+  const side = hour >= 16 && hour <= 20 ? 1 : -1;
+  const x = p[0] + side * offset * 0.55,
+    z = p[2] + side * offset;
+  view.inspectCamera(
+    [x, Math.max(p[1] + altitude, view.terrain.sample(x, z) + 6), z],
+    [p[0], p[1] + 5, p[2]],
+  );
   last = 0;
 }
 document.querySelector("#viewpoint")!.addEventListener("change", inspect);
+document.querySelector("#altitude")!.addEventListener("change", inspect);
 document.querySelector("#distance")!.addEventListener("change", (event) => {
   if (!active)
     view.setRenderDistance(Number((event.target as HTMLSelectElement).value));
@@ -578,12 +599,13 @@ document.querySelector("#distance")!.addEventListener("change", (event) => {
 document.querySelector("#eyes")!.addEventListener("change", (event) => {
   if (!active) view.setGooglyEyes((event.target as HTMLInputElement).checked);
 });
-document.querySelector("#night")!.addEventListener("change", (event) => {
+document.querySelector("#hour")!.addEventListener("change", (event) => {
   if (!active)
     send({
       type: "hour",
-      hour: (event.target as HTMLInputElement).checked ? 0 : 14,
+      hour: Number((event.target as HTMLSelectElement).value),
     });
+  inspect();
 });
 document.querySelector("#tour")!.addEventListener("click", () => {
   if (active || !ready) return;

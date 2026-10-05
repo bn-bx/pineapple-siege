@@ -1,4 +1,5 @@
-import { terrainFogVertex } from "./terrain-fog";
+import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
+import { VillageLighting, villageDecorations } from "./village-lighting";
 import {
   prepareDebrisMotion,
   resizeDebrisMotion,
@@ -111,12 +112,17 @@ export class GameRenderer {
   private auto = new AutoQuality();
   private nextShadow = 0;
   private shadowDirty = true;
+  private lightingHour = NaN;
   private nextReflection = 0.035;
   private lastArrival = 0;
   private reducedEffects = false;
   private cpuMS = 0;
   private wasActive = false;
-  private lightPool: THREE.PointLight[] = [];
+  private lighting = new EnvironmentLighting();
+  private villageLighting: VillageLighting;
+  private shadowCenter = new THREE.Vector3();
+  private discoSun = new THREE.Color("#b9c3ff");
+  private discoAmbient = new THREE.Color("#d9dcff");
   private eyeRoots: THREE.Object3D[] = [];
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
   private monsterFragmentRoot = new THREE.Object3D();
@@ -128,10 +134,7 @@ export class GameRenderer {
   private sun = new THREE.DirectionalLight("#fff0d2", 2.8);
   private ambient = new THREE.HemisphereLight("#c4e3f4", "#565b32", 1.8);
   private water: Water;
-  private lanterns: {
-    lamp: THREE.Mesh;
-    owner: number;
-  }[] = [];
+  private rivers: THREE.Group;
   private batches: Batch[] = [];
   private refs = new Map<number, { batch: Batch; index: number }[]>();
   private removed = new Set<number>();
@@ -314,7 +317,7 @@ export class GameRenderer {
       this.nearMonsterView.group,
       this.monsterFragmentView.group,
     );
-    this.scene.fog = new THREE.FogExp2("#98b5bb", 0.00065);
+
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     Object.assign(this.sun.shadow.camera, {
@@ -334,27 +337,22 @@ export class GameRenderer {
         side: THREE.BackSide,
         depthWrite: false,
         uniforms: {
-          sun: { value: new THREE.Vector3() },
+          sun: { value: this.lighting.sunDirection },
+          zenithColor: { value: this.lighting.zenithColor },
+          horizonColor: { value: this.lighting.horizonColor },
+          cloudColor: { value: this.lighting.cloudColor },
+          twilight: { value: 0 },
+          discoAmount: this.disco.skyAmount,
           day: { value: 1 },
           time: { value: 0 },
           laserDim: { value: 0 },
         },
         vertexShader:
           "varying vec3 vDirection; void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-        fragmentShader: `uniform vec3 sun;uniform float day,time,laserDim;varying vec3 vDirection;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}void main(){vec3 d=normalize(vDirection);float h=pow(1.-max(d.y,0.),2.);vec3 c=mix(mix(vec3(.009,.018,.046),vec3(.05,.08,.12),h),mix(vec3(.15,.39,.64),vec3(.63,.76,.78),h),day);float sunset=pow(1.-abs(sun.y),8.)*smoothstep(-.2,.04,sun.y);c+=vec3(.48,.19,.055)*sunset*pow(max(dot(normalize(d.xz),normalize(sun.xz)),0.),4.)*(.3+h);float cloud=0.;if(d.y>.03){vec2 p=d.xz/d.y*1.1+time*.002;float n=noise(p*2.)*.6+noise(p*4.1+13.)*.28+noise(p*8.3)*.12;cloud=smoothstep(.50,.69,n)*smoothstep(.03,.18,d.y);c=mix(c,mix(vec3(.065,.085,.13),mix(vec3(.50,.60,.64),vec3(.99,.96,.84),smoothstep(.50,.77,n)),day)+sunset*vec3(.25,.08,.01),cloud*.9);}c+=vec3(1.,.77,.37)*pow(max(dot(d,sun),0.),1500.)*day;c+=vec3(.7,.8,1.)*pow(max(dot(d,-sun),0.),1800.)*(1.-day);float stars=step(.9985,hash(floor(d.xz/(abs(d.y)+.2)*600.)))*max(d.y,0.);c+=stars*(1.-day)*(1.-cloud);gl_FragColor=vec4(c*(1.-laserDim),1.);}`,
+        fragmentShader: SKY_FRAGMENT,
       }),
     );
     this.sky.frustumCulled = false;
-    this.sky.material.uniforms.discoAmount = this.disco.skyAmount;
-    this.sky.material.fragmentShader = this.sky.material.fragmentShader
-      .replace(
-        "uniform float day,time,laserDim;",
-        "uniform float day,time,laserDim,discoAmount;",
-      )
-      .replace(
-        "gl_FragColor=vec4(c*(1.-laserDim),1.);",
-        "gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);",
-      );
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
     this.buildBatches();
@@ -380,13 +378,12 @@ export class GameRenderer {
         sunColor: 0xffeed5,
         waterColor: 0x28645d,
         distortionScale: 1.6,
-        fog: true,
+        fog: false,
       },
     );
     this.water.rotation.x = -Math.PI / 2;
     this.water.position.set(CONFIG.worldSize / 2, 0.04, CONFIG.worldSize / 2);
     const mat = this.water.material;
-    mat.vertexShader = terrainFogVertex(mat.vertexShader);
     mat.uniforms.uFlood = { value: this.terrain.floodTexture };
     mat.uniforms.uHeight = { value: this.terrain.heightTexture };
     mat.uniforms.uDiscoAmount = this.disco.amount;
@@ -430,25 +427,15 @@ export class GameRenderer {
       }
     };
     this.scene.add(this.water);
-    this.scene.add(makeRivers(world, this.terrain));
-    for (let i = 0; i < 4; i++) {
-      const light = new THREE.PointLight("#ff9a35", 0, 36, 2);
-      this.lightPool.push(light);
-      this.scene.add(light);
-    }
-    for (const { p, owner } of world.lights) {
-      const lamp = new THREE.Mesh(
-        new THREE.BoxGeometry(0.6, 0.8, 0.6),
-        new THREE.MeshStandardMaterial({
-          color: "#ffe8a1",
-          emissive: "#ffbd51",
-          emissiveIntensity: 2,
-        }),
-      );
-      lamp.position.fromArray(p);
-      this.scene.add(lamp);
-      this.lanterns.push({ lamp, owner });
-    }
+    this.rivers = makeRivers(world, this.terrain);
+    this.scene.add(this.rivers);
+    const village = villageDecorations(world);
+    this.villageLighting = new VillageLighting(village.lamps, village.windows);
+    this.scene.add(
+      this.villageLighting.mesh,
+      this.villageLighting.windows,
+      ...this.villageLighting.lights,
+    );
     this.fallenPines = new THREE.InstancedMesh(
       pineGeometry(),
       this.materials.foliage,
@@ -763,7 +750,8 @@ export class GameRenderer {
   }
   setRenderDistance(value: number) {
     this.renderDistance = normalizeRenderDistance(value);
-    this.camera.far = Math.hypot(this.renderDistance, CONFIG.ceiling) + 256;
+    this.camera.far =
+      Math.hypot(CONFIG.worldSize, CONFIG.worldSize, CONFIG.ceiling) + 512;
     this.camera.updateProjectionMatrix();
     this.sky.scale.setScalar((this.camera.far * 0.9) / 2500);
     this.lastLOD = -Infinity;
@@ -1967,17 +1955,16 @@ export class GameRenderer {
       );
     }
     this.performance.record("actors", performance.now() - actorsStarted);
-    const a = ((snap.hour - 6) / 24) * Math.PI * 2,
-      sunDir = new THREE.Vector3(
-        Math.cos(a) * 0.8,
-        Math.sin(a),
-        Math.cos(a) * 0.5,
-      ).normalize(),
-      day = THREE.MathUtils.smoothstep(sunDir.y, -0.15, 0.2),
-      night = 1 - day;
-    this.sky.material.uniforms.sun.value.copy(sunDir);
+    if (!active && this.lightingHour !== snap.hour) {
+      this.nextReflection = this.nextShadow = -Infinity;
+      this.shadowDirty = true;
+    }
+    this.lightingHour = snap.hour;
+    this.lighting.update(snap.hour);
+    const { daylight: day, night, lightDirection: ld } = this.lighting;
     this.sky.material.uniforms.day.value = day;
-    this.sky.material.uniforms.time.value = this.elapsed;
+    this.sky.material.uniforms.twilight.value = this.lighting.twilight;
+    this.sky.material.uniforms.time.value = snap.time;
     // Strike age keeps the atmosphere frozen with pause/photo mode and avoids
     // stacking darkness when several beams fire at once.
     let laserDim = 0;
@@ -1994,71 +1981,54 @@ export class GameRenderer {
       );
     }
     this.sky.material.uniforms.laserDim.value = laserDim;
-    const ld = sunDir.y > 0 ? sunDir : sunDir.clone().negate();
-    const shadowCenter = new THREE.Vector3(
+    const shadowCenter = this.shadowCenter.set(
       position.x,
       Math.max(0, this.terrain.sample(position.x, position.z)),
       position.z,
     );
     this.sun.position.copy(shadowCenter).addScaledVector(ld, 1000);
     this.sun.target.position.copy(shadowCenter);
-    this.sun.intensity = 0.3 + day * 2.7;
-    this.sun.color.set(day > 0.2 ? "#ffe6ba" : "#9ebdeb");
-    this.ambient.intensity = 0.38 + day * 1.5;
-    this.ambient.color.set(day > 0.2 ? "#c5e5f4" : "#5873a2");
+    this.sun.intensity = this.lighting.sunIntensity;
+    this.sun.color.copy(this.lighting.sunColor);
+    this.ambient.intensity = this.lighting.ambientIntensity;
+    this.ambient.color.copy(this.lighting.ambientColor);
+    this.ambient.groundColor.copy(this.lighting.groundColor);
+    this.materials.window.emissiveIntensity = night * 0.9;
     this.sun.intensity = THREE.MathUtils.lerp(
       this.sun.intensity,
       0.55,
       this.disco.skyAmount.value,
     );
-    this.sun.color.lerp(new THREE.Color("#b9c3ff"), this.disco.skyAmount.value);
+    this.sun.color.lerp(this.discoSun, this.disco.skyAmount.value);
     this.ambient.intensity = THREE.MathUtils.lerp(
       this.ambient.intensity,
       1.25,
       this.disco.skyAmount.value,
     );
-    this.ambient.color.lerp(
-      new THREE.Color("#d9dcff"),
-      this.disco.skyAmount.value,
+    this.ambient.color.lerp(this.discoAmbient, this.disco.skyAmount.value);
+    this.villageLighting.update(
+      this.camera.position,
+      this.removed,
+      night,
+      this.renderDistance,
+      dt,
     );
-    const fog = this.scene.fog as THREE.FogExp2;
-    fog.color.copy(
-      new THREE.Color("#192c43").lerp(new THREE.Color("#a3bdbb"), day),
+    this.water.material.uniforms.waterColor.value.copy(
+      this.lighting.waterColor,
     );
-    fog.color.multiplyScalar(1 - laserDim * 0.5);
-    fog.color.lerp(
-      new THREE.Color("#101021"),
-      this.disco.skyAmount.value * 0.88,
-    );
-    fog.density = THREE.MathUtils.lerp(
-      1.8 / this.renderDistance,
-      1.3 / this.renderDistance,
-      this.disco.skyAmount.value,
-    );
-    const nearest: { p: THREE.Vector3; d: number }[] = [];
-    for (const { lamp, owner } of this.lanterns) {
-      lamp.visible = !this.removed.has(owner);
-      if (!lamp.visible || night <= 0.001) continue;
-      const d = lamp.position.distanceToSquared(this.camera.position);
-      if (d > 160 * 160) continue;
-      let at = 0;
-      while (at < nearest.length && nearest[at].d < d) at++;
-      if (at < 4) {
-        nearest.splice(at, 0, { p: lamp.position, d });
-        if (nearest.length > 4) nearest.pop();
-      }
-    }
-    for (let i = 0; i < this.lightPool.length; i++) {
-      const target = nearest[i],
-        light = this.lightPool[i];
-      light.intensity = target ? night * 150 : 0;
-      if (target) light.position.copy(target.p);
-    }
     this.water.material.uniforms.sunDirection.value.copy(ld);
     this.water.material.uniforms.sunColor.value
       .copy(this.sun.color)
       .multiplyScalar(0.2 + day * 0.8);
-    this.water.material.uniforms.time.value = this.elapsed;
+    this.water.material.uniforms.time.value = snap.time;
+    // Extending the terrain horizon must not extend detailed river residency.
+    for (const child of this.rivers.children) {
+      const bounds = (child as THREE.Mesh).geometry.boundingSphere!;
+      const dx = bounds.center.x - this.camera.position.x;
+      const dz = bounds.center.z - this.camera.position.z;
+      child.visible =
+        dx * dx + dz * dz < (this.renderDistance + bounds.radius) ** 2;
+    }
     const terrainStarted = performance.now();
     this.terrain.update(
       this.camera.position,
@@ -2156,7 +2126,7 @@ export class GameRenderer {
       for (const group of this.ruinGroups.values()) roots.push(group);
       for (const shot of this.shotMeshes) roots.push(shot);
       for (const spike of this.spikeMeshes) roots.push(spike);
-      for (const { lamp } of this.lanterns) roots.push(lamp);
+      roots.push(this.villageLighting.mesh);
       for (const cloud of this.effects.cloudFaces) roots.push(cloud);
       this.eyes.update(roots, snap, this.jet.position);
     }
@@ -2322,6 +2292,7 @@ export class GameRenderer {
   }
   inspectCamera(p: number[], target: number[]) {
     this.lastLOD = -Infinity;
+    this.nextReflection = -Infinity;
     this.inspect = {
       p: new THREE.Vector3().fromArray(p),
       target: new THREE.Vector3().fromArray(target),

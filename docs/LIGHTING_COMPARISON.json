@@ -1,0 +1,136 @@
+[
+  {
+    "browser": "Chrome",
+    "baseline": "PERFORMANCE_NATIVE_1791219138566.json",
+    "final": "PERFORMANCE_NATIVE_1791223395198.json",
+    "cases": [
+      {
+        "case": {
+          "count": 120,
+          "kind": "flight",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 0.5681818181528131,
+        "frameP99ChangePercent": 0,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 120,
+          "kind": "nuke",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 0.5681818181320297,
+        "frameP99ChangePercent": 4.1100456371623295e-11,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 120,
+          "kind": "laser",
+          "duration": 30
+        },
+        "frameP95ChangePercent": -0.5649717513631969,
+        "frameP99ChangePercent": -8.221201497349284e-11,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "flight",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 0.5681818181320297,
+        "frameP99ChangePercent": 8.222311720373909e-11,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "nuke",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 0.5681818180493403,
+        "frameP99ChangePercent": 0,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "laser",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 0,
+        "frameP99ChangePercent": 0,
+        "frameTargetPassed": true
+      }
+    ]
+  },
+  {
+    "browser": "Safari",
+    "baseline": "PERFORMANCE_NATIVE_1791221479532.json",
+    "final": "PERFORMANCE_NATIVE_1791223713379.json",
+    "cases": [
+      {
+        "case": {
+          "count": 120,
+          "kind": "flight",
+          "duration": 30
+        },
+        "frameP95ChangePercent": -5.000000000000004,
+        "frameP99ChangePercent": 0,
+        "frameTargetPassed": true
+      },
+      {
+        "case": {
+          "count": 120,
+          "kind": "nuke",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 8.695652173913038,
+        "frameP99ChangePercent": -9.375,
+        "frameTargetPassed": false
+      },
+      {
+        "case": {
+          "count": 120,
+          "kind": "laser",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 5.555555555555558,
+        "frameP99ChangePercent": 14.28571428571428,
+        "frameTargetPassed": false
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "flight",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 5.882352941176472,
+        "frameP99ChangePercent": 5.263157894736836,
+        "frameTargetPassed": false
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "nuke",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 23.809523809523814,
+        "frameP99ChangePercent": 52,
+        "frameTargetPassed": false
+      },
+      {
+        "case": {
+          "count": 400,
+          "kind": "laser",
+          "duration": 30
+        },
+        "frameP95ChangePercent": 11.111111111111116,
+        "frameP99ChangePercent": -4.1666666666666625,
+        "frameTargetPassed": false
+      }
+    ]
+  }
+]

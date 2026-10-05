@@ -124,6 +124,8 @@ export function createMaterials() {
     }),
     window: new THREE.MeshStandardMaterial({
       color: "#252d32",
+      emissive: "#ffc077",
+      emissiveIntensity: 0,
       roughness: 0.55,
       metalness: 0.08,
     }),
@@ -360,6 +362,10 @@ export function fractureMaterials(
   return Object.fromEntries(
     Object.entries(source).map(([key, original]) => {
       const m = original.clone();
+      if (key === "window") {
+        m.emissive.set(0);
+        m.emissiveIntensity = 0;
+      }
       m.vertexColors = true;
       const atlas = document.createElement("canvas");
       atlas.width = 512;

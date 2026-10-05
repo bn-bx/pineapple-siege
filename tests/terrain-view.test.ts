@@ -61,8 +61,9 @@ it("stitches unequal terrain detail levels with identical shared heights and nor
     { c: a, d: 0 },
     { c: b, d: 64 },
   ]);
-  expect(view.group.children).toHaveLength(1);
-  const tile = view.group.children[0] as THREE.Mesh;
+  // One detailed tile plus the always-present distant terrain backdrop.
+  expect(view.group.children).toHaveLength(2);
+  const tile = (view as any).tiles.get(4 * (CHUNKS / 4) + 4).mesh as THREE.Mesh;
   expect(tile.geometry.getAttribute("position").count).toBe(
     a.mesh.geometry.getAttribute("position").count +
       b.mesh.geometry.getAttribute("position").count,
