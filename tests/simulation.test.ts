@@ -155,14 +155,16 @@ describe("flight and collision", () => {
     for (let n = 0; n < 150; n++) sim.step();
     expect(sim.shots).toBeGreaterThanOrEqual(1);
     expect(sim.removed.size).toBeGreaterThan(0);
+    sim.input.fire = false;
+    for (let n = 0; n < 421; n++) sim.step();
     const tree = world.entities.find(
       (e) => e.kind === "tree" && !sim.removed.has(e.id),
     )!;
     sim.explode([tree.p[0], tree.p[1] - tree.s[1] + 1, tree.p[2]]);
     expect(sim.removed.has(tree.id)).toBe(true);
-    expect([...sim.moving.values()].some((m) => m.view.kind === "tree")).toBe(
-      true,
-    );
+    expect(
+      [...sim.ballistic.values()].some((m) => m.view.kind === "tree"),
+    ).toBe(true);
     expect(sim.moving.size).toBeLessThanOrEqual(256);
     sim.dispose();
   }, 20000);
@@ -190,22 +192,27 @@ it("preserves supported neighbors, breaches bridge collision, and clears old wre
   sim.dispose();
 }, 30000);
 
-it("preserves airborne tree transforms when the debris budget demotes them", () => {
+it("preserves airborne tree transforms in visual snapshots", () => {
   const sim = new Simulation(world, base, () => {});
   const tree = world.entities.find((e) => e.kind === "tree")!;
-  sim.explode([tree.p[0], tree.p[1] - tree.s[1] + 1, tree.p[2]]);
-  const moving = [...sim.moving.values()].find(
+  (sim as any).fragment(
+    tree,
+    [tree.p[0], tree.p[1] - tree.s[1] + 1, tree.p[2]],
+    60,
+    { n: 0, limit: 2 },
+  );
+  const moving = [...sim.ballistic.values()].find(
     (m) => m.view.source === tree.id && m.view.kind === "tree",
   )!;
   expect(moving).toBeDefined();
   const p = [...moving.view.p],
     q = [...moving.view.q];
-  const v = moving.body.linvel();
-  (sim as any).settle(moving, true);
+  const v = [...moving.velocity];
+  expect(sim.physics.bodies.len()).toBe(0);
   const debris = sim.ballistic.get(moving.view.id)!;
   expect(sim.ruins.has(moving.view.id)).toBe(false);
   for (let i = 0; i < 3; i++) expect(debris.view.p[i]).toBeCloseTo(p[i], 3);
   for (let i = 0; i < 4; i++) expect(debris.view.q[i]).toBeCloseTo(q[i], 5);
-  expect(debris.velocity).toEqual([v.x, v.y, v.z]);
+  expect(debris.velocity).toEqual(v);
   sim.dispose();
 });

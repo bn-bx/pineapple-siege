@@ -108,7 +108,13 @@ it("shows every overflow source at launch and retains it in packed snapshots and
       expect(views.some((b) => b.source === e.id)).toBe(true);
     expect(sim.ballistic.size).toBeGreaterThan(60);
     for (const m of sim.ballistic.values())
-      expect(m.view.p).toEqual(entities[m.view.source].p);
+      if (m.view.source >= 0) {
+        const source = entities[m.view.source];
+        for (let axis = 0; axis < 3; axis++)
+          expect(Math.abs(m.view.p[axis] - source.p[axis])).toBeLessThanOrEqual(
+            source.s[axis],
+          );
+      }
     const unpacked = unpackBodies(sim.snapshot(true).packedBodies!);
     expect(unpacked.map((b) => [b.id, b.source])).toEqual(
       views.map((b) => [b.id, b.source]),
@@ -131,7 +137,7 @@ it("shows every overflow source at launch and retains it in packed snapshots and
   }
 });
 
-it("demotes an airborne body without snapping and preserves its trajectory until cleanup", () => {
+it("launches visual debris without snapping and preserves its trajectory until cleanup", () => {
   const sim = new Simulation({ ...world, entities: [] }, flat, () => {});
   try {
     const id = (sim as any).spawnBody(
@@ -142,8 +148,7 @@ it("demotes an airborne body without snapping and preserves its trajectory until
       "chunk",
       [80, 60, 0],
     );
-    const body = sim.moving.get(id)!;
-    (sim as any).settle(body, true);
+    expect(sim.physics.bodies.len()).toBe(0);
     expect(sim.moving.has(id)).toBe(false);
     expect(sim.ruins.has(id)).toBe(false);
     expect(sim.ballistic.get(id)!.view.p).toEqual([600, 30, 600]);

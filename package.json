@@ -11,6 +11,7 @@
     "test": "node scripts/generate-world.mjs && node scripts/generate-legacy-world.mjs && vitest run --maxWorkers=1",
     "benchmark:performance": "node scripts/benchmark-performance.mjs",
     "benchmark:world": "node scripts/generate-world.mjs && node scripts/benchmark-world.mjs",
+    "benchmark:debris": "node scripts/generate-world.mjs && node scripts/benchmark-simple-debris.mjs",
     "benchmark:destruction": "node scripts/generate-world.mjs && node scripts/benchmark-destruction.mjs"
   },
   "dependencies": {

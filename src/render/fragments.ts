@@ -1,6 +1,10 @@
 import * as THREE from "three";
-import { COSMETIC_LIMITS } from "../destruction-settings";
-import { CONFIG, WRECKAGE_LIFETIME, WRECKAGE_FADE_SECONDS } from "../config";
+import {
+  BLAST_COSMETIC_LIMIT,
+  CONFIG,
+  WRECKAGE_LIFETIME,
+  WRECKAGE_FADE_SECONDS,
+} from "../config";
 import type { FragmentEffect, Vec3 } from "../types";
 
 const palette = {
@@ -19,8 +23,8 @@ const palette = {
 const STRIDE = 21;
 /** Cosmetic ballistic chunks with the same cleanup lifetime as physical wreckage. */
 export class Fragments {
-  capacity = COSMETIC_LIMITS[1];
-  private limit = COSMETIC_LIMITS[1];
+  capacity = BLAST_COSMETIC_LIMIT;
+  private limit = BLAST_COSMETIC_LIMIT;
   private live = 0;
   private next = 0;
   private dirty = false;
@@ -62,30 +66,8 @@ export class Fragments {
   setLimit(value: number) {
     const limit = Math.max(
       1,
-      Math.min(Math.max(...COSMETIC_LIMITS), Math.floor(value)),
+      Math.min(BLAST_COSMETIC_LIMIT, Math.floor(value)),
     );
-    if (limit > this.capacity) {
-      this.capacity = Math.min(
-        Math.max(...COSMETIC_LIMITS),
-        2 ** Math.ceil(Math.log2(limit)),
-      );
-      const data = new Float32Array(this.capacity * STRIDE);
-      data.set(this.data);
-      this.data = data;
-      const matrix = new THREE.InstancedBufferAttribute(
-        new Float32Array(this.capacity * 16),
-        16,
-      ).setUsage(THREE.DynamicDrawUsage);
-      matrix.array.set(this.mesh.instanceMatrix.array);
-      const color = new THREE.InstancedBufferAttribute(
-        new Float32Array(this.capacity * 3),
-        3,
-      ).setUsage(THREE.DynamicDrawUsage);
-      color.array.set(this.mesh.instanceColor!.array);
-      this.mesh.dispose();
-      this.mesh.instanceMatrix = matrix;
-      this.mesh.instanceColor = color;
-    }
     this.limit = limit;
     this.live = Math.min(this.live, this.limit);
     this.next %= this.limit;

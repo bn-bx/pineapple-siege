@@ -19,6 +19,7 @@ import {
 import RAPIER from "@dimforge/rapier3d-compat";
 import {
   CONFIG,
+  BLAST_DEBRIS_LIMIT,
   WRECKAGE_FLIGHT_SECONDS,
   WRECKAGE_FADE_SECONDS,
   WRECKAGE_LIFETIME,
@@ -73,30 +74,15 @@ import type {
   LaserWork,
 } from "../types";
 const vec = (p: Vec3) => ({ x: p[0], y: p[1], z: p[2] });
-const arr = (p: { x: number; y: number; z: number }): Vec3 => [p.x, p.y, p.z];
 const identity = { x: 0, y: 0, z: 0, w: 1 };
 // Membership in the upper 16 bits, permitted partners in the lower 16 bits.
 const WORLD_COLLISIONS = 0x00010007;
-const MAJOR_COLLISIONS = 0x00040007;
-const CHIP_COLLISIONS = 0x00020005;
-const MAJOR_CONTACT_LIMIT = 128;
 const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 function rand(n: number) {
   n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
   n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
   return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
-}
-interface Moving {
-  view: BodyView;
-  body: RAPIER.RigidBody;
-  collider: RAPIER.Collider;
-  age: number;
-  lastImpact: number;
-  ccd: boolean;
-  minSize: number;
-  maxSize: number;
-  major: boolean;
 }
 interface Shot {
   profile?: BlastProfile;
@@ -141,24 +127,20 @@ export class Simulation {
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
   private bodyPoses = new BodyPoseCache();
-  readonly moving = new DebrisMap<Moving>(this.bodyPoses);
+  /** Compatibility counter: blast wreckage no longer owns native bodies. */
+  readonly moving = new Map<number, never>();
   readonly ballistic = new DebrisMap<BallisticDebris>(this.bodyPoses);
   private cleanupExpiry = new Map<number, number>();
   private cleanupRemains = new DebrisMap<{
     view: BodyView;
   }>(this.bodyPoses);
   private clearingOldRubble = false;
-  private collisionLOD = false;
-  private majorBodies = 0;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
-  private colliderMoving = new Map<number, number>();
-  private colliderEntities = new Map<number, number>();
   private ruinColliders = new Map<number, RAPIER.Collider>();
   private terrainColliders = new Map<number, RAPIER.Collider>();
   private pendingTerrainColliders = new Set<number>();
   private assemblies = new Map<string, number[]>();
   readonly projectiles: Shot[] = [];
-  readonly events = new RAPIER.EventQueue(true);
   input: InputState = {
     x: 0,
     y: 0,
@@ -190,7 +172,7 @@ export class Simulation {
     this.destruction = normalizeDestruction(value);
     if (this.destruction.noCooldown)
       this.cooldowns = { cannon: 0, nuke: 0, laser: 0 };
-    // Lower budgets demote bodies gradually in step(), preserving their motion.
+    // Blast motion uses a fixed visual pool independent of old physics budgets.
   }
   private trackCleanup(id: number) {
     if (!this.cleanupExpiry.has(id))
@@ -234,18 +216,6 @@ export class Simulation {
     for (const [id, expires] of this.cleanupExpiry) {
       const remaining = expires - this.time;
       if (remaining > WRECKAGE_FADE_SECONDS + 1e-9) continue;
-      const rigid = this.moving.get(id);
-      if (rigid) {
-        const p = rigid.body.translation(),
-          q = rigid.body.rotation();
-        rigid.view.p = [p.x, p.y, p.z];
-        rigid.view.q = [q.x, q.y, q.z, q.w];
-        this.colliderMoving.delete(rigid.collider.handle);
-        this.physics.removeRigidBody(rigid.body);
-        this.moving.delete(id);
-        if (rigid.major) this.majorBodies--;
-        this.cleanupRemains.set(id, { view: rigid.view });
-      }
       const ballistic = this.ballistic.get(id);
       if (ballistic) {
         this.ballistic.delete(id);
@@ -291,7 +261,6 @@ export class Simulation {
   readonly civilians: Civilians;
   readonly vaporized = new Set<number>();
   private burnCells = new Map<number, { p: Vec3; radius: number }[]>();
-  private ballisticPrevious: Vec3 = [0, 0, 0];
   private burnZones: { p: Vec3; radius: number }[] = [];
   readonly pendingJobs: DestructionJob[] = [];
   readonly supportJobs: SupportJob[] = [];
@@ -456,11 +425,9 @@ export class Simulation {
         : RAPIER.ColliderDesc.cuboid(...e.s);
     d.setTranslation(...e.p)
       .setFriction(0.8)
-      .setCollisionGroups(WORLD_COLLISIONS)
-      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
+      .setCollisionGroups(WORLD_COLLISIONS);
     const c = this.physics.createCollider(d);
     this.entityColliders.set(e.id, c);
-    this.colliderEntities.set(c.handle, e.id);
   }
   private debrisCollider(
     s: Vec3,
@@ -543,9 +510,6 @@ export class Simulation {
           wanted.add(z * CHUNKS + x);
     };
     near(this.plane.p, 85);
-    for (const m of this.moving.values()) near(m.view.p, 38);
-    for (const { body } of this.monsterRagdolls.moving.values())
-      near(arr(body.translation()), 38);
     for (const s of this.projectiles) near(s.p, 12);
     for (const id of wanted)
       if (!this.terrainColliders.has(id)) {
@@ -606,15 +570,6 @@ export class Simulation {
         }
     };
     add(this.plane.p, 110);
-    for (const { body } of this.monsterRagdolls.moving.values())
-      add(arr(body.translation()), 45);
-    for (const m of this.moving.values()) {
-      const v = m.body.linvel();
-      add(
-        m.view.p,
-        Math.max(...m.view.s) + 24 + Math.hypot(v.x, v.y, v.z) * 0.1,
-      );
-    }
     for (const [key, range] of cells) {
       for (const id of this.entityCells.get(key) || []) {
         if (this.removed.has(id) || wanted.has(id)) continue;
@@ -645,7 +600,6 @@ export class Simulation {
         this.addEntityCollider(this.world.entities[id]);
     for (const [id, c] of this.entityColliders)
       if (!wanted.has(id)) {
-        this.colliderEntities.delete(c.handle);
         this.physics.removeCollider(c, true);
         this.entityColliders.delete(id);
       }
@@ -688,17 +642,10 @@ export class Simulation {
     this.changedRemoved.push(e.id);
     const c = this.entityColliders.get(e.id);
     if (c) {
-      this.colliderEntities.delete(c.handle);
       this.physics.removeCollider(c, true);
       this.entityColliders.delete(e.id);
     }
     if (e.assembly) this.dirtyAssemblies.add(e.assembly);
-  }
-  private makeRoom() {
-    if (this.moving.size < this.bodyLimit) return;
-    // Insertion order is birth order: all bodies age by the same fixed step.
-    const chosen = this.moving.values().next().value;
-    if (chosen) this.settle(chosen, true);
   }
   private spawnBody(
     p: Vec3,
@@ -716,97 +663,22 @@ export class Simulation {
       this.inBeam(p, this.orientedSize(s, q))
     )
       return -1;
-    this.makeRoom();
-    const ccd = Math.hypot(...impulse) * CONFIG.dt > Math.min(...s) * 0.7;
-    const major =
-      !this.collisionLOD ||
-      (this.majorBodies < MAJOR_CONTACT_LIMIT && 8 * s[0] * s[1] * s[2] >= 64);
-    const id = this.nextBody++,
-      desc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(...p)
-        .setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] })
-        .setLinearDamping(0.06)
-        .setAngularDamping(0.45)
-        .setCanSleep(true)
-        .setCcdEnabled(ccd);
-    const body = this.physics.createRigidBody(desc);
-    const collider = this.physics.createCollider(
-      this.debrisCollider(s, material, false, roofPart)
-        .setCollisionGroups(major ? MAJOR_COLLISIONS : CHIP_COLLISIONS)
-        .setFriction(0.85)
-        .setRestitution(0.16)
-        .setDensity(material === "wood" || material === "foliage" ? 0.5 : 1.8)
-        .setActiveEvents(
-          major
-            ? RAPIER.ActiveEvents.COLLISION_EVENTS
-            : RAPIER.ActiveEvents.NONE,
-        ),
-      body,
-    );
-    body.setLinvel(vec(impulse), true);
-    body.setAngvel(
+    if (this.bodyPoses.size >= BLAST_DEBRIS_LIMIT) return -1;
+    const id = this.nextBody++;
+    this.addBallistic(
       {
-        x: (rand(id) - 0.5) * 3,
-        y: (rand(id + 1) - 0.5) * 3,
-        z: (rand(id + 2) - 0.5) * 3,
+        id,
+        p: [...p],
+        q: [...q],
+        s: [...s],
+        material,
+        kind,
+        source,
+        ...(roofPart ? { roofPart } : {}),
       },
-      true,
+      [...impulse],
     );
-    const view: BodyView = {
-      id,
-      p: [...p],
-      q: [...q],
-      s: [...s],
-      material,
-      kind,
-      source,
-      ...(roofPart ? { roofPart } : {}),
-    };
-    this.trackCleanup(id);
-    this.colliderMoving.set(collider.handle, id);
-    this.moving.set(id, {
-      view,
-      body,
-      collider,
-      age: 0,
-      lastImpact: -10,
-      ccd,
-      minSize: Math.min(...s),
-      maxSize: Math.max(...s),
-      major,
-    });
-    if (major) this.majorBodies++;
     return id;
-  }
-  private updateDebrisCollisions() {
-    // Hysteresis prevents repeated contact graph rebuilds near the threshold.
-    const enabled = this.collisionLOD
-      ? this.moving.size > 256
-      : this.moving.size > 512;
-    if (enabled === this.collisionLOD) return;
-    this.collisionLOD = enabled;
-    const ordered = [...this.moving.values()];
-    if (enabled)
-      ordered.sort(
-        (a, b) =>
-          b.view.s[0] * b.view.s[1] * b.view.s[2] -
-          a.view.s[0] * a.view.s[1] * a.view.s[2],
-      );
-    this.majorBodies = 0;
-    for (const m of ordered) {
-      m.major = !enabled || this.majorBodies < MAJOR_CONTACT_LIMIT;
-      if (m.major) this.majorBodies++;
-      m.collider.setCollisionGroups(
-        m.major ? MAJOR_COLLISIONS : CHIP_COLLISIONS,
-      );
-      // Surviving entity colliders request their own events, so chips still
-      // cause damage cascades without flooding the queue on rubble/ground.
-      m.collider.setActiveEvents(
-        m.major
-          ? RAPIER.ActiveEvents.COLLISION_EVENTS
-          : RAPIER.ActiveEvents.NONE,
-      );
-    }
   }
   private scatterVelocity(
     p: Vec3,
@@ -873,7 +745,11 @@ export class Simulation {
     force: number,
     budget = { n: 0, limit: 0 } as { n: number; limit?: number },
   ) {
-    for (let i = 0; i < roofParts.length; i++) {
+    for (
+      let i = 0;
+      i < roofParts.length && this.bodyPoses.size < BLAST_DEBRIS_LIMIT;
+      i++
+    ) {
       const part = roofParts[i];
       const p = e.p.map((v, k) => v + part.offset[k] * e.s[k]) as Vec3;
       const s = e.s.map((v, k) => v * part.size[k]) as Vec3;
@@ -912,7 +788,8 @@ export class Simulation {
     }
   }
   private staticFragment(e: Entity, origin?: Vec3, force = 0) {
-    if (this.vaporized.has(e.id)) return;
+    if (this.vaporized.has(e.id) || this.bodyPoses.size >= BLAST_DEBRIS_LIMIT)
+      return;
     if (origin && force > 0) {
       if (isRoof(e.material)) {
         this.fragmentRoof(e, origin, force);
@@ -977,22 +854,6 @@ export class Simulation {
     speed: number,
     budget: { n: number; limit: number },
   ) {
-    for (const m of this.moving.values()) {
-      const pos = arr(m.body.translation()),
-        d = distance(pos, p);
-      if (d < radius && m.age > 0.1) {
-        const v = this.scatterVelocity(
-          pos,
-          p,
-          speed * (1 - (0.65 * d) / radius),
-          m.view.id,
-        );
-        m.body.setLinvel(vec(v), true);
-        const ccd = Math.hypot(...v) * CONFIG.dt > Math.min(...m.view.s) * 0.7;
-        m.body.enableCcd(ccd);
-        m.ccd = ccd;
-      }
-    }
     for (const m of this.ballistic.values()) {
       const d = distance(m.view.p, p);
       if (d >= radius) continue;
@@ -1038,7 +899,7 @@ export class Simulation {
         p: [...p],
         origin: [...origin],
         material,
-        count,
+        count: Math.min(count, 256),
         speed,
         spread,
         seed,
@@ -1108,6 +969,11 @@ export class Simulation {
   private insertRuin(r: Ruin) {
     if (this.burnZones.length && this.inBeam(r.p, this.orientedSize(r.s, r.q)))
       return;
+    if (
+      this.bodyPoses.size >= BLAST_DEBRIS_LIMIT &&
+      !this.cleanupExpiry.has(r.id)
+    )
+      return;
     this.trackCleanup(r.id);
     this.cleanupRemains.set(r.id, { view: r });
   }
@@ -1124,25 +990,12 @@ export class Simulation {
     this.dirtyRuins.set(id, null);
     this.changedRubbleRemoved.push(id);
   }
-  private settle(m: Moving, force = false) {
-    if (!force) this.contact(m.view.p, m.view.material, 0.5, "settle");
-    const q = m.body.rotation();
-    let r: Ruin = {
-      ...m.view,
-      p: arr(m.body.translation()),
-      q: [q.x, q.y, q.z, q.w],
-    };
-    const velocity = force ? arr(m.body.linvel()) : null;
-    const angular = force ? arr(m.body.angvel()) : null;
-    this.colliderMoving.delete(m.collider.handle);
-    this.physics.removeRigidBody(m.body);
-    this.moving.delete(m.view.id);
-    if (m.major) this.majorBodies--;
-    if (velocity && angular) this.addBallistic(r, velocity, angular);
-    else this.insertRuin(r);
-    this.bump();
-  }
   private addBallistic(view: BodyView, velocity: Vec3, angular?: Vec3) {
+    if (
+      this.bodyPoses.size >= BLAST_DEBRIS_LIMIT &&
+      !this.cleanupExpiry.has(view.id)
+    )
+      return;
     this.trackCleanup(view.id);
     this.ballistic.set(view.id, {
       view,
@@ -1154,10 +1007,6 @@ export class Simulation {
         (rand(view.id + 2) - 0.5) * 3,
       ],
     });
-  }
-  private *debrisViews() {
-    for (const m of this.moving.values()) yield m.view;
-    for (const m of this.ballistic.values()) yield m.view;
   }
   private resolveSupport(
     origin: Vec3,
@@ -2125,14 +1974,6 @@ export class Simulation {
         this.removeRuin(r.id);
         this.bump();
       }
-    for (const m of this.moving.values())
-      if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
-        this.colliderMoving.delete(m.collider.handle);
-        this.physics.removeRigidBody(m.body);
-        this.moving.delete(m.view.id);
-        if (m.major) this.majorBodies--;
-        this.bump();
-      }
     for (const m of this.ballistic.values())
       if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
         this.ballistic.delete(m.view.id);
@@ -2293,22 +2134,6 @@ export class Simulation {
         this.removeRuin(r.id);
         this.bump();
       }
-    if (section === undefined)
-      for (const m of [...this.moving.values()])
-        if (
-          this.intersects(
-            arr(m.body.translation()),
-            this.orientedSize(m.view.s, m.view.q),
-            p,
-            radius,
-          )
-        ) {
-          this.colliderMoving.delete(m.collider.handle);
-          this.physics.removeRigidBody(m.body);
-          this.moving.delete(m.view.id);
-          if (m.major) this.majorBodies--;
-          this.bump();
-        }
     if (section === undefined)
       for (const m of this.ballistic.values())
         if (
@@ -2507,8 +2332,6 @@ export class Simulation {
     if (!this.holdTime) this.hour = (this.hour + dt / 60) % 24;
     for (const weapon of ["cannon", "nuke", "laser"] as const)
       this.cooldowns[weapon] = Math.max(0, this.cooldowns[weapon] - dt);
-    for (let i = 0; i < 16 && this.moving.size > this.bodyLimit; i++)
-      this.makeRoom();
     const previousPlanePosition = [...this.plane.p] as Vec3;
     const wasCrashed = this.plane.crashed > 0;
     this.fly(dt);
@@ -2617,159 +2440,15 @@ export class Simulation {
     if (this.tick % 4 === 1 || this.pendingJobs.length)
       this.ensureStaticColliders();
     this.stageMS.residency = performance.now() - residencyStarted;
-    this.updateDebrisCollisions();
     this.processTerrainColliders(0.5);
     const start = performance.now();
-    this.physics.step(this.events);
+    this.physics.step();
     this.monsterRagdolls.update(dt);
     this.stageMS.physics = performance.now() - start;
     this.physicsMS = lerp(this.physicsMS, this.stageMS.physics, 0.05);
-    const cascade = new Set<number>();
-    this.events.drainCollisionEvents((h1, h2, started) => {
-      if (!started) return;
-      const movingId =
-        this.colliderMoving.get(h1) ?? this.colliderMoving.get(h2);
-      const contactBody =
-        movingId === undefined ? undefined : this.moving.get(movingId);
-      if (contactBody && contactBody.age > 0.2) {
-        const v = contactBody.body.linvel();
-        const speed = Math.hypot(v.x, v.y, v.z);
-        if (speed > 2)
-          this.contact(
-            arr(contactBody.body.translation()),
-            contactBody.view.material,
-            Math.min(2, speed / 20),
-            "impact",
-          );
-      }
-      let id = this.colliderEntities.get(h1),
-        other = h2;
-      if (id === undefined) {
-        id = this.colliderEntities.get(h2);
-        other = h1;
-      }
-      if (id === undefined) return;
-      const bodyId = this.colliderMoving.get(other);
-      const m = bodyId === undefined ? undefined : this.moving.get(bodyId);
-      if (m && m.age > 0.2 && this.time - m.lastImpact > 0.3) {
-        const v = m.body.linvel();
-        if (Math.hypot(v.x, v.y, v.z) > 7) {
-          cascade.add(id);
-          m.lastImpact = this.time;
-        }
-      }
-    });
-    if (cascade.size) {
-      this.bump();
-      const budget = { n: 0 };
-      for (const id of [...cascade].slice(0, 8)) {
-        const e = this.world.entities[id];
-        if (!this.removed.has(id)) this.fragment(e, e.p, 3, budget);
-      }
-      this.resolveSupport(this.plane.p);
-    }
-    const nextPosition: Vec3 = [0, 0, 0];
-    const maxAge = [8, 12, 18, 24, 30][this.destruction.bodies];
-    for (const m of this.moving.values()) {
-      m.age += dt;
-      if (m.age > 2 && m.body.isSleeping()) {
-        this.settle(m);
-        continue;
-      }
-      const velocity = m.body.linvel(),
-        needsCCD =
-          Math.hypot(velocity.x, velocity.y, velocity.z) * dt > m.minSize * 0.7;
-      if (needsCCD !== m.ccd) {
-        m.body.enableCcd(needsCCD);
-        m.ccd = needsCCD;
-      }
-      const position = m.body.translation(),
-        previous = m.view.p;
-      nextPosition[0] = position.x;
-      nextPosition[1] = position.y;
-      nextPosition[2] = position.z;
-      const steps = Math.max(
-          1,
-          Math.ceil(distance(previous, nextPosition) / 1.5),
-        ),
-        clearance = m.minSize * 0.8;
-      // Canonical terrain sweep also covers fast fragments crossing a streamed collider boundary.
-      const aboveTerrain = this.terrain.aboveSurface(
-        previous,
-        nextPosition,
-        clearance,
-      );
-      for (let i = 1; !aboveTerrain && i <= steps; i++) {
-        const t = i / steps,
-          x = lerp(previous[0], nextPosition[0], t),
-          z = lerp(previous[2], nextPosition[2], t),
-          y = lerp(previous[1], nextPosition[1], t),
-          floor = this.terrain.sample(x, z) + clearance;
-        if (y < floor) {
-          if (Math.abs(velocity.y) > 2)
-            this.contact(
-              [x, floor, z],
-              m.view.material,
-              Math.min(2, Math.abs(velocity.y) / 20),
-              "impact",
-            );
-          m.body.setTranslation({ x, y: floor, z }, true);
-          nextPosition[0] = x;
-          nextPosition[1] = floor;
-          nextPosition[2] = z;
-          const v = m.body.linvel();
-          m.body.setLinvel(
-            { x: v.x * 0.65, y: Math.max(0, -v.y * 0.2), z: v.z * 0.65 },
-            true,
-          );
-          break;
-        }
-      }
-      if (Math.hypot(velocity.x, velocity.y, velocity.z) > 2)
-        this.civilians.sweep(
-          previous,
-          nextPosition,
-          this.orientedSize(m.view.s, m.view.q),
-        );
-      m.view.p[0] = nextPosition[0];
-      m.view.p[1] = nextPosition[1];
-      m.view.p[2] = nextPosition[2];
-      const q = m.body.rotation();
-      m.view.q[0] = q.x;
-      m.view.q[1] = q.y;
-      m.view.q[2] = q.z;
-      m.view.q[3] = q.w;
-      this.bodyPoses.update(m.view);
-      if (
-        m.age > maxAge ||
-        (!aboveTerrain &&
-          m.view.p[1] <
-            this.terrain.sample(m.view.p[0], m.view.p[2]) - m.maxSize * 2 - 10)
-      )
-        this.settle(m, true);
-    }
     const ballisticStarted = performance.now();
     for (const m of this.ballistic.values()) {
-      const previous = this.ballisticPrevious;
-      previous[0] = m.view.p[0];
-      previous[1] = m.view.p[1];
-      previous[2] = m.view.p[2];
-      const speedSquared =
-        m.velocity[0] ** 2 + m.velocity[1] ** 2 + m.velocity[2] ** 2;
       const resting = advanceDebris(m, this.terrain, dt);
-      if (
-        speedSquared > 4 &&
-        this.civilians.maySweep(
-          previous,
-          m.view.p,
-          m.view.s[0] + m.view.s[1] + m.view.s[2],
-        )
-      )
-        this.civilians.sweep(
-          previous,
-          m.view.p,
-          this.orientedSize(m.view.s, m.view.q),
-        );
       if (
         this.burnZones.length &&
         this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))
@@ -3129,7 +2808,6 @@ export class Simulation {
     this.cleanupRemains.clear();
     this.cleanupExpiry.clear();
     this.bodyPoses.dispose();
-    this.events.free();
     this.physics.free();
   }
 }

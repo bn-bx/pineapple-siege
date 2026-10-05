@@ -20,7 +20,9 @@ import { CONFIG } from "../src/config";
 import type { Entity, Ruin, WorldData } from "../src/types";
 
 beforeAll(initializePhysics);
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const flat = new Float32Array(CONFIG.grid * CONFIG.grid);
 const roofs: Entity[] = ["roof", "slate"].map((material, id) => ({
   id,
@@ -34,20 +36,16 @@ const roofs: Entity[] = ["roof", "slate"].map((material, id) => ({
   variant: 0,
 }));
 
-it("fractures roofs into matching solid wedges through physics overflow, packing, demotion and save restoration", () => {
+it("fractures roofs into matching solid wedges through visual motion, packing and save restoration", () => {
   const sim = new Simulation({ ...world, entities: roofs }, flat, () => {});
   let restored: Simulation | undefined;
   try {
     const budget = { n: 0, limit: 2 };
     (sim as any).fragment(roofs[0], [590, 30, 600], 60, budget);
     expect(budget.n).toBe(2);
-    expect(sim.moving.size).toBe(2);
-    expect(sim.ballistic.size).toBe(2);
-    for (const m of [...sim.moving.values()]) {
-      expect(m.collider.shapeType()).toBe(RAPIER.ShapeType.ConvexPolyhedron);
-      expect(m.collider.volume()).toBeCloseTo((8 * 2 * 3 * 4) / 12, 3);
-      (sim as any).settle(m, true);
-    }
+    expect(sim.moving.size).toBe(0);
+    expect(sim.ballistic.size).toBe(4);
+    expect(sim.physics.bodies.len()).toBe(0);
     (sim as any).fragment(roofs[1], [590, 30, 600], 60, { n: 8, limit: 8 });
     const packed = sim.snapshot(true).packedBodies!;
     expect(packed.buffer.byteLength).toBe(8 * 50);
@@ -75,7 +73,7 @@ it("fractures roofs into matching solid wedges through physics overflow, packing
     }
     const r = [...restored.ruins.values()][0];
     (restored as any).shoveWreckage(r.p, 1, 20, { n: 0, limit: 1 });
-    expect([...restored.moving.values()][0].view.roofPart).toBe(r.roofPart);
+    expect([...restored.ballistic.values()][0].view.roofPart).toBe(r.roofPart);
   } finally {
     sim.dispose();
     restored?.dispose();

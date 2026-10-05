@@ -4,7 +4,9 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { CONFIG, NUKE_PROFILES } from "../src/config";
 import { compatible } from "../src/storage";
 import type { WorldData, WorkerMessage } from "../src/types";
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const b = readFileSync("tests/fixtures/legacy-world/world.bin"),
   base = new Float32Array(
     b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
@@ -65,10 +67,10 @@ it("partitions modules, ejects earth and respects each blast body/effect budget"
     } else s.explode(p);
     expect(s.moving.size).toBeLessThanOrEqual(weapon === "nuke" ? 128 : 64);
     expect(
-      [...s.moving.values()].some((m) => m.view.material === "earth"),
+      [...s.ballistic.values()].some((m) => m.view.material === "earth"),
     ).toBe(true);
     const sources = new Map<number, number>();
-    for (const m of s.moving.values())
+    for (const m of s.ballistic.values())
       if (m.view.source >= 0)
         sources.set(m.view.source, (sources.get(m.view.source) || 0) + 1);
     expect([...sources.values()].some((n) => n >= 2 && n <= 6)).toBe(true);
@@ -77,15 +79,14 @@ it("partitions modules, ejects earth and respects each blast body/effect budget"
       weapon === "nuke" ? 1200 : 256,
     );
     expect(effects.some((e) => e.material === "earth")).toBe(true);
-    const speeds = [...s.moving.values()].map((m) => {
-      const v = m.body.linvel();
-      return Math.hypot(v.x, v.y, v.z);
-    });
+    const speeds = [...s.ballistic.values()].map((m) =>
+      Math.hypot(...m.velocity),
+    );
     expect(Math.max(...speeds)).toBeGreaterThan(weapon === "nuke" ? 85 : 40);
     s.dispose();
   }
 });
-it("throws existing rubble and moving fragments outward while preserving CCD", () => {
+it("reblasts temporary wreckage without creating native bodies", () => {
   const s = new Simulation(world, base, () => {}),
     p: [number, number, number] = [700, base[600 * CONFIG.grid + 350], 1200];
   const id = (s as any).spawnBody(
@@ -96,8 +97,7 @@ it("throws existing rubble and moving fragments outward while preserving CCD", (
     "chunk",
     [0, 0, 0],
   );
-  const m = s.moving.get(id)!;
-  m.age = 1;
+  const m = s.ballistic.get(id)!;
   (s as any).insertRuin({
     id: 99999,
     p: [p[0] + 10, p[1] + 1, p[2]],
@@ -109,8 +109,8 @@ it("throws existing rubble and moving fragments outward while preserving CCD", (
   });
   s.detonateNuke(p, "valley");
   expect(s.ruins.has(99999)).toBe(false);
-  expect(m.body.linvel().x).toBeGreaterThan(70);
-  expect(m.body.isCcdEnabled()).toBe(true);
+  expect(m.velocity[0]).toBeGreaterThan(70);
+  expect(s.physics.bodies.len()).toBe(0);
   s.dispose();
 });
 it("saves resolved parameters and partially processed support groups without cancelling damage", () => {
@@ -154,7 +154,7 @@ it("attenuates airborne excavation and preserves bedrock across irregular sectio
     expect(h).toBeGreaterThanOrEqual(base[i] - CONFIG.bedrock - 0.00001);
   s.dispose();
 });
-it("keeps fast physical chunks on the near side of a thin wall with CCD", () => {
+it("lets visual chunks pass through structures without secondary damage", () => {
   const wall = {
     id: 0,
     kind: "block" as const,
@@ -177,10 +177,12 @@ it("keeps fast physical chunks on the near side of a thin wall with CCD", () => 
   );
   let maxX = 0;
   for (let i = 0; i < 90; i++) {
-    s.physics.step();
-    maxX = Math.max(maxX, s.moving.get(id)!.body.translation().x);
+    s.step();
+    maxX = Math.max(maxX, s.ballistic.get(id)?.view.p[0] ?? 0);
   }
-  expect(maxX).toBeLessThan(600);
+  expect(maxX).toBeGreaterThan(600);
+  expect(s.removed.has(wall.id)).toBe(false);
+  expect(s.physics.bodies.len()).toBe(0);
   s.dispose();
 });
 it("carries representative nuke chunks hundreds of meters and collides with terrain", () => {
@@ -198,7 +200,7 @@ it("carries representative nuke chunks hundreds of meters and collides with terr
   for (let i = 0; i < 650; i++) {
     s.plane.p = [900, 450, 700];
     s.step();
-    const m = s.moving.get(id);
+    const m = s.ballistic.get(id);
     if (m) {
       travel = Math.max(
         travel,

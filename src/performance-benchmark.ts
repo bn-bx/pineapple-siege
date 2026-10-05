@@ -105,6 +105,10 @@ let snapshot: SimulationSnapshot,
 const cases = [120, 400].flatMap((count) =>
   ["flight", "nuke", "laser"].map((kind) => ({ count, kind, duration: 30 })),
 );
+cases.push(
+  { count: 120, kind: "single-nuke", duration: 20 },
+  { count: 120, kind: "single-nuke-no-save", duration: 20 },
+);
 const results: unknown[] = [];
 const frames: number[] = [];
 let foregroundFrames = 0;
@@ -123,7 +127,8 @@ saveWriter.onPreparation = (ms) => {
 };
 let touring = false;
 const resources: unknown[] = [];
-let lastResource = 0;
+let lastResource = 0,
+  lastSimulationTime = 0;
 let readyResolve: () => void = () => {};
 worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   const m = e.data,
@@ -275,8 +280,10 @@ async function beginCase(index: number) {
   caseIndex = index;
   started = performance.now();
   last = 0;
-  nextStrike = started;
+  nextStrike = started + (c.kind.startsWith("single-nuke") ? 3000 : 0);
   lastSave = started;
+  lastResource = started;
+  lastSimulationTime = snapshot?.time ?? 0;
   active = true;
   send({ type: "pause", paused: false });
 }
@@ -303,9 +310,11 @@ function frame(now: number) {
       const n = Math.floor((now - started) / 100),
         radius = soak ? 350 : 80;
       const p: [number, number, number] = [
-        world.castle[0] + Math.sin(n * 0.3) * radius,
+        world.castle[0] +
+          (c.kind.startsWith("single-nuke") ? 0 : Math.sin(n * 0.3) * radius),
         world.castle[1],
-        world.castle[2] + Math.cos(n * 0.3) * radius,
+        world.castle[2] +
+          (c.kind.startsWith("single-nuke") ? 0 : Math.cos(n * 0.3) * radius),
       ];
       audio.launch(
         p,
@@ -316,11 +325,13 @@ function frame(now: number) {
           ? { type: "debugLaser", p }
           : { type: "debugBlast", p, yield: "valley" },
       );
-      nextStrike += 100;
+      nextStrike = c.kind.startsWith("single-nuke")
+        ? Infinity
+        : nextStrike + 100;
       // Each request remains authoritative. A slow browser never queues a burst of catch-up inputs.
       if (nextStrike < now - 100) nextStrike = now + 100;
     }
-    if (now - lastSave >= 1000 && !saving) {
+    if (c.kind !== "single-nuke-no-save" && now - lastSave >= 1000 && !saving) {
       lastSave = now;
       saving = true;
       void saveWriter
@@ -344,10 +355,19 @@ function frame(now: number) {
       lastStatus = now;
       status.textContent = `${c.kind} / ${c.count} monsters · ${elapsed.toFixed(0)} / ${c.duration}s · ${view.stats.quality}p`;
     }
-    if (now - lastResource >= 10000) {
+    if (
+      now - lastResource >=
+      (c.kind.startsWith("single-nuke") ? 1000 : 10000)
+    ) {
+      const simulationRatio =
+        (snapshot.time - lastSimulationTime) / ((now - lastResource) / 1000);
+      lastSimulationTime = snapshot.time;
       lastResource = now;
       resources.push({
         elapsed,
+        simulationRatio,
+        worker: snapshot.stats,
+        stages: view.performance.stats.stages,
         heapBytes: (performance as any).memory?.usedJSHeapSize ?? null,
         queues: { ...view.performance.queues },
         render: view.stats,

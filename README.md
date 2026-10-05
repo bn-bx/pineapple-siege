@@ -49,7 +49,7 @@ The menu contains independent horizontal/vertical steering reversal, sensitivity
 
 ## Destruction defaults
 
-Destruction is fixed at Standard: 256 active physics bodies, 64 cannon / 128 nuke fragments, a 4,096-piece cosmetic pool at 1× output, and 36 persistent rubble records per section. Nukes use Valley-scale strength at 1× blast scale. Space Laser uses a 380 m strike diameter, 500 m excavation depth, and 100% brightness. Old preferences for these removed controls are replaced with these defaults; existing world damage and already-launched strikes retain their saved state.
+Destruction is fixed at Standard: a bounded pool of 512 visual wreckage pieces and 512 cosmetic chips. Wreckage has terrain-only flight and bounces, with no native physics contacts or secondary damage. Pieces move for up to six simulation seconds, then shrink away over one second. Nukes use Valley-scale strength at 1× blast scale. Space Laser uses a 380 m strike diameter, 500 m excavation depth, and 100% brightness. Old preferences for these removed controls are replaced with these defaults; existing world damage and already-launched strikes retain their saved state.
 
 The only Destruction control is **No cooldown · 0.1 sec**. Enabling it replaces all three weapon cooldowns with a 0.1-second interval (10 launches per simulated second), bypasses projectile/pending-damage admission limits, and retains each laser's full charge and beam sequence. Turning it off restores normal cooldowns. Pause and photo mode freeze firing timers.
 
@@ -93,7 +93,7 @@ Eye pairs use shared procedural billboard geometry and reuse each source batch's
 
 Monsters retain their doubled size. While any space laser charges or burns, they stop attacking and dance; laser damage still applies. Spikes have bounded lifetimes and population limits.
 
-World → Pineapple monsters has a slider from 0 (Off) to 400; the new default is 120. Existing population preferences, including 20, are preserved. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals living monsters and spawns more as needed. Defeated monsters separate into seven recognizable pieces: four fruit chunks with yellow cut faces, the crown, and two arms. Stronger launches spread the pieces farther across the landscape. Each piece tumbles and rolls under physics like falling trees, then remains where it settles. Their positions and orientations are saved. Existing saved whole-body wreckage retains its original shape. Positions, damage, and defeats are saved. Reset world revives defeated monsters.
+World → Pineapple monsters has a slider from 0 (Off) to 400; the new default is 120. Existing population preferences, including 20, are preserved. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals living monsters and spawns more as needed. Defeated monsters fly and tumble as one whole pineapple using a cheap visual trajectory, then shrink away on the same six-plus-one-second schedule as wreckage. At most 128 corpses move concurrently; excess corpses retain a static pose until cleanup. Their defeated identities are saved. Existing split corpses migrate to a whole visual pose. Positions, damage, and defeats are saved. Reset world revives defeated monsters.
 
 ## Expanded world and townspeople
 

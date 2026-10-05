@@ -275,7 +275,8 @@ it("retains source dimensions and material volume when rubble budgets and saves 
     5,
   );
   expect(s.ruins.size).toBe(0);
-  expect(s.moving.size).toBe(20);
+  expect(s.ballistic.size).toBe(20);
+  expect(s.physics.bodies.len()).toBe(0);
   expect(compatible(save, manifest.version, manifest.seed)).toBe(true);
   const restored = new Simulation(s.world, flat, () => {}, save);
   expect(
@@ -325,7 +326,7 @@ it("preserves outside wreckage from a vaporized source and simulates debris belo
   expect(s.vaporized.has(0)).toBe(true);
   expect(s.snapshot().bodies.some((b) => b.id === outside)).toBe(false);
   const id = (s as any).spawnBody(
-    [256, -450, 256],
+    [650, -450, 650],
     [1, 1, 1],
     "rock",
     -1,
@@ -333,8 +334,9 @@ it("preserves outside wreckage from a vaporized source and simulates debris belo
     [0, 0, 0],
   );
   s.step();
-  expect(s.moving.has(id)).toBe(true);
-  expect(s.moving.get(id)!.view.p[1]).toBeGreaterThan(-470);
+  expect(s.ballistic.has(id)).toBe(true);
+  expect(s.ballistic.get(id)!.view.p[1]).toBeGreaterThan(-470);
+  s.plane.p = [260, 20, 260];
   (s as any).ensureTerrain();
   s.physics.step();
   const hit = s.physics.castRay(

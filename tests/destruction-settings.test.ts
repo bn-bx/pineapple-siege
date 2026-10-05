@@ -119,7 +119,7 @@ it("keeps shooting through a full damage queue and accepts the queued save", () 
   s.dispose();
 });
 
-it("raises physical and cosmetic output, preserves amplified pending jobs and bedrock", () => {
+it("bounds visual output, preserves amplified pending jobs and bedrock", () => {
   const events: WorkerMessage[] = [];
   const s = new Simulation(world, base, (e) => events.push(e));
   s.plane.p = [1210, 280, 1070];
@@ -144,13 +144,15 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
   while (s.pendingJobs.length) s.processDestruction(50);
   while (restored.pendingJobs.length) restored.processDestruction(50);
   expect([...restored.removed].sort()).toEqual([...s.removed].sort());
-  expect(s.moving.size).toBeGreaterThan(256);
+  expect(s.moving.size).toBe(0);
+  expect(s.ballistic.size).toBeGreaterThan(256);
+  expect(s.snapshot().bodies.length).toBeLessThanOrEqual(512);
   expect(s.moving.size).toBeLessThanOrEqual(s.bodyLimit);
   expect(
     events
       .filter((e) => e.type === "fragments")
       .reduce((n, e) => n + e.count, 0),
-  ).toBeGreaterThan(720);
+  ).toBeGreaterThan(0);
   for (const [i, height] of s.terrain.changed)
     expect(height).toBeGreaterThanOrEqual(base[i] - 50.001);
   s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 0 });
@@ -192,11 +194,11 @@ it("resizes cosmetic budgets without reallocating or retaining hidden live piece
     spread: 2,
   });
   f.update(0);
-  expect(f.count).toBe(16384);
-  f.setLimit(1024);
-  expect(f.count).toBe(1024);
+  expect(f.count).toBe(512);
+  f.setLimit(128);
+  expect(f.count).toBe(128);
   f.setLimit(16384);
-  expect(f.count).toBe(1024);
+  expect(f.count).toBe(128);
   f.mesh.geometry.dispose();
   (f.mesh.material as any).dispose();
 });

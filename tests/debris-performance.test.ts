@@ -19,7 +19,9 @@ import type {
 } from "../src/types";
 
 beforeAll(initializePhysics);
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
 const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
@@ -109,7 +111,7 @@ it("makes detached snapshots without changing live physics or save records", () 
   }
 });
 
-it("keeps 8192 independent physical castle pieces and evicts only the oldest at capacity", () => {
+it("caps visual wreckage at 512 and rejects excess pieces without native allocations", () => {
   const sim = new Simulation({ ...world, entities: [] }, base, () => {});
   try {
     sim.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 4, rubble: 4 });
@@ -124,16 +126,15 @@ it("keeps 8192 independent physical castle pieces and evicts only the oldest at 
       );
     const first = spawn();
     for (let i = 1; i < MAX_BODY_LIMIT; i++) spawn();
-    expect(sim.moving.size).toBe(8192);
+    expect(sim.ballistic.size).toBe(512);
+    expect(sim.physics.bodies.len()).toBe(0);
     const last = spawn();
-    expect(sim.moving.size).toBe(MAX_BODY_LIMIT);
-    expect(sim.moving.has(first)).toBe(false);
-    expect(sim.moving.has(last)).toBe(true);
+    expect(sim.ballistic.size).toBe(512);
+    expect(sim.ballistic.has(first)).toBe(true);
+    expect(last).toBe(-1);
     expect(sim.ruins.has(first)).toBe(false);
     expect(sim.ballistic.get(first)!.view.p).toEqual([600, 300, 600]);
-    expect(unpackBodies(sim.snapshot(true).packedBodies!)).toHaveLength(
-      MAX_BODY_LIMIT + 1,
-    );
+    expect(unpackBodies(sim.snapshot(true).packedBodies!)).toHaveLength(512);
   } finally {
     sim.dispose();
   }
@@ -152,19 +153,19 @@ it("keeps terrain sweeps active at hills and shared section edges, including aft
   expect(terrain.aboveSurface([-10, -1, -10], [0, -1, 0], 1)).toBe(false);
 });
 
-it("renders all 65536 cosmetic slots and never resurrects trimmed or expired pieces", () => {
+it("caps cosmetics at 512 slots and never resurrects trimmed or expired pieces", () => {
   const f = new Fragments(() => 0);
   try {
     f.setLimit(COSMETIC_LIMITS[4]);
     f.emit({ ...burst(), count: 1000000 });
     f.update(0);
-    expect(f.count).toBe(65536);
+    expect(f.count).toBe(512);
     expect(f.mesh.instanceMatrix.updateRanges).toEqual([
-      { start: 0, count: 65536 * 16 },
+      { start: 0, count: 512 * 16 },
     ]);
-    f.setLimit(1024);
+    f.setLimit(128);
     f.setLimit(COSMETIC_LIMITS[4]);
-    expect(f.count).toBe(1024);
+    expect(f.count).toBe(128);
     for (let i = 0; i < 220; i++) f.update(0.08);
     expect(f.count).toBe(0);
     f.emit(burst());
@@ -208,63 +209,16 @@ it("compacts vaporized slots without losing surviving transforms and keeps fast 
   }
 });
 
-it("bounds mutual chip contacts during big collapses while retaining world/major collisions and restoring full detail", () => {
+it("keeps repeated explosions bounded and clears all visual wreckage", () => {
   const sim = new Simulation({ ...world, entities: [] }, base, () => {});
   try {
-    sim.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 4 });
-    const large = (sim as any).spawnBody(
-      [600, 300, 600],
-      [6, 6, 6],
-      "stone",
-      -1,
-      "chunk",
-      [0, 0, 0],
-    );
-    for (let i = 0; i < 600; i++)
-      (sim as any).spawnBody(
-        [700 + (i % 30) * 3, 300, 700 + Math.floor(i / 30) * 3],
-        [0.5, 0.5, 0.5],
-        "stone",
-        -1,
-        "chunk",
-        [0, 0, 0],
-      );
-    (sim as any).updateDebrisCollisions();
-    const major = sim.moving.get(large)!;
-    const chips = [...sim.moving.values()].filter((m) => !m.major);
-    expect([...sim.moving.values()].filter((m) => m.major)).toHaveLength(128);
-    const collides = (a: number, b: number) =>
-      ((a >>> 16) & b) !== 0 && ((b >>> 16) & a) !== 0;
-    expect(
-      collides(
-        chips[0].collider.collisionGroups(),
-        chips[1].collider.collisionGroups(),
-      ),
-    ).toBe(false);
-    expect(
-      collides(
-        chips[0].collider.collisionGroups(),
-        major.collider.collisionGroups(),
-      ),
-    ).toBe(true);
-    expect(collides(chips[0].collider.collisionGroups(), 0x00010007)).toBe(
-      true,
-    );
-    // Laser cleanup maintains the major count too; once population is small,
-    // every surviving body's mutual collision detail is restored.
-    (sim as any).clearLaser([600, 0, 600], 20);
-    for (const m of [...sim.moving.values()].slice(0, 350))
-      (sim as any).settle(m, true);
-    (sim as any).updateDebrisCollisions();
-    expect(sim.moving.size).toBe(250);
-    const survivors = [...sim.moving.values()];
-    expect(survivors.every((m) => m.major)).toBe(true);
-    expect(
-      collides(
-        survivors[0].collider.collisionGroups(),
-        survivors[1].collider.collisionGroups(),
-      ),
-    ).toBe(true);
+    sim.setMonsterCount(0);
+    for (let i = 0; i < 20; i++) sim.explode([600, 200, 600]);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(512);
+    expect(sim.physics.bodies.len()).toBe(0);
+    for (let i = 0; i < 421; i++) sim.step();
+    expect(sim.snapshot().bodies).toHaveLength(0);
+    expect(sim.physics.bodies.len()).toBe(0);
   } finally {
     sim.dispose();
   }

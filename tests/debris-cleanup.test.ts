@@ -38,7 +38,7 @@ const debris = (id: number): BodyView => ({
 function ticks(sim: Simulation, count: number) {
   for (let i = 0; i < count; i++) sim.step();
 }
-it("releases rigid and ballistic physics before shrinking, then removes every pose without permanent rubble", () => {
+it("stops visual debris motion before shrinking, then removes every pose without permanent rubble", () => {
   const sim = simulation(),
     internal = sim as any;
   try {
@@ -53,7 +53,7 @@ it("releases rigid and ballistic physics before shrinking, then removes every po
     internal.addBallistic(debris(900001), [1, 1, 0], [0, 0, 0]);
     internal.insertRuin(debris(900002));
     ticks(sim, 350);
-    expect(sim.moving.has(rigid)).toBe(true);
+    expect(sim.ballistic.has(rigid)).toBe(true);
     expect(sim.snapshot().bodies).toHaveLength(3);
     ticks(sim, 40);
     expect(sim.moving.size).toBe(0);
@@ -88,7 +88,7 @@ it("clears defeated pineapple bodies and packets without reviving them on reload
     monster.p = [600, 400, 600];
     sim.setMonsterCount(1);
     sim.monsterRagdolls.start(monster, [600, 400, 580]);
-    expect(sim.monsterRagdolls.moving.size).toBe(7);
+    expect(sim.monsterRagdolls.moving.size).toBe(1);
     ticks(sim, 390);
     expect(sim.monsterRagdolls.moving.size).toBe(0);
     expect(monster.cleanupScale).toBeCloseTo(0.5, 3);
@@ -138,7 +138,7 @@ it("keeps cleanup permanent when destruction preferences change", () => {
     sim.dispose();
   }
 });
-it("preserves cleanup deadlines across rigid-to-ballistic handoff", () => {
+it("preserves cleanup deadlines when existing debris is re-added", () => {
   const sim = simulation(),
     internal = sim as any;
   try {
@@ -151,7 +151,8 @@ it("preserves cleanup deadlines across rigid-to-ballistic handoff", () => {
       [0, 0, 0],
     );
     ticks(sim, 120);
-    internal.settle(sim.moving.get(id), true);
+    const piece = sim.ballistic.get(id)!;
+    internal.addBallistic(piece.view, [10, 10, 0]);
     expect(sim.ballistic.has(id)).toBe(true);
     ticks(sim, 301);
     expect(sim.snapshot().bodies).toHaveLength(0);

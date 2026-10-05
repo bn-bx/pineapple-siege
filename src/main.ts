@@ -1,4 +1,4 @@
-import { CONFIG } from "./config";
+import { CONFIG, BLAST_DEBRIS_LIMIT, BLAST_COSMETIC_LIMIT } from "./config";
 import { AltitudeWarning } from "./altitude-warning";
 import { SaveCaptureCoordinator } from "./save-capture";
 import { SaveWriter } from "./save-writer";
@@ -15,7 +15,6 @@ import { discoActive } from "./disco";
 import {
   DEFAULT_DESTRUCTION,
   fixedDestruction,
-  BODY_LIMITS,
   COSMETIC_LIMITS,
 } from "./destruction-settings";
 import "./style.css";
@@ -861,7 +860,7 @@ function frame(now: number) {
     }
     const r = view.stats;
     $("perf").textContent =
-      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.stats.bodies}/${BODY_LIMITS[destruction.bodies]} active bodies · ${snapshot.stats.ruins} rubble · ${snapshot.stats.ballistic} ballistic pieces\n${r.fragments}/${COSMETIC_LIMITS[destruction.cosmetics]} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
+      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.packedBodies?.count ?? snapshot.bodies.length}/${BLAST_DEBRIS_LIMIT} wreckage · ${snapshot.stats.ballistic} flying pieces\n${r.fragments}/${BLAST_COSMETIC_LIMIT} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
     lastHUD = now;
   }
 }

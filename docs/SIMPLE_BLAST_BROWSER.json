@@ -1,0 +1,4758 @@
+[
+  {
+    "case": {
+      "count": 120,
+      "kind": "single-nuke",
+      "duration": 20
+    },
+    "frames": {
+      "medianMS": 16.699999999953434,
+      "p95MS": 17.5,
+      "p99MS": 17.70000000001164,
+      "missedFraction": 0,
+      "worstMS": 17.800000000046566,
+      "lowFPS": 56.4236111110769,
+      "fps": 60.0038970058005,
+      "total": 1201
+    },
+    "environment": {
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+      "viewport": [
+        630,
+        718
+      ],
+      "seed": 41729,
+      "distance": 1200,
+      "foregroundFraction": 1
+    },
+    "main": {
+      "count": 1200,
+      "meanMS": 2.5128333349029224,
+      "p95MS": 4.100000023841858,
+      "p99MS": 4.799999952316284,
+      "maxMS": 18.299999952316284
+    },
+    "saveCapture": {
+      "count": 69,
+      "meanMS": 0.45652173913043476,
+      "p95MS": 1.5,
+      "p99MS": 1.600000023841858,
+      "maxMS": 1.600000023841858
+    },
+    "simulation": {
+      "count": 1197,
+      "meanMS": 1.3008354238997726,
+      "p95MS": 3.299999952316284,
+      "p99MS": 5.5,
+      "maxMS": 15.200000047683716
+    },
+    "storage": {
+      "count": 19,
+      "meanMS": 5.721052627814443,
+      "p95MS": 16.199999928474426,
+      "p99MS": 16.199999928474426,
+      "maxMS": 16.199999928474426
+    },
+    "render": {
+      "cameraMode": "chase",
+      "effectTime": 19.998866666666544,
+      "fps": 59.94412434508468,
+      "width": 789,
+      "height": 900,
+      "drawCalls": 132,
+      "triangles": 291542,
+      "geometries": 354,
+      "textures": 24,
+      "quality": 900,
+      "renderDistance": 1200,
+      "clouds": 1,
+      "fragments": 0,
+      "projectiles": 0,
+      "googlyFaces": 0
+    },
+    "resources": [
+      {
+        "elapsed": 1.0015999999999767,
+        "simulationRatio": 0.9817625133120583,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.2999999523162842,
+            "residents": 0.6999999284744263,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1.1999999284744263,
+          "physicsMS": 0.08360579444853758,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 0,
+          "shots": 0,
+          "revision": 2,
+          "saveSliceMS": 0,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 131072,
+          "stepSamples": [
+            1,
+            0.7999999523162842,
+            1.1999999284744263
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 24,
+            "meanMS": 79.02083209653695,
+            "p95MS": 66.69999694824219,
+            "p99MS": 891.0999755859375,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 61,
+            "meanMS": 4.348902487363971,
+            "p95MS": 7.959750175476074,
+            "p99MS": 12.155207633972168,
+            "maxMS": 12.155207633972168
+          },
+          "textureUpload": {
+            "count": 61,
+            "meanMS": 0.0016393426988945633,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.09999990463256836
+          },
+          "workerStep": {
+            "count": 61,
+            "meanMS": 1.9377049188144873,
+            "p95MS": 8.300000190734863,
+            "p99MS": 15.199999809265137,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 61,
+            "meanMS": 0.008196723265726059,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "saveSlice": {
+            "count": 61,
+            "meanMS": 0,
+            "p95MS": 0,
+            "p99MS": 0,
+            "maxMS": 0
+          },
+          "snapshot": {
+            "count": 61,
+            "meanMS": 0.16557375915714953,
+            "p95MS": 0.5,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 61,
+            "meanMS": 0.3049180175437302,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 2,
+            "maxMS": 2
+          },
+          "sim:residents": {
+            "count": 61,
+            "meanMS": 0.6901639387255809,
+            "p95MS": 2.200000047683716,
+            "p99MS": 5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 61,
+            "meanMS": 0.013114757225161693,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "sim:physics": {
+            "count": 61,
+            "meanMS": 0.0754098325479226,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "sim:ballistic": {
+            "count": 61,
+            "meanMS": 0,
+            "p95MS": 0,
+            "p99MS": 0,
+            "maxMS": 0
+          },
+          "sim:lasers": {
+            "count": 61,
+            "meanMS": 0.018032783367594736,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.19999992847442627,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 61,
+            "meanMS": 0.02459016393442623,
+            "p95MS": 0,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 61,
+            "meanMS": 0.016393446531452117,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "actors": {
+            "count": 61,
+            "meanMS": 0.2934426166972176,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "terrain": {
+            "count": 61,
+            "meanMS": 0.31475409914235597,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 1.7000000476837158,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 61,
+            "meanMS": 3.5819672267945086,
+            "p95MS": 9.899999618530273,
+            "p99MS": 47.29999923706055,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 61,
+            "meanMS": 0.014754097969805608,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "prepare": {
+            "count": 61,
+            "meanMS": 0.8524590163934426,
+            "p95MS": 1.399999976158142,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.0999999046325684
+          },
+          "reflectionSubmit": {
+            "count": 11,
+            "meanMS": 1.2454545497894287,
+            "p95MS": 2.799999952316284,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 61,
+            "meanMS": 1.7475409879059087,
+            "p95MS": 2.8000001907348633,
+            "p99MS": 6,
+            "maxMS": 6
+          },
+          "frame": {
+            "count": 60,
+            "meanMS": 16.666111501057944,
+            "p95MS": 17.700000762939453,
+            "p99MS": 17.799999237060547,
+            "maxMS": 17.799999237060547
+          }
+        },
+        "heapBytes": 206572732,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 131072,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 11.200000000000003,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 133,
+          "geometries": 335,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 0.9999666666666545,
+          "fps": 59.96278300124453,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 133,
+          "triangles": 350776,
+          "geometries": 335,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 0,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 2.0182999999999884,
+        "simulationRatio": 0.9835743090390331,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.2999999523162842,
+            "residents": 0.2999999523162842,
+            "residency": 0,
+            "physics": 0.10000002384185791,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1,
+          "physicsMS": 0.04868792960038552,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 0,
+          "shots": 0,
+          "revision": 3,
+          "saveSliceMS": 0.8000000715255737,
+          "snapshotMS": 0.2999999523162842,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 131072,
+          "stepSamples": [
+            1.100000023841858,
+            0.8000000715255737,
+            1
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 46,
+            "meanMS": 62.94347764875578,
+            "p95MS": 54.29999923706055,
+            "p99MS": 891.0999755859375,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 122,
+            "meanMS": 4.308820185114126,
+            "p95MS": 6.540708065032959,
+            "p99MS": 11.496624946594238,
+            "maxMS": 12.155207633972168
+          },
+          "textureUpload": {
+            "count": 122,
+            "meanMS": 0.0008196713494472817,
+            "p95MS": 0,
+            "p99MS": 0,
+            "maxMS": 0.09999990463256836
+          },
+          "workerStep": {
+            "count": 122,
+            "meanMS": 1.640163944392908,
+            "p95MS": 4.400000095367432,
+            "p99MS": 15.199999809265137,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 122,
+            "meanMS": 0.004098361632863029,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "saveSlice": {
+            "count": 122,
+            "meanMS": 0.3606557699500537,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 0.8000000715255737
+          },
+          "snapshot": {
+            "count": 122,
+            "meanMS": 0.16393440766412704,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 122,
+            "meanMS": 0.274590154163173,
+            "p95MS": 0.6999999284744263,
+            "p99MS": 2,
+            "maxMS": 2
+          },
+          "sim:residents": {
+            "count": 122,
+            "meanMS": 0.6360655671260396,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 122,
+            "meanMS": 0.013934429551734299,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "sim:physics": {
+            "count": 122,
+            "meanMS": 0.0663934477040025,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "sim:ballistic": {
+            "count": 122,
+            "meanMS": 0.0024590169797178174,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "sim:lasers": {
+            "count": 122,
+            "meanMS": 0.009016391683797368,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.19999992847442627,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 122,
+            "meanMS": 0.012295081967213115,
+            "p95MS": 0,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 122,
+            "meanMS": 0.01639344262295082,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "actors": {
+            "count": 122,
+            "meanMS": 0.30573770355005736,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 0.5,
+            "maxMS": 0.6000000238418579
+          },
+          "terrain": {
+            "count": 122,
+            "meanMS": 0.1631147539029356,
+            "p95MS": 0.6000000238418579,
+            "p99MS": 0.9000000953674316,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 122,
+            "meanMS": 2.5909836253181835,
+            "p95MS": 5.800000190734863,
+            "p99MS": 35.900001525878906,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 122,
+            "meanMS": 0.014754096992680283,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "prepare": {
+            "count": 122,
+            "meanMS": 0.7188524613614942,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 1.899999976158142,
+            "maxMS": 2.0999999046325684
+          },
+          "reflectionSubmit": {
+            "count": 22,
+            "meanMS": 1.1999999989162793,
+            "p95MS": 1.5,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 122,
+            "meanMS": 1.7016393434805948,
+            "p95MS": 2.8000001907348633,
+            "p99MS": 5.699999809265137,
+            "maxMS": 6
+          },
+          "frame": {
+            "count": 121,
+            "meanMS": 16.660881917338727,
+            "p95MS": 17.700000762939453,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 1,
+            "meanMS": 0.5,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 203214744,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 131072,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 132,
+          "geometries": 335,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 2.015966666666656,
+          "fps": 60.077393858180706,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 132,
+          "triangles": 351004,
+          "geometries": 335,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 0,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 3.0345,
+        "simulationRatio": 1.0004592271862345,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.30000007152557373,
+            "residents": 0.6999999284744263,
+            "residency": 0.19999992847442627,
+            "physics": 0.6999999284744263,
+            "ballistic": 0.40000009536743164,
+            "lasers": 0,
+            "colliders": 0.20000004768371582
+          },
+          "stepMS": 8,
+          "physicsMS": 0.16748533968541737,
+          "destructionMS": 2.899999976158142,
+          "pendingJobs": 1,
+          "bodies": 0,
+          "ballistic": 24,
+          "ruins": 0,
+          "removed": 0,
+          "shots": 0,
+          "revision": 14,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.30000007152557373,
+          "packetPoolBusy": 5,
+          "packetPoolBytes": 66736,
+          "stepSamples": [
+            8
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 70,
+            "meanMS": 56.14714242901121,
+            "p95MS": 54.29999923706055,
+            "p99MS": 891.0999755859375,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 183,
+            "meanMS": 4.130458761434086,
+            "p95MS": 6.3187079429626465,
+            "p99MS": 11.496624946594238,
+            "maxMS": 12.155207633972168
+          },
+          "textureUpload": {
+            "count": 183,
+            "meanMS": 0.0010928957840132584,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.10000002384185791
+          },
+          "workerStep": {
+            "count": 183,
+            "meanMS": 1.6579235030002282,
+            "p95MS": 4.5,
+            "p99MS": 15.199999809265137,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 183,
+            "meanMS": 0.004371585741720564,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "saveSlice": {
+            "count": 183,
+            "meanMS": 0.41366122524595,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 0.8000000715255737
+          },
+          "snapshot": {
+            "count": 183,
+            "meanMS": 0.17158468629493087,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 183,
+            "meanMS": 0.30928960849678583,
+            "p95MS": 0.6999999284744263,
+            "p99MS": 2,
+            "maxMS": 2
+          },
+          "sim:residents": {
+            "count": 183,
+            "meanMS": 0.6491803230483675,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 183,
+            "meanMS": 0.015846994405235747,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "sim:physics": {
+            "count": 183,
+            "meanMS": 0.07377049636319687,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 1.9000000953674316,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 183,
+            "meanMS": 0.0016393446531452116,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.10000002384185791
+          },
+          "sim:lasers": {
+            "count": 183,
+            "meanMS": 0.007650272442343457,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.19999992847442627,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 183,
+            "meanMS": 0.00819672131147541,
+            "p95MS": 0,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 183,
+            "meanMS": 0.01967213127782436,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.20000004768371582
+          },
+          "actors": {
+            "count": 183,
+            "meanMS": 0.3196721304961241,
+            "p95MS": 0.5,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 183,
+            "meanMS": 0.11639344236238407,
+            "p95MS": 0.6000000238418579,
+            "p99MS": 0.9000000953674316,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 183,
+            "meanMS": 2.260655758159408,
+            "p95MS": 3.700000047683716,
+            "p99MS": 35.900001525878906,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 183,
+            "meanMS": 0.01748633905838096,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 183,
+            "meanMS": 0.6863387992473248,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.200000047683716
+          },
+          "reflectionSubmit": {
+            "count": 32,
+            "meanMS": 1.1749999932944775,
+            "p95MS": 1.5,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 183,
+            "meanMS": 1.7262295087178547,
+            "p95MS": 3,
+            "p99MS": 5.699999809265137,
+            "maxMS": 6
+          },
+          "frame": {
+            "count": 182,
+            "meanMS": 16.66575127381545,
+            "p95MS": 17.600000381469727,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 2,
+            "meanMS": 0.25,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 204858894,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 131072,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 2,
+          "terrainWorkerActive": 1,
+          "drawCalls": 137,
+          "geometries": 335,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 3.033166666666671,
+          "fps": 59.98216700122903,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 137,
+          "triangles": 355724,
+          "geometries": 335,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 153,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 4.034799999999988,
+        "simulationRatio": 1.0163617581392335,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.2999999523162842,
+            "residency": 0,
+            "physics": 0.10000002384185791,
+            "ballistic": 0.10000002384185791,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.6999999284744263,
+          "physicsMS": 0.07447880840048399,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 512,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4621,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.20000004768371582,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 157872,
+          "stepSamples": [
+            1.3000000715255737,
+            2.8000000715255737,
+            0.6999999284744263
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 92,
+            "meanMS": 53.57499969912612,
+            "p95MS": 54.29999923706055,
+            "p99MS": 891.0999755859375,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 243,
+            "meanMS": 4.201877911885579,
+            "p95MS": 6.540708065032959,
+            "p99MS": 10.546875,
+            "maxMS": 12.155207633972168
+          },
+          "textureUpload": {
+            "count": 243,
+            "meanMS": 0.004526748088161641,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 243,
+            "meanMS": 2.1226337490748968,
+            "p95MS": 6.300000190734863,
+            "p99MS": 9.899999618530273,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 243,
+            "meanMS": 0.47283950509357847,
+            "p95MS": 2,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 243,
+            "meanMS": 0.4349794412346043,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 0.8000000715255737
+          },
+          "snapshot": {
+            "count": 243,
+            "meanMS": 0.17818929383784166,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 243,
+            "meanMS": 0.3074073977921725,
+            "p95MS": 0.6999999284744263,
+            "p99MS": 2.200000047683716,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 243,
+            "meanMS": 0.6288065817130446,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 2.200000047683716,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 243,
+            "meanMS": 0.037037038018183456,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 243,
+            "meanMS": 0.07695473466881018,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 243,
+            "meanMS": 0.042798352830203966,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 1,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 243,
+            "meanMS": 0.009053498138616115,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 243,
+            "meanMS": 0.013168725947784298,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 243,
+            "meanMS": 0.041563786596918305,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.5,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 243,
+            "meanMS": 0.3090534941159158,
+            "p95MS": 0.5,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 243,
+            "meanMS": 0.11522633695798647,
+            "p95MS": 0.6000000238418579,
+            "p99MS": 0.9000000953674316,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 243,
+            "meanMS": 2.086008234279146,
+            "p95MS": 3.5999999046325684,
+            "p99MS": 9.899999618530273,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 243,
+            "meanMS": 0.05720164697356676,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 243,
+            "meanMS": 0.7423868331398984,
+            "p95MS": 1.399999976158142,
+            "p99MS": 2.1999998092651367,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 43,
+            "meanMS": 1.1813953505005947,
+            "p95MS": 1.4000000953674316,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 243,
+            "meanMS": 1.8000000003924586,
+            "p95MS": 3,
+            "p99MS": 5.699999809265137,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 242,
+            "meanMS": 16.66597831347757,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 3,
+            "meanMS": 0.1999999682108561,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 222213256,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 157872,
+          "activeBodies": 0,
+          "ballisticBodies": 512,
+          "permanentRuins": 0,
+          "workerLagMS": 12.60000004769536,
+          "destruction": 2,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 122,
+          "geometries": 341,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 4.0331666666666734,
+          "fps": 59.97503385157432,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 122,
+          "triangles": 309012,
+          "geometries": 341,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 5.034799999999988,
+        "simulationRatio": 0.9666666666666632,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.20000004768371582,
+            "residents": 0.5,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0.10000002384185791,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1,
+          "physicsMS": 0.045737120980872535,
+          "destructionMS": 0.19999992847442627,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 512,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4621,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 157872,
+          "stepSamples": [
+            1,
+            1.100000023841858,
+            1
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 113,
+            "meanMS": 52.16991125271384,
+            "p95MS": 54.29999923706055,
+            "p99MS": 66.69999694824219,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 303,
+            "meanMS": 4.2951319296367885,
+            "p95MS": 6.873833179473877,
+            "p99MS": 10.546875,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 303,
+            "meanMS": 0.003630362328129633,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 303,
+            "meanMS": 1.914851490813907,
+            "p95MS": 4.5,
+            "p99MS": 9.899999618530273,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 303,
+            "meanMS": 0.3858085799925398,
+            "p95MS": 2,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 303,
+            "meanMS": 0.4544554594719764,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 303,
+            "meanMS": 0.1722772207984043,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 303,
+            "meanMS": 0.2801980134284142,
+            "p95MS": 0.6999999284744263,
+            "p99MS": 2,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 303,
+            "meanMS": 0.602970295219925,
+            "p95MS": 1.2000000476837158,
+            "p99MS": 2.200000047683716,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 303,
+            "meanMS": 0.03234323573978034,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 303,
+            "meanMS": 0.07458746039828058,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.5,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 303,
+            "meanMS": 0.055775574725059784,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 303,
+            "meanMS": 0.00726072622997926,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 303,
+            "meanMS": 0.010561057443272556,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 303,
+            "meanMS": 0.045544554298073546,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 303,
+            "meanMS": 0.29735973526542336,
+            "p95MS": 0.5,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 303,
+            "meanMS": 0.09636963672763837,
+            "p95MS": 0.5,
+            "p99MS": 0.8999999761581421,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 303,
+            "meanMS": 1.9303630299300645,
+            "p95MS": 3,
+            "p99MS": 9.899999618530273,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 303,
+            "meanMS": 0.0768976900050349,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 303,
+            "meanMS": 0.7297029723428657,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 54,
+            "meanMS": 1.1444444457689922,
+            "p95MS": 1.4000000953674316,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 303,
+            "meanMS": 1.7524752483116124,
+            "p95MS": 2.9000000953674316,
+            "p99MS": 4.5,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 302,
+            "meanMS": 16.665784008455592,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 4,
+            "meanMS": 0.17499998211860657,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 223970752,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 249008,
+          "activeBodies": 0,
+          "ballisticBodies": 512,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 134,
+          "geometries": 344,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 5.033066666666635,
+          "fps": 59.99049195919341,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 134,
+          "triangles": 302070,
+          "geometries": 344,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 6.051,
+        "simulationRatio": 1.0168601981237138,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.19999992847442627,
+            "residents": 0.5,
+            "residency": 0.10000002384185791,
+            "physics": 0.10000002384185791,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.8999999761581421,
+          "physicsMS": 0.04265970907135709,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 512,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4624,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 2,
+          "packetPoolBytes": 340144,
+          "stepSamples": [
+            0.7999999523162842,
+            2.3000000715255737,
+            0.8999999761581421
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 136,
+            "meanMS": 50.942646877730596,
+            "p95MS": 53.900001525878906,
+            "p99MS": 66.69999694824219,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 364,
+            "meanMS": 4.287466414682158,
+            "p95MS": 6.7542500495910645,
+            "p99MS": 10.546875,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 364,
+            "meanMS": 0.0030219774324815353,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 364,
+            "meanMS": 1.78241758785405,
+            "p95MS": 4.400000095367432,
+            "p99MS": 9.899999618530273,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 364,
+            "meanMS": 0.32417582319333005,
+            "p95MS": 2,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 364,
+            "meanMS": 0.462087923681343,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 364,
+            "meanMS": 0.16813186236790248,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 364,
+            "meanMS": 0.2637362598062872,
+            "p95MS": 0.6000000238418579,
+            "p99MS": 2,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 364,
+            "meanMS": 0.5807692287387428,
+            "p95MS": 1.2000000476837158,
+            "p99MS": 2.200000047683716,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 364,
+            "meanMS": 0.02774725412274455,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 364,
+            "meanMS": 0.06730769329018645,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.5,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 364,
+            "meanMS": 0.07197801981653486,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 364,
+            "meanMS": 0.006593406855405032,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 364,
+            "meanMS": 0.008791209904702155,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 364,
+            "meanMS": 0.0467032973582928,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 364,
+            "meanMS": 0.29175824090674685,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 364,
+            "meanMS": 0.08214285674985948,
+            "p95MS": 0.5,
+            "p99MS": 0.8999999761581421,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 364,
+            "meanMS": 1.824725261428854,
+            "p95MS": 2.5,
+            "p99MS": 9.899999618530273,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 364,
+            "meanMS": 0.10027472658471746,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.5,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 364,
+            "meanMS": 0.7296703326833117,
+            "p95MS": 1.2999999523162842,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 64,
+            "meanMS": 1.1468750014901161,
+            "p95MS": 1.4000000953674316,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 364,
+            "meanMS": 1.7217032945418096,
+            "p95MS": 2.9000000953674316,
+            "p99MS": 4.5,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 363,
+            "meanMS": 16.66574876433233,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 5,
+            "meanMS": 0.13999998569488525,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 222016672,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 2,
+          "packetPoolBytes": 340144,
+          "activeBodies": 0,
+          "ballisticBodies": 512,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 116,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 6.049666666666668,
+          "fps": 59.994706251025114,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 116,
+          "triangles": 303876,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 7.051299999999989,
+        "simulationRatio": 1.016361758139233,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.3999999761581421,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0.10000002384185791,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.7000000476837158,
+          "physicsMS": 0.06565344064070758,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 512,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4625,
+          "saveSliceMS": 1.100000023841858,
+          "snapshotMS": 0.19999992847442627,
+          "packetPoolBusy": 2,
+          "packetPoolBytes": 340144,
+          "stepSamples": [
+            2.299999952316284,
+            0.8999999761581421,
+            0.7000000476837158
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 158,
+            "meanMS": 50.29050615392154,
+            "p95MS": 54.29999923706055,
+            "p99MS": 66.69999694824219,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 424,
+            "meanMS": 4.318941714066379,
+            "p95MS": 6.7542500495910645,
+            "p99MS": 10.121125221252441,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 424,
+            "meanMS": 0.002594339116564337,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 424,
+            "meanMS": 1.6792452894854095,
+            "p95MS": 4.300000190734863,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 424,
+            "meanMS": 0.27900943244403265,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 424,
+            "meanMS": 0.5495283151010297,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 424,
+            "meanMS": 0.1672169765773809,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 424,
+            "meanMS": 0.24811320484809155,
+            "p95MS": 0.6000000238418579,
+            "p99MS": 2,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 424,
+            "meanMS": 0.5655660359364636,
+            "p95MS": 1.1999999284744263,
+            "p99MS": 1.600000023841858,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 424,
+            "meanMS": 0.025707548800504434,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 424,
+            "meanMS": 0.06839622725855629,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.5,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 424,
+            "meanMS": 0.07971698130076786,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 424,
+            "meanMS": 0.005660377583413754,
+            "p95MS": 0.09999990463256836,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 424,
+            "meanMS": 0.007547170767244303,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 424,
+            "meanMS": 0.04504717014870554,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 424,
+            "meanMS": 0.28466981087090837,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 424,
+            "meanMS": 0.07169811315131637,
+            "p95MS": 0.5,
+            "p99MS": 0.8999999761581421,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 424,
+            "meanMS": 1.75047167995066,
+            "p95MS": 2.1999998092651367,
+            "p99MS": 7,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 424,
+            "meanMS": 0.11556603773584906,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 424,
+            "meanMS": 0.7238207577534441,
+            "p95MS": 1.2000000476837158,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 75,
+            "meanMS": 1.1386666711171467,
+            "p95MS": 1.4000000953674316,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 424,
+            "meanMS": 1.6952830165062311,
+            "p95MS": 2.8000001907348633,
+            "p99MS": 3.9000000953674316,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 423,
+            "meanMS": 16.665642594051135,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 6,
+            "meanMS": 0.11666665474573772,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 222369016,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 2,
+          "packetPoolBytes": 340144,
+          "activeBodies": 0,
+          "ballisticBodies": 512,
+          "permanentRuins": 0,
+          "workerLagMS": 12.699999976134862,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 128,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 7.049566666666631,
+          "fps": 59.99574756639287,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 128,
+          "triangles": 294670,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 8.067900000000023,
+        "simulationRatio": 0.9836710603973675,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.7000000476837158,
+            "residency": 0,
+            "physics": 0.20000004768371582,
+            "ballistic": 0.19999992847442627,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1.3000000715255737,
+          "physicsMS": 0.0735501687736663,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 511,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4627,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.19999992847442627,
+          "packetPoolBusy": 5,
+          "packetPoolBytes": 91136,
+          "stepSamples": [
+            0.8000000715255737,
+            1.3000000715255737
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 181,
+            "meanMS": 49.45635342136931,
+            "p95MS": 53.70000076293945,
+            "p99MS": 66.69999694824219,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 485,
+            "meanMS": 4.348385835922871,
+            "p95MS": 6.583623886108398,
+            "p99MS": 10.546875,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 485,
+            "meanMS": 0.0022680407946871727,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 485,
+            "meanMS": 1.7259793923073208,
+            "p95MS": 4.5,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 485,
+            "meanMS": 0.24453608129442353,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 485,
+            "meanMS": 0.545773207526846,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 485,
+            "meanMS": 0.16412370721089473,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 485,
+            "meanMS": 0.23690721644568688,
+            "p95MS": 0.5999999046325684,
+            "p99MS": 2,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 485,
+            "meanMS": 0.5531958774193046,
+            "p95MS": 1.1999999284744263,
+            "p99MS": 1.600000023841858,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 485,
+            "meanMS": 0.02309278434084863,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 485,
+            "meanMS": 0.06288659941289843,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.5,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 485,
+            "meanMS": 0.08742267692211977,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 485,
+            "meanMS": 0.0049484538048813025,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 485,
+            "meanMS": 0.006597938980023885,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.5
+          },
+          "bodies": {
+            "count": 485,
+            "meanMS": 0.04391752592067129,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 485,
+            "meanMS": 0.2824742265583314,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 485,
+            "meanMS": 0.06391752577319587,
+            "p95MS": 0.5,
+            "p99MS": 0.8999999761581421,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 485,
+            "meanMS": 1.6938144111141715,
+            "p95MS": 2.0999999046325684,
+            "p99MS": 7,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 485,
+            "meanMS": 0.12309278286609453,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 485,
+            "meanMS": 0.7202061876808246,
+            "p95MS": 1.1999999284744263,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 85,
+            "meanMS": 1.1235294145696304,
+            "p95MS": 1.399999976158142,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 485,
+            "meanMS": 1.6736082453088663,
+            "p95MS": 2.8000001907348633,
+            "p99MS": 3.9000000953674316,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 484,
+            "meanMS": 16.665633979907707,
+            "p95MS": 17.399999618530273,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 7,
+            "meanMS": 0.0999999897820609,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 223837688,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 5,
+          "packetPoolBytes": 91136,
+          "activeBodies": 0,
+          "ballisticBodies": 511,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 114,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 8.066166666666664,
+          "fps": 59.990975617100375,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 114,
+          "triangles": 301140,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 9.0845,
+        "simulationRatio": 1.016460095744057,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.19999992847442627,
+            "residents": 0.6000000238418579,
+            "residency": 0,
+            "physics": 0.10000002384185791,
+            "ballistic": 0.3999999761581421,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1.399999976158142,
+          "physicsMS": 0.054276431297448,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 473,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4645,
+          "saveSliceMS": 0.2999999523162842,
+          "snapshotMS": 0.3999999761581421,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            1,
+            1.399999976158142
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 203,
+            "meanMS": 49.1857141080161,
+            "p95MS": 53.900001525878906,
+            "p99MS": 59,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 546,
+            "meanMS": 4.348455233888312,
+            "p95MS": 6.540708065032959,
+            "p99MS": 10.121125221252441,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 546,
+            "meanMS": 0.0020146516216543566,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 546,
+            "meanMS": 1.6734432320455055,
+            "p95MS": 4.5,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 546,
+            "meanMS": 0.21721611616812347,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 546,
+            "meanMS": 0.5208791265120873,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 546,
+            "meanMS": 0.16263735927504935,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 546,
+            "meanMS": 0.2285714287024278,
+            "p95MS": 0.5,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 546,
+            "meanMS": 0.544871795090127,
+            "p95MS": 1.1999999284744263,
+            "p99MS": 1.600000023841858,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 546,
+            "meanMS": 0.02142857238923237,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 546,
+            "meanMS": 0.06318681580679757,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 546,
+            "meanMS": 0.09816849406385597,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 546,
+            "meanMS": 0.00494505525071979,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 546,
+            "meanMS": 0.009890110283107548,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 546,
+            "meanMS": 0.042490843014839366,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 546,
+            "meanMS": 0.28076922980856983,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 546,
+            "meanMS": 0.057142857230189956,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 0.8000000715255737,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 546,
+            "meanMS": 1.6498168250579974,
+            "p95MS": 1.7000000476837158,
+            "p99MS": 5.900000095367432,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 546,
+            "meanMS": 0.12600732548332913,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 546,
+            "meanMS": 0.7120879133105714,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.899999976158142,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 96,
+            "meanMS": 1.117708335320155,
+            "p95MS": 1.399999976158142,
+            "p99MS": 2.799999952316284,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 546,
+            "meanMS": 1.6569597061737116,
+            "p95MS": 2.700000047683716,
+            "p99MS": 3.8000001907348633,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 545,
+            "meanMS": 16.6656272870685,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 8,
+            "meanMS": 0.08749999105930328,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 224479296,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 475,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 114,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 9.082766666666624,
+          "fps": 60.00909852632686,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 114,
+          "triangles": 301044,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 433,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 10.101200000000011,
+        "simulationRatio": 0.9999672141897369,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.3999999761581421,
+            "residency": 0.10000002384185791,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.7000000476837158,
+          "physicsMS": 0.05091388953478321,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 4683,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.7000000476837158,
+            0.6000000238418579,
+            0.7000000476837158
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 226,
+            "meanMS": 48.6685838841759,
+            "p95MS": 53.70000076293945,
+            "p99MS": 59,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 607,
+            "meanMS": 4.347156953575976,
+            "p95MS": 6.540708065032959,
+            "p99MS": 9.795873641967773,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 607,
+            "meanMS": 0.0018121907502854676,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 607,
+            "meanMS": 1.61647447369244,
+            "p95MS": 4.300000190734863,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 607,
+            "meanMS": 0.19538714897495124,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 607,
+            "meanMS": 0.5168039584670467,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 607,
+            "meanMS": 0.16490938341401554,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 607,
+            "meanMS": 0.2263591409318726,
+            "p95MS": 0.5,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 607,
+            "meanMS": 0.5334431657681159,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.600000023841858,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 607,
+            "meanMS": 0.02059308151044013,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 607,
+            "meanMS": 0.06144975575033876,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 607,
+            "meanMS": 0.09439867823284973,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 607,
+            "meanMS": 0.004448105711520602,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 607,
+            "meanMS": 0.008896211226650281,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 607,
+            "meanMS": 0.042174630149388825,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 607,
+            "meanMS": 0.27841845100754764,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7000000476837158,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 607,
+            "meanMS": 0.05271828665568369,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 607,
+            "meanMS": 1.614662246413443,
+            "p95MS": 1.600000023841858,
+            "p99MS": 5.900000095367432,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 607,
+            "meanMS": 0.1215815481283323,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 607,
+            "meanMS": 0.7041186172840427,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.7000000476837158,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 106,
+            "meanMS": 1.102830189578938,
+            "p95MS": 1.399999976158142,
+            "p99MS": 1.600000023841858,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 607,
+            "meanMS": 1.6400329467688597,
+            "p95MS": 2.700000047683716,
+            "p99MS": 3.6999998092651367,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 606,
+            "meanMS": 16.665621929042803,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 9,
+            "meanMS": 0.07777776983049181,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 226816864,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 7.499999976181428,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 112,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 10.09936666666665,
+          "fps": 59.98841609281494,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 112,
+          "triangles": 296486,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 280,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 11.117700000000012,
+        "simulationRatio": 0.9673717002787824,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.19999992847442627,
+            "residents": 0.40000009536743164,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.7000000476837158,
+          "physicsMS": 0.04160281830326166,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5172,
+          "saveSliceMS": 0.3999999761581421,
+          "snapshotMS": 0.09999990463256836,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.7999999523162842,
+            0.7000000476837158
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 248,
+            "meanMS": 48.31370949504837,
+            "p95MS": 53.599998474121094,
+            "p99MS": 59,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 668,
+            "meanMS": 4.350004103726255,
+            "p95MS": 6.4734578132629395,
+            "p99MS": 9.795873641967773,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 668,
+            "meanMS": 0.0016467062656037109,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 668,
+            "meanMS": 1.5634730638501173,
+            "p95MS": 4.199999809265137,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 668,
+            "meanMS": 0.17754490932304703,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 668,
+            "meanMS": 0.5068862297220859,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 668,
+            "meanMS": 0.1616766411744192,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 668,
+            "meanMS": 0.21796406832283843,
+            "p95MS": 0.5,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 668,
+            "meanMS": 0.5254491042948055,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.600000023841858,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 668,
+            "meanMS": 0.01961077937109028,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 668,
+            "meanMS": 0.05973054156331959,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 668,
+            "meanMS": 0.08577843965170626,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 668,
+            "meanMS": 0.004491018320985897,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 668,
+            "meanMS": 0.008083832656551979,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 668,
+            "meanMS": 0.038922156580907856,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 668,
+            "meanMS": 0.2773952095094555,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7000000476837158,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 668,
+            "meanMS": 0.048502994154741665,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 668,
+            "meanMS": 1.5859281147668463,
+            "p95MS": 1.600000023841858,
+            "p99MS": 5.900000095367432,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 668,
+            "meanMS": 0.11482035863899186,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 668,
+            "meanMS": 0.6869760487607853,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.7000000476837158,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 117,
+            "meanMS": 1.105982907816895,
+            "p95MS": 1.399999976158142,
+            "p99MS": 1.600000023841858,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 668,
+            "meanMS": 1.6366766453860049,
+            "p95MS": 2.700000047683716,
+            "p99MS": 3.6999998092651367,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 667,
+            "meanMS": 16.665767489523365,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 10,
+            "meanMS": 0.06999999284744263,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 225583656,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 109,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 11.116066666666587,
+          "fps": 59.993690972811834,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 109,
+          "triangles": 290870,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 12.133700000000012,
+        "simulationRatio": 1.0006561679790524,
+        "worker": {
+          "stageMS": {
+            "monsters": 0,
+            "residents": 0.3999999761581421,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.6999999284744263,
+          "physicsMS": 0.038980308239418816,
+          "destructionMS": 0.10000002384185791,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5173,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.6000000238418579,
+            0.6999999284744263
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 271,
+            "meanMS": 47.967896526150156,
+            "p95MS": 53.20000076293945,
+            "p99MS": 59,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 729,
+            "meanMS": 4.339532581049392,
+            "p95MS": 6.452208042144775,
+            "p99MS": 9.212499618530273,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 729,
+            "meanMS": 0.0015089160293872137,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 729,
+            "meanMS": 1.5123456875156147,
+            "p95MS": 4.199999809265137,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 729,
+            "meanMS": 0.16268861375554927,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 729,
+            "meanMS": 0.5054869702486998,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 729,
+            "meanMS": 0.15569272518812058,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 729,
+            "meanMS": 0.21358024240030674,
+            "p95MS": 0.5,
+            "p99MS": 1.1999999284744263,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 729,
+            "meanMS": 0.5187928689687177,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 729,
+            "meanMS": 0.018244171011758605,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 729,
+            "meanMS": 0.058024694072529776,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 729,
+            "meanMS": 0.07860081987289408,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 729,
+            "meanMS": 0.004115226664497365,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 729,
+            "meanMS": 0.008230453165470327,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 729,
+            "meanMS": 0.03621399271798886,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 729,
+            "meanMS": 0.27544581677524477,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 729,
+            "meanMS": 0.045130315795029796,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 729,
+            "meanMS": 1.5620027129705714,
+            "p95MS": 1.600000023841858,
+            "p99MS": 5.800000190734863,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 729,
+            "meanMS": 0.10850480031247656,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 729,
+            "meanMS": 0.6696844998701119,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.5,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 128,
+            "meanMS": 1.1140625020489097,
+            "p95MS": 1.399999976158142,
+            "p99MS": 1.600000023841858,
+            "maxMS": 2.799999952316284
+          },
+          "submit": {
+            "count": 729,
+            "meanMS": 1.6315500664285836,
+            "p95MS": 2.700000047683716,
+            "p99MS": 3.5999999046325684,
+            "maxMS": 13
+          },
+          "frame": {
+            "count": 728,
+            "meanMS": 16.665613921134028,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 11,
+            "meanMS": 0.07272726839238947,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 224369332,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 109,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 12.132566666666575,
+          "fps": 59.99262176171842,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 109,
+          "triangles": 290870,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 13.134299999999989,
+        "simulationRatio": 0.9994003597842026,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.5,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.7999999523162842,
+          "physicsMS": 0.03742296166053672,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5174,
+          "saveSliceMS": 0.3999999761581421,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "stepSamples": [
+            0.6999999284744263,
+            0.7000000476837158,
+            0.7999999523162842
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 293,
+            "meanMS": 47.77610908148639,
+            "p95MS": 53.400001525878906,
+            "p99MS": 59,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 789,
+            "meanMS": 4.360972079336266,
+            "p95MS": 6.448915958404541,
+            "p99MS": 9.795873641967773,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 789,
+            "meanMS": 0.0013941695632741177,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 789,
+            "meanMS": 1.4741444933701529,
+            "p95MS": 4,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 789,
+            "meanMS": 0.15107731251057865,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 789,
+            "meanMS": 0.49670468960122616,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 789,
+            "meanMS": 0.15234473676282642,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 789,
+            "meanMS": 0.2124207819067178,
+            "p95MS": 0.5,
+            "p99MS": 1.1999999284744263,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 789,
+            "meanMS": 0.5174904951426769,
+            "p95MS": 1,
+            "p99MS": 1.5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 789,
+            "meanMS": 0.01711026706623034,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 789,
+            "meanMS": 0.05665399487329829,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 789,
+            "meanMS": 0.07262357121335841,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 789,
+            "meanMS": 0.0038022816709994667,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 789,
+            "meanMS": 0.007604563190909846,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 789,
+            "meanMS": 0.034474018408771706,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 789,
+            "meanMS": 0.27705956895390693,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 789,
+            "meanMS": 0.04258555166319447,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7999999523162842,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 789,
+            "meanMS": 1.5420785486622606,
+            "p95MS": 1.600000023841858,
+            "p99MS": 5.800000190734863,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 789,
+            "meanMS": 0.10304182412808688,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 789,
+            "meanMS": 0.6603295316563209,
+            "p95MS": 1,
+            "p99MS": 1.5,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 138,
+            "meanMS": 1.242753627507583,
+            "p95MS": 1.5,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 789,
+            "meanMS": 1.6562737625361394,
+            "p95MS": 2.700000047683716,
+            "p99MS": 3.6999998092651367,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 788,
+            "meanMS": 16.66582100887589,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 12,
+            "meanMS": 0.07499999801317851,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 230516880,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 111,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 13.1326666666666,
+          "fps": 59.975578999534825,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 111,
+          "triangles": 290890,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 14.150900000000023,
+        "simulationRatio": 1.0164600957439986,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.19999992847442627,
+            "residents": 0.3999999761581421,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.5999999046325684,
+          "physicsMS": 0.045925629704110814,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5175,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.20000004768371582,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.8999999761581421,
+            0.5999999046325684
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 316,
+            "meanMS": 47.56772141931932,
+            "p95MS": 53.400001525878906,
+            "p99MS": 56.099998474121094,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 850,
+            "meanMS": 4.344942873505985,
+            "p95MS": 6.3187079429626465,
+            "p99MS": 9.466625213623047,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 850,
+            "meanMS": 0.001411764481488396,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 850,
+            "meanMS": 1.4471764762261334,
+            "p95MS": 3.700000047683716,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 850,
+            "meanMS": 0.14058823445264032,
+            "p95MS": 2,
+            "p99MS": 2.0999999046325684,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 850,
+            "meanMS": 0.4962352940615486,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 850,
+            "meanMS": 0.15117646610035615,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 850,
+            "meanMS": 0.21211764475878547,
+            "p95MS": 0.5,
+            "p99MS": 1.1999999284744263,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 850,
+            "meanMS": 0.5191764716541066,
+            "p95MS": 1,
+            "p99MS": 1.5,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 850,
+            "meanMS": 0.01658823574290556,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 850,
+            "meanMS": 0.05482353224473841,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 850,
+            "meanMS": 0.06741176198510562,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 850,
+            "meanMS": 0.0038823533058166505,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 850,
+            "meanMS": 0.0076470593845143035,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 850,
+            "meanMS": 0.0328235302251928,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 850,
+            "meanMS": 0.27988235291312724,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6999999284744263,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 850,
+            "meanMS": 0.039647059160120346,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.7000000476837158,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 850,
+            "meanMS": 1.5247058493950787,
+            "p95MS": 1.600000023841858,
+            "p99MS": 5,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 850,
+            "meanMS": 0.0991764698309057,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 850,
+            "meanMS": 0.6536470594125635,
+            "p95MS": 1,
+            "p99MS": 1.5,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 149,
+            "meanMS": 1.276510069834306,
+            "p95MS": 1.7999999523162842,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 850,
+            "meanMS": 1.6821176448990316,
+            "p95MS": 2.8000001907348633,
+            "p99MS": 3.5999999046325684,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 849,
+            "meanMS": 16.664978776579048,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 13,
+            "meanMS": 0.07692307692307693,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 229477924,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 142,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 14.148566666666547,
+          "fps": 60.10733365536123,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 142,
+          "triangles": 287114,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 15.167299999999988,
+        "simulationRatio": 1.0002623638988115,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.10000002384185791,
+            "residents": 0.6000000238418579,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 0.8999999761581421,
+          "physicsMS": 0.028995422119748964,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5176,
+          "saveSliceMS": 0.6000000238418579,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.8999999761581421,
+            0.7000000476837158,
+            0.8999999761581421
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 338,
+            "meanMS": 47.47366854812972,
+            "p95MS": 53.599998474121094,
+            "p99MS": 56.099998474121094,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 911,
+            "meanMS": 4.348679839321601,
+            "p95MS": 6.294000148773193,
+            "p99MS": 9.212499618530273,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 911,
+            "meanMS": 0.0013172335996324224,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 911,
+            "meanMS": 1.4245883685697185,
+            "p95MS": 3.5999999046325684,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 911,
+            "meanMS": 0.13117453269456011,
+            "p95MS": 2,
+            "p99MS": 2,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 911,
+            "meanMS": 0.5027442385414953,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 911,
+            "meanMS": 0.15049395812460672,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 911,
+            "meanMS": 0.21229417905064235,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 1,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 911,
+            "meanMS": 0.5194291996510964,
+            "p95MS": 0.9000000953674316,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 911,
+            "meanMS": 0.015697036433298422,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 911,
+            "meanMS": 0.053238202920991164,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 911,
+            "meanMS": 0.06289791184120723,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 911,
+            "meanMS": 0.0036223933149771162,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 911,
+            "meanMS": 0.007135016988844301,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 911,
+            "meanMS": 0.031503842769417624,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 911,
+            "meanMS": 0.2807903408873356,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 911,
+            "meanMS": 0.03710208582956626,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 911,
+            "meanMS": 1.509659680655445,
+            "p95MS": 1.600000023841858,
+            "p99MS": 4.599999904632568,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 911,
+            "meanMS": 0.09560922000855698,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 911,
+            "meanMS": 0.6467618009261582,
+            "p95MS": 1,
+            "p99MS": 1.4000000953674316,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 160,
+            "meanMS": 1.292500002682209,
+            "p95MS": 1.7999999523162842,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 911,
+            "meanMS": 1.6984632252076586,
+            "p95MS": 2.9000000953674316,
+            "p99MS": 3.5999999046325684,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 910,
+            "meanMS": 16.665018681117466,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 14,
+            "meanMS": 0.08571428912026542,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 228682336,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 112,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 15.165166666666567,
+          "fps": 60.101597476651875,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 112,
+          "triangles": 290672,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 16.18320000000001,
+        "simulationRatio": 1.000754667454155,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.3999999761581421,
+            "residents": 0.6000000238418579,
+            "residency": 0.10000002384185791,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1.2000000476837158,
+          "physicsMS": 0.0286692695469158,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5177,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.20000004768371582,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.8999999761581421,
+            1.2000000476837158
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 361,
+            "meanMS": 47.26620488516842,
+            "p95MS": 53.599998474121094,
+            "p99MS": 56.099998474121094,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 972,
+            "meanMS": 4.365202859350683,
+            "p95MS": 6.309500217437744,
+            "p99MS": 9.45112419128418,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 972,
+            "meanMS": 0.001337448265326857,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 972,
+            "meanMS": 1.4037037066226143,
+            "p95MS": 3.5999999046325684,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 972,
+            "meanMS": 0.12314814746134566,
+            "p95MS": 2,
+            "p99MS": 2,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 972,
+            "meanMS": 0.5031893019077709,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 972,
+            "meanMS": 0.14979423551893037,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.40000009536743164,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 972,
+            "meanMS": 0.2134773634343481,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 1,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 972,
+            "meanMS": 0.5211934160303187,
+            "p95MS": 0.9000000953674316,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 972,
+            "meanMS": 0.015020576401502507,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 972,
+            "meanMS": 0.0508230481864003,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.2999999523162842,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 972,
+            "meanMS": 0.05895061490467056,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 972,
+            "meanMS": 0.0033950620472676467,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 972,
+            "meanMS": 0.00730452714142976,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 972,
+            "meanMS": 0.030555555972542784,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 972,
+            "meanMS": 0.28333333416730777,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 972,
+            "meanMS": 0.03528806591720738,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 972,
+            "meanMS": 1.4965020228069996,
+            "p95MS": 1.600000023841858,
+            "p99MS": 4.599999904632568,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 972,
+            "meanMS": 0.09166666620062212,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 972,
+            "meanMS": 0.6433127582563785,
+            "p95MS": 1,
+            "p99MS": 1.4000000953674316,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 170,
+            "meanMS": 1.3029411799767439,
+            "p95MS": 1.7999999523162842,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 972,
+            "meanMS": 1.7123456771481675,
+            "p95MS": 3,
+            "p99MS": 3.700000047683716,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 971,
+            "meanMS": 16.664744610889564,
+            "p95MS": 17.299999237060547,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 15,
+            "meanMS": 0.08666667143503824,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 226696048,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 110,
+          "geometries": 347,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 16.181466666666545,
+          "fps": 60.10488334165976,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 110,
+          "triangles": 290640,
+          "geometries": 347,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 17.184099999999976,
+        "simulationRatio": 0.9991008092716336,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.2999999523162842,
+            "residents": 0.5,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1,
+          "physicsMS": 0.03734391581207773,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5178,
+          "saveSliceMS": 0.40000009536743164,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "stepSamples": [
+            0.8999999761581421,
+            1,
+            1
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 383,
+            "meanMS": 47.15952993092898,
+            "p95MS": 53.599998474121094,
+            "p99MS": 56.099998474121094,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 1032,
+            "meanMS": 4.3588778071625285,
+            "p95MS": 6.294000148773193,
+            "p99MS": 9.45112419128418,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 1032,
+            "meanMS": 0.0014534879100415133,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 1032,
+            "meanMS": 1.3864341102136197,
+            "p95MS": 3.5,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 1032,
+            "meanMS": 0.11598837144615114,
+            "p95MS": 2,
+            "p99MS": 2,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 1032,
+            "meanMS": 0.497577525964079,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 1032,
+            "meanMS": 0.1514534856690917,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 1032,
+            "meanMS": 0.21802325350369595,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 1,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 1032,
+            "meanMS": 0.5201550392910491,
+            "p95MS": 0.9000000953674316,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 1032,
+            "meanMS": 0.015019379960474118,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 1032,
+            "meanMS": 0.04961240591928941,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 1032,
+            "meanMS": 0.05552325357300367,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 1032,
+            "meanMS": 0.003488372116125831,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 1032,
+            "meanMS": 0.006879845330881518,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 1032,
+            "meanMS": 0.02955426402794298,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 1032,
+            "meanMS": 0.2834302337132683,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.5999999046325684,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 1032,
+            "meanMS": 0.03381782966528752,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 1032,
+            "meanMS": 1.4850774838249812,
+            "p95MS": 1.600000023841858,
+            "p99MS": 4.300000190734863,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 1032,
+            "meanMS": 0.08905038711174514,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 1032,
+            "meanMS": 0.6373062026362086,
+            "p95MS": 1,
+            "p99MS": 1.399999976158142,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 181,
+            "meanMS": 1.3215469642238722,
+            "p95MS": 1.7999999523162842,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 1032,
+            "meanMS": 1.727616277198459,
+            "p95MS": 3.0999999046325684,
+            "p99MS": 3.9000000953674316,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 1031,
+            "meanMS": 16.664759497175393,
+            "p95MS": 17.399999618530273,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 16,
+            "meanMS": 0.08750000596046448,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 226307708,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 125,
+          "geometries": 348,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 17.181366666666563,
+          "fps": 60.14542324474616,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 125,
+          "triangles": 291408,
+          "geometries": 348,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 18.200599999999977,
+        "simulationRatio": 0.9837678307918772,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.20000004768371582,
+            "residents": 0.5,
+            "residency": 0.10000002384185791,
+            "physics": 0.09999990463256836,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 1,
+          "physicsMS": 0.03769814667096314,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5179,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.10000002384185791,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "stepSamples": [
+            2.600000023841858,
+            1,
+            1
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 405,
+            "meanMS": 47.06641965177324,
+            "p95MS": 53.900001525878906,
+            "p99MS": 56,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 1093,
+            "meanMS": 4.349818841100066,
+            "p95MS": 6.288374900817871,
+            "p99MS": 9.45112419128418,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 1093,
+            "meanMS": 0.0013723691886210812,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 1093,
+            "meanMS": 1.3709057650212726,
+            "p95MS": 3.5,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 1093,
+            "meanMS": 0.10951509545510336,
+            "p95MS": 1.100000023841858,
+            "p99MS": 2,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 1093,
+            "meanMS": 0.4971637761821904,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 1093,
+            "meanMS": 0.15205855262683055,
+            "p95MS": 0.30000007152557373,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 1093,
+            "meanMS": 0.21838974974510983,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 1,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 1093,
+            "meanMS": 0.5210430023327729,
+            "p95MS": 0.8999999761581421,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 1093,
+            "meanMS": 0.015279048206821452,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 0.2999999523162842
+          },
+          "sim:physics": {
+            "count": 1093,
+            "meanMS": 0.048032939815783,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 1093,
+            "meanMS": 0.0524245175547482,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 1093,
+            "meanMS": 0.003293687121538754,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 1093,
+            "meanMS": 0.006495883240136987,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 1093,
+            "meanMS": 0.02854528845937996,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 1093,
+            "meanMS": 0.28499542674337736,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.5999999046325684,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 1093,
+            "meanMS": 0.032113449462269385,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 1093,
+            "meanMS": 1.474748362670333,
+            "p95MS": 1.600000023841858,
+            "p99MS": 4.300000190734863,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 1093,
+            "meanMS": 0.08709972524250306,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.3999999761581421,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 1093,
+            "meanMS": 0.631198537207915,
+            "p95MS": 1,
+            "p99MS": 1.399999976158142,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 192,
+            "meanMS": 1.3385416710128386,
+            "p95MS": 1.899999976158142,
+            "p99MS": 2.799999952316284,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 1093,
+            "meanMS": 1.741903017228171,
+            "p95MS": 3.0999999046325684,
+            "p99MS": 3.9000000953674316,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 1092,
+            "meanMS": 16.66572075274401,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 17,
+            "meanMS": 0.08823530112995821,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 226806440,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 135,
+          "geometries": 350,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 18.19896666666653,
+          "fps": 59.95110927777567,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 135,
+          "triangles": 291572,
+          "geometries": 350,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      },
+      {
+        "elapsed": 19.217299999999987,
+        "simulationRatio": 1.0327530244909298,
+        "worker": {
+          "stageMS": {
+            "monsters": 0.2999999523162842,
+            "residents": 0.6000000238418579,
+            "residency": 0,
+            "physics": 0,
+            "ballistic": 0,
+            "lasers": 0,
+            "colliders": 0
+          },
+          "stepMS": 2.799999952316284,
+          "physicsMS": 0.04745269588976799,
+          "destructionMS": 0,
+          "pendingJobs": 0,
+          "bodies": 0,
+          "ballistic": 0,
+          "ruins": 0,
+          "removed": 4525,
+          "shots": 0,
+          "revision": 5180,
+          "saveSliceMS": 0.5,
+          "snapshotMS": 0.30000007152557373,
+          "packetPoolBusy": 4,
+          "packetPoolBytes": 182272,
+          "stepSamples": [
+            0.9000000953674316,
+            2.799999952316284
+          ]
+        },
+        "stages": {
+          "delivery": {
+            "count": 428,
+            "meanMS": 46.99439245601681,
+            "p95MS": 53.900001525878906,
+            "p99MS": 56,
+            "maxMS": 891.0999755859375
+          },
+          "gpu": {
+            "count": 1154,
+            "meanMS": 4.352289105618641,
+            "p95MS": 6.288374900817871,
+            "p99MS": 9.426624298095703,
+            "maxMS": 13.235583305358887
+          },
+          "textureUpload": {
+            "count": 1154,
+            "meanMS": 0.00129982627657092,
+            "p95MS": 0,
+            "p99MS": 0.09999990463256836,
+            "maxMS": 0.20000004768371582
+          },
+          "workerStep": {
+            "count": 1154,
+            "meanMS": 1.3640381297164401,
+            "p95MS": 3.4000000953674316,
+            "p99MS": 8.300000190734863,
+            "maxMS": 15.199999809265137
+          },
+          "destruction": {
+            "count": 1154,
+            "meanMS": 0.1037261692655355,
+            "p95MS": 1,
+            "p99MS": 2,
+            "maxMS": 2.9000000953674316
+          },
+          "saveSlice": {
+            "count": 1154,
+            "meanMS": 0.4973136978917973,
+            "p95MS": 1.100000023841858,
+            "p99MS": 1.100000023841858,
+            "maxMS": 1.5
+          },
+          "snapshot": {
+            "count": 1154,
+            "meanMS": 0.15199306519440597,
+            "p95MS": 0.2999999523162842,
+            "p99MS": 0.5,
+            "maxMS": 0.6999999284744263
+          },
+          "sim:monsters": {
+            "count": 1154,
+            "meanMS": 0.21906412153971258,
+            "p95MS": 0.40000009536743164,
+            "p99MS": 1,
+            "maxMS": 2.200000047683716
+          },
+          "sim:residents": {
+            "count": 1154,
+            "meanMS": 0.523396881448954,
+            "p95MS": 0.8000000715255737,
+            "p99MS": 1.2999999523162842,
+            "maxMS": 5
+          },
+          "sim:residency": {
+            "count": 1154,
+            "meanMS": 0.018024263390222083,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "sim:physics": {
+            "count": 1154,
+            "meanMS": 0.04722703928757375,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.9000000953674316
+          },
+          "sim:ballistic": {
+            "count": 1154,
+            "meanMS": 0.0496533775453551,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 1
+          },
+          "sim:lasers": {
+            "count": 1154,
+            "meanMS": 0.0032928943427431314,
+            "p95MS": 0,
+            "p99MS": 0.10000002384185791,
+            "maxMS": 0.19999992847442627
+          },
+          "sim:colliders": {
+            "count": 1154,
+            "meanMS": 0.006152513328829919,
+            "p95MS": 0,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1
+          },
+          "bodies": {
+            "count": 1154,
+            "meanMS": 0.027989601448462367,
+            "p95MS": 0.19999992847442627,
+            "p99MS": 0.20000004768371582,
+            "maxMS": 1.5999999046325684
+          },
+          "actors": {
+            "count": 1154,
+            "meanMS": 0.28760832041966855,
+            "p95MS": 0.3999999761581421,
+            "p99MS": 0.5,
+            "maxMS": 0.9000000953674316
+          },
+          "terrain": {
+            "count": 1154,
+            "meanMS": 0.03041594476798998,
+            "p95MS": 0.10000002384185791,
+            "p99MS": 0.6000000238418579,
+            "maxMS": 1.7000000476837158
+          },
+          "terrainWorker": {
+            "count": 1154,
+            "meanMS": 1.465511228327528,
+            "p95MS": 1.600000023841858,
+            "p99MS": 3.700000047683716,
+            "maxMS": 47.29999923706055
+          },
+          "effects": {
+            "count": 1154,
+            "meanMS": 0.0857019062885172,
+            "p95MS": 0.20000004768371582,
+            "p99MS": 0.30000007152557373,
+            "maxMS": 0.7000000476837158
+          },
+          "prepare": {
+            "count": 1154,
+            "meanMS": 0.6290294636473499,
+            "p95MS": 1,
+            "p99MS": 1.399999976158142,
+            "maxMS": 2.799999952316284
+          },
+          "reflectionSubmit": {
+            "count": 203,
+            "meanMS": 1.372906407699209,
+            "p95MS": 1.9000000953674316,
+            "p99MS": 2.200000047683716,
+            "maxMS": 16.100000381469727
+          },
+          "submit": {
+            "count": 1154,
+            "meanMS": 1.7671577104042886,
+            "p95MS": 3.200000047683716,
+            "p99MS": 3.9000000953674316,
+            "maxMS": 17.600000381469727
+          },
+          "frame": {
+            "count": 1153,
+            "meanMS": 16.66519261316331,
+            "p95MS": 17.5,
+            "p99MS": 17.700000762939453,
+            "maxMS": 17.799999237060547
+          },
+          "saveDispatch": {
+            "count": 18,
+            "meanMS": 0.08888889683617486,
+            "p95MS": 0.5,
+            "p99MS": 0.5,
+            "maxMS": 0.5
+          }
+        },
+        "heapBytes": 232159956,
+        "queues": {
+          "textureUploads": 0,
+          "packetPoolBusy": 3,
+          "packetPoolBytes": 273408,
+          "activeBodies": 0,
+          "ballisticBodies": 0,
+          "permanentRuins": 0,
+          "workerLagMS": 0,
+          "destruction": 0,
+          "terrain": 0,
+          "terrainWorkerActive": 1,
+          "drawCalls": 130,
+          "geometries": 350,
+          "textures": 24
+        },
+        "render": {
+          "cameraMode": "chase",
+          "effectTime": 19.214966666666513,
+          "fps": 60.0420005774102,
+          "width": 789,
+          "height": 900,
+          "drawCalls": 130,
+          "triangles": 291522,
+          "geometries": 350,
+          "textures": 24,
+          "quality": 900,
+          "renderDistance": 1200,
+          "clouds": 1,
+          "fragments": 0,
+          "projectiles": 0,
+          "googlyFaces": 0
+        }
+      }
+    ],
+    "audio": {
+      "ordinaryVoices": 4,
+      "nukeVoices": 0,
+      "laserVoices": 0
+    },
+    "performance": {
+      "stages": {
+        "delivery": {
+          "count": 444,
+          "meanMS": 46.98738732933998,
+          "p95MS": 54.099998474121094,
+          "p99MS": 56,
+          "maxMS": 891.0999755859375
+        },
+        "gpu": {
+          "count": 1201,
+          "meanMS": 4.355218622507799,
+          "p95MS": 6.290708065032959,
+          "p99MS": 9.212499618530273,
+          "maxMS": 13.235583305358887
+        },
+        "textureUpload": {
+          "count": 1201,
+          "meanMS": 0.0012489588036326742,
+          "p95MS": 0,
+          "p99MS": 0.09999990463256836,
+          "maxMS": 0.20000004768371582
+        },
+        "workerStep": {
+          "count": 1201,
+          "meanMS": 1.3633638647176345,
+          "p95MS": 3.3000001907348633,
+          "p99MS": 8.300000190734863,
+          "maxMS": 15.199999809265137
+        },
+        "destruction": {
+          "count": 1201,
+          "meanMS": 0.0996669436573089,
+          "p95MS": 0.19999992847442627,
+          "p99MS": 2,
+          "maxMS": 2.9000000953674316
+        },
+        "saveSlice": {
+          "count": 1201,
+          "meanMS": 0.5009159103817586,
+          "p95MS": 1.100000023841858,
+          "p99MS": 1.100000023841858,
+          "maxMS": 1.5
+        },
+        "snapshot": {
+          "count": 1201,
+          "meanMS": 0.15187343699449704,
+          "p95MS": 0.2999999523162842,
+          "p99MS": 0.40000009536743164,
+          "maxMS": 0.6999999284744263
+        },
+        "sim:monsters": {
+          "count": 1201,
+          "meanMS": 0.2250624444462874,
+          "p95MS": 0.40000009536743164,
+          "p99MS": 1,
+          "maxMS": 2.299999952316284
+        },
+        "sim:residents": {
+          "count": 1201,
+          "meanMS": 0.524229809009066,
+          "p95MS": 0.8999999761581421,
+          "p99MS": 1.2999999523162842,
+          "maxMS": 5
+        },
+        "sim:residency": {
+          "count": 1201,
+          "meanMS": 0.018068276277489706,
+          "p95MS": 0.10000002384185791,
+          "p99MS": 0.20000004768371582,
+          "maxMS": 1
+        },
+        "sim:physics": {
+          "count": 1201,
+          "meanMS": 0.047127396836070395,
+          "p95MS": 0.10000002384185791,
+          "p99MS": 0.20000004768371582,
+          "maxMS": 1.9000000953674316
+        },
+        "sim:ballistic": {
+          "count": 1201,
+          "meanMS": 0.04796003143952153,
+          "p95MS": 0.20000004768371582,
+          "p99MS": 0.30000007152557373,
+          "maxMS": 1
+        },
+        "sim:lasers": {
+          "count": 1201,
+          "meanMS": 0.0034138219342640694,
+          "p95MS": 0,
+          "p99MS": 0.10000002384185791,
+          "maxMS": 0.19999992847442627
+        },
+        "sim:colliders": {
+          "count": 1201,
+          "meanMS": 0.005911740534113011,
+          "p95MS": 0,
+          "p99MS": 0.20000004768371582,
+          "maxMS": 1
+        },
+        "bodies": {
+          "count": 1201,
+          "meanMS": 0.02731057458078732,
+          "p95MS": 0.19999992847442627,
+          "p99MS": 0.20000004768371582,
+          "maxMS": 1.5999999046325684
+        },
+        "actors": {
+          "count": 1201,
+          "meanMS": 0.2886761046766143,
+          "p95MS": 0.3999999761581421,
+          "p99MS": 0.5,
+          "maxMS": 0.9000000953674316
+        },
+        "terrain": {
+          "count": 1201,
+          "meanMS": 0.02964196524751077,
+          "p95MS": 0.10000002384185791,
+          "p99MS": 0.6000000238418579,
+          "maxMS": 1.7000000476837158
+        },
+        "terrainWorker": {
+          "count": 1201,
+          "meanMS": 1.4590341009565635,
+          "p95MS": 1.600000023841858,
+          "p99MS": 3.5999999046325684,
+          "maxMS": 47.29999923706055
+        },
+        "effects": {
+          "count": 1201,
+          "meanMS": 0.08393005824505935,
+          "p95MS": 0.20000004768371582,
+          "p99MS": 0.30000007152557373,
+          "maxMS": 0.7000000476837158
+        },
+        "prepare": {
+          "count": 1201,
+          "meanMS": 0.62556203259318,
+          "p95MS": 1,
+          "p99MS": 1.399999976158142,
+          "maxMS": 2.799999952316284
+        },
+        "reflectionSubmit": {
+          "count": 211,
+          "meanMS": 1.3914691989455743,
+          "p95MS": 2,
+          "p99MS": 2.200000047683716,
+          "maxMS": 16.100000381469727
+        },
+        "submit": {
+          "count": 1201,
+          "meanMS": 1.7798501227320878,
+          "p95MS": 3.299999952316284,
+          "p99MS": 4,
+          "maxMS": 17.600000381469727
+        },
+        "frame": {
+          "count": 1200,
+          "meanMS": 16.665722579956054,
+          "p95MS": 17.600000381469727,
+          "p99MS": 17.700000762939453,
+          "maxMS": 17.799999237060547
+        },
+        "saveDispatch": {
+          "count": 19,
+          "meanMS": 0.0894736929943687,
+          "p95MS": 0.5,
+          "p99MS": 0.5,
+          "maxMS": 0.5
+        }
+      },
+      "queues": {
+        "textureUploads": 0,
+        "packetPoolBusy": 3,
+        "packetPoolBytes": 273408,
+        "activeBodies": 0,
+        "ballisticBodies": 0,
+        "permanentRuins": 0,
+        "workerLagMS": 0,
+        "destruction": 0,
+        "terrain": 0,
+        "terrainWorkerActive": 1,
+        "drawCalls": 132,
+        "geometries": 354,
+        "textures": 24
+      },
+      "missedFrames": 0,
+      "starvation": 138
+    },
+    "gatesPassed": false
+  }
+]

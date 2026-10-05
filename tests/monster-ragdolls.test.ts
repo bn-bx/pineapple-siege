@@ -7,16 +7,20 @@ import type { MonsterState, SimulationSnapshot } from "../src/types";
 import type { Terrain } from "../src/sim/terrain";
 
 beforeAll(() => RAPIER.init());
-it("tumbles onto terrain, sleeps, retains its pose, and releases the physics body", () => {
+it("tumbles as one visual pineapple, retains its pose and uses no native bodies", () => {
   const physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
   physics.timestep = CONFIG.dt;
   physics.createCollider(
     RAPIER.ColliderDesc.cuboid(500, 1, 500).setTranslation(0, -1, 0),
   );
-  const terrain = { sample: () => 0 } as unknown as Terrain;
+  const terrain = {
+    sample: () => 0,
+    aboveSurface: (a: number[], b: number[], clearance: number) =>
+      Math.min(a[1], b[1]) > clearance,
+  } as unknown as Terrain;
   const monster: MonsterState = {
     id: 0,
-    p: [0, 0, 0],
+    p: [600, 0, 600],
     yaw: 0,
     health: 0,
     defeated: true,
@@ -26,12 +30,11 @@ it("tumbles onto terrain, sleeps, retains its pose, and releases the physics bod
   };
   const ragdolls = new MonsterRagdolls(physics, terrain);
   try {
-    ragdolls.start(monster, [0, 0, -20]);
+    ragdolls.start(monster, [600, 0, 580]);
     ragdolls.start(monster);
-    expect(ragdolls.moving.size).toBe(7);
-    expect(monster.fragments?.map((f) => f.part)).toEqual([
-      1, 2, 3, 4, 5, 6, 7,
-    ]);
+    expect(ragdolls.moving.size).toBe(1);
+    expect(physics.bodies.len()).toBe(0);
+    expect(monster.fragments).toBeUndefined();
     const initial = [...monster.ragdoll!];
     for (let i = 0; i < 180; i++) {
       physics.step();
@@ -41,16 +44,9 @@ it("tumbles onto terrain, sleeps, retains its pose, and releases the physics bod
     expect(monster.ragdoll).not.toEqual(initial);
     expect(monster.p.every(Number.isFinite)).toBe(true);
     expect(monster.health).toBe(0);
-    expect(
-      Math.max(...monster.fragments!.map((f) => Math.hypot(f.p[0], f.p[2]))),
-    ).toBeGreaterThan(100);
-    expect(
-      Math.hypot(
-        ...monster.fragments![2].p.map(
-          (v, i) => v - monster.fragments![3].p[i],
-        ),
-      ),
-    ).toBeGreaterThan(100);
+    expect(Math.hypot(monster.p[0] - 600, monster.p[2] - 600)).toBeGreaterThan(
+      100,
+    );
     for (let i = 0; i < 2400 && ragdolls.moving.size; i++) {
       physics.step();
       ragdolls.update(CONFIG.dt);
@@ -102,4 +98,37 @@ it("transfers corpse orientations and clears them when a packet slot is reused",
   bindMotion(next, frame);
   expect(next.monsters[0].ragdoll).toBeUndefined();
   expect(next.monsters[0].fragments).toBeUndefined();
+});
+
+it("bounds mass defeats without allocating native bodies and suppresses cleared corpses", () => {
+  const physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
+  const terrain = {
+    sample: () => 0,
+    aboveSurface: () => true,
+  } as unknown as Terrain;
+  const ragdolls = new MonsterRagdolls(physics, terrain);
+  try {
+    const monsters: MonsterState[] = Array.from({ length: 400 }, (_, id) => ({
+      id,
+      p: [600, 400, 600],
+      yaw: 0,
+      health: 0,
+      defeated: true,
+      phase: 0,
+      windup: 0,
+      stagger: 0,
+    }));
+    for (const monster of monsters) ragdolls.start(monster, [600, 400, 580]);
+    expect(ragdolls.moving.size).toBe(128);
+    expect(physics.bodies.len()).toBe(0);
+    expect(physics.colliders.len()).toBe(0);
+    for (let tick = 0; tick < 360; tick++) ragdolls.update(CONFIG.dt);
+    expect(ragdolls.moving.size).toBe(0);
+    expect(monsters.every((m) => m.ragdoll && !m.fragments)).toBe(true);
+    const cleared = { ...monsters[0], cleared: true };
+    ragdolls.start(cleared);
+    expect(ragdolls.moving.size).toBe(0);
+  } finally {
+    physics.free();
+  }
 });

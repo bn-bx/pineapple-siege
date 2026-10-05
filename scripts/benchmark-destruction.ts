@@ -25,8 +25,7 @@ for (const count of [1024, 2048, 8192]) {
   const sim = new Simulation(world, base, () => {});
   sim.setMonsterCount(0);
   sim.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 4, fragments: 4 });
-  // Hold the admission budget constant for each requested stress load.
-  Object.defineProperty(sim, "bodyLimit", { get: () => count });
+  // Excess requests exercise the fixed visual pool rather than enlarging it.
   sim.plane.p = [1024, 700, 700];
   for (let i = 0; i < count; i++)
     (sim as any).spawnBody(
@@ -56,7 +55,7 @@ for (const count of [1024, 2048, 8192]) {
     const decodedBodies = sentSnapshot.packedBodies
       ? unpackBodies(sentSnapshot.packedBodies)
       : sentSnapshot.bodies;
-    if (decodedBodies.length !== sim.moving.size + sim.ballistic.size)
+    if (decodedBodies.length !== snap.packedBodies!.count)
       throw new Error("Incomplete body snapshot");
     const decoded = performance.now();
     if (i >= 30) {
@@ -67,12 +66,13 @@ for (const count of [1024, 2048, 8192]) {
   }
   console.log(
     JSON.stringify({
-      physicsBodies: count,
+      requestedPieces: count,
+      nativeBodies: sim.physics.bodies.len(),
       stepMS: summary(step),
       snapshotMS: summary(snapshot),
       decodeMS: summary(unpack),
       physicsMS: +sim.physicsMS.toFixed(3),
-      remaining: sim.moving.size,
+      remaining: sim.snapshot().bodies.length,
     }),
   );
   sim.dispose();
@@ -133,7 +133,7 @@ for (const count of [16384, 65536]) {
   (f.mesh.material as any).dispose();
 }
 
-// Representative collision-heavy castle collapse, measured separately from air.
+// Representative bounded visual castle collapse, measured separately from air.
 {
   const sim = new Simulation(world, base, () => {});
   sim.setMonsterCount(0);
@@ -147,7 +147,7 @@ for (const count of [16384, 65536]) {
   sim.plane.p = [world.castle[0], 500, world.castle[2]];
   sim.detonateNuke(world.castle, "castle");
   while (sim.pendingJobs.length) sim.processDestruction(50);
-  const initialBodies = sim.moving.size,
+  const initialBodies = sim.snapshot().bodies.length,
     step: number[] = [];
   for (let i = 0; i < 120; i++) {
     const start = performance.now();
@@ -158,7 +158,7 @@ for (const count of [16384, 65536]) {
     JSON.stringify({
       scenario: "castle-collapse",
       initialBodies,
-      remainingBodies: sim.moving.size,
+      remainingBodies: sim.snapshot().bodies.length,
       physicsMS: +sim.physicsMS.toFixed(3),
       stepMS: summary(step),
     }),
