@@ -17,7 +17,7 @@ it("batches lamps, fades local lighting and immediately extinguishes destroyed s
   expect(village.lights.every((l) => !l.castShadow)).toBe(true);
   village.update(camera, removed, 1, 600, 0.016);
   expect(village.lights[0].intensity).toBeGreaterThan(0);
-  expect(village.lights[0].intensity).toBeLessThan(150);
+  expect(village.lights[0].intensity).toBeLessThan(650);
   removed.add(1);
   village.update(camera, removed, 1, 600, 0.016);
   expect(village.lights.every((l) => l.intensity === 0)).toBe(true);
@@ -35,7 +35,7 @@ it("batches lamps, fades local lighting and immediately extinguishes destroyed s
   expect(village.lights[0].intensity).toBeLessThan(before);
   for (let i = 0; i < 80; i++) village.update(camera, removed, 1, 600, 0.016);
   expect(
-    village.lights.some((l) => l.position.x === 400 && l.intensity > 140),
+    village.lights.some((l) => l.position.x === 400 && l.intensity > 600),
   ).toBe(true);
   village.update(camera, removed, 0, 600, 0.016);
   expect(
@@ -92,7 +92,7 @@ it("adds house decorations from existing walls and removes them with their owner
   village.update(new THREE.Vector3(), new Set(), 1, 600, 0.016);
   expect(
     (village.windows.material as THREE.MeshStandardMaterial).emissiveIntensity,
-  ).toBe(0.9);
+  ).toBe(2.4);
   village.update(new THREE.Vector3(), new Set([10]), 1, 600, 0.016);
   const matrix = new THREE.Matrix4();
   village.windows.getMatrixAt(0, matrix);
@@ -102,4 +102,25 @@ it("adds house decorations from existing walls and removes them with their owner
     (mesh.material as THREE.Material).dispose();
     mesh.dispose();
   }
+});
+
+it("adds low castle wall lanterns without changing world IDs and extinguishes ground spill", () => {
+  const entities = [0, 16, 40].map((x, i) => ({
+    id: i,
+    assembly: "castle:front",
+    material: "sandstone",
+    foundation: false,
+    p: [x, 8, 0],
+    s: [8, 3, 2],
+  }));
+  const decor = villageDecorations({ entities, lights: [] } as any);
+  expect(decor.lamps).toHaveLength(4);
+  const village = new VillageLighting(decor.lamps);
+  expect(village.pools.count).toBe(4);
+  village.update(new THREE.Vector3(), new Set([0]), 1, 600, 0.016);
+  const matrix = new THREE.Matrix4();
+  village.pools.getMatrixAt(0, matrix);
+  expect(matrix.elements[0]).toBe(0);
+  village.update(new THREE.Vector3(), new Set(), 0, 600, 0.016);
+  expect(village.pools.visible).toBe(false);
 });

@@ -6,9 +6,9 @@ const palette = {
   moon: new Color("#9ebdeb"),
   ambientDay: new Color("#c5e5f4"),
   ambientSet: new Color("#b697c8"),
-  ambientNight: new Color("#5873a2"),
+  ambientNight: new Color("#879fc5"),
   groundDay: new Color("#657344"),
-  groundNight: new Color("#303951"),
+  groundNight: new Color("#3a4c68"),
   zenithDay: new Color("#428bc7"),
   zenithSet: new Color("#645d9c"),
   zenithNight: new Color("#111b35"),
@@ -18,9 +18,9 @@ const palette = {
   cloudDay: new Color("#fff5df"),
   cloudSet: new Color("#ffc092"),
   cloudNight: new Color("#3c4d6a"),
-  waterDay: new Color("#287b7a"),
-  waterSet: new Color("#527d8b"),
-  waterNight: new Color("#1c354e"),
+  waterDay: new Color("#126b88"),
+  waterSet: new Color("#365e7c"),
+  waterNight: new Color("#102940"),
 };
 
 /** Reused colors/uniform values: hour is authoritative, including in photo mode. */
@@ -76,8 +76,8 @@ export class EnvironmentLighting {
     this.waterColor
       .lerpColors(palette.waterNight, palette.waterDay, this.daylight)
       .lerp(palette.waterSet, this.twilight * 0.65);
-    this.sunIntensity = 0.3 + this.daylight * 2.7;
-    this.ambientIntensity = 0.38 + this.daylight * 1.5;
+    this.sunIntensity = 0.55 + this.daylight * 2.45;
+    this.ambientIntensity = 0.8 + this.daylight * 1.08;
   }
 }
 

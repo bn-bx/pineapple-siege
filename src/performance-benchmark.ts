@@ -220,6 +220,7 @@ const summarize = (a: number[]) => {
     maxMS: sorted.at(-1) || 0,
   };
 };
+let caseLimit = cases.length;
 async function beginCase(index: number) {
   foregroundFrames = 0;
   active = false;
@@ -399,7 +400,7 @@ function frame(now: number) {
             `${r.case.kind}/${r.case.count}: ${r.frames.fps.toFixed(1)} FPS · 1% ${r.frames.lowFPS.toFixed(1)} · p99 ${r.frames.p99MS.toFixed(1)} ms · ${r.gatesPassed ? "PASS" : "FAIL"}`,
         )
         .join(" | ");
-      if (!soak && caseIndex + 1 < cases.length) void beginCase(caseIndex + 1);
+      if (!soak && caseIndex + 1 < caseLimit) void beginCase(caseIndex + 1);
       else {
         benchmarkRunning = false;
         status.textContent = "Complete";
@@ -432,7 +433,11 @@ document.querySelector("#run")!.addEventListener("click", () => {
   document
     .querySelectorAll<HTMLButtonElement>("#run,#soak")
     .forEach((b) => (b.disabled = true));
-  void beginCase(0);
+  const selected = Number(
+    (document.querySelector("#case") as HTMLSelectElement).value,
+  );
+  caseLimit = selected < 0 ? cases.length : selected + 1;
+  void beginCase(Math.max(0, selected));
 });
 document.querySelector("#soak")!.addEventListener("click", () => {
   if (benchmarkRunning) return;
@@ -550,7 +555,11 @@ function inspect() {
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
     ).slice();
-  else if (kind === "village")
+  else if (kind === "river") {
+    const river =
+      world.rivers?.find((r) => r.points.length > 8) ?? world.rivers?.[0];
+    if (river) p = river.points[Math.floor(river.points.length / 2)].slice();
+  } else if (kind === "village")
     p = (
       world.sites.find((s) => /hamlet|village|town|settlement/.test(s.kind))
         ?.p ??

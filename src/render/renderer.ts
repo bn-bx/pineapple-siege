@@ -1,3 +1,4 @@
+import { waterNormals, OCEAN_COLOR_GLSL } from "./water-surface";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { VillageLighting, villageDecorations } from "./village-lighting";
 import {
@@ -356,18 +357,7 @@ export class GameRenderer {
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
     this.buildBatches();
-    const pixels = new Uint8Array(128 * 128 * 4);
-    for (let y = 0; y < 128; y++)
-      for (let x = 0; x < 128; x++) {
-        let i = (y * 128 + x) * 4;
-        pixels[i] = 128 + Math.sin(x * 0.37 + y * 0.19) * 22;
-        pixels[i + 1] = 128 + Math.cos(y * 0.43 - x * 0.12) * 22;
-        pixels[i + 2] = 248;
-        pixels[i + 3] = 255;
-      }
-    const normals = new THREE.DataTexture(pixels, 128, 128);
-    normals.wrapS = normals.wrapT = THREE.RepeatWrapping;
-    normals.needsUpdate = true;
+    const normals = waterNormals();
     this.water = new Water(
       new THREE.PlaneGeometry(CONFIG.worldSize * 3, CONFIG.worldSize * 3),
       {
@@ -377,7 +367,7 @@ export class GameRenderer {
         sunDirection: new THREE.Vector3(0.3, 0.6, 0.2),
         sunColor: 0xffeed5,
         waterColor: 0x28645d,
-        distortionScale: 1.6,
+        distortionScale: 0.65,
         fog: false,
       },
     );
@@ -398,11 +388,8 @@ export class GameRenderer {
         "#include <logdepthbuf_fragment>",
         `#include <logdepthbuf_fragment>\n vec2 terrainUV=(worldPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.; bool inMap=all(greaterThanEqual(terrainUV,vec2(0.)))&&all(lessThanEqual(terrainUV,vec2(1.))); float groundHeight=inMap?texture2D(uHeight,terrainUV).r:-30.; if(inMap&&(texture2D(uFlood,terrainUV).r<.5 || groundHeight>=0.))discard; float waterDepth=max(0.,-groundHeight);`,
       )
-      .replace("float rf0 = 0.3;", "float rf0 = 0.08;")
-      .replace(
-        "vec3 outgoingLight = albedo;",
-        "vec3 bed=mix(vec3(.25,.30,.20),vec3(.035,.15,.17),smoothstep(0.,6.,waterDepth))*sunColor; vec3 outgoingLight=mix(bed,albedo,.35+reflectance*.6); if(uDiscoAmount>0.001) outgoingLight+=uDiscoAmount*discoPattern(worldPosition.xz,uDiscoTime);",
-      );
+      .replace("float rf0 = 0.3;", "float rf0 = 0.025;")
+      .replace("vec3 outgoingLight = albedo;", OCEAN_COLOR_GLSL);
     const original = this.water.onBeforeRender;
     this.water.onBeforeRender = (r, s, c, g, m, group) => {
       if (
@@ -430,10 +417,15 @@ export class GameRenderer {
     this.rivers = makeRivers(world, this.terrain);
     this.scene.add(this.rivers);
     const village = villageDecorations(world);
-    this.villageLighting = new VillageLighting(village.lamps, village.windows);
+    this.villageLighting = new VillageLighting(
+      village.lamps,
+      village.windows,
+      this.terrain.heightTexture,
+    );
     this.scene.add(
       this.villageLighting.mesh,
       this.villageLighting.windows,
+      this.villageLighting.pools,
       ...this.villageLighting.lights,
     );
     this.fallenPines = new THREE.InstancedMesh(
@@ -1993,7 +1985,7 @@ export class GameRenderer {
     this.ambient.intensity = this.lighting.ambientIntensity;
     this.ambient.color.copy(this.lighting.ambientColor);
     this.ambient.groundColor.copy(this.lighting.groundColor);
-    this.materials.window.emissiveIntensity = night * 0.9;
+    this.materials.window.emissiveIntensity = night * 2.4;
     this.sun.intensity = THREE.MathUtils.lerp(
       this.sun.intensity,
       0.55,
@@ -2021,6 +2013,15 @@ export class GameRenderer {
       .copy(this.sun.color)
       .multiplyScalar(0.2 + day * 0.8);
     this.water.material.uniforms.time.value = snap.time;
+    const riverMaterial = this.rivers.userData
+      .material as THREE.MeshStandardMaterial;
+    riverMaterial.color.copy(this.lighting.waterColor);
+    const riverUniforms = this.rivers.userData.uniforms;
+    riverUniforms.time.value = snap.time;
+    riverUniforms.sky.value.copy(this.lighting.horizonColor);
+    riverUniforms.sun.value.copy(this.water.material.uniforms.sunColor.value);
+    riverUniforms.sunDirection.value.copy(ld);
+    riverUniforms.eye.value.copy(this.camera.position);
     // Extending the terrain horizon must not extend detailed river residency.
     for (const child of this.rivers.children) {
       const bounds = (child as THREE.Mesh).geometry.boundingSphere!;

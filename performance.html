@@ -47,7 +47,18 @@
     <aside>
       <strong>Native performance benchmark · isolated test save</strong>
       <div>Run in the foreground. Your active island is untouched.</div>
-      <button id="run" disabled>Run six 30-second cases</button
+      <label
+        >Cases
+        <select id="case">
+          <option value="-1">All six</option>
+          <option value="0">Flight · 120</option>
+          <option value="1">Nuke · 120</option>
+          <option value="2">Laser · 120</option>
+          <option value="3">Flight · 400</option>
+          <option value="4">Nuke · 400</option>
+          <option value="5">Laser · 400</option>
+        </select></label
+      ><button id="run" disabled>Run benchmark</button
       ><button id="soak" disabled>15-minute combat soak</button
       ><button id="storage">Storage correctness</button
       ><button id="context">Context recovery check</button
@@ -65,6 +76,7 @@
           <select id="viewpoint">
             <option value="castle">Castle</option>
             <option value="coast">Coast</option>
+            <option value="river">River</option>
             <option value="village">Village</option>
             <option value="mountain">Mountain</option>
             <option value="pine">Pines</option>

@@ -1,5 +1,7 @@
 # Lighting and environment verification
 
+For the subsequent brighter settlement lighting and water correction, see [the follow-up report](WATER_LIGHTING_QA.md). The measurements below describe the first lighting release.
+
 The game now has a clear terrain horizon, coordinated stylized sunsets and twilight, warm village windows and lamps, and matching cloud and water colors. This pass does not change gameplay, world generation, saved entities, or save compatibility.
 
 ## Implementation budgets

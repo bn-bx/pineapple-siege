@@ -5,6 +5,8 @@ const originalCompilers = new WeakMap<
   THREE.Material["onBeforeCompile"]
 >();
 
+const originalProgramKeys = new WeakMap<THREE.MeshStandardMaterial, string>();
+
 export const DISCO_PATTERN_GLSL = `
 float discoHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 vec3 discoPattern(vec2 world, float beat) {
@@ -93,6 +95,10 @@ export class DiscoScene {
       originalCompilers.get(material) ??
       material.onBeforeCompile.bind(material);
     originalCompilers.set(material, original);
+    const originalKey =
+      originalProgramKeys.get(material) ?? material.customProgramCacheKey();
+    originalProgramKeys.set(material, originalKey);
+    material.customProgramCacheKey = () => originalKey + "|disco-v1";
     material.onBeforeCompile = (shader, renderer) => {
       original(shader, renderer);
       shader.uniforms.uDiscoAmount = this.amount;
