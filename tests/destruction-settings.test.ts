@@ -13,7 +13,9 @@ import { Fragments } from "../src/render/fragments";
 import { flightPose } from "../src/render/flight-pose";
 import { compatible } from "../src/storage";
 import type { WorldData, WorkerMessage, Vec3 } from "../src/types";
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
 const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
@@ -56,7 +58,7 @@ it("migrates absent preferences and bounds experimental values", () => {
   ).toMatchObject({ bodies: 4, fragments: 0, cosmetics: 1, nukeScale: 1 });
   expect(
     nukeProfile("valley", { ...DEFAULT_DESTRUCTION, nukeScale: 3 }),
-  ).toMatchObject({ damageRadius: 1260, craterRadius: 480, depth: 25 });
+  ).toMatchObject({ damageRadius: 1260, craterRadius: 720, depth: 50 });
 });
 
 it("uses 0.1-second rapid fire without projectile admission limits and captures strength at release", () => {
@@ -150,7 +152,7 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
       .reduce((n, e) => n + e.count, 0),
   ).toBeGreaterThan(720);
   for (const [i, height] of s.terrain.changed)
-    expect(height).toBeGreaterThanOrEqual(base[i] - 25.001);
+    expect(height).toBeGreaterThanOrEqual(base[i] - 50.001);
   s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 0 });
   const trimTicks = Math.ceil((s.moving.size - 64) / 16) + 120;
   for (let i = 0; i < trimTicks && s.moving.size > 64; i++) s.step();
@@ -159,7 +161,7 @@ it("raises physical and cosmetic output, preserves amplified pending jobs and be
   restored.dispose();
 }, 30000);
 
-it("retains original module dimensions and more rubble at Extreme", () => {
+it("retains original module dimensions in temporary wreckage at Extreme", () => {
   const s = new Simulation({ ...world, entities: [] }, base, () => {});
   s.setDestruction({ ...DEFAULT_DESTRUCTION, rubble: 4 });
   const entity = {
@@ -168,9 +170,10 @@ it("retains original module dimensions and more rubble at Extreme", () => {
     s: [8, 5, 7] as Vec3,
   };
   (s as any).staticFragment(entity);
-  expect([...s.ruins.values()][0].s).toEqual(entity.s);
+  expect(s.snapshot().bodies[0].s).toEqual(entity.s);
   for (let i = 0; i < 400; i++) (s as any).staticFragment(entity);
-  expect(s.ruins.size).toBe(384);
+  expect(s.snapshot().bodies).toHaveLength(401);
+  expect(s.ruins.size).toBe(0);
   expect(s.save().ruins.length).toBe(384);
   s.dispose();
 });

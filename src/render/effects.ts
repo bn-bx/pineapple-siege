@@ -121,8 +121,8 @@ export class Effects {
       kind: "nuke",
       profile: {
         damageRadius: 420,
-        craterRadius: 160,
-        depth: 25,
+        craterRadius: 240,
+        depth: 50,
         cloudHeight: 400,
         bodyLimit: 128,
         scatterMin: 70,

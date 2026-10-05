@@ -43,7 +43,7 @@ If mouse capture is unavailable, hold and drag to steer, and use Space to fire. 
 
 On phones and tablets, use the left thumb pad to steer (release to center), and hold Fire, Boost, or the +/− throttle buttons on the right. Tap the weapon buttons to switch weapons, Respawn to return airborne, and the top-right menu button to pause. Steering sensitivity and reversal settings also apply to touch. Touch controls support simultaneous fingers and work in portrait or landscape.
 
-Pineapples inherit the aircraft's velocity, fall slightly, and explode on impact. The ring on the world estimates the impact location. The jet crashes against terrain, structures, substantial rubble, and water, then returns airborne after two seconds. Destruction stays in place. The boundary assistant turns the jet toward the kingdom before reaching the map edge.
+Pineapples inherit the aircraft's velocity, fall slightly, and explode on impact. The ring on the world estimates the impact location. The jet crashes against terrain, structures, substantial rubble, and water, then returns airborne after two seconds. Terrain damage and destroyed structures persist; wreckage clears after seven seconds. The boundary assistant turns the jet toward the kingdom before reaching the map edge.
 
 The menu contains independent horizontal/vertical steering reversal, sensitivity, rapid fire, quality, reduced effects and camera shake, time, audio, performance information, and world reset. Pointer movement defaults to right → turn right and up → climb. Steering preferences and the cooldown toggle persist independently of world resets.
 
@@ -71,9 +71,9 @@ Nuke strength in Settings affects future drops:
 
 | Strength        | Damage radius | Crater radius | Added depth | Cloud height |
 | --------------- | ------------- | ------------- | ----------- | ------------ |
-| Local           | 70 m          | 35 m          | 12 m        | 120 m        |
-| Castle-leveling | 180 m         | 70 m          | 20 m        | 240 m        |
-| Valley-scale    | 420 m         | 160 m         | 25 m        | 400 m        |
+| Local           | 70 m          | 52.5 m        | 24 m        | 120 m        |
+| Castle-leveling | 180 m         | 105 m         | 40 m        | 240 m        |
+| Valley-scale    | 420 m         | 240 m         | 50 m        | 400 m        |
 
 Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress varies around a 500 × 550-meter footprint, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
 
@@ -115,7 +115,7 @@ Press **3** to select Space Laser. Aim the jet toward a surface and click or pre
 
 Space Laser is fixed at 380 m strike diameter, 500 m depth, and 100% brightness. Already-launched strikes retain their saved profiles.
 
-At default size, the strike expands to a **190-meter radius** during its first firing second and progressively excavates a **380-meter-wide shaft up to 500 meters below the original terrain**. Structures, trees, rocks, moving debris, and settled rubble in the footprint are vaporized rather than scattered. The rock-lined crater stays dry, including where a river previously flowed. Dust and heat glow fade afterward; subsequent weapon hits can deposit new rubble. Repeated laser strikes cannot deepen terrain past the 500-meter limit.
+At default size, the strike expands to a **190-meter radius** during its first firing second and progressively excavates a **380-meter-wide shaft up to 500 meters below the original terrain**. Structures, trees, rocks, moving debris, and settled rubble in the footprint are vaporized rather than scattered. The rock-lined crater stays dry, including where a river previously flowed. Dust and heat glow fade afterward; subsequent weapon hits can leave temporary wreckage. Repeated laser strikes cannot deepen terrain past the 500-meter limit.
 
 Normally a strike takes its nine-second charge/burn sequence plus fifteen seconds of recharge. No cooldown allows a new locked strike every 0.1 seconds while firing is held; all strikes still charge and burn independently. Terrain work is coalesced per section, with overlapping edits using the deeper result. The nearest eight strikes receive detailed effects and farther strikes use simple instanced columns; audio selects up to four spatial voices. This does not limit authoritative strikes. Large unrestricted runs can slow and accumulate unfinished excavation.
 
@@ -123,15 +123,15 @@ Pause and photo mode freeze the laser. Saves retain locked targets, remaining ch
 
 ## Destruction and saves
 
-- Terrain craters change the visible ground and its collision surface. Cannon/nuke hits stop 25 meters below the original terrain; lasers have a separate 500-meter limit. Ordinary blasts never raise a deeper existing crater.
+- Terrain craters change the visible ground and its collision surface. Cannon/nuke hits stop 50 meters below the original terrain; lasers have a separate 500-meter limit. Ordinary blasts never raise a deeper existing crater.
 - Castle masonry, towers, trees, rocks, and bridge parts can break. Unsupported building sections fall in groups.
 - By default, up to 256 moving rigid bodies are simulated, with up to 64 substantial fragments per cannon blast and 128 per nuke. Selected modules split into two to six pieces. Nukes eject earth and push existing wreckage.
-- By default, a separate 4,096-piece pool draws solid-looking cosmetic chunks with ballistic motion and terrain bounces: up to 256 per cannon blast and 1,200 per nuke. These cannot hit the jet and expire after settling. Reduced effects lowers their count, not world damage.
-- Excess major destruction becomes scattered persistent rubble. Its landing position is approximated; nearby substantial pieces use actual rigid-body motion.
-- At Standard, rubble is consolidated into at most 36 records per terrain section, retaining material volume in rough piles when records fill. A later blast can reactivate nearby large rubble. The game preserves ruins without retaining every brick forever.
+- By default, a separate 4,096-piece pool draws solid-looking cosmetic chunks with ballistic motion and terrain bounces: up to 256 per cannon blast and 1,200 per nuke. These cannot hit the jet and share the six-second motion and one-second shrink lifetime. Reduced effects lowers their count, not world damage.
+- Wreckage and defeated pineapples move for six seconds, then shrink away over one second. Early landings retain temporary visual wreckage.
+- Cleanup is permanent. Physics bodies are released when shrinking begins, and rubble from older saves clears incrementally.
 - Ordinary craters connected to the river can flood; isolated craters and laser shafts remain dry.
 - IndexedDB stores changed terrain samples, destroyed component IDs, major rubble, time, unfinished nuke destruction jobs, and laser strikes/excavation. Restored jobs finish before flight is enabled. Autosaves occur at most once per second; pausing also requests a save.
-- Returning to the game restores the ruined world and starts the aircraft safely airborne. Airborne debris is restored as stable rubble using the same volume-preserving compaction rules, including when section budgets are full; transient effects are not saved.
+- Returning to the game restores the ruined world and starts the aircraft safely airborne. Saved debris clears incrementally after loading; transient effects are not saved.
 - Reset requires confirmation. Incompatible saves prompt for replacement or temporary play without overwriting them. If saving fails, a visible status message explains that flight is continuing without saving.
 
 Saves belong to this browser and website origin. Clearing site data, using private browsing, browser eviction, or changing domains can remove or separate saves. There is no account or cloud synchronization. Closing a tab before an in-progress transaction finishes can lose the latest unsaved second; save status indicates when the write completes.

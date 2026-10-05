@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { COSMETIC_LIMITS } from "../destruction-settings";
-import { CONFIG } from "../config";
+import { CONFIG, WRECKAGE_LIFETIME, WRECKAGE_FADE_SECONDS } from "../config";
 import type { FragmentEffect, Vec3 } from "../types";
 
 const palette = {
@@ -17,7 +17,7 @@ const palette = {
 };
 // Position, velocity, size, rotation, spin, life, color, grounded, clearance.
 const STRIDE = 21;
-/** Cosmetic ballistic chunks. Permanent, collidable rubble is owned by the worker. */
+/** Cosmetic ballistic chunks with the same cleanup lifetime as physical wreckage. */
 export class Fragments {
   capacity = COSMETIC_LIMITS[1];
   private limit = COSMETIC_LIMITS[1];
@@ -60,15 +60,31 @@ export class Fragments {
     return this.mesh.count;
   }
   setLimit(value: number) {
-        const limit=Math.max(1,Math.min(Math.max(...COSMETIC_LIMITS),Math.floor(value)));
-    if(limit>this.capacity) {
-      this.capacity=Math.min(Math.max(...COSMETIC_LIMITS),2**Math.ceil(Math.log2(limit)));
-      const data=new Float32Array(this.capacity*STRIDE);data.set(this.data);this.data=data;
-      const matrix=new THREE.InstancedBufferAttribute(new Float32Array(this.capacity*16),16).setUsage(THREE.DynamicDrawUsage);
+    const limit = Math.max(
+      1,
+      Math.min(Math.max(...COSMETIC_LIMITS), Math.floor(value)),
+    );
+    if (limit > this.capacity) {
+      this.capacity = Math.min(
+        Math.max(...COSMETIC_LIMITS),
+        2 ** Math.ceil(Math.log2(limit)),
+      );
+      const data = new Float32Array(this.capacity * STRIDE);
+      data.set(this.data);
+      this.data = data;
+      const matrix = new THREE.InstancedBufferAttribute(
+        new Float32Array(this.capacity * 16),
+        16,
+      ).setUsage(THREE.DynamicDrawUsage);
       matrix.array.set(this.mesh.instanceMatrix.array);
-      const color=new THREE.InstancedBufferAttribute(new Float32Array(this.capacity*3),3).setUsage(THREE.DynamicDrawUsage);
+      const color = new THREE.InstancedBufferAttribute(
+        new Float32Array(this.capacity * 3),
+        3,
+      ).setUsage(THREE.DynamicDrawUsage);
       color.array.set(this.mesh.instanceColor!.array);
-      this.mesh.dispose();this.mesh.instanceMatrix=matrix;this.mesh.instanceColor=color;
+      this.mesh.dispose();
+      this.mesh.instanceMatrix = matrix;
+      this.mesh.instanceColor = color;
     }
     this.limit = limit;
     this.live = Math.min(this.live, this.limit);
@@ -105,7 +121,7 @@ export class Fragments {
         horizontal = Math.sqrt(1 - up * up) * speed,
         size = 0.5 + random() * 2.5,
         wood = e.material === "wood",
-        life = 8 + random() * 8;
+        life = WRECKAGE_LIFETIME;
       d[j] = x;
       d[j + 1] = Math.max(y, this.ground(x, z) + 1);
       d[j + 2] = z;
@@ -151,7 +167,7 @@ export class Fragments {
         this.remove(i);
         continue;
       }
-      if (!d[j + 19] && dt > 0) {
+      if (!d[j + 19] && dt > 0 && d[j + 15] > WRECKAGE_FADE_SECONDS) {
         // Sweep against the current canonical terrain, including fresh craters.
         const steps = Math.max(
             1,
@@ -171,7 +187,6 @@ export class Fragments {
             d[j + 5] *= 0.45;
             if (Math.hypot(d[j + 3], d[j + 4], d[j + 5]) < 5) {
               d[j + 19] = 1;
-              d[j + 15] = Math.min(d[j + 15], 3);
             }
             break;
           }
@@ -188,7 +203,7 @@ export class Fragments {
         v = Math.sin(d[j + 10]),
         e = Math.cos(d[j + 11]),
         f = Math.sin(d[j + 11]),
-        shrink = Math.min(1, d[j + 15] / 1.5),
+        shrink = Math.min(1, d[j + 15] / WRECKAGE_FADE_SECONDS),
         sx = d[j + 6] * shrink,
         sy = d[j + 7] * shrink,
         sz = d[j + 8] * shrink,
@@ -237,10 +252,22 @@ export class Fragments {
     this.mesh.count = 0;
     this.dirty = this.colorsDirty = false;
   }
-  vaporizeMany(regions: {p:Vec3;radius:number}[]) {
-    for(let i=0;i<this.live;) {const j=i*STRIDE,extent=Math.max(this.data[j+6],this.data[j+7],this.data[j+8]);let hit=false;
-      for(const zone of regions) {const dx=this.data[j]-zone.p[0],dz=this.data[j+2]-zone.p[2],r=zone.radius+extent;if(dx*dx+dz*dz<r*r) {hit=true;break;}}
-      if(hit) this.remove(i);else i++;
+  vaporizeMany(regions: { p: Vec3; radius: number }[]) {
+    for (let i = 0; i < this.live; ) {
+      const j = i * STRIDE,
+        extent = Math.max(this.data[j + 6], this.data[j + 7], this.data[j + 8]);
+      let hit = false;
+      for (const zone of regions) {
+        const dx = this.data[j] - zone.p[0],
+          dz = this.data[j + 2] - zone.p[2],
+          r = zone.radius + extent;
+        if (dx * dx + dz * dz < r * r) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) this.remove(i);
+      else i++;
     }
   }
   vaporize(center: Vec3, radius: number) {

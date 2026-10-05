@@ -25,6 +25,7 @@ export class MonsterRagdolls {
   ) {}
   start(monster: MonsterState, origin?: Vec3) {
     if (
+      monster.cleared ||
       !monster.defeated ||
       [...this.moving.values()].some((r) => r.monster.id === monster.id)
     )
@@ -206,6 +207,14 @@ export class MonsterRagdolls {
         2 * (y * z + w * x) * b +
         (1 - 2 * (x * x + y * y)) * c,
     ];
+  }
+  stop(monster: MonsterState) {
+    for (const [id, ragdoll] of this.moving) {
+      if (ragdoll.monster.id !== monster.id) continue;
+      this.physics.removeRigidBody(ragdoll.body);
+      this.moving.delete(id);
+    }
+    monster.stagger = 0;
   }
   update(dt: number) {
     for (const [id, ragdoll] of this.moving) {

@@ -85,6 +85,7 @@ it("charges exactly four seconds, burns five, vaporizes entire columns and keeps
   expect(s.terrain.sample(446, 256)).toBe(10);
   expect(s.terrain.water(256, 256)).toBe(false);
   expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.snapshot().bodies).toHaveLength(0);
   expect(s.cooldowns.laser).toBeCloseTo(15, 6);
   expect(events.some((e) => e.type === "vaporize")).toBe(true);
   const save = s.save();
@@ -227,8 +228,12 @@ it("does not render compacted rubble again after a laser excavates it", () => {
   // A new material also replaces a queued record without changing its ID.
   (s as any).staticFragment({ ...e, material: "wood" });
   (s as any).flush();
-  const delta = events.find((event) => event.type === "delta")!;
-  expect(delta.settled).toHaveLength(12);
+  expect(
+    events
+      .filter((event) => event.type === "delta")
+      .flatMap((event) => event.settled),
+  ).toHaveLength(0);
+  expect(s.snapshot().bodies).toHaveLength(101);
   const apply = () => {
     for (const event of events.splice(0))
       if (event.type === "delta") view.delta(event);
@@ -242,7 +247,8 @@ it("does not render compacted rubble again after a laser excavates it", () => {
   expect(s.terrain.sample(650, 650)).toBe(-490);
   expect(s.ruins.size).toBe(0);
   expect(view.ruins.size).toBe(0);
-  expect(renderedBefore).toBe(12);
+  expect(renderedBefore).toBe(0);
+  expect(s.snapshot().bodies).toHaveLength(0);
   s.dispose();
 });
 it("retains source dimensions and material volume when rubble budgets and saves overflow", () => {
@@ -250,15 +256,15 @@ it("retains source dimensions and material volume when rubble budgets and saves 
   s.setDestruction({ ...DEFAULT_DESTRUCTION, rubble: 0 });
   const e = entity(0, 650, 650, [8, 5, 7]);
   for (let i = 0; i < 100; i++) (s as any).staticFragment(e);
-  expect(s.ruins.size).toBe(12);
+  expect(s.ruins.size).toBe(0);
   expect(
-    [...s.ruins.values()].some(
-      (r) => !r.pile && r.s.every((v, i) => v === e.s[i]),
-    ),
+    s
+      .snapshot()
+      .bodies.some((r) => !r.pile && r.s.every((v, i) => v === e.s[i])),
   ).toBe(true);
   const volume = 8 * 8 * 5 * 7;
   expect(
-    [...s.ruins.values()].reduce((v, r) => v + rubbleVolume(r), 0),
+    s.snapshot().bodies.reduce((v, r) => v + rubbleVolume(r), 0),
   ).toBeCloseTo(volume * 100, 5);
   for (let i = 0; i < 20; i++)
     (s as any).spawnBody([650, 150, 650], e.s, "stone", 0, "chunk", [0, 0, 0]);
@@ -268,7 +274,7 @@ it("retains source dimensions and material volume when rubble budgets and saves 
     volume * 120,
     5,
   );
-  expect(s.ruins.size).toBe(12);
+  expect(s.ruins.size).toBe(0);
   expect(s.moving.size).toBe(20);
   expect(compatible(save, manifest.version, manifest.seed)).toBe(true);
   const restored = new Simulation(s.world, flat, () => {}, save);
@@ -293,9 +299,11 @@ it("clears moving and settled debris and suppresses stale deferred fragments ins
   s.startLaser([256, 10, 256]);
   for (let i = 0; i < 300; i++) s.step();
   expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.snapshot().bodies).toHaveLength(0);
   (s as any).staticFragment(e);
   (s as any).fragment(e, e.p, 20, { n: 0 });
   expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.snapshot().bodies).toHaveLength(0);
   s.dispose();
 });
 it("preserves outside wreckage from a vaporized source and simulates debris below -50m", () => {
@@ -310,10 +318,12 @@ it("preserves outside wreckage from a vaporized source and simulates debris belo
     [0, 0, 0],
   );
   s.startLaser([256, 10, 256]);
-  for (let i = 0; i < 540; i++) s.step();
+  for (let i = 0; i < 300; i++) s.step();
+  expect(s.snapshot().bodies.some((b) => b.id === outside)).toBe(true);
+  for (let i = 0; i < 240; i++) s.step();
   drain(s);
   expect(s.vaporized.has(0)).toBe(true);
-  expect(s.ruins.has(outside) || s.moving.has(outside)).toBe(true);
+  expect(s.snapshot().bodies.some((b) => b.id === outside)).toBe(false);
   const id = (s as any).spawnBody(
     [256, -450, 256],
     [1, 1, 1],

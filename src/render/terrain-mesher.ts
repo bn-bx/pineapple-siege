@@ -101,7 +101,7 @@ export class TerrainMesher {
         c.lerp(sand, clamp((6 - baseHeight) / 6, 0, 1) * 0.85);
       baseColors.push(c.r, c.g, c.b);
       terrainScarColor(earth, wx, wz, h, damage, Math.hypot(dx, dz) / 4);
-      if (damage > 0.1) c.lerp(earth, clamp(damage / 0.6, 0, 1));
+      if (damage > 0.05) c.lerp(earth, clamp(damage / 0.3, 0, 1));
       colors.push(c.r, c.g, c.b);
       cache.set(key, index);
       return index;

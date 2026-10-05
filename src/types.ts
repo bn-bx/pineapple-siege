@@ -66,6 +66,10 @@ export interface MonsterFragment {
   q: Quat;
 }
 export interface MonsterState {
+  /** Optional wreckage cleanup lifecycle; defeated records remain for game state. */
+  cleanupAge?: number;
+  cleanupScale?: number;
+  cleared?: boolean;
   fragments?: MonsterFragment[];
   /** Root orientation for a defeated monster retained as fallen wreckage. */
   ragdoll?: Quat;

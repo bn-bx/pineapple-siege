@@ -25,7 +25,7 @@ describe("terrain authority", () => {
     expect(patch.chunks.length).toBeGreaterThanOrEqual(4);
     expect(t.sample(x, z)).toBeCloseTo(base[i] - 5, 3);
     for (let n = 0; n < 20; n++) t.crater(x, z);
-    expect(t.sample(x, z)).toBeCloseTo(base[i] - 25, 3);
+    expect(t.sample(x, z)).toBeCloseTo(base[i] - CONFIG.bedrock, 3);
     expect([...t.changed.values()].every(Number.isFinite)).toBe(true);
   });
   it("floods connected river edits but not isolated craters", () => {
@@ -62,7 +62,7 @@ describe("destruction authority", () => {
     expect(messages.some((m) => m.kind === "collapse")).toBe(true);
     sim.dispose();
   }, 30000);
-  it("settles debris and round trips persistent damage and ruins", () => {
+  it("clears wreckage and round trips persistent terrain damage", () => {
     const sim = new Simulation(world, base, () => {});
     sim.explode([
       world.landmarks.towers[0][0],
@@ -77,7 +77,7 @@ describe("destruction authority", () => {
     }
     const save = sim.save();
     expect(sim.moving.size).toBeLessThan(30);
-    expect(save.ruins.length).toBeGreaterThan(0);
+    expect(save.ruins).toHaveLength(0);
     const other = new Simulation(world, base, () => {}, save);
     expect(other.removed.size).toBe(sim.removed.size);
     expect(
@@ -168,7 +168,7 @@ describe("flight and collision", () => {
   }, 20000);
 });
 
-it("preserves supported neighbors, breaches bridge collision, and reactivates nearby rubble", () => {
+it("preserves supported neighbors, breaches bridge collision, and clears old wreckage", () => {
   const sim = new Simulation(world, base, () => {});
   const opposite = world.entities.filter((e) => e.assembly === "tower-1-1");
   sim.explode([world.landmarks.towers[0][0], 11, world.landmarks.towers[0][2]]);
@@ -185,22 +185,8 @@ it("preserves supported neighbors, breaches bridge collision, and reactivates ne
     sim.plane.p = [900, 450, 700];
     sim.step();
   }
-  const rubble = [...sim.ruins.values()].find(
-    (r) => r.material === "sandstone",
-  )!;
-  expect(rubble).toBeDefined();
-  const priorIDs = new Set(sim.ruins.keys());
-  sim.explode(rubble.p);
-  expect([...priorIDs].some((id) => !sim.ruins.has(id))).toBe(true);
-  expect(sim.moving.size).toBeGreaterThan(0);
-  const cells = new Map<number, number>();
-  for (const r of sim.save().ruins) {
-    const id =
-      Math.max(0, Math.min(CHUNKS - 1, Math.floor(r.p[2] / 64))) * CHUNKS +
-      Math.max(0, Math.min(CHUNKS - 1, Math.floor(r.p[0] / 64)));
-    cells.set(id, (cells.get(id) || 0) + 1);
-  }
-  expect(Math.max(...cells.values())).toBeLessThanOrEqual(36);
+  expect(sim.ruins.size).toBe(0);
+  expect(sim.snapshot().bodies).toHaveLength(0);
   sim.dispose();
 }, 30000);
 

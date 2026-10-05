@@ -59,6 +59,7 @@ import type {
   Explosion,
   FragmentEffect,
   Material,
+  Vec3,
 } from "../types";
 import {
   CONFIG,
@@ -1371,9 +1372,11 @@ export class GameRenderer {
         if (gpu) {
           const e = this.world.entities[b.source],
             height = b.s[1],
+            previousHeight = previous?.s[1] ?? height,
             species = e.treeSpecies ?? "pine",
             index = canopyCounts.get(species) ?? 0;
           b.s[1] = height * 2;
+          if (previous) previous.s[1] = previousHeight * 2;
           writeDebrisMotion(this.fallenTrunks, trees, b, previous);
           this.fallenTrunks.setColorAt(
             trees,
@@ -1385,8 +1388,11 @@ export class GameRenderer {
             p[2] -= 2 * (q[1] * q[2] + q[0] * q[3]) * h;
           };
           offset(b.p, b.q, height);
-          if (previous) offset(previous.p, previous.q, previous.s[1]);
+          if (previous) offset(previous.p, previous.q, previousHeight);
           b.s[0] = b.s[2] = (e.s[0] * 1.45 * height) / e.s[1];
+          if (previous)
+            previous.s[0] = previous.s[2] =
+              (e.s[0] * 1.45 * previousHeight) / e.s[1];
           const canopy = this.fallenCanopy(species);
           writeDebrisMotion(canopy, index, b, previous);
           canopy.setColorAt(
@@ -1406,19 +1412,30 @@ export class GameRenderer {
           continue;
         }
         const e = this.world.entities[b.source];
-        dummy.scale.set(b.s[0], b.s[1] * 2, b.s[2]);
+        const height = previous
+          ? THREE.MathUtils.lerp(previous.s[1], b.s[1], alpha)
+          : b.s[1];
+        dummy.scale.set(
+          previous
+            ? THREE.MathUtils.lerp(previous.s[0], b.s[0], alpha)
+            : b.s[0],
+          height * 2,
+          previous
+            ? THREE.MathUtils.lerp(previous.s[2], b.s[2], alpha)
+            : b.s[2],
+        );
         dummy.updateMatrix();
         this.fallenTrunks.setMatrixAt(trees, dummy.matrix);
         this.fallenTrunks.setColorAt(trees, this.fragmentColor.setScalar(1));
         dummy.position.add(
           this.wreckPosition
-            .set(0, -b.s[1], 0)
+            .set(0, -height, 0)
             .applyQuaternion(dummy.quaternion),
         );
-        const ratio = b.s[1] / e.s[1];
+        const ratio = height / e.s[1];
         dummy.scale.set(
           e.s[0] * 1.45 * ratio,
-          b.s[1] * 2,
+          height * 2,
           e.s[0] * 1.45 * ratio,
         );
         dummy.updateMatrix();
@@ -1438,7 +1455,11 @@ export class GameRenderer {
         index = counts.get(key) || 0;
       if (gpu) writeDebrisMotion(mesh, index, b, previous);
       else {
-        dummy.scale.fromArray(b.s);
+        dummy.scale.set(
+          ...(b.s.map((size, axis) =>
+            THREE.MathUtils.lerp(previous?.s[axis] ?? size, size, alpha),
+          ) as Vec3),
+        );
         dummy.updateMatrix();
         mesh.setMatrixAt(index, dummy.matrix);
       }
@@ -1743,8 +1764,14 @@ export class GameRenderer {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];
       const m = snap.monsters[i];
-      mesh.visible = distant.visible = !!m && (!m.defeated || !!m.ragdoll);
-      if (m?.fragments?.length) {
+      const wreckageScale = THREE.MathUtils.lerp(
+        this.previous?.monsters[i]?.cleanupScale ?? 1,
+        m?.cleanupScale ?? 1,
+        alpha,
+      );
+      mesh.visible = distant.visible =
+        !!m && !m.cleared && (!m.defeated || !!m.ragdoll);
+      if (m?.fragments?.length && !m.cleared) {
         const previous = this.previous?.monsters[m.id]?.fragments;
         const root = this.monsterFragmentRoot;
         for (const fragment of m.fragments) {
@@ -1770,12 +1797,12 @@ export class GameRenderer {
                 alpha,
               );
           }
-          root.scale.setScalar(MONSTER_SCALE);
+          root.scale.setScalar(MONSTER_SCALE * wreckageScale);
           this.monsterFragmentView.add(fragment.part, root);
         }
         continue;
       }
-      if (!m || (m.defeated && !m.ragdoll)) {
+      if (!m || m.cleared || (m.defeated && !m.ragdoll)) {
         if (mesh.parent) this.scene.remove(mesh);
         if (distant.parent) this.scene.remove(distant);
         continue;
@@ -1805,10 +1832,10 @@ export class GameRenderer {
             .fromArray(old.ragdoll)
             .slerp(new THREE.Quaternion().fromArray(m.ragdoll), alpha);
         }
-        mesh.scale.setScalar(MONSTER_SCALE);
+        mesh.scale.setScalar(MONSTER_SCALE * wreckageScale);
         distant.position.copy(mesh.position);
         distant.quaternion.copy(mesh.quaternion);
-        distant.scale.setScalar(MONSTER_SCALE);
+        distant.scale.setScalar(MONSTER_SCALE * wreckageScale);
         if (this.camera.position.distanceTo(mesh.position) < 480) {
           const sway = Math.sin(m.phase) * m.stagger * 0.25;
           this.nearMonsterView.add(mesh, 0.35 + sway, -0.35 - sway, sway * 0.2);

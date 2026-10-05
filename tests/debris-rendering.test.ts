@@ -298,3 +298,50 @@ it("preserves each tree species from falling bodies into settled ruins and clear
     dispose();
   }
 });
+
+it("uses matching trunk and canopy dimensions on both sides of GPU interpolation", () => {
+  const { view, dispose } = fixture();
+  view.camera = new THREE.PerspectiveCamera(64, 1, 0.5, 2000);
+  view.camera.position.set(0, 100, 0);
+  view.renderDistance = 1200;
+  view.bodyReader = new PackedBodyReader();
+  view.oldBodyReader = new PackedBodyReader();
+  view.oldBodyLookup = new PackedBodyLookup();
+  view.bodyScratch = body(0);
+  view.oldBodyScratch = body(0);
+  view.bodySphere = new THREE.Sphere();
+  view.bodyFrustum = new THREE.Frustum();
+  view.bodyProjection = new THREE.Matrix4();
+  view.bodyAlpha = { value: 0.5 };
+  view.bodyGPUEnabled = { value: 1 };
+  const old: BodyView = {
+    ...body(42),
+    kind: "tree",
+    p: [0, 100, -100],
+    s: [1, 4, 1],
+  };
+  const current: BodyView = { ...old, s: [0.5, 2, 0.5] };
+  const oldPacket = packBodies([old], 1),
+    packet = packBodies([current], 1);
+  const original = new Uint8Array(oldPacket.buffer).slice();
+  for (const mesh of [view.fallenTrunks, view.fallenPines])
+    prepareDebrisMotion(mesh, view.bodyAlpha, view.bodyGPUEnabled);
+  try {
+    view.syncBodies([current], 0.5, packet, oldPacket);
+    const trunk = view.fallenTrunks.geometry.getAttribute("motionPreviousS");
+    const canopy = view.fallenPines.geometry.getAttribute("motionPreviousS");
+    expect(trunk.getY(0)).toBe(8);
+    expect(trunk.getX(0)).toBe(1);
+    expect(canopy.getY(0)).toBe(8);
+    expect(canopy.getX(0)).toBeCloseTo(2.9);
+    expect(
+      view.fallenPines.geometry.getAttribute("motionPreviousP").getY(0),
+    ).toBe(96);
+    expect(view.fallenTrunks.instanceMatrix.array[5]).toBe(4);
+    expect(view.fallenPines.instanceMatrix.array[0]).toBeCloseTo(1.45);
+    expect(new Uint8Array(oldPacket.buffer)).toEqual(original);
+    expect(current.s).toEqual([0.5, 2, 0.5]);
+  } finally {
+    dispose();
+  }
+});

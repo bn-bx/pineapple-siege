@@ -19,6 +19,9 @@ import {
 import RAPIER from "@dimforge/rapier3d-compat";
 import {
   CONFIG,
+  WRECKAGE_FLIGHT_SECONDS,
+  WRECKAGE_FADE_SECONDS,
+  WRECKAGE_LIFETIME,
   LASER,
   WEAPONS,
   RAPID_FIRE_INTERVAL,
@@ -140,6 +143,11 @@ export class Simulation {
   private bodyPoses = new BodyPoseCache();
   readonly moving = new DebrisMap<Moving>(this.bodyPoses);
   readonly ballistic = new DebrisMap<BallisticDebris>(this.bodyPoses);
+  private cleanupExpiry = new Map<number, number>();
+  private cleanupRemains = new DebrisMap<{
+    view: BodyView;
+  }>(this.bodyPoses);
+  private clearingOldRubble = false;
   private collisionLOD = false;
   private majorBodies = 0;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
@@ -184,6 +192,98 @@ export class Simulation {
       this.cooldowns = { cannon: 0, nuke: 0, laser: 0 };
     // Lower budgets demote bodies gradually in step(), preserving their motion.
   }
+  private trackCleanup(id: number) {
+    if (!this.cleanupExpiry.has(id))
+      this.cleanupExpiry.set(id, this.time + WRECKAGE_LIFETIME);
+  }
+  private cleanupScale(id: number) {
+    return clamp(
+      ((this.cleanupExpiry.get(id) ?? this.time + WRECKAGE_FADE_SECONDS) -
+        this.time) /
+        WRECKAGE_FADE_SECONDS,
+      0,
+      1,
+    );
+  }
+  private packSnapshotBodies(reuse?: ArrayBuffer) {
+    const packet = this.bodyPoses.pack(reuse);
+    const ids = new Int32Array(packet.buffer, 0, packet.count * 2);
+    const transforms = new Float32Array(
+      packet.buffer,
+      packet.count * 8,
+      packet.count * 10,
+    );
+    for (let i = 0; i < packet.count; i++) {
+      const scale = this.cleanupScale(ids[i * 2]);
+      for (let axis = 0; axis < 3; axis++)
+        transforms[i * 10 + 7 + axis] *= scale;
+    }
+    return packet;
+  }
+  private updateCleanup(dt: number) {
+    if (this.clearingOldRubble) {
+      const started = performance.now();
+      let removed = 0;
+      for (const id of this.ruins.keys()) {
+        this.removeRuin(id);
+        if (++removed >= 128 || performance.now() - started > 0.5) break;
+      }
+      this.clearingOldRubble = this.ruins.size > 0;
+      if (removed) this.bump();
+    }
+    for (const [id, expires] of this.cleanupExpiry) {
+      const remaining = expires - this.time;
+      if (remaining > WRECKAGE_FADE_SECONDS + 1e-9) continue;
+      const rigid = this.moving.get(id);
+      if (rigid) {
+        const p = rigid.body.translation(),
+          q = rigid.body.rotation();
+        rigid.view.p = [p.x, p.y, p.z];
+        rigid.view.q = [q.x, q.y, q.z, q.w];
+        this.colliderMoving.delete(rigid.collider.handle);
+        this.physics.removeRigidBody(rigid.body);
+        this.moving.delete(id);
+        if (rigid.major) this.majorBodies--;
+        this.cleanupRemains.set(id, { view: rigid.view });
+      }
+      const ballistic = this.ballistic.get(id);
+      if (ballistic) {
+        this.ballistic.delete(id);
+        this.cleanupRemains.set(id, {
+          view: ballistic.view,
+        });
+      }
+      if (remaining <= 1e-9) {
+        this.cleanupRemains.delete(id);
+        this.cleanupExpiry.delete(id);
+        this.bump();
+      }
+    }
+    for (const monster of this.monsters.states) {
+      if (!monster.defeated || monster.cleared) continue;
+      const previousAge = monster.cleanupAge ?? 0;
+      const age = (monster.cleanupAge = previousAge + dt);
+      monster.cleanupScale = clamp(
+        (WRECKAGE_LIFETIME - age) / WRECKAGE_FADE_SECONDS,
+        0,
+        1,
+      );
+      if (
+        previousAge < WRECKAGE_FLIGHT_SECONDS &&
+        age >= WRECKAGE_FLIGHT_SECONDS - 1e-9
+      )
+        this.monsterRagdolls.stop(monster);
+      if (age >= WRECKAGE_LIFETIME - 1e-9) {
+        this.monsterRagdolls.stop(monster);
+        monster.cleared = true;
+        monster.cleanupScale = 0;
+        monster.ragdoll = undefined;
+        monster.fragments = undefined;
+        this.bump();
+      }
+    }
+  }
+
   cooldowns = { cannon: 0, nuke: 0, laser: 0 };
   readonly lasers: LaserStrike[] = [];
   readonly laserWork = new Map<number, LaserWork>();
@@ -257,7 +357,12 @@ export class Simulation {
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
     this.monsterRagdolls = new MonsterRagdolls(this.physics, this.terrain);
     for (const m of this.monsters.states)
-      if (m.defeated && m.ragdoll) this.monsterRagdolls.start(m);
+      if (
+        m.defeated &&
+        m.ragdoll &&
+        (m.cleanupAge ?? 0) < WRECKAGE_FLIGHT_SECONDS
+      )
+        this.monsterRagdolls.start(m);
     this.physics.timestep = CONFIG.dt;
     this.physics.numSolverIterations = 4;
     this.plane = {
@@ -307,6 +412,7 @@ export class Simulation {
         this.nextBody = Math.max(this.nextBody, r.id + 1);
       }
     }
+    this.clearingOldRubble = this.ruins.size > 0;
     this.civilians = new Civilians(world, this.terrain, this.removed, save);
     for (const e of world.entities) {
       for (
@@ -656,6 +762,7 @@ export class Simulation {
       source,
       ...(roofPart ? { roofPart } : {}),
     };
+    this.trackCleanup(id);
     this.colliderMoving.set(collider.handle, id);
     this.moving.set(id, {
       view,
@@ -1001,27 +1108,8 @@ export class Simulation {
   private insertRuin(r: Ruin) {
     if (this.burnZones.length && this.inBeam(r.p, this.orientedSize(r.s, r.q)))
       return;
-    const id = this.cell(r.p),
-      records = this.ruinCells.get(id);
-    if ((records?.size ?? 0) >= this.rubbleLimit) {
-      const existing = Array.from(records!, (id) => this.ruins.get(id)!);
-      const merged = consolidateRubble(r, existing, (x, z) =>
-        this.terrain.sample(x, z),
-      );
-      this.removeRuin(merged.removed);
-      if (merged.ruin.id !== r.id) {
-        this.removeRuin(merged.ruin.id);
-        this.insertRuin(merged.ruin);
-      } else r = merged.ruin;
-    }
-    this.ruins.set(r.id, r);
-    this.maxRuinExtent = Math.max(this.maxRuinExtent, ...r.s);
-    this.ruinShapes.delete(r.id);
-    this.dirtyRuins.set(r.id, r);
-    this.ruinSection.set(r.id, this.cell(r.p));
-    this.indexRuin(r);
-    if (!this.streamedStatics) this.addRuinCollider(r);
-    this.changedSettled.push(r);
+    this.trackCleanup(r.id);
+    this.cleanupRemains.set(r.id, { view: r });
   }
   private removeRuin(id: number) {
     const c = this.ruinColliders.get(id);
@@ -1055,6 +1143,7 @@ export class Simulation {
     this.bump();
   }
   private addBallistic(view: BodyView, velocity: Vec3, angular?: Vec3) {
+    this.trackCleanup(view.id);
     this.ballistic.set(view.id, {
       view,
       velocity,
@@ -2049,6 +2138,12 @@ export class Simulation {
         this.ballistic.delete(m.view.id);
         this.bump();
       }
+    for (const [id, { view }] of this.cleanupRemains)
+      if (this.inBeam(view.p, this.orientedSize(view.s, view.q))) {
+        this.cleanupRemains.delete(id);
+        this.cleanupExpiry.delete(id);
+        this.bump();
+      }
     for (const zone of this.burnZones)
       this.emit({ type: "vaporize", p: [...zone.p], radius: zone.radius });
   }
@@ -2227,6 +2322,15 @@ export class Simulation {
           this.ballistic.delete(m.view.id);
           this.bump();
         }
+    for (const [id, { view }] of this.cleanupRemains)
+      if (
+        (section === undefined || this.cell(view.p) === section) &&
+        this.intersects(view.p, this.orientedSize(view.s, view.q), p, radius)
+      ) {
+        this.cleanupRemains.delete(id);
+        this.cleanupExpiry.delete(id);
+        this.bump();
+      }
     if (section === undefined)
       this.emit({ type: "vaporize", p: [...p], radius });
   }
@@ -2399,6 +2503,7 @@ export class Simulation {
     const dt = CONFIG.dt;
     this.tick++;
     this.time += dt;
+    this.updateCleanup(dt);
     if (!this.holdTime) this.hour = (this.hour + dt / 60) % 24;
     for (const weapon of ["cannon", "nuke", "laser"] as const)
       this.cooldowns[weapon] = Math.max(0, this.cooldowns[weapon] - dt);
@@ -2746,11 +2851,11 @@ export class Simulation {
             ...b,
             p: [...b.p],
             q: [...b.q],
-            s: [...b.s],
+            s: b.s.map((value) => value * this.cleanupScale(b.id)) as Vec3,
           })),
       ...(packed
         ? {
-            packedBodies: this.bodyPoses.pack(reuse?.bodies),
+            packedBodies: this.packSnapshotBodies(reuse?.bodies),
           }
         : {}),
       stats: {
@@ -2949,7 +3054,7 @@ export class Simulation {
       if (!ids) cells.set(k, (ids = new Set()));
       ids.add(r.id);
     }
-    for (const view of this.debrisViews()) {
+    for (const view of this.bodyPoses.views()) {
       const p: Vec3 = [
         clamp(view.p[0], 8, CONFIG.worldSize - 8),
         0,
@@ -3021,6 +3126,8 @@ export class Simulation {
   dispose() {
     this.moving.clear();
     this.ballistic.clear();
+    this.cleanupRemains.clear();
+    this.cleanupExpiry.clear();
     this.bodyPoses.dispose();
     this.events.free();
     this.physics.free();

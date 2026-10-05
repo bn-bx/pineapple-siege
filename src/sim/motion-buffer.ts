@@ -58,6 +58,7 @@ export function packMotion(
     data[offset + 8] = m.windup;
     data[offset + 9] = m.stagger;
     data[offset + 14] = m.ragdoll ? 1 : 0;
+    data[offset + 15] = m.cleanupScale ?? 1;
     for (let k = 0; k < 4; k++) data[offset + 10 + k] = m.ragdoll?.[k] ?? 0;
     offset += STRIDE;
   }
@@ -197,6 +198,8 @@ export function bindMotion(
         v.phase = data[offset + 7];
         v.windup = data[offset + 8];
         v.stagger = data[offset + 9];
+        v.cleanupScale = data[offset + 15];
+        v.cleared = v.defeated && v.cleanupScale === 0;
         v.fragments = undefined;
         v.ragdoll = data[offset + 14]
           ? [

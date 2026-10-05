@@ -22,7 +22,7 @@ export const CONFIG = {
   projectileLifetime: 8,
   craterRadius: 12,
   craterDepth: 5,
-  bedrock: 25,
+  bedrock: 50,
   laserBedrock: 500,
   damageRadius: 24,
   maxBodies: 256,
@@ -55,8 +55,8 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   local: {
     damageRadius: 70,
-    craterRadius: 35,
-    depth: 12,
+    craterRadius: 52.5,
+    depth: 24,
     cloudHeight: 120,
     bodyLimit: 128,
     scatterMin: 50,
@@ -65,8 +65,8 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   },
   castle: {
     damageRadius: 180,
-    craterRadius: 70,
-    depth: 20,
+    craterRadius: 105,
+    depth: 40,
     cloudHeight: 240,
     bodyLimit: 128,
     scatterMin: 60,
@@ -75,8 +75,8 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   },
   valley: {
     damageRadius: 420,
-    craterRadius: 160,
-    depth: 25,
+    craterRadius: 240,
+    depth: 50,
     cloudHeight: 400,
     bodyLimit: 128,
     scatterMin: 70,
@@ -113,3 +113,8 @@ export const LASER = {
   depth: 500,
   range: 2400,
 };
+
+export const WRECKAGE_FLIGHT_SECONDS = 6;
+export const WRECKAGE_FADE_SECONDS = 1;
+export const WRECKAGE_LIFETIME =
+  WRECKAGE_FLIGHT_SECONDS + WRECKAGE_FADE_SECONDS;

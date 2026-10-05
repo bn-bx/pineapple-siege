@@ -54,7 +54,7 @@ export function normalizeDestruction(
         : 1,
   };
 }
-/** Public game settings are fixed; only rapid fire remains a user preference. */
+/** Public budgets are fixed; rapid fire is a preference. */
 export function fixedDestruction(
   value?: Partial<DestructionSettings> & { noNukeCooldown?: boolean },
 ): DestructionSettings {
@@ -73,7 +73,7 @@ export function nukeProfile(
     ...base,
     damageRadius: base.damageRadius * scale,
     craterRadius: base.craterRadius * scale,
-    depth: Math.min(25, base.depth * scale),
+    depth: Math.min(CONFIG.bedrock, base.depth * scale),
     cloudHeight: base.cloudHeight * Math.sqrt(scale),
     bodyLimit: NUKE_LIMITS[settings.fragments],
     ejecta: Math.round(base.ejecta * COSMETIC_SCALE[settings.cosmetics]),

@@ -298,7 +298,7 @@ export class TerrainView {
         dz = this.sample(x, z - 2) - this.sample(x, z + 2),
         length = Math.hypot(dx, 4, dz),
         damage = this.sample(x, z, this.base) - h,
-        mix = damage > 0.1 ? clamp(damage / 0.6, 0, 1) : 0;
+        mix = damage > 0.05 ? clamp(damage / 0.3, 0, 1) : 0;
       terrainScarColor(earth, x, z, h, damage, Math.hypot(dx, dz) / 4);
       positions.setY(i, h);
       normals.setXYZ(i, dx / length, 4 / length, dz / length);
@@ -625,7 +625,7 @@ export class TerrainView {
         this.coarseColor.toArray(this.coarseBaseColors, i * 3);
       } else this.coarseColor.fromArray(this.coarseBaseColors, i * 3);
       const damage = base - h;
-      if (damage > 0.1) {
+      if (damage > 0.05) {
         terrainScarColor(
           this.scarColor,
           x,
@@ -634,7 +634,7 @@ export class TerrainView {
           damage,
           Math.hypot(dx, dz) * 0.25,
         );
-        this.coarseColor.lerp(this.scarColor, clamp(damage / 0.6, 0, 1));
+        this.coarseColor.lerp(this.scarColor, clamp(damage / 0.3, 0, 1));
       }
       p.setY(i, h - 1);
       n.setXYZ(i, dx / length, 4 / length, dz / length);

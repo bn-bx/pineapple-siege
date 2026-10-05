@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { BodyView } from "../types";
 const declarations = `
-attribute vec3 motionPreviousP;
+attribute vec3 motionPreviousP, motionPreviousS;
 attribute vec4 motionPreviousQ, motionCurrentQ;
 uniform float motionAlpha, motionEnabled;
 vec4 motionQ; vec3 motionP, motionS;
@@ -31,7 +31,7 @@ function patch(
         `void main() {
         motionQ=interpolateMotionQ(motionPreviousQ,motionCurrentQ,motionAlpha);
         motionP=mix(motionPreviousP,instanceMatrix[3].xyz,motionAlpha);
-        motionS=vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz));`,
+        motionS=mix(motionPreviousS,vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz)),motionAlpha);`,
       )
       .replace(
         "#include <project_vertex>",
@@ -55,7 +55,7 @@ function patch(
         ),
       );
   };
-  material.customProgramCacheKey = () => "debris-motion-v1";
+  material.customProgramCacheKey = () => "debris-motion-v2";
   material.needsUpdate = true;
 }
 /** The GPU interpolates poses. CPU uploads only when a new motion packet arrives. */
@@ -83,6 +83,7 @@ export function resizeDebrisMotion(mesh: THREE.InstancedMesh) {
   const count = mesh.instanceMatrix.count;
   for (const [name, size] of [
     ["motionPreviousP", 3],
+    ["motionPreviousS", 3],
     ["motionPreviousQ", 4],
     ["motionCurrentQ", 4],
   ] as const) {
@@ -121,6 +122,11 @@ export function writeDebrisMotion(
   const old = previous ?? b,
     k = index * 3,
     n = index * 4;
+  const size = mesh.geometry.getAttribute("motionPreviousS")
+    .array as Float32Array;
+  size[k] = old.s[0];
+  size[k + 1] = old.s[1];
+  size[k + 2] = old.s[2];
   p[k] = old.p[0];
   p[k + 1] = old.p[1];
   p[k + 2] = old.p[2];
@@ -135,7 +141,12 @@ export function writeDebrisMotion(
 }
 export function uploadDebrisMotion(mesh: THREE.InstancedMesh) {
   if (!mesh.userData.motion) return;
-  for (const name of ["motionPreviousP", "motionPreviousQ", "motionCurrentQ"]) {
+  for (const name of [
+    "motionPreviousP",
+    "motionPreviousS",
+    "motionPreviousQ",
+    "motionCurrentQ",
+  ]) {
     const attribute = mesh.geometry.getAttribute(
       name,
     ) as THREE.InstancedBufferAttribute;

@@ -13,7 +13,9 @@ import { DEFAULT_DESTRUCTION } from "../src/destruction-settings";
 import type { Entity, WorldData } from "../src/types";
 
 beforeAll(initializePhysics);
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const flat = new Float32Array(CONFIG.grid * CONFIG.grid);
 const entity: Entity = {
   id: 0,
@@ -129,7 +131,7 @@ it("shows every overflow source at launch and retains it in packed snapshots and
   }
 });
 
-it("demotes an airborne body without snapping and lets it land at its actual endpoint", () => {
+it("demotes an airborne body without snapping and preserves its trajectory until cleanup", () => {
   const sim = new Simulation({ ...world, entities: [] }, flat, () => {});
   try {
     const id = (sim as any).spawnBody(
@@ -146,9 +148,14 @@ it("demotes an airborne body without snapping and lets it land at its actual end
     expect(sim.ruins.has(id)).toBe(false);
     expect(sim.ballistic.get(id)!.view.p).toEqual([600, 30, 600]);
     expect(sim.ballistic.get(id)!.velocity).toEqual([80, 60, 0]);
-    for (let i = 0; i < 1000 && !sim.ruins.has(id); i++) sim.step();
-    expect(sim.ruins.get(id)!.p[0]).toBeGreaterThan(950);
+    for (let i = 0; i < 390; i++) sim.step();
+    expect(
+      sim.snapshot().bodies.find((b) => b.id === id)!.p[0],
+    ).toBeGreaterThan(950);
     expect(sim.ballistic.has(id)).toBe(false);
+    for (let i = 0; i < 31; i++) sim.step();
+    expect(sim.snapshot().bodies).toHaveLength(0);
+    expect(sim.ruins.size).toBe(0);
   } finally {
     sim.dispose();
   }
@@ -160,6 +167,7 @@ it("reblasts ballistic pieces and vaporizes their oriented footprints", () => {
     (sim as any).addBallistic(debris().view, [0, -10, 0], [0, 0, 0]);
     (sim as any).shoveWreckage([590, 30, 600], 50, 100, { n: 0, limit: 0 });
     expect(sim.ballistic.get(100000)!.velocity[0]).toBeGreaterThan(40);
+    (sim as any).insertRuin({ ...debris().view, id: 100001 });
     (sim as any).clearLaser([605, 0, 600], 4);
     expect(sim.ballistic.size).toBe(0);
     expect(sim.snapshot().bodies).toEqual([]);

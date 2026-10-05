@@ -46,4 +46,6 @@ export function terrainScarColor(
   color.r += (grey - color.r) * rock;
   color.g += (grey * 0.97 - color.g) * rock;
   color.b += (grey * 0.87 - color.b) * rock;
+  // Char the exposed surface; deep blast scars retain a mottled charcoal tone.
+  color.multiplyScalar(1 - 0.7 * clamp(damage / 2, 0, 1));
 }
