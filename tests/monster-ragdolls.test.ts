@@ -28,8 +28,10 @@ it("tumbles onto terrain, sleeps, retains its pose, and releases the physics bod
   try {
     ragdolls.start(monster, [0, 0, -20]);
     ragdolls.start(monster);
-    expect(ragdolls.moving.size).toBe(4);
-    expect(monster.fragments?.map((f) => f.part)).toEqual([0, 1, 2, 3]);
+    expect(ragdolls.moving.size).toBe(7);
+    expect(monster.fragments?.map((f) => f.part)).toEqual([
+      1, 2, 3, 4, 5, 6, 7,
+    ]);
     const initial = [...monster.ragdoll!];
     for (let i = 0; i < 180; i++) {
       physics.step();
@@ -40,12 +42,15 @@ it("tumbles onto terrain, sleeps, retains its pose, and releases the physics bod
     expect(monster.p.every(Number.isFinite)).toBe(true);
     expect(monster.health).toBe(0);
     expect(
+      Math.max(...monster.fragments!.map((f) => Math.hypot(f.p[0], f.p[2]))),
+    ).toBeGreaterThan(100);
+    expect(
       Math.hypot(
         ...monster.fragments![2].p.map(
           (v, i) => v - monster.fragments![3].p[i],
         ),
       ),
-    ).toBeGreaterThan(50);
+    ).toBeGreaterThan(100);
     for (let i = 0; i < 2400 && ragdolls.moving.size; i++) {
       physics.step();
       ragdolls.update(CONFIG.dt);

@@ -1,6 +1,9 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { MONSTER_SCALE } from "../config";
-import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
+import {
+  MONSTER_FRAGMENT_CENTERS,
+  MONSTER_DEFEAT_PARTS,
+} from "../monster-fragments";
 import type { MonsterFragment, MonsterState, Vec3 } from "../types";
 import type { Terrain } from "./terrain";
 
@@ -76,7 +79,12 @@ export class MonsterRagdolls {
         true,
       );
     }
-    this.moving.set(monster.id * 4, { monster, body, age: 0, resting: 0 });
+    this.moving.set(monster.id * MONSTER_FRAGMENT_CENTERS.length, {
+      monster,
+      body,
+      age: 0,
+      resting: 0,
+    });
   }
   private startFragments(monster: MonsterState, origin?: Vec3) {
     const restoring = !!monster.fragments;
@@ -87,7 +95,8 @@ export class MonsterRagdolls {
       Math.cos(monster.yaw / 2),
     ];
     if (!monster.fragments)
-      monster.fragments = MONSTER_FRAGMENT_CENTERS.map((center, part) => {
+      monster.fragments = MONSTER_DEFEAT_PARTS.map((part) => {
+        const center = MONSTER_FRAGMENT_CENTERS[part];
         const [x, y, z] = center.map((v) => v * MONSTER_SCALE);
         const c = Math.cos(monster.yaw),
           s = Math.sin(monster.yaw);
@@ -108,24 +117,30 @@ export class MonsterRagdolls {
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(...fragment.p)
           .setRotation({ x, y, z, w })
-          .setLinearDamping(0.5)
+          .setLinearDamping(0.18)
           .setAngularDamping(0.65)
           .setCcdEnabled(true),
       );
       const shape =
-        fragment.part === 0
-          ? RAPIER.ColliderDesc.capsule(3 * MONSTER_SCALE, 8 * MONSTER_SCALE)
-          : fragment.part === 1
-            ? RAPIER.ColliderDesc.cuboid(
-                3 * MONSTER_SCALE,
-                5 * MONSTER_SCALE,
-                3 * MONSTER_SCALE,
-              )
-            : RAPIER.ColliderDesc.cuboid(
-                5 * MONSTER_SCALE,
-                8 * MONSTER_SCALE,
-                3 * MONSTER_SCALE,
-              );
+        fragment.part >= 4
+          ? RAPIER.ColliderDesc.cuboid(
+              4.5 * MONSTER_SCALE,
+              6 * MONSTER_SCALE,
+              7 * MONSTER_SCALE,
+            )
+          : fragment.part === 0
+            ? RAPIER.ColliderDesc.capsule(3 * MONSTER_SCALE, 8 * MONSTER_SCALE)
+            : fragment.part === 1
+              ? RAPIER.ColliderDesc.cuboid(
+                  3 * MONSTER_SCALE,
+                  5 * MONSTER_SCALE,
+                  3 * MONSTER_SCALE,
+                )
+              : RAPIER.ColliderDesc.cuboid(
+                  5 * MONSTER_SCALE,
+                  8 * MONSTER_SCALE,
+                  3 * MONSTER_SCALE,
+                );
       // Pieces collide with terrain and structures, but not their overlapping siblings.
       this.physics.createCollider(
         shape
@@ -140,12 +155,19 @@ export class MonsterRagdolls {
           ? Math.atan2(monster.p[0] - origin[0], monster.p[2] - origin[2])
           : monster.yaw;
         const angle =
-          base + (fragment.part === 2 ? -1.2 : fragment.part === 3 ? 1.2 : 0);
-        const speed = fragment.part ? 14 : 9;
+          base +
+          (fragment.part === 2
+            ? -1.4
+            : fragment.part === 3
+              ? 1.4
+              : fragment.part >= 4
+                ? (fragment.part - 5.5) * 0.65
+                : 0);
+        const speed = 46 + ((monster.id * 17 + fragment.part * 13) % 20);
         body.setLinvel(
           {
             x: Math.sin(angle) * speed,
-            y: fragment.part === 1 ? 12 : 5,
+            y: 24 + ((monster.id + fragment.part * 7) % 13),
             z: Math.cos(angle) * speed,
           },
           true,
@@ -155,22 +177,34 @@ export class MonsterRagdolls {
           true,
         );
       }
-      this.moving.set(monster.id * 4 + fragment.part, {
-        monster,
-        body,
-        fragment,
-        age: 0,
-        resting: 0,
-      });
+      this.moving.set(
+        monster.id * MONSTER_FRAGMENT_CENTERS.length + fragment.part,
+        {
+          monster,
+          body,
+          fragment,
+          age: 0,
+          resting: 0,
+        },
+      );
     }
   }
-  private offset(q: readonly number[]): Vec3 {
+  private offset(
+    q: readonly number[],
+    center: readonly number[] = [0, 15, 0],
+  ): Vec3 {
     const [x, y, z, w] = q,
-      height = 15 * MONSTER_SCALE;
+      [a, b, c] = center.map((v) => v * MONSTER_SCALE);
     return [
-      2 * (x * y - w * z) * height,
-      (1 - 2 * (x * x + z * z)) * height,
-      2 * (y * z + w * x) * height,
+      (1 - 2 * (y * y + z * z)) * a +
+        2 * (x * y - w * z) * b +
+        2 * (x * z + w * y) * c,
+      2 * (x * y + w * z) * a +
+        (1 - 2 * (x * x + z * z)) * b +
+        2 * (y * z - w * x) * c,
+      2 * (x * z - w * y) * a +
+        2 * (y * z + w * x) * b +
+        (1 - 2 * (x * x + y * y)) * c,
     ];
   }
   update(dt: number) {
@@ -181,11 +215,13 @@ export class MonsterRagdolls {
         p = body.translation();
       // Canonical terrain remains authoritative across streamed collider boundaries.
       const vertical =
-        fragment?.part === 1
-          ? [3, 5, 3]
-          : fragment && fragment.part > 1
-            ? [5, 8, 3]
-            : undefined;
+        fragment && fragment.part >= 4
+          ? [4.5, 6, 7]
+          : fragment?.part === 1
+            ? [3, 5, 3]
+            : fragment && fragment.part > 1
+              ? [5, 8, 3]
+              : undefined;
       const clearance = vertical
         ? MONSTER_SCALE *
           (vertical[0] * Math.abs(2 * (q.x * q.y + q.w * q.z)) +
@@ -206,9 +242,14 @@ export class MonsterRagdolls {
         fragment.p = [p.x, p.y, p.z];
         fragment.q = [q.x, q.y, q.z, q.w];
       }
-      if (!fragment || fragment.part === 0) {
+      if (!fragment || fragment.part === 0 || fragment.part === 4) {
         monster.ragdoll = [q.x, q.y, q.z, q.w];
-        const offset = this.offset(monster.ragdoll);
+        const offset = this.offset(
+          monster.ragdoll,
+          fragment && fragment.part >= 4
+            ? MONSTER_FRAGMENT_CENTERS[fragment.part]
+            : undefined,
+        );
         monster.p = [p.x - offset[0], p.y - offset[1], p.z - offset[2]];
         monster.stagger = Math.min(
           1,

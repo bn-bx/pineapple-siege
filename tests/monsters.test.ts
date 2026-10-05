@@ -283,7 +283,11 @@ describe("giant pineapple monsters", () => {
     expect(restored.monsters.states[0].ragdoll).toEqual(m.ragdoll);
     expect(restored.monsters.states[0].fragments).toEqual(m.fragments);
     expect(restored.monsters.states[0].p).toEqual(m.p);
-    expect(restored.monsterRagdolls.moving.has(m.id)).toBe(true);
+    expect(
+      [...restored.monsterRagdolls.moving.values()].some(
+        (r) => r.monster.id === m.id,
+      ),
+    ).toBe(true);
     const older = { ...save, monsters: undefined };
     expect(compatible(older, world.version, world.seed)).toBe(true);
     const upgraded = new Simulation(world, base, () => {}, older);

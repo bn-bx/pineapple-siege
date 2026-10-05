@@ -1,5 +1,9 @@
 import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
+import {
+  monsterBodyQuarter,
+  monsterQuarterCaps,
+} from "./monster-fragment-geometry";
 import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 
 let template: THREE.Group | undefined;
@@ -444,6 +448,11 @@ export class MonsterFragmentView {
     new THREE.Quaternion(),
     new THREE.Vector3(7, 5, 8.5),
   );
+  private quarterFaceLocal = new THREE.Matrix4().compose(
+    new THREE.Vector3(4, -2.5, 0),
+    new THREE.Quaternion(),
+    new THREE.Vector3(7, 5, 8.5),
+  );
   private batches: {
     mesh: THREE.InstancedMesh;
     part: number;
@@ -477,15 +486,54 @@ export class MonsterFragmentView {
         let batch = groups.get(key);
         if (!batch)
           groups.set(key, (batch = { part, material, geometries: [] }));
+        const worldGeometry = o.geometry.clone().applyMatrix4(o.matrixWorld);
+        if (part === 0)
+          for (let quarter = 4; quarter < 8; quarter++) {
+            const quarterKey = `${quarter}:${material.uuid}`;
+            let quarterBatch = groups.get(quarterKey);
+            if (!quarterBatch)
+              groups.set(
+                quarterKey,
+                (quarterBatch = { part: quarter, material, geometries: [] }),
+              );
+            const piece = monsterBodyQuarter(
+                worldGeometry,
+                quarter % 2 === 0,
+                quarter < 6,
+              ),
+              origin = MONSTER_FRAGMENT_CENTERS[quarter];
+            if (piece.getAttribute("position").count)
+              quarterBatch.geometries.push(
+                piece.translate(-origin[0], -origin[1], -origin[2]),
+              );
+            else piece.dispose();
+          }
         batch.geometries.push(
-          o.geometry
-            .clone()
-            .applyMatrix4(o.matrixWorld)
-            .translate(-center[0], -center[1], -center[2]),
+          worldGeometry.translate(-center[0], -center[1], -center[2]),
         );
       });
     }
+    const flesh = new THREE.MeshStandardMaterial({
+      color: "#f7cc64",
+      roughness: 0.95,
+      side: THREE.DoubleSide,
+    });
+    for (let part = 4; part < 8; part++) {
+      const center = MONSTER_FRAGMENT_CENTERS[part];
+      groups.set(`${part}:flesh`, {
+        part,
+        material: flesh,
+        geometries: [
+          monsterQuarterCaps(part % 2 === 0, part < 6).translate(
+            -center[0],
+            -center[1],
+            -center[2],
+          ),
+        ],
+      });
+    }
     for (const batch of groups.values()) {
+      if (!batch.geometries.length) continue;
       const geometry = mergeMonsterGeometry(batch.geometries)!;
       for (const g of batch.geometries) g.dispose();
       const mesh = new THREE.InstancedMesh(geometry, batch.material, capacity);
@@ -530,10 +578,13 @@ export class MonsterFragmentView {
   }
   add(part: number, root: THREE.Object3D) {
     root.updateMatrix();
-    if (part === 0 && this.faceMesh)
+    if ((part === 0 || part === 4) && this.faceMesh)
       this.faceMesh.setMatrixAt(
         this.faceCount++,
-        this.faceMatrix.multiplyMatrices(root.matrix, this.faceLocal),
+        this.faceMatrix.multiplyMatrices(
+          root.matrix,
+          part === 4 ? this.quarterFaceLocal : this.faceLocal,
+        ),
       );
     for (const batch of this.batches)
       if (batch.part === part)

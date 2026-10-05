@@ -93,7 +93,7 @@ Eye pairs use shared procedural billboard geometry and reuse each source batch's
 
 Monsters retain their doubled size. While any space laser charges or burns, they stop attacking and dance; laser damage still applies. Spikes have bounded lifetimes and population limits.
 
-World → Pineapple monsters has a slider from 0 (Off) to 400; the new default is 120. Existing population preferences, including 20, are preserved. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals living monsters and spawns more as needed. Defeated monsters separate into four recognizable pieces: body, crown, and two arms. Each piece tumbles and rolls under physics like falling trees, then remains where it settles. Their positions and orientations are saved. Existing saved whole-body wreckage retains its original shape. Positions, damage, and defeats are saved. Reset world revives defeated monsters.
+World → Pineapple monsters has a slider from 0 (Off) to 400; the new default is 120. Existing population preferences, including 20, are preserved. Lower counts hide higher-numbered monsters without defeating them; raising the count reveals living monsters and spawns more as needed. Defeated monsters separate into seven recognizable pieces: four fruit chunks with yellow cut faces, the crown, and two arms. Stronger launches spread the pieces farther across the landscape. Each piece tumbles and rolls under physics like falling trees, then remains where it settles. Their positions and orientations are saved. Existing saved whole-body wreckage retains its original shape. Positions, damage, and defeats are saved. Reset world revives defeated monsters.
 
 ## Expanded world and townspeople
 
