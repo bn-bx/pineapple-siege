@@ -210,6 +210,54 @@ describe("giant pineapple monsters", () => {
     expect(discoActive([{ ...strike, phase: "finishing" }])).toBe(false);
   });
 
+  it("kills a full-health monster on plane impact and saves its defeat", () => {
+    const events: unknown[] = [];
+    const sim = new Simulation(world, base, (e) => events.push(e));
+    sim.setMonsterCount(2);
+    const m = sim.monsters.states[0];
+    m.stagger = 1; // Keep the target still and prevent an attack during impact.
+    sim.plane.p = [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2] - 27];
+    sim.plane.yaw = 0;
+    sim.plane.pitch = 0;
+    sim.plane.speed = 120;
+    sim.step();
+    expect(m.health).toBe(0);
+    expect(m.defeated).toBe(true);
+    expect(sim.monsters.states[1].health).toBe(5);
+    expect(sim.plane.crashed).toBeGreaterThan(0);
+    expect(
+      events.filter((e: any) => e.type === "monsterEvent" && e.kind === "defeat"),
+    ).toHaveLength(1);
+    const restored = new Simulation(world, base, () => {}, sim.save());
+    expect(restored.monsters.states[0].defeated).toBe(true);
+    sim.step();
+    expect(
+      events.filter((e: any) => e.type === "monsterEvent" && e.kind === "defeat"),
+    ).toHaveLength(1);
+    restored.dispose();
+    sim.dispose();
+  });
+
+  it("does not kill a monster when its spike hits the plane", () => {
+    const sim = new Simulation(world, base, () => {});
+    sim.setMonsterCount(1);
+    const m = sim.monsters.states[0];
+    m.stagger = 1;
+    sim.plane.p = [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT + 80, m.p[2]];
+    sim.plane.pitch = 0;
+    sim.monsters.spikes.push({
+      id: 0,
+      age: 0,
+      p: [...sim.plane.p],
+      v: [0, 0, 0],
+    });
+    sim.step();
+    expect(sim.plane.crashed).toBeGreaterThan(0);
+    expect(m.health).toBe(5);
+    expect(m.defeated).toBe(false);
+    sim.dispose();
+  });
+
   it("takes five cannon blasts, one nuke, and laser damage, then saves defeat", () => {
     const events: unknown[] = [];
     const sim = new Simulation(world, base, (e) => events.push(e));

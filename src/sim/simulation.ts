@@ -2419,6 +2419,19 @@ export class Simulation {
       2.2,
     );
     if ((struck || bodyHit) && this.plane.crashed <= 0) {
+      if (bodyHit) {
+        const before = this.monsters.active();
+        const m = bodyHit.monster;
+        this.monsters.damage(m, m.health);
+        this.bump();
+        this.emit({
+          type: "monsterEvent",
+          p: [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]],
+          kind: "defeat",
+        });
+        this.civilians.defeats(before, this.monsters.active());
+        this.plane.p = bodyHit.p;
+      }
       this.plane.crashed = CONFIG.respawnDelay;
       this.explode(this.plane.p, 0.65, "crash");
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
