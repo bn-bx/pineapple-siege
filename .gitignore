@@ -19,3 +19,6 @@ ascii_fort_notes.md
 # Local credentials are never needed for the static build.
 .env
 .env.*
+
+# Generated historical regression fixture.
+tests/fixtures/legacy-world/

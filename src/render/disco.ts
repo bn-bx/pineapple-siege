@@ -1,5 +1,9 @@
 import { CONFIG } from "../config";
 import * as THREE from "three";
+const originalCompilers = new WeakMap<
+  THREE.MeshStandardMaterial,
+  THREE.Material["onBeforeCompile"]
+>();
 
 export const DISCO_PATTERN_GLSL = `
 float discoHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -85,7 +89,10 @@ export class DiscoScene {
   decorate(material: THREE.MeshStandardMaterial) {
     if (this.decorated.has(material)) return;
     this.decorated.add(material);
-    const original = material.onBeforeCompile.bind(material);
+    const original =
+      originalCompilers.get(material) ??
+      material.onBeforeCompile.bind(material);
+    originalCompilers.set(material, original);
     material.onBeforeCompile = (shader, renderer) => {
       original(shader, renderer);
       shader.uniforms.uDiscoAmount = this.amount;

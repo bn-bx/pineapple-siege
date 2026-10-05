@@ -17,30 +17,35 @@ export function consolidateRubble(
   existing: Ruin[],
   ground: (x: number, z: number) => number,
 ): { ruin: Ruin; removed: number } {
-  const candidates = existing.filter((r) => r.material === incoming.material);
   // There are seven materials and at least twelve records per cell, so a full
   // cell always has a mergeable material pair, even if incoming has a new material.
   let a = incoming,
-    b: Ruin;
-  if (candidates.length) {
-    const piles = candidates.filter((r) => r.pile);
-    const pool = piles.length ? piles : candidates;
-    b = pool.reduce((best, r) =>
-      Math.hypot(r.p[0] - a.p[0], r.p[2] - a.p[2]) <
-      Math.hypot(best.p[0] - a.p[0], best.p[2] - a.p[2])
-        ? r
-        : best,
-    );
-  } else {
+    b: Ruin | undefined,
+    nearest = Infinity,
+    preferPile = false;
+  for (const r of existing) {
+    if (r.material !== incoming.material) continue;
+    if (r.pile && !preferPile) {
+      preferPile = true;
+      nearest = Infinity;
+      b = undefined;
+    }
+    if (preferPile && !r.pile) continue;
+    const d = (r.p[0] - a.p[0]) ** 2 + (r.p[2] - a.p[2]) ** 2;
+    if (!b || d < nearest) {
+      b = r;
+      nearest = d;
+    }
+  }
+  if (!b) {
     let pair: [Ruin, Ruin] | undefined,
       best = Infinity;
     for (let i = 0; i < existing.length; i++)
       for (let j = i + 1; j < existing.length; j++) {
         if (existing[i].material !== existing[j].material) continue;
-        const d = Math.hypot(
-          existing[i].p[0] - existing[j].p[0],
-          existing[i].p[2] - existing[j].p[2],
-        );
+        const d =
+          (existing[i].p[0] - existing[j].p[0]) ** 2 +
+          (existing[i].p[2] - existing[j].p[2]) ** 2;
         if (d < best) {
           pair = [existing[i], existing[j]];
           best = d;

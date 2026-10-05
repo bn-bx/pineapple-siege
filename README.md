@@ -1,6 +1,6 @@
 # Pineapple Siege
 
-A third-person flight and destruction sandbox in a medieval valley. Fly a fighter jet, launch oversized pineapples, breach the castle, excavate craters, and leave a ruined world behind. The game saves locally in the current browser.
+A third-person flight and destruction sandbox on a procedurally generated medieval island. Fly a fighter jet, launch oversized pineapples, breach the castle, excavate craters, and leave a ruined world behind. The game saves locally in the current browser.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite. The development server generates the baseline world before starting.
+Open the local address printed by Vite. The development server generates a deterministic reference island before starting. Players choose their own island through the in-browser preview.
 
 ```sh
 npm test
@@ -75,9 +75,9 @@ Nuke strength in Settings affects future drops:
 | Castle-leveling | 180 m         | 70 m          | 20 m        | 240 m        |
 | Valley-scale    | 420 m         | 160 m         | 25 m        | 400 m        |
 
-Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress occupies 500 × 550 meters, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
+Nukes begin with a white-hot core and a brief white exposure flash, strongest nearby when looking toward the impact. The peak holds for about 0.45–0.9 seconds and fades over 5.1–8 seconds according to blast size, revealing the golden pineapple-shaped smoke cloud and green crown plumes. Reduced effects substantially dims the flash and shortens its fade to 1.8 seconds; overlapping flashes use the strongest contribution rather than adding brightness. Pausing freezes the effect and resetting clears it. The grand fortress varies around a 500 × 550-meter footprint, with twelve perimeter/gate towers, crenellated outer walls, layered courtyards, a central palace, and four taller asymmetric spires. Warm sandstone, dark slate roofs, and narrow windows give it the silhouette of the supplied castle reference. Its eastward site and clear flight approach leave room beside the river and surrounding landmarks.
 
-The world layout and save format are now version 7. Version-6 and older saves prompt for a new world or temporary play without overwriting the old save. The expanded terrain uses a new sample stride and layout; older saves are protected until you choose a new world.
+The current island world/save format is version 8. Older saves remain protected by the recovery dialog until you explicitly replace them; temporary island play leaves them untouched. Preferences stay independent of the world baseline.
 
 The surrounding map contains twelve five-building hamlets, seven farmsteads, five windmills, two watermills with docks and warehouses, four watchtowers, four additional bridges, two logging camps, and a quarry. Landmarks have independent breakable assemblies. There are no secondary explosions.
 
@@ -97,11 +97,11 @@ World → Pineapple monsters has a slider from 0 (Off) to 400; the new default i
 
 ## Expanded world and townspeople
 
-The map spans **6,144 × 6,144 meters** (37.75 km²), nine times the original area. The original valley, castle dimensions, and spawn coordinates are retained. Rivers, roads, sparse forests, and new settlements extend into the countryside. Terrain uses a 3,073² heightfield, with nearby detail and coarse distant sections loaded around the camera. Distant destruction remains authoritative when terrain meshes are unloaded.
+The map spans **6,144 × 6,144 meters** (37.75 km²), with roughly two-thirds occupied by a seeded island and ocean around every coast. Coastlines, mountains, rivers, roads, forests, settlements, and castle layouts vary between seeds. Terrain uses a 3,073² heightfield, with nearby detail and coarse distant sections loaded around the camera. Distant destruction remains authoritative when terrain meshes are unloaded.
 
 The compact flight HUD shows the living population and a 0–100 happiness score. Casualties permanently reduce happiness; fear and mourning lower morale, while celebrations raise it.
 
-There are 600 cartoon townspeople: eight per residential house and 64 around the castle. They wander near home, avoid water and intact buildings, and flee low aircraft and nearby monsters. Explosions, aircraft, laser columns, moving wreckage, and collapsing buildings can kill them; casualties disappear without gore and remain lost until Reset world.
+There are 664 cartoon townspeople: eight per residential house 64 around the grand castle, 16 around each smaller castle, and 16 at each fishing harbor. They wander near home, avoid water and intact buildings, and flee low aircraft and nearby monsters. Explosions, aircraft, laser columns, moving wreckage, and collapsing buildings can kill them; casualties disappear without gore and remain lost until Reset world.
 
 A settlement cheers for six seconds when its last monster within 500 m is defeated. The final active monster defeat triggers celebration at every surviving settlement. Loading or changing monster counts never triggers victory. Civilian losses and building damage override cheering: survivors mourn for at least ten seconds, and residents of homes missing at least 25% of their structural parts remain sad. Reactions and casualties save with the world; pause and photo mode freeze them. Spatial cheer and mourning sounds follow volume and mute settings. There is no civilian score.
 
@@ -117,7 +117,7 @@ Space Laser is fixed at 380 m strike diameter, 500 m depth, and 100% brightness.
 
 At default size, the strike expands to a **190-meter radius** during its first firing second and progressively excavates a **380-meter-wide shaft up to 500 meters below the original terrain**. Structures, trees, rocks, moving debris, and settled rubble in the footprint are vaporized rather than scattered. The rock-lined crater stays dry, including where a river previously flowed. Dust and heat glow fade afterward; subsequent weapon hits can deposit new rubble. Repeated laser strikes cannot deepen terrain past the 500-meter limit.
 
-Normally a strike takes its nine-second charge/burn sequence plus fifteen seconds of recharge. No cooldown allows a new locked strike every 0.1 seconds while firing is held; all strikes still charge and burn independently. Terrain work is coalesced per section, with overlapping edits using the deeper result. The nearest 64 strikes receive detailed effects and farther strikes use simple instanced columns; audio selects up to four spatial voices. This does not limit authoritative strikes. Large unrestricted runs can slow and accumulate unfinished excavation.
+Normally a strike takes its nine-second charge/burn sequence plus fifteen seconds of recharge. No cooldown allows a new locked strike every 0.1 seconds while firing is held; all strikes still charge and burn independently. Terrain work is coalesced per section, with overlapping edits using the deeper result. The nearest eight strikes receive detailed effects and farther strikes use simple instanced columns; audio selects up to four spatial voices. This does not limit authoritative strikes. Large unrestricted runs can slow and accumulate unfinished excavation.
 
 Pause and photo mode freeze the laser. Saves retain locked targets, remaining charge/burn timing, queued excavation, the dry mask, and laser recharge. Reload finishes already-queued world edits before flight becomes available, then resumes unfinished charge/burn timing when play resumes. Reset clears strikes, terrain, water exclusions, and effects. Reduced effects dims presentation without changing damage.
 
@@ -172,3 +172,26 @@ Photo mode waits for the simulation worker's pause acknowledgement. World effect
 Engine audio now layers turbine and airflow with the existing engine body. Material-specific fracture, impact, and settling sounds share generated buffers, with up to 24 ordinary voices and four nuke voices. Craters expose soil and rock strata, fragments show contrasting cut faces, and pooled low dust lingers over impacts. These presentation changes do not alter permanent damage or rapid firing.
 
 Earlier screenshots and performance reports are available in Git history.
+
+## Procedural islands, previews, and sharing
+
+On your first visit, **Choose your island** shows an illustrated overhead preview of the actual generated world: shaded mountains, forest cover, waterways, roads, and landmark markers. **Reroll** generates another island. Paste a versioned seed such as `PS1-0000A301` and select **Preview seed** to reproduce one. **Keep this island** begins play.
+
+**World → New island** opens the same screen. Previewing, rerolling, or cancelling does not replace your island. Keeping a candidate asks you to confirm replacement of your current island and its damage, casualties, and monster progress. Generation or storage failure preserves the previous save. **Reset world** repairs the same island and revives its inhabitants; it never changes the seed. Settings persist independently.
+
+**Copy seed** and **Copy island link** share the island's original geography and content. A link opens its candidate preview before any replacement. Damage and progress remain private to each browser. If clipboard access is unavailable, a selectable field provides the text. Seed codes encode generator revision 1 and an unsigned 32-bit seed; malformed and unsupported revisions are rejected. Shared query parameters are consumed after acceptance or cancellation so reload resumes normal play.
+
+The island has one varied grand fortress and two smaller castles, twelve hamlets, seven farms, five windmills, two watermills, four watchtowers, four crossings plus the main bridge, two logging camps, a quarry, two fishing harbors, two lighthouses, and two coastal ruins. Harbor homes participate in the existing resident reactions and casualties. Mountains rise approximately 250–350 meters, below the unchanged flight ceiling. Pines, broadleaf woodland, and slender riverside trees form clustered forests with clearings, sparse slopes, and clear roads and flight approaches. Tree species remain recognizable as falling and settled wreckage.
+
+Ocean water stays at sea level and can flood connected craters. Rivers have generated elevated surfaces confined to their channels; there is no fluid simulation. Laser shafts remain dry at all elevations. The ocean extends beyond the playable boundary visually, while existing flight boundary assistance remains active.
+
+The browser generates islands in a dedicated worker and stores the exact pristine heightfield and manifest in IndexedDB alongside the generator identity and seed. Reload applies saved changes to that exact baseline. If storage is unavailable, temporary play is supported, including island replacement for the current session. V1 keeps one active island, without an island library.
+
+The shared generator is `src/world/generator.mjs`; `ISLAND_SEED=42 npm run world` selects the build/test reference seed. `npm test` generates both the current island and a separate fixed version-7 regression fixture, preserving historical flight/destruction checks while testing the new generator directly. `scripts/check-island-browser.mjs` exercises the preview, sharing, cancellation, replacement, transaction failures, reloads, reset, and temporary-play flows using a disposable Playwright browser.
+
+
+## Performance diagnostics
+
+Auto graphics starts at 900p and adapts shadows, reflections, transient effects, and resolution to load, with slow recovery to avoid oscillation. Manual resolution and the requested viewing distance remain respected. Terrain meshes stream from a dedicated worker; actors, projectiles, scenery, and airborne debris use shared instance batches. Disabled googly eyes do no frame traversal. Save compatibility 9 adds incremental section transactions and an atomic migration of valid version-8 saves without changing generator revision 1 or world version 8.
+
+Run `npm run benchmark:performance` for controlled worker CPU measurements. Build, start `npm run preview`, and open `/performance.html` for foreground native GPU/frame checks, isolated save migration/failure tests, and the 15-minute combat soak. These tests use a separate database and preserve your active island. Local Vite preview/dev servers can save reports under `docs`; static hosting supports downloading the same report. The inspection controls cover seeds, castles, coasts, mountains, forests, night lighting, eyes, and both supported distance extremes. Measured results and release-gate status are recorded in `docs/PERFORMANCE_QA.md`; average FPS alone does not certify the release.

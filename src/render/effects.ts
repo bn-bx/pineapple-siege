@@ -17,6 +17,17 @@ export class Effects {
   private totalLife = new Float32Array(this.capacity);
   private next = 0;
   private points: THREE.Points;
+  private vaporRegions = new Map<
+    string,
+    { p: [number, number, number]; radius: number }
+  >();
+  private flashPool: THREE.Mesh<
+    THREE.SphereGeometry,
+    THREE.MeshBasicMaterial
+  >[] = [];
+  private flashGeometry = new THREE.SphereGeometry(1, 16, 10);
+  private blastColor = new THREE.Color();
+  private cloudsPool: NukeCloud[] = [];
   private flashes: {
     mesh: THREE.Mesh;
     life: number;
@@ -33,6 +44,7 @@ export class Effects {
     this.fragments.emit(e, this.reduced ? scale * 0.5 : scale);
   }
   reduced = false;
+  private lastReduced = false;
   shake = 0;
   constructor() {
     const geo = new THREE.BufferGeometry();
@@ -79,19 +91,94 @@ export class Effects {
       this.dust.mesh,
     );
   }
+  vaporize(p: [number, number, number], radius: number) {
+    const key = p[0] + ":" + p[2];
+    const prior = this.vaporRegions.get(key);
+    if (!prior || radius > prior.radius)
+      this.vaporRegions.set(key, { p, radius });
+  }
+  get prewarmMeshes(): THREE.Object3D[] {
+    return [...this.flashPool, ...this.cloudsPool.map((c) => c.group)];
+  }
+  prewarm() {
+    while (this.flashPool.length < 8)
+      this.flashPool.push(
+        new THREE.Mesh(
+          this.flashGeometry,
+          new THREE.MeshBasicMaterial({
+            transparent: true,
+            depthWrite: false,
+            toneMapped: this.flashPool.length % 2 === 0,
+          }),
+        ),
+      );
+    const event: Explosion = {
+      type: "explosion",
+      p: [0, 0, 0],
+      water: false,
+      power: 1,
+      seed: 1,
+      kind: "nuke",
+      profile: {
+        damageRadius: 420,
+        craterRadius: 160,
+        depth: 25,
+        cloudHeight: 400,
+        bodyLimit: 128,
+        scatterMin: 70,
+        scatterMax: 120,
+        ejecta: 1200,
+      },
+    };
+    for (const reduced of [false, true]) {
+      const count =
+        this.cloudsPool.filter((c) => c.reduced === reduced).length +
+        this.clouds.filter((c) => c.reduced === reduced).length;
+      for (let i = count; i < 3; i++)
+        this.cloudsPool.push(new NukeCloud(event, reduced));
+    }
+  }
+  private takeCloud(event: Explosion, reduced: boolean) {
+    const index = this.cloudsPool.findIndex((c) => c.reduced === reduced);
+    return index < 0
+      ? new NukeCloud(event, reduced)
+      : this.cloudsPool.splice(index, 1)[0];
+  }
+  disposePools() {
+    this.flashGeometry.dispose();
+    for (const m of this.flashPool) m.material.dispose();
+    this.flashPool.length = 0;
+    for (const c of this.cloudsPool) c.dispose();
+    this.cloudsPool.length = 0;
+  }
   explosion(e: Explosion, scale = 1) {
     this.dust.emit(e, this.reduced || scale < 1, this.ground);
     if (e.kind === "nuke") {
       this.nukeFlash.trigger(e);
-      if (this.clouds.length >= 3) {
-        const oldest = this.clouds.shift()!;
-        this.group.remove(oldest.group);
-        oldest.dispose();
+      const reduced = this.reduced || scale < 1;
+      const overlap =
+        reduced &&
+        this.clouds.find(
+          (c) =>
+            c.reduced === reduced &&
+            c.age < 12 &&
+            !c.ending &&
+            c.event.water === e.water &&
+            (c.event.p[0] - e.p[0]) ** 2 + (c.event.p[2] - e.p[2]) ** 2 <
+              (e.profile!.damageRadius * 0.65) ** 2,
+        );
+      if (!overlap) {
+        if (this.clouds.length >= 3) {
+          const oldest = this.clouds.shift()!;
+          this.group.remove(oldest.group);
+          this.cloudsPool.push(oldest);
+        }
+        if (this.clouds.length >= 2) this.clouds[0].fade();
+        const cloud = this.takeCloud(e, reduced);
+        cloud.restart(e);
+        this.clouds.push(cloud);
+        this.group.add(cloud.group);
       }
-      if (this.clouds.length >= 2) this.clouds[0].fade();
-      const cloud = new NukeCloud(e, this.reduced || scale < 1);
-      this.clouds.push(cloud);
-      this.group.add(cloud.group);
       this.shake = 1;
     }
     const count = Math.round((e.kind === "collapse" ? 140 : 420) * scale);
@@ -110,7 +197,7 @@ export class Effects {
         i * 3,
       );
       this.life[i] = this.totalLife[i] = 1 + Math.random() * 4;
-      const c = new THREE.Color(
+      const c = this.blastColor.set(
         e.water
           ? "#c0e5e1"
           : j % 5 === 0
@@ -122,21 +209,36 @@ export class Effects {
       c.multiplyScalar(0.7 + Math.random() * 0.4);
       this.colors.set([c.r, c.g, c.b], i * 3);
     }
-    if (e.kind !== "impact") {
+    const overlappingFlash =
+      e.kind === "nuke" &&
+      (this.reduced || scale < 1) &&
+      this.flashes.some(
+        (f) =>
+          f.nuke &&
+          f.water === e.water &&
+          (f.mesh.position.x - e.p[0]) ** 2 +
+            (f.mesh.position.z - e.p[2]) ** 2 <
+            150 * 150,
+      );
+    if (e.kind !== "impact" && !overlappingFlash) {
       if (this.flashes.length >= 32) {
         const old = this.flashes.shift()!;
         this.group.remove(old.mesh);
-        old.mesh.geometry.dispose();
-        (old.mesh.material as THREE.Material).dispose();
+        this.flashPool.push(
+          old.mesh as THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>,
+        );
       }
-      let material = new THREE.MeshBasicMaterial({
-        color: e.kind === "nuke" ? "#ffffff" : e.water ? "#bfebeb" : "#ffe198",
-        transparent: true,
-        opacity: 0.85,
-        depthWrite: false,
-        toneMapped: e.kind !== "nuke",
-      });
-      let mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), material);
+      const mesh =
+        this.flashPool.pop() ??
+        new THREE.Mesh(
+          this.flashGeometry,
+          new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
+        );
+      mesh.material.color.set(
+        e.kind === "nuke" ? "#ffffff" : e.water ? "#bfebeb" : "#ffe198",
+      );
+      mesh.material.opacity = 0.85;
+      mesh.material.toneMapped = e.kind !== "nuke";
       mesh.position.fromArray(e.p);
       this.group.add(mesh);
       this.flashes.push({
@@ -170,13 +272,21 @@ export class Effects {
     return this.clouds.map((cloud) => cloud.face);
   }
   update(dt: number) {
+    if (this.vaporRegions.size) {
+      this.fragments.vaporizeMany([...this.vaporRegions.values()]);
+      this.vaporRegions.clear();
+    }
+    if (this.lastReduced !== this.reduced) {
+      this.lastReduced = this.reduced;
+      this.fragments.setLimit(this.reduced ? 1024 : 4096);
+    }
     this.fragments.update(dt);
     for (let i = this.clouds.length - 1; i >= 0; i--) {
       const c = this.clouds[i];
       c.update(dt);
       if (c.finished) {
         this.group.remove(c.group);
-        c.dispose();
+        this.cloudsPool.push(c);
         this.clouds.splice(i, 1);
       }
     }
@@ -206,13 +316,14 @@ export class Effects {
         (f.mesh.material as THREE.MeshBasicMaterial).color
           .set("#ffffff")
           .lerp(
-            new THREE.Color("#ffb54c"),
+            this.blastColor.set("#ffb54c"),
             THREE.MathUtils.smoothstep(progress, 0.2, 1),
           );
       if (f.life <= 0) {
         this.group.remove(f.mesh);
-        f.mesh.geometry.dispose();
-        (f.mesh.material as THREE.Material).dispose();
+        this.flashPool.push(
+          f.mesh as THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>,
+        );
         this.flashes.splice(i, 1);
       }
     }
@@ -225,15 +336,16 @@ export class Effects {
     this.fragments.reset();
     for (const c of this.clouds) {
       this.group.remove(c.group);
-      c.dispose();
+      this.cloudsPool.push(c);
     }
     this.clouds = [];
     this.life.fill(0);
     this.positions.fill(-100000);
     for (const f of this.flashes) {
       this.group.remove(f.mesh);
-      f.mesh.geometry.dispose();
-      (f.mesh.material as THREE.Material).dispose();
+      this.flashPool.push(
+        f.mesh as THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>,
+      );
     }
     this.flashes = [];
     this.shake = 0;

@@ -1,3 +1,6 @@
+import { packMotion } from "./motion-buffer";
+import { StaticBlockerIndex } from "./static-blockers";
+import { SparseIndices } from "./sparse-indices";
 import { civilianPopulation } from "../civilian-morale";
 import { Civilians } from "./civilians";
 import { CHUNKS } from "../config";
@@ -26,7 +29,7 @@ import { Monsters } from "./monsters";
 import { MONSTER_BODY_HEIGHT } from "./monsters";
 import { discoActive } from "../disco";
 import { consolidateRubble } from "./rubble";
-import { packBodies } from "./body-buffer";
+import { BodyPoseCache, DebrisMap } from "./body-pose-cache";
 import {
   isRoof,
   roofVertices,
@@ -48,6 +51,8 @@ import type {
   BodyView,
   Ruin,
   SaveSnapshot,
+  SaveSection,
+  SupportJob,
   WorkerMessage,
   SimulationSnapshot,
   Explosion,
@@ -129,8 +134,9 @@ export class Simulation {
   readonly physics: RAPIER.World;
   readonly removed = new Set<number>();
   readonly ruins = new Map<number, Ruin>();
-  readonly moving = new Map<number, Moving>();
-  readonly ballistic = new Map<number, BallisticDebris>();
+  private bodyPoses = new BodyPoseCache();
+  readonly moving = new DebrisMap<Moving>(this.bodyPoses);
+  readonly ballistic = new DebrisMap<BallisticDebris>(this.bodyPoses);
   private collisionLOD = false;
   private majorBodies = 0;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
@@ -138,6 +144,7 @@ export class Simulation {
   private colliderEntities = new Map<number, number>();
   private ruinColliders = new Map<number, RAPIER.Collider>();
   private terrainColliders = new Map<number, RAPIER.Collider>();
+  private pendingTerrainColliders = new Set<number>();
   private assemblies = new Map<string, number[]>();
   readonly projectiles: Shot[] = [];
   readonly events = new RAPIER.EventQueue(true);
@@ -180,13 +187,51 @@ export class Simulation {
   readonly laserSupport = new Set<string>();
   readonly civilians: Civilians;
   readonly vaporized = new Set<number>();
+  private burnCells = new Map<number, { p: Vec3; radius: number }[]>();
+  private ballisticPrevious: Vec3 = [0, 0, 0];
   private burnZones: { p: Vec3; radius: number }[] = [];
   readonly pendingJobs: DestructionJob[] = [];
+  readonly supportJobs: SupportJob[] = [];
+  private supportConnected = new WeakMap<SupportJob, Set<number>>();
+  private supportClusters = new WeakMap<SupportJob, Map<string, number[]>>();
   destructionMS = 0;
+  private dirtyRuins = new Map<number, Ruin | null>();
+  private captures = new Map<
+    number,
+    {
+      terrain: Map<number, number>;
+      dry: SparseIndices;
+      ruins: Map<number, Ruin | null>;
+    }
+  >();
+  private nextCapture = 1;
+  private ruinSection = new Map<number, number>();
   private ruinCells = new Map<number, Set<number>>();
+  private queryMarks = new Uint32Array(0);
+  private querySerial = 0;
+  private streamedStatics = false;
+  private maxRuinExtent = 0;
+  private ruinShapes = new Map<number, RAPIER.Shape>();
+  private staticShapes = new Map<number, RAPIER.Shape>();
   private entityCells = new Map<number, number[]>();
+  private civilianBlockers = new StaticBlockerIndex(16, 1, false);
+  private monsterBlockers = new StaticBlockerIndex(64, 30, true);
+  private blockedCivilian = (p: Vec3) =>
+    this.civilianBlockers.blocked(p, this.removed);
+  private blockedMonster = (_a: Vec3, p: Vec3) =>
+    this.monsterBlockers.blocked(p, this.removed);
   shots = 0;
   physicsMS = 0;
+  stepMS = 0;
+  stageMS = {
+    monsters: 0,
+    residents: 0,
+    residency: 0,
+    physics: 0,
+    ballistic: 0,
+    lasers: 0,
+    colliders: 0,
+  };
   private nextBody = 100000;
   private nextShot = 1;
   private throttle = 0.48;
@@ -200,8 +245,11 @@ export class Simulation {
     heights: Float32Array,
     readonly emit: (message: WorkerMessage) => void,
     save?: SaveSnapshot,
+    incremental = false,
   ) {
-    this.terrain = new Terrain(heights);
+    this.streamedStatics = incremental;
+    this.queryMarks = new Uint32Array(world.entities.length);
+    this.terrain = new Terrain(heights, world.rivers, incremental);
     this.monsters = new Monsters(world, this.terrain, save?.monsters);
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
     this.physics.timestep = CONFIG.dt;
@@ -242,8 +290,13 @@ export class Simulation {
       this.hour = save.hour;
       this.revision = save.revision;
       this.pendingJobs.push(...structuredClone(save.pendingJobs || []));
+      this.supportJobs.push(...structuredClone(save.supportJobs || []));
       for (const r of save.ruins) {
         this.ruins.set(r.id, r);
+        this.maxRuinExtent = Math.max(this.maxRuinExtent, ...r.s);
+        this.ruinShapes.delete(r.id);
+        this.dirtyRuins.set(r.id, r);
+        this.ruinSection.set(r.id, this.cell(r.p));
         this.indexRuin(r);
         this.nextBody = Math.max(this.nextBody, r.id + 1);
       }
@@ -266,15 +319,20 @@ export class Simulation {
           list.push(e.id);
         }
 
+      this.civilianBlockers.add(e);
+      this.monsterBlockers.add(e);
       if (e.assembly) {
         let ids = this.assemblies.get(e.assembly);
         if (!ids) this.assemblies.set(e.assembly, (ids = []));
         ids.push(e.id);
       }
-      if (!this.removed.has(e.id)) this.addEntityCollider(e);
+      if (!this.streamedStatics && !this.removed.has(e.id))
+        this.addEntityCollider(e);
     }
-    for (const r of this.ruins.values()) this.addRuinCollider(r);
+    for (const r of this.ruins.values())
+      if (!this.streamedStatics) this.addRuinCollider(r);
     this.ensureTerrain();
+    this.ensureStaticColliders();
     if (this.lasers.length) this.updateLasers(0);
     this.physics.step();
     this.respawn();
@@ -333,6 +391,30 @@ export class Simulation {
       .setCollisionGroups(WORLD_COLLISIONS);
     this.terrainColliders.set(id, this.physics.createCollider(descriptor));
   }
+  private invalidateTerrainCollider(id: number) {
+    if (!this.streamedStatics || this.tick === 0) {
+      this.buildTerrainCollider(id);
+      return;
+    }
+    const old = this.terrainColliders.get(id);
+    if (old) {
+      this.physics.removeCollider(old, true);
+      this.terrainColliders.delete(id);
+    }
+    this.pendingTerrainColliders.add(id);
+  }
+  private processTerrainColliders(budgetMS: number) {
+    const start = performance.now();
+    while (
+      this.pendingTerrainColliders.size &&
+      performance.now() - start < budgetMS
+    ) {
+      const id = this.pendingTerrainColliders.values().next().value!;
+      this.pendingTerrainColliders.delete(id);
+      this.buildTerrainCollider(id);
+    }
+    this.stageMS.colliders = performance.now() - start;
+  }
   private ensureTerrain() {
     const wanted = new Set<number>();
     const near = (p: Vec3, r: number) => {
@@ -352,11 +434,104 @@ export class Simulation {
     for (const m of this.moving.values()) near(m.view.p, 38);
     for (const s of this.projectiles) near(s.p, 12);
     for (const id of wanted)
-      if (!this.terrainColliders.has(id)) this.buildTerrainCollider(id);
+      if (!this.terrainColliders.has(id)) {
+        if (this.streamedStatics && this.tick > 0)
+          this.pendingTerrainColliders.add(id);
+        else this.buildTerrainCollider(id);
+      }
+    for (const id of this.pendingTerrainColliders)
+      if (!wanted.has(id)) this.pendingTerrainColliders.delete(id);
     for (const [id, c] of this.terrainColliders)
       if (!wanted.has(id)) {
         this.physics.removeCollider(c, true);
         this.terrainColliders.delete(id);
+      }
+  }
+  private nearbyRuinCandidates(p: Vec3, r: number): Ruin[] {
+    const result: Ruin[] = [];
+    const reach = r + this.maxRuinExtent;
+    for (
+      let z = clamp(Math.floor((p[2] - reach) / 64), 0, CHUNKS - 1);
+      z <= clamp(Math.floor((p[2] + reach) / 64), 0, CHUNKS - 1);
+      z++
+    )
+      for (
+        let x = clamp(Math.floor((p[0] - reach) / 64), 0, CHUNKS - 1);
+        x <= clamp(Math.floor((p[0] + reach) / 64), 0, CHUNKS - 1);
+        x++
+      )
+        for (const id of this.ruinCells.get(z * CHUNKS + x) || []) {
+          const ruin = this.ruins.get(id);
+          if (ruin) result.push(ruin);
+        }
+    return result;
+  }
+  private ensureStaticColliders() {
+    if (!this.streamedStatics) return;
+    const wanted = new Set<number>(),
+      wantedRuins = new Set<number>();
+    const cells = new Map<number, { lo: number; hi: number }>();
+    const add = (p: Vec3, r: number) => {
+      const reach = r + this.maxRuinExtent;
+      for (
+        let z = clamp(Math.floor((p[2] - reach) / 64), 0, CHUNKS - 1);
+        z <= clamp(Math.floor((p[2] + reach) / 64), 0, CHUNKS - 1);
+        z++
+      )
+        for (
+          let x = clamp(Math.floor((p[0] - reach) / 64), 0, CHUNKS - 1);
+          x <= clamp(Math.floor((p[0] + reach) / 64), 0, CHUNKS - 1);
+          x++
+        ) {
+          const key = z * CHUNKS + x,
+            old = cells.get(key);
+          if (old) {
+            old.lo = Math.min(old.lo, p[1] - r);
+            old.hi = Math.max(old.hi, p[1] + r);
+          } else cells.set(key, { lo: p[1] - r, hi: p[1] + r });
+        }
+    };
+    add(this.plane.p, 110);
+    for (const m of this.moving.values()) {
+      const v = m.body.linvel();
+      add(
+        m.view.p,
+        Math.max(...m.view.s) + 24 + Math.hypot(v.x, v.y, v.z) * 0.1,
+      );
+    }
+    for (const [key, range] of cells) {
+      for (const id of this.entityCells.get(key) || []) {
+        if (this.removed.has(id) || wanted.has(id)) continue;
+        const e = this.world.entities[id];
+        if (e.p[1] + e.s[1] >= range.lo && e.p[1] - e.s[1] <= range.hi)
+          wanted.add(id);
+      }
+      for (const id of this.ruinCells.get(key) || []) {
+        const r = this.ruins.get(id);
+        if (
+          r &&
+          r.p[1] + Math.max(...r.s) >= range.lo &&
+          r.p[1] - Math.max(...r.s) <= range.hi
+        )
+          wantedRuins.add(id);
+      }
+    }
+    for (const id of wantedRuins)
+      if (!this.ruinColliders.has(id))
+        this.addRuinCollider(this.ruins.get(id)!);
+    for (const [id, c] of this.ruinColliders)
+      if (!wantedRuins.has(id)) {
+        this.physics.removeCollider(c, true);
+        this.ruinColliders.delete(id);
+      }
+    for (const id of wanted)
+      if (!this.entityColliders.has(id))
+        this.addEntityCollider(this.world.entities[id]);
+    for (const [id, c] of this.entityColliders)
+      if (!wanted.has(id)) {
+        this.colliderEntities.delete(c.handle);
+        this.physics.removeCollider(c, true);
+        this.entityColliders.delete(id);
       }
   }
   private bump() {
@@ -392,6 +567,7 @@ export class Simulation {
   private removeEntity(e: Entity) {
     if (this.removed.has(e.id)) return;
     this.removed.add(e.id);
+    this.staticShapes.delete(e.id);
     this.civilians.structureRemoved(e);
     this.changedRemoved.push(e.id);
     const c = this.entityColliders.get(e.id);
@@ -789,7 +965,12 @@ export class Simulation {
     ids.add(r.id);
   }
   private nearbyEntities(p: Vec3, radius: number) {
-    const ids = new Set<number>();
+    const ids: number[] = [];
+    let serial = ++this.querySerial;
+    if (serial >= 0xffffffff) {
+      this.queryMarks.fill(0);
+      serial = this.querySerial = 1;
+    }
     for (
       let z = clamp(Math.floor((p[2] - radius) / 64), 0, CHUNKS - 1);
       z <= clamp(Math.floor((p[2] + radius) / 64), 0, CHUNKS - 1);
@@ -801,16 +982,19 @@ export class Simulation {
         x++
       )
         for (const id of this.entityCells.get(z * CHUNKS + x) || [])
-          ids.add(id);
-    return [...ids];
+          if (this.queryMarks[id] !== serial) {
+            this.queryMarks[id] = serial;
+            ids.push(id);
+          }
+    return ids;
   }
   private insertRuin(r: Ruin) {
-    if (this.inBeam(r.p, this.orientedSize(r.s, r.q))) return;
+    if (this.burnZones.length && this.inBeam(r.p, this.orientedSize(r.s, r.q)))
+      return;
     const id = this.cell(r.p),
-      existing = [...(this.ruinCells.get(id) || [])].map(
-        (id) => this.ruins.get(id)!,
-      );
-    if (existing.length >= this.rubbleLimit) {
+      records = this.ruinCells.get(id);
+    if ((records?.size ?? 0) >= this.rubbleLimit) {
+      const existing = Array.from(records!, (id) => this.ruins.get(id)!);
       const merged = consolidateRubble(r, existing, (x, z) =>
         this.terrain.sample(x, z),
       );
@@ -821,8 +1005,12 @@ export class Simulation {
       } else r = merged.ruin;
     }
     this.ruins.set(r.id, r);
+    this.maxRuinExtent = Math.max(this.maxRuinExtent, ...r.s);
+    this.ruinShapes.delete(r.id);
+    this.dirtyRuins.set(r.id, r);
+    this.ruinSection.set(r.id, this.cell(r.p));
     this.indexRuin(r);
-    this.addRuinCollider(r);
+    if (!this.streamedStatics) this.addRuinCollider(r);
     this.changedSettled.push(r);
   }
   private removeRuin(id: number) {
@@ -834,6 +1022,8 @@ export class Simulation {
     const r = this.ruins.get(id);
     if (r) this.ruinCells.get(this.cell(r.p))?.delete(id);
     this.ruins.delete(id);
+    this.ruinShapes.delete(id);
+    this.dirtyRuins.set(id, null);
     this.changedRubbleRemoved.push(id);
   }
   private settle(m: Moving, force = false) {
@@ -876,6 +1066,26 @@ export class Simulation {
     dynamicBudget = this.fragmentLimit,
     deferred?: number[][],
   ) {
+    if (this.streamedStatics) {
+      for (const name of this.dirtyAssemblies) {
+        this.supportJobs.push({
+          name,
+          origin: [...origin],
+          coarse,
+          budget: dynamicBudget,
+          ownerSeed: deferred
+            ? this.pendingJobs.find((j) => j.supportQueue === deferred)?.seed
+            : undefined,
+          phase: "foundations",
+          cursor: 0,
+          alive: [],
+          connected: [],
+          clusters: [],
+        });
+      }
+      this.dirtyAssemblies.clear();
+      return 0;
+    }
     let spawned = 0;
     const groups = [...this.dirtyAssemblies];
     this.dirtyAssemblies.clear();
@@ -968,6 +1178,145 @@ export class Simulation {
     }
     return spawned;
   }
+  private processSupport(deadline: number) {
+    while (this.supportJobs.length && performance.now() < deadline) {
+      const job = this.supportJobs[0],
+        ids = this.assemblies.get(job.name) || [];
+      let connected = this.supportConnected.get(job);
+      if (!connected)
+        this.supportConnected.set(job, (connected = new Set(job.connected)));
+      if (job.phase === "foundations") {
+        if (job.cursor >= ids.length) {
+          job.phase = "links";
+          job.cursor = 0;
+          continue;
+        }
+        const id = ids[job.cursor++];
+        if (this.removed.has(id)) continue;
+        job.alive.push(id);
+        const e = this.world.entities[id];
+        if (
+          e.foundation &&
+          this.terrain.sample(e.p[0], e.p[2]) >= e.p[1] - e.s[1] - 1.4
+        ) {
+          connected.add(id);
+          job.connected.push(id);
+        }
+      } else if (job.phase === "links") {
+        if (job.cursor >= job.connected.length) {
+          job.phase = "falling";
+          job.cursor = 0;
+          continue;
+        }
+        for (const next of this.world.entities[job.connected[job.cursor++]]
+          .supports)
+          if (!this.removed.has(next) && !connected.has(next)) {
+            connected.add(next);
+            job.connected.push(next);
+          }
+      } else if (job.phase === "falling") {
+        if (job.cursor >= job.alive.length) {
+          job.phase = "emit";
+          job.cursor = 0;
+          continue;
+        }
+        const id = job.alive[job.cursor++];
+        if (connected.has(id) || this.removed.has(id)) continue;
+        const e = this.world.entities[id];
+        let clusters = this.supportClusters.get(job);
+        if (!clusters) {
+          clusters = new Map();
+          for (const group of job.clusters) {
+            const e = this.world.entities[group[0]];
+            clusters.set(
+              isRoof(e.material)
+                ? "roof:" + e.id
+                : e.material +
+                    ":" +
+                    Math.floor(e.p[0] / job.coarse) +
+                    ":" +
+                    Math.floor(e.p[1] / (job.coarse * 0.85)) +
+                    ":" +
+                    Math.floor(e.p[2] / job.coarse),
+              group,
+            );
+          }
+          this.supportClusters.set(job, clusters);
+        }
+        const key = isRoof(e.material)
+          ? "roof:" + e.id
+          : e.material +
+            ":" +
+            Math.floor(e.p[0] / job.coarse) +
+            ":" +
+            Math.floor(e.p[1] / (job.coarse * 0.85)) +
+            ":" +
+            Math.floor(e.p[2] / job.coarse);
+        let cluster = clusters.get(key);
+        if (!cluster) {
+          clusters.set(key, (cluster = []));
+          job.clusters.push(cluster);
+        }
+        if (job.clusters.length === 1 && cluster.length === 0)
+          this.emit({
+            type: "explosion",
+            p: e.p,
+            water: false,
+            power: 1,
+            seed: this.tick,
+            kind: "collapse",
+          });
+        this.removeEntity(e);
+        cluster.push(id);
+        this.bump();
+      } else {
+        if (job.cursor >= job.clusters.length) {
+          this.supportJobs.shift();
+          this.dirtyAssemblies.delete(job.name);
+          continue;
+        }
+        const group = job.clusters[job.cursor++];
+        const owner =
+          job.ownerSeed !== undefined
+            ? this.pendingJobs.find((j) => j.seed === job.ownerSeed)
+            : undefined;
+        if (owner) {
+          (owner.supportQueue ??= []).push(group);
+          continue;
+        }
+        const first = this.world.entities[group[0]];
+        if (isRoof(first.material)) {
+          const budget = { n: 0, limit: Math.max(0, job.budget) };
+          this.fragmentRoof(first, job.origin, 25, budget);
+          job.budget -= budget.n;
+          continue;
+        }
+        const min: Vec3 = [Infinity, Infinity, Infinity],
+          max: Vec3 = [-Infinity, -Infinity, -Infinity];
+        for (const id of group) {
+          const e = this.world.entities[id];
+          for (let k = 0; k < 3; k++) {
+            min[k] = Math.min(min[k], e.p[k] - e.s[k]);
+            max[k] = Math.max(max[k], e.p[k] + e.s[k]);
+          }
+        }
+        const p: Vec3 = [0, 0, 0],
+          s: Vec3 = [0, 0, 0];
+        for (let k = 0; k < 3; k++) {
+          p[k] = (min[k] + max[k]) / 2;
+          s[k] = Math.max(0.1, (max[k] - min[k]) / 2);
+        }
+        if (job.budget-- <= 0)
+          this.staticFragment({ ...first, p, s }, job.origin, 25);
+        else
+          this.spawnBody(p, s, first.material, first.id, "chunk", [
+            (p[0] - job.origin[0]) * 0.09,
+            1,
+            (p[2] - job.origin[2]) * 0.09,
+          ]);
+      }
+    }
+  }
   detonateNuke(
     p: Vec3,
     strength: NukeYield = this.nukeYield,
@@ -1046,7 +1395,11 @@ export class Simulation {
       kind: "nuke",
       p: [...p],
       water:
-        this.terrain.water(p[0], p[2]) && p[1] <= WEAPONS.nuke.length / 2 + 1,
+        this.terrain.water(p[0], p[2]) &&
+        p[1] <=
+          (this.terrain.surfaceHeight(p[0], p[2]) ?? 0) +
+            WEAPONS.nuke.length / 2 +
+            1,
       power: 1,
       seed: this.tick,
       profile,
@@ -1071,6 +1424,7 @@ export class Simulation {
   }
   processDestruction(budgetMS = 2) {
     const start = performance.now();
+    this.processSupport(start + budgetMS * 0.5);
     while (this.pendingJobs.length && performance.now() - start < budgetMS) {
       const job = this.pendingJobs[0],
         profile = job.profile;
@@ -1093,7 +1447,7 @@ export class Simulation {
         const flood = this.terrain.floodChanged(patch.indices);
         for (const changed of patch.chunks)
           if (this.terrainColliders.has(changed))
-            this.buildTerrainCollider(changed);
+            this.invalidateTerrainCollider(changed);
         this.flush(patch, flood);
       } else if (job.phase === "entities") {
         if (job.cursor >= job.entities.length) {
@@ -1152,18 +1506,19 @@ export class Simulation {
             e = this.world.entities[ids[0]],
             budget = { n: job.fragments, limit: profile.bodyLimit };
           // Assembly connectivity was resolved once; consume its falling clusters incrementally.
-          for (const id of ids) {
-            const part = this.world.entities[id];
-            if (budget.n < budget.limit)
-              this.fragment(part, job.p, profile.scatterMin, budget);
-            else this.staticFragment(part, job.p, profile.scatterMin);
-          }
+          const id = ids.pop()!;
+          const part = this.world.entities[id];
+          if (budget.n < budget.limit)
+            this.fragment(part, job.p, profile.scatterMin, budget);
+          else this.staticFragment(part, job.p, profile.scatterMin);
+          if (ids.length) queue.push(ids);
           job.fragments = budget.n;
         } else if (job.cursor < job.assemblies.length) {
           this.dirtyAssemblies.clear();
           this.dirtyAssemblies.add(job.assemblies[job.cursor++]);
           this.resolveSupport(job.p, 14, 0, queue);
         } else {
+          if (this.supportJobs.some((s) => s.ownerSeed === job.seed)) break;
           this.pendingJobs.shift();
           this.bump();
           this.flush();
@@ -1180,7 +1535,9 @@ export class Simulation {
     this.bump();
     if (kind === "blast")
       this.damageMonsters(p, CONFIG.damageRadius * power, 1);
-    const water = this.terrain.water(p[0], p[2]) && p[1] < 4;
+    const water =
+      this.terrain.water(p[0], p[2]) &&
+      p[1] < (this.terrain.surfaceHeight(p[0], p[2]) ?? 0) + 4;
     this.emit({
       type: "explosion",
       p: [...p],
@@ -1203,7 +1560,7 @@ export class Simulation {
       );
       flood = this.terrain.floodChanged(terrain.indices);
       for (const id of terrain.chunks)
-        if (this.terrainColliders.has(id)) this.buildTerrainCollider(id);
+        if (this.terrainColliders.has(id)) this.invalidateTerrainCollider(id);
     }
     const budget = { n: 0, limit: this.fragmentLimit };
     this.shoveWreckage(p, CONFIG.damageRadius * power, 50, budget);
@@ -1304,6 +1661,98 @@ export class Simulation {
         : null;
     if (shapeHit) best = shapeHit.time_of_impact;
     if (rayHit) best = rayHit.timeOfImpact;
+    if (this.streamedStatics) {
+      const middle: Vec3 = [
+        (a[0] + b[0]) / 2,
+        (a[1] + b[1]) / 2,
+        (a[2] + b[2]) / 2,
+      ];
+      const envelope = Math.max(radius, halfLength),
+        sweepShape =
+          halfLength > radius
+            ? new RAPIER.Capsule(halfLength - radius, radius)
+            : new RAPIER.Ball(radius);
+      for (const id of this.nearbyEntities(middle, len / 2 + envelope)) {
+        if (this.removed.has(id)) continue;
+        const e = this.world.entities[id];
+        if (
+          Math.min(a[1], b[1]) - envelope > e.p[1] + e.s[1] ||
+          Math.max(a[1], b[1]) + envelope < e.p[1] - e.s[1]
+        )
+          continue;
+        let shape = this.staticShapes.get(id);
+        if (!shape) {
+          shape =
+            e.kind === "tree"
+              ? new RAPIER.Cylinder(e.s[1], Math.min(2.2, e.s[0] * 0.65))
+              : new RAPIER.Cuboid(...e.s);
+          this.staticShapes.set(id, shape);
+        }
+        const hit =
+          radius > 0
+            ? sweepShape.castShape(
+                vec(a),
+                rotation,
+                vec(delta),
+                shape,
+                vec(e.p),
+                identity,
+                { x: 0, y: 0, z: 0 },
+                0,
+                best,
+                true,
+              )?.time_of_impact
+            : shape.castRay(
+                new RAPIER.Ray(vec(a), vec(delta)),
+                vec(e.p),
+                identity,
+                best,
+                true,
+              );
+        if (hit !== undefined && hit >= 0 && hit < best) best = hit;
+      }
+      for (const r of this.nearbyRuinCandidates(middle, len / 2 + envelope)) {
+        const extent = this.orientedSize(r.s, r.q);
+        if (
+          Math.min(a[1], b[1]) - envelope > r.p[1] + extent[1] ||
+          Math.max(a[1], b[1]) + envelope < r.p[1] - extent[1]
+        )
+          continue;
+        let shape = this.ruinShapes.get(r.id);
+        if (!shape) {
+          shape = this.debrisCollider(
+            r.s,
+            r.material,
+            r.pile,
+            r.roofPart,
+          ).shape;
+          this.ruinShapes.set(r.id, shape);
+        }
+        const q = { x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] };
+        const hit =
+          radius > 0
+            ? sweepShape.castShape(
+                vec(a),
+                rotation,
+                vec(delta),
+                shape,
+                vec(r.p),
+                q,
+                { x: 0, y: 0, z: 0 },
+                0,
+                best,
+                true,
+              )?.time_of_impact
+            : shape.castRay(
+                new RAPIER.Ray(vec(a), vec(delta)),
+                vec(r.p),
+                q,
+                best,
+                true,
+              );
+        if (hit !== undefined && hit >= 0 && hit < best) best = hit;
+      }
+    }
     const steps = Math.ceil(len / 1.5);
     for (let i = 0; i <= steps; i++) {
       let t = i / steps;
@@ -1313,7 +1762,10 @@ export class Simulation {
         z = lerp(a[2], b[2], t);
       if (
         y - extent <=
-        Math.max(this.terrain.sample(x, z), this.terrain.water(x, z) ? 0 : -1e5)
+        Math.max(
+          this.terrain.sample(x, z),
+          this.terrain.surfaceHeight(x, z) ?? -1e5,
+        )
       ) {
         best = t;
         break;
@@ -1511,7 +1963,83 @@ export class Simulation {
     );
   }
   private inBeam(p: Vec3, s: Vec3) {
-    return this.burnZones.some((z) => this.intersects(p, s, z.p, z.radius));
+    if (!this.burnZones.length) return false;
+    const x0 = clamp(Math.floor((p[0] - s[0]) / 64), 0, CHUNKS - 1),
+      x1 = clamp(Math.floor((p[0] + s[0]) / 64), 0, CHUNKS - 1);
+    const z0 = clamp(Math.floor((p[2] - s[2]) / 64), 0, CHUNKS - 1),
+      z1 = clamp(Math.floor((p[2] + s[2]) / 64), 0, CHUNKS - 1);
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++)
+        for (const zone of this.burnCells.get(z * CHUNKS + x) || [])
+          if (this.intersects(p, s, zone.p, zone.radius)) return true;
+    return false;
+  }
+  private indexBurnZones() {
+    for (const zones of this.burnCells.values()) zones.length = 0;
+    for (const zone of this.burnZones) {
+      const x0 = clamp(
+          Math.floor((zone.p[0] - zone.radius) / 64),
+          0,
+          CHUNKS - 1,
+        ),
+        x1 = clamp(Math.floor((zone.p[0] + zone.radius) / 64), 0, CHUNKS - 1);
+      const z0 = clamp(
+          Math.floor((zone.p[2] - zone.radius) / 64),
+          0,
+          CHUNKS - 1,
+        ),
+        z1 = clamp(Math.floor((zone.p[2] + zone.radius) / 64), 0, CHUNKS - 1);
+      for (let z = z0; z <= z1; z++)
+        for (let x = x0; x <= x1; x++) {
+          const key = z * CHUNKS + x;
+          let zones = this.burnCells.get(key);
+          if (!zones) this.burnCells.set(key, (zones = []));
+          zones.push(zone);
+        }
+    }
+    for (const [key, zones] of this.burnCells)
+      if (!zones.length) this.burnCells.delete(key);
+  }
+  /** Each affected object is tested once, even when many shafts overlap. */
+  private clearActiveLasers() {
+    if (!this.burnZones.length) return;
+    const stamp = ++this.querySerial;
+    for (const [cell, zones] of this.burnCells) {
+      if (!zones.length) continue;
+      for (const id of this.entityCells.get(cell) || []) {
+        if (this.queryMarks[id] === stamp || this.vaporized.has(id)) continue;
+        this.queryMarks[id] = stamp;
+        const e = this.world.entities[id];
+        if (!this.inBeam(e.p, e.s)) continue;
+        this.vaporized.add(id);
+        if (!this.removed.has(id)) {
+          this.removeEntity(e);
+          this.bump();
+          if (e.assembly) this.laserSupport.add(e.assembly);
+        }
+      }
+    }
+    // Ruins are indexed by center; their oriented bounds may extend across cells.
+    for (const r of this.ruins.values())
+      if (this.inBeam(r.p, this.orientedSize(r.s, r.q))) {
+        this.removeRuin(r.id);
+        this.bump();
+      }
+    for (const m of this.moving.values())
+      if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
+        this.colliderMoving.delete(m.collider.handle);
+        this.physics.removeRigidBody(m.body);
+        this.moving.delete(m.view.id);
+        if (m.major) this.majorBodies--;
+        this.bump();
+      }
+    for (const m of this.ballistic.values())
+      if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
+        this.ballistic.delete(m.view.id);
+        this.bump();
+      }
+    for (const zone of this.burnZones)
+      this.emit({ type: "vaporize", p: [...zone.p], radius: zone.radius });
   }
   private damageMonsters(
     p: Vec3,
@@ -1610,15 +2138,18 @@ export class Simulation {
         let work = this.laserWork.get(section);
         if (!work)
           this.laserWork.set(section, (work = { section, targets: [] }));
-        const prior = work.targets.find(
+        const priorIndex = work.targets.findIndex(
           (t) =>
             t.p[0] === l.p[0] &&
             t.p[2] === l.p[2] &&
             (t.radius ?? LASER.radius) === radius &&
             (t.depth ?? LASER.depth) === depth,
         );
-        if (prior) prior.progress = Math.max(prior.progress, progress);
-        else work.targets.push({ p: [...l.p], progress, radius, depth });
+        if (priorIndex >= 0) {
+          const prior = work.targets[priorIndex];
+          if (progress > prior.progress)
+            work.targets[priorIndex] = { ...prior, progress };
+        } else work.targets.push({ p: [...l.p], progress, radius, depth });
       }
   }
   private clearLaser(p: Vec3, radius: number, section?: number) {
@@ -1630,6 +2161,7 @@ export class Simulation {
           ? this.nearbyEntities(p, radius)
           : [];
     for (const id of ids) {
+      if (this.vaporized.has(id)) continue;
       const e = this.world.entities[id];
       if (!this.intersects(e.p, e.s, p, radius)) continue;
       this.vaporized.add(id);
@@ -1647,7 +2179,7 @@ export class Simulation {
             .map((id) => this.ruins.get(id)!)
             .filter(Boolean)
         : radius <= 500
-          ? [...this.ruins.values()]
+          ? this.nearbyRuinCandidates(p, radius)
           : [];
     for (const r of ruins)
       if (this.intersects(r.p, this.orientedSize(r.s, r.q), p, radius)) {
@@ -1687,6 +2219,11 @@ export class Simulation {
       this.emit({ type: "vaporize", p: [...p], radius });
   }
   private updateLasers(dt: number) {
+    if (!this.lasers.length) {
+      this.burnZones.length = 0;
+      this.burnCells.clear();
+      return;
+    }
     const zones = new Map<string, { p: Vec3; radius: number }>();
     const sample = this.tick % 6 === 0;
     for (const l of this.lasers) {
@@ -1713,13 +2250,14 @@ export class Simulation {
       if (old < LASER.charge) this.bump();
     }
     this.burnZones = [...zones.values()];
+    this.indexBurnZones();
     if (
       sample ||
       this.lasers.some(
         (l) => l.age === LASER.charge || l.age === LASER.charge + LASER.beam,
       )
     )
-      for (const z of this.burnZones) this.clearLaser(z.p, z.radius);
+      this.clearActiveLasers();
     if (this.lasers.length && dt > 0) this.bump();
   }
   processLaserWork(budgetMS = 1) {
@@ -1731,56 +2269,38 @@ export class Simulation {
       // turn one terrain section into an unbounded simulation task.
       const target = work.targets.shift()!;
       if (work.targets.length) this.laserWork.set(section, work);
-      const changed = new Set<number>(),
-        dry: number[] = [];
-      const updates = new Map<number, number>();
       this.bump();
-      for (const t of [target]) {
-        const result = this.terrain.laserCrater(
-          t.p[0],
-          t.p[2],
-          t.progress,
-          section,
-          this.revision,
-          t.radius ?? LASER.radius,
-          t.depth ?? LASER.depth,
-        );
-        if ((t.radius ?? LASER.radius) > 500)
-          this.clearLaser(
-            t.p,
-            (t.radius ?? LASER.radius) *
-              clamp(t.progress * LASER.beam, 0.03, 1),
-            section,
-          );
-        result.patch.indices.forEach((i, k) =>
-          updates.set(i, result.patch.values[k]),
-        );
-        for (const c of result.patch.chunks) changed.add(c);
-        dry.push(...result.dry);
-        if (t.progress === 1)
-          for (const l of this.lasers)
-            if (
-              l.phase === "finishing" &&
-              l.p[0] === t.p[0] &&
-              l.p[2] === t.p[2] &&
-              resolvedLaserProfile(l.profile).radius ===
-                (t.radius ?? LASER.radius) &&
-              resolvedLaserProfile(l.profile).depth === (t.depth ?? LASER.depth)
-            )
-              l.pending = l.pending?.filter((id) => id !== section);
-      }
-      for (const id of changed)
-        if (this.terrainColliders.has(id)) this.buildTerrainCollider(id);
-      this.flush(
-        {
-          indices: new Uint32Array(updates.keys()),
-          values: new Float32Array(updates.values()),
-          chunks: [...changed],
-          revision: this.revision,
-        },
-        undefined,
-        new Uint32Array(dry),
+      const t = target;
+      const result = this.terrain.laserCrater(
+        t.p[0],
+        t.p[2],
+        t.progress,
+        section,
+        this.revision,
+        t.radius ?? LASER.radius,
+        t.depth ?? LASER.depth,
       );
+      if ((t.radius ?? LASER.radius) > 500)
+        this.clearLaser(
+          t.p,
+          (t.radius ?? LASER.radius) * clamp(t.progress * LASER.beam, 0.03, 1),
+          section,
+        );
+      if (t.progress === 1)
+        for (const l of this.lasers) {
+          if (
+            l.phase === "finishing" &&
+            l.p[0] === t.p[0] &&
+            l.p[2] === t.p[2] &&
+            resolvedLaserProfile(l.profile).radius ===
+              (t.radius ?? LASER.radius) &&
+            resolvedLaserProfile(l.profile).depth === (t.depth ?? LASER.depth)
+          )
+            l.pending = l.pending?.filter((id) => id !== section);
+        }
+      for (const id of result.patch.chunks)
+        if (this.terrainColliders.has(id)) this.invalidateTerrainCollider(id);
+      this.flush(result.patch, undefined, result.dry);
     }
     while (this.laserSupport.size && performance.now() - start < budgetMS) {
       const name = this.laserSupport.values().next().value!;
@@ -1788,7 +2308,8 @@ export class Simulation {
       this.dirtyAssemblies.clear();
       this.dirtyAssemblies.add(name);
       this.resolveSupport(
-        this.world.castle,
+        this.world.castles?.find((c) => c.assemblies.includes(name))?.p ??
+          this.world.castle,
         20,
         Math.min(16, this.fragmentLimit),
       );
@@ -1813,6 +2334,7 @@ export class Simulation {
             l.phase !== "charging" && l.p[0] === z.p[0] && l.p[2] === z.p[2],
         ),
       );
+      this.indexBurnZones();
     }
     this.flush();
     return performance.now() - start;
@@ -1861,6 +2383,7 @@ export class Simulation {
     }
   }
   step() {
+    const stepStarted = performance.now();
     const dt = CONFIG.dt;
     this.tick++;
     this.time += dt;
@@ -1874,24 +2397,16 @@ export class Simulation {
     this.fly(dt);
     if (!wasCrashed)
       this.civilians.sweep(previousPlanePosition, this.plane.p, [4, 2, 4]);
+    const monstersStarted = performance.now();
     const struck = this.monsters.step(
       dt,
       this.plane.p,
       this.plane.crashed > 0,
-      (_a, b) =>
-        this.nearbyEntities(b, 36).some((id) => {
-          const e = this.world.entities[id];
-          return (
-            !this.removed.has(id) &&
-            e.kind !== "tree" &&
-            Math.abs(e.p[0] - b[0]) < e.s[0] + 30 &&
-            Math.abs(e.p[2] - b[2]) < e.s[2] + 30 &&
-            e.p[1] + e.s[1] > b[1] + 2
-          );
-        }),
+      this.blockedMonster,
       discoActive(this.lasers),
       this.plane.v,
     );
+    this.stageMS.monsters = performance.now() - monstersStarted;
     for (const p of this.monsters.throws)
       this.emit({
         type: "monsterEvent",
@@ -1909,7 +2424,9 @@ export class Simulation {
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
     }
     if (this.tick % 60 === 0 && this.monsterCount) this.bump();
+    const lasersStarted = performance.now();
     this.updateLasers(dt);
+    this.stageMS.lasers = performance.now() - lasersStarted;
     if (this.plane.crashed <= 0) {
       const hit = this.laserPlaneHit(
         wasCrashed ? this.plane.p : previousPlanePosition,
@@ -1965,10 +2482,16 @@ export class Simulation {
     this.processDestruction(Math.max(0.25, 2 - laserMS));
     this.destructionMS += laserMS;
     if (this.tick % 20 === 0) this.ensureTerrain();
+    const residencyStarted = performance.now();
+    if (this.tick % 4 === 1 || this.pendingJobs.length)
+      this.ensureStaticColliders();
+    this.stageMS.residency = performance.now() - residencyStarted;
     this.updateDebrisCollisions();
+    this.processTerrainColliders(0.5);
     const start = performance.now();
     this.physics.step(this.events);
-    this.physicsMS = lerp(this.physicsMS, performance.now() - start, 0.05);
+    this.stageMS.physics = performance.now() - start;
+    this.physicsMS = lerp(this.physicsMS, this.stageMS.physics, 0.05);
     const cascade = new Set<number>();
     this.events.drainCollisionEvents((h1, h2, started) => {
       if (!started) return;
@@ -2084,6 +2607,7 @@ export class Simulation {
       m.view.q[1] = q.y;
       m.view.q[2] = q.z;
       m.view.q[3] = q.w;
+      this.bodyPoses.update(m.view);
       if (
         m.age > maxAge ||
         (!aboveTerrain &&
@@ -2092,17 +2616,32 @@ export class Simulation {
       )
         this.settle(m, true);
     }
+    const ballisticStarted = performance.now();
     for (const m of this.ballistic.values()) {
-      const previous = [...m.view.p] as Vec3;
-      const speed = Math.hypot(...m.velocity);
+      const previous = this.ballisticPrevious;
+      previous[0] = m.view.p[0];
+      previous[1] = m.view.p[1];
+      previous[2] = m.view.p[2];
+      const speedSquared =
+        m.velocity[0] ** 2 + m.velocity[1] ** 2 + m.velocity[2] ** 2;
       const resting = advanceDebris(m, this.terrain, dt);
-      if (speed > 2)
+      if (
+        speedSquared > 4 &&
+        this.civilians.maySweep(
+          previous,
+          m.view.p,
+          m.view.s[0] + m.view.s[1] + m.view.s[2],
+        )
+      )
         this.civilians.sweep(
           previous,
           m.view.p,
           this.orientedSize(m.view.s, m.view.q),
         );
-      if (this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))) {
+      if (
+        this.burnZones.length &&
+        this.inBeam(m.view.p, this.orientedSize(m.view.s, m.view.q))
+      ) {
         this.ballistic.delete(m.view.id);
         this.bump();
       } else if (resting) {
@@ -2110,26 +2649,18 @@ export class Simulation {
         this.contact(m.view.p, m.view.material, 0.5, "settle");
         this.insertRuin(m.view);
         this.bump();
-      }
+      } else this.bodyPoses.update(m.view);
     }
+    this.stageMS.ballistic = performance.now() - ballisticStarted;
+    const residentsStarted = performance.now();
     this.civilians.step(
       dt,
       this.monsters.active(),
       this.plane.p,
       this.plane.crashed > 0,
-      (p) =>
-        this.nearbyEntities(p, 5).some((id) => {
-          const e = this.world.entities[id];
-          return (
-            !this.removed.has(id) &&
-            e.kind !== "tree" &&
-            Math.abs(e.p[0] - p[0]) < e.s[0] + 1 &&
-            Math.abs(e.p[2] - p[2]) < e.s[2] + 1 &&
-            e.p[1] + e.s[1] > p[1] &&
-            e.p[1] - e.s[1] < p[1] + 4
-          );
-        }),
+      this.blockedCivilian,
     );
+    this.stageMS.residents = performance.now() - residentsStarted;
     if (this.civilians.changed) {
       this.bump();
       this.civilians.changed = false;
@@ -2139,8 +2670,12 @@ export class Simulation {
     );
     if (this.tick % 12 === 0) this.updateAim();
     this.flush();
+    this.stepMS = performance.now() - stepStarted;
   }
-  snapshot(packed = false): SimulationSnapshot {
+  snapshot(
+    packed = false,
+    reuse?: { bodies?: ArrayBuffer; actors?: ArrayBuffer },
+  ): SimulationSnapshot {
     return {
       type: "snapshot",
       population: civilianPopulation(this.civilians.states),
@@ -2153,23 +2688,34 @@ export class Simulation {
       nukeYield: this.nukeYield,
       cooldowns: { ...this.cooldowns },
       lasers: structuredClone(this.lasers),
-      projectiles: this.projectiles.map((s) => ({
-        id: s.id,
-        weapon: s.weapon,
-        yield: s.yield,
-        p: [...s.p],
-        v: [...s.v],
-      })),
-      civilians: structuredClone(this.civilians.states),
+      projectiles: packed
+        ? []
+        : this.projectiles.map((s) => ({
+            id: s.id,
+            weapon: s.weapon,
+            yield: s.yield,
+            p: [...s.p],
+            v: [...s.v],
+          })),
+      civilians: packed ? [] : structuredClone(this.civilians.states),
       settlements: structuredClone(this.civilians.settlements),
-      monsters: structuredClone(
-        this.monsters.states.slice(0, this.monsterCount),
-      ),
-      monsterSpikes: structuredClone(this.monsters.spikes),
+      monsters: packed
+        ? []
+        : structuredClone(this.monsters.states.slice(0, this.monsterCount)),
+      monsterSpikes: packed ? [] : structuredClone(this.monsters.spikes),
       monsterCount: this.monsterCount,
+      packedMotion: packed
+        ? packMotion(
+            this.civilians.states,
+            this.monsters.states.slice(0, this.monsterCount),
+            this.projectiles,
+            this.monsters.spikes,
+            reuse?.actors,
+          )
+        : undefined,
       bodies: packed
         ? []
-        : Array.from(this.debrisViews(), (b) => ({
+        : Array.from(this.bodyPoses.views(), (b) => ({
             ...b,
             p: [...b.p],
             q: [...b.q],
@@ -2177,19 +2723,19 @@ export class Simulation {
           })),
       ...(packed
         ? {
-            packedBodies: packBodies(
-              this.debrisViews(),
-              this.moving.size + this.ballistic.size,
-            ),
+            packedBodies: this.bodyPoses.pack(reuse?.bodies),
           }
         : {}),
       stats: {
+        stageMS: { ...this.stageMS },
+        stepMS: this.stepMS,
         physicsMS: this.physicsMS,
         destructionMS: this.destructionMS,
         pendingJobs:
           this.pendingJobs.length +
           this.laserWork.size +
-          this.laserSupport.size,
+          this.laserSupport.size +
+          this.supportJobs.length,
         bodies: this.moving.size,
         ballistic: this.ballistic.size,
         ruins: this.ruins.size,
@@ -2198,6 +2744,165 @@ export class Simulation {
         revision: this.revision,
       },
     };
+  }
+  acknowledgeSave(capture: number) {
+    for (const id of this.captures.keys())
+      if (id <= capture) this.captures.delete(id);
+  }
+  /** Rotate journals in O(1); immutable values survive ticks until storage commits. */
+  *captureSave(): Generator<void, SaveSnapshot> {
+    if (!this.terrain.trackDirty) {
+      this.terrain.dirtySamples = new Map(this.terrain.changed);
+      for (const i of this.terrain.dryIndices) this.terrain.dirtyDry.add(i);
+      this.terrain.trackDirty = true;
+    }
+    const capture = this.nextCapture++,
+      terrain = this.terrain.dirtySamples,
+      dry = this.terrain.dirtyDry,
+      ruins = this.dirtyRuins;
+    this.terrain.dirtySamples = new Map();
+    this.terrain.dirtyDry = new SparseIndices();
+    this.dirtyRuins = new Map();
+    this.captures.set(capture, { terrain, dry, ruins });
+    const startRevision = this.revision;
+    const metadata: SaveSnapshot = {
+      version: CONFIG.version,
+      worldVersion: this.world.version,
+      generatorVersion: this.world.generatorVersion,
+      seed: this.world.seed,
+      capture,
+      incremental: true,
+      revision: startRevision,
+      hour: this.hour,
+      destruction: { ...this.destruction },
+      terrain: new Float32Array(),
+      laserDry: new Uint32Array(),
+      ruins: [],
+      removed: [...this.removed],
+      vaporized: [...this.vaporized],
+      laserCooldown: this.cooldowns.laser,
+      laserSupport: [...this.laserSupport],
+      supportJobs: this.supportJobs.map((j) => ({
+        ...j,
+        origin: [...j.origin],
+        alive: j.alive.slice(),
+        connected: j.connected.slice(),
+        clusters: j.clusters.map((c) => c.slice()),
+      })),
+      pendingJobs: this.pendingJobs.map((j) => ({
+        ...j,
+        p: [...j.p],
+        profile: { ...j.profile },
+        chunks: j.chunks.slice(),
+        entities: j.entities.slice(),
+        assemblies: j.assemblies.slice(),
+        supportQueue: j.supportQueue?.map((c) => c.slice()),
+      })),
+      lasers: this.lasers.map((l) => ({
+        ...l,
+        p: [...l.p],
+        profile: l.profile ? { ...l.profile } : undefined,
+        pending: l.pending?.slice(),
+      })),
+      // Targets are immutable after enqueueing; only the containing queue shifts.
+      laserWork: [...this.laserWork.values()].map((w) => ({
+        section: w.section,
+        targets: w.targets.slice(),
+      })),
+      civilians: this.civilians.states.map((c) => ({ ...c, p: [...c.p] })),
+      settlements: this.civilians.settlements.map((s) => ({ ...s })),
+      monsters: this.monsters.states.map((m) => ({ ...m, p: [...m.p] })),
+    };
+    // Airborne pieces have no permanent record yet. Capture their bounded pose list
+    // at the same tick; save-only compaction preserves the running physics state.
+    metadata.moving = this.bodyPoses.pack();
+    const sections = new Map<
+      number,
+      {
+        terrain: Map<number, number>;
+        dry: Set<number>;
+        ruins: Map<number, Ruin>;
+        removed: Set<number>;
+      }
+    >();
+    const section = (id: number) => {
+      let s = sections.get(id);
+      if (!s)
+        sections.set(
+          id,
+          (s = {
+            terrain: new Map(),
+            dry: new Set(),
+            ruins: new Map(),
+            removed: new Set(),
+          }),
+        );
+      return s;
+    };
+    let slice = performance.now();
+    const due = () => performance.now() - slice >= 1.5;
+    yield;
+    slice = performance.now();
+    for (const journal of this.captures.values()) {
+      for (const [i, h] of journal.terrain) {
+        const s = section(
+          Math.min(CHUNKS - 1, Math.floor(i / CONFIG.grid / 32)) * CHUNKS +
+            Math.min(CHUNKS - 1, Math.floor((i % CONFIG.grid) / 32)),
+        );
+        s.terrain.set(i, h);
+        if (due()) {
+          yield;
+          slice = performance.now();
+        }
+      }
+      for (const i of journal.dry) {
+        section(
+          Math.min(CHUNKS - 1, Math.floor(i / CONFIG.grid / 32)) * CHUNKS +
+            Math.min(CHUNKS - 1, Math.floor((i % CONFIG.grid) / 32)),
+        ).dry.add(i);
+        if (due()) {
+          yield;
+          slice = performance.now();
+        }
+      }
+      for (const [id, r] of journal.ruins) {
+        const s = section(r ? this.cell(r.p) : (this.ruinSection.get(id) ?? 0));
+        if (r) {
+          s.ruins.set(id, r);
+          s.removed.delete(id);
+        } else {
+          s.ruins.delete(id);
+          s.removed.add(id);
+        }
+        if (due()) {
+          yield;
+          slice = performance.now();
+        }
+      }
+    }
+    // Packed airborne poses are replaced on every commit, then grounded and
+    // compacted only during paused restoration. No save-time physics mutation.
+    metadata.sections = [];
+    for (const [id, s] of sections) {
+      const packed = new Float32Array(s.terrain.size * 2);
+      let j = 0;
+      for (const [i, h] of s.terrain) {
+        packed[j++] = i;
+        packed[j++] = h;
+      }
+      metadata.sections.push({
+        id,
+        terrain: packed,
+        dry: Uint32Array.from(s.dry),
+        ruins: [...s.ruins.values()],
+        removedRuins: [...s.removed],
+      });
+      if (due()) {
+        yield;
+        slice = performance.now();
+      }
+    }
+    return metadata;
   }
   save(): SaveSnapshot {
     // Capture moving pieces into a separate record map with the same bounded,
@@ -2261,23 +2966,20 @@ export class Simulation {
       destruction: { ...this.destruction },
       version: CONFIG.version,
       worldVersion: this.world.version,
+      generatorVersion: this.world.generatorVersion,
       seed: this.world.seed,
       revision: this.revision,
       hour: this.hour,
       terrain,
       removed: [...this.removed],
       ruins,
+      supportJobs: structuredClone(this.supportJobs),
       pendingJobs: structuredClone(this.pendingJobs),
       lasers: structuredClone(this.lasers),
       laserWork: structuredClone([...this.laserWork.values()]),
       laserSupport: [...this.laserSupport],
       laserCooldown: this.cooldowns.laser,
-      laserDry: Uint32Array.from(
-        this.terrain.laserDry.reduce((a: number[], v, i) => {
-          if (v) a.push(i);
-          return a;
-        }, []),
-      ),
+      laserDry: Uint32Array.from(this.terrain.dryIndices),
       vaporized: [...this.vaporized],
       civilians: structuredClone(this.civilians.states),
       settlements: structuredClone(this.civilians.settlements),
@@ -2285,6 +2987,9 @@ export class Simulation {
     };
   }
   dispose() {
+    this.moving.clear();
+    this.ballistic.clear();
+    this.bodyPoses.dispose();
     this.events.free();
     this.physics.free();
   }

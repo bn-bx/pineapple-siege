@@ -19,8 +19,8 @@ export class NukeCloud {
   age = 0;
   ending = false;
   constructor(
-    readonly event: Explosion,
-    reduced: boolean,
+    public event: Explosion,
+    readonly reduced: boolean,
   ) {
     this.material = new THREE.ShaderMaterial({
       vertexShader: vertex,
@@ -44,7 +44,14 @@ export class NukeCloud {
         const v = Math.sin(i * 127.1 + event.seed * 31.7) * 43758.5453;
         return v - Math.floor(v);
       };
-    this.face.userData.googlyBounds = [0, height * 0.43, 0, height * 0.23, height * 0.27, height * 0.23];
+    this.face.userData.googlyBounds = [
+      0,
+      height * 0.43,
+      0,
+      height * 0.23,
+      height * 0.27,
+      height * 0.23,
+    ];
     this.group.add(this.face);
     const color = new THREE.Color();
     const add = (
@@ -130,6 +137,40 @@ export class NukeCloud {
     this.shock.rotation.x = -Math.PI / 2;
     this.shock.position.y = 1;
     this.group.add(this.shock);
+  }
+  restart(event: Explosion) {
+    const ratio = event.profile!.cloudHeight / this.event.profile!.cloudHeight;
+    if (ratio !== 1) {
+      for (const puff of this.puffs) {
+        puff.p.multiplyScalar(ratio);
+        puff.size *= ratio;
+      }
+      const b = this.face.userData.googlyBounds as number[];
+      for (let i = 0; i < b.length; i++) b[i] *= ratio;
+    }
+    if (event.water !== this.event.water) {
+      const color = new THREE.Color();
+      for (let i = 0; i < this.puffs.length; i++) {
+        color.set(
+          this.puffs[i].leaf
+            ? event.water
+              ? "#849d86"
+              : "#628654"
+            : event.water
+              ? "#b9b68e"
+              : "#e1b24c",
+        );
+        this.smoke.setColorAt(i, color.multiplyScalar(0.85 + (i % 13) / 40));
+      }
+      this.smoke.instanceColor!.needsUpdate = true;
+      this.shock.material.color.set(event.water ? "#d2f6f4" : "#ffe5ad");
+    }
+    this.event = event;
+    this.age = 0;
+    this.ending = false;
+    this.group.position.fromArray(event.p);
+    this.group.scale.setScalar(1);
+    this.update(0);
   }
   update(dt: number) {
     this.age += dt;

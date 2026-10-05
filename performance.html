@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Siege native performance benchmark</title>
+    <style>
+      body {
+        margin: 0;
+        background: #10191d;
+        color: white;
+        font: 14px system-ui;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+      aside {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        max-width: 680px;
+        padding: 12px;
+        background: #10191deb;
+        border-radius: 8px;
+      }
+      pre {
+        max-height: 35vh;
+        overflow: auto;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 6px;
+        margin: 3px;
+      }
+      #report {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="world"></canvas>
+    <aside>
+      <strong>Native performance benchmark · isolated test save</strong>
+      <div>Run in the foreground. Your active island is untouched.</div>
+      <button id="run" disabled>Run six 30-second cases</button
+      ><button id="soak" disabled>15-minute combat soak</button
+      ><button id="storage">Storage correctness</button
+      ><button id="context">Context recovery check</button
+      ><button id="export">Save local report</button
+      ><button id="download">Download results</button
+      ><button id="scene">Save scene image</button
+      ><span id="status">Loading…</span>
+      <div id="summary"></div>
+      <details>
+        <summary>Inspect scene</summary>
+        <label>Seed <input id="seed" value="41729" size="12" /></label
+        ><button id="load-seed">Load test seed</button
+        ><label
+          >View
+          <select id="viewpoint">
+            <option value="castle">Castle</option>
+            <option value="coast">Coast</option>
+            <option value="mountain">Mountain</option>
+            <option value="pine">Pines</option>
+            <option value="broadleaf">Broadleaf forest</option>
+            <option value="riverside">Riverside forest</option>
+          </select></label
+        ><label
+          >Distance
+          <select id="distance">
+            <option>1200</option>
+            <option>3000</option>
+          </select></label
+        ><label><input id="night" type="checkbox" />Night</label
+        ><label><input id="eyes" type="checkbox" />Eyes</label
+        ><button id="tour">Play inspection</button
+        ><button id="pause-tour">Pause inspection</button>
+      </details>
+      <details>
+        <summary>Raw timings</summary>
+        <pre id="report"></pre>
+      </details>
+    </aside>
+    <script type="module" src="/src/performance-benchmark.ts"></script>
+  </body>
+</html>

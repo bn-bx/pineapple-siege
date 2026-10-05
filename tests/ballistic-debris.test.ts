@@ -13,7 +13,7 @@ import { DEFAULT_DESTRUCTION } from "../src/destruction-settings";
 import type { Entity, WorldData } from "../src/types";
 
 beforeAll(initializePhysics);
-const world: WorldData = JSON.parse(readFileSync("public/world.json", "utf8"));
+const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
 const flat = new Float32Array(CONFIG.grid * CONFIG.grid);
 const entity: Entity = {
   id: 0,

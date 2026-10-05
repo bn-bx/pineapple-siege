@@ -52,6 +52,20 @@ const events = (c: Civilians) => {
 };
 
 describe("townspeople", () => {
+  it("immediately wakes distant navigation when a threat arrives between ambient ticks", () => {
+    const c = new Civilians(world, ground, new Set());
+    c.step(1 / 60, [], [0, 400, 0], true, () => false);
+    const before = [...c.states[0].p];
+    c.step(
+      1 / 60,
+      [monster(0, [3100, 10, 3000])],
+      [0, 400, 0],
+      true,
+      () => false,
+    );
+    expect(c.states[0].mood).toBe("flee");
+    expect(c.states[0].p).not.toEqual(before);
+  });
   it("celebrates local clears and the final defeat, but never loading or population baselines", () => {
     const c = new Civilians(world, ground, new Set());
     const a = monster(0, [3100, 10, 3000]),

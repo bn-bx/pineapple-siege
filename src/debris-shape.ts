@@ -65,12 +65,15 @@ export function roofClearance(s: Vec3, q: Quat, part = 0) {
   const rowX = 2 * (x * y + z * w),
     rowY = 1 - 2 * (x * x + z * z),
     rowZ = 2 * (y * z - x * w);
-  if (part)
-    return Math.max(
-      ...roofParts[part - 1].vertices.map(
-        (v) => -(rowX * v[0] * s[0] + rowY * v[1] * s[1] + rowZ * v[2] * s[2]),
-      ),
-    );
+  if (part) {
+    let clearance = -Infinity;
+    for (const v of roofParts[part - 1].vertices)
+      clearance = Math.max(
+        clearance,
+        -(rowX * v[0] * s[0] + rowY * v[1] * s[1] + rowZ * v[2] * s[2]),
+      );
+    return clearance;
+  }
   return Math.max(
     Math.abs(rowX) * s[0] + rowY * s[1] + Math.abs(rowZ) * s[2],
     -rowY * s[1],

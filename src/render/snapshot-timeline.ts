@@ -6,26 +6,38 @@ export class SnapshotTimeline<T extends { time: number }> {
   private warming = true;
   private sampledAt: number | undefined;
   private time: number | undefined;
-  constructor(readonly delay = 0.1) {}
-  reset() {
-    this.states = [];
+  constructor(
+    readonly delay = 0.1,
+    private retire?: (state: T) => void,
+  ) {}
+  reset(keep?: T) {
+    for (const state of this.states) if (state !== keep) this.retire?.(state);
+    this.states = keep ? [keep] : [];
     this.warming = true;
     this.sampledAt = this.time = undefined;
   }
   receive(state: T, now: number) {
     const last = this.states.at(-1);
     if (last && state.time < last.time) this.reset();
-    if (this.states.at(-1)?.time === state.time)
+    if (this.states.at(-1)?.time === state.time) {
+      this.retire?.(this.states[this.states.length - 1]);
       this.states[this.states.length - 1] = state;
-    else this.states.push(state);
+    } else this.states.push(state);
     // Bound memory even if the browser stops rendering for a while.
-    if (this.states.length > 32) this.states.splice(0, this.states.length - 32);
+    if (this.states.length > 32)
+      this.states
+        .splice(0, this.states.length - 32)
+        .forEach((s) => this.retire?.(s));
     this.arrival = now;
   }
   sample(now: number, active: boolean) {
     const latest = this.states.at(-1);
     if (!latest) return undefined;
     if (!active) {
+      if (this.states.length > 1)
+        this.states
+          .splice(0, this.states.length - 1)
+          .forEach((s) => this.retire?.(s));
       this.warming = true;
       this.time = latest.time;
       this.sampledAt = now;
@@ -60,7 +72,8 @@ export class SnapshotTimeline<T extends { time: number }> {
       interval > 0
         ? Math.max(0, Math.min(1, (this.time - previous.time) / interval))
         : 1;
-    if (index > 1) this.states.splice(0, index - 1);
+    if (index > 1)
+      this.states.splice(0, index - 1).forEach((s) => this.retire?.(s));
     return { previous, current, alpha, time: this.time };
   }
 }

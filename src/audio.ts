@@ -32,6 +32,8 @@ export class GameAudio {
   private volume = 0.35;
   private muted = false;
   private lastDiscoStep = -1;
+  private lastNuke = -Infinity;
+  private lastNukePosition: Vec3 = [0, 0, 0];
   async start() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
@@ -237,6 +239,7 @@ export class GameAudio {
     this.voices.push(stop);
   }
   reset() {
+    this.lastNuke = -Infinity;
     this.lastDiscoStep = -1;
     for (const voice of this.laserVoices.values()) voice.stop();
     this.laserVoices.clear();
@@ -254,6 +257,17 @@ export class GameAudio {
   explosion(e: Explosion) {
     if (e.kind === "nuke") {
       if (!this.ctx || !this.mix || !this.blastNoise) return;
+      const p = this.lastNukePosition;
+      if (
+        this.ctx.currentTime - this.lastNuke < 0.18 &&
+        (e.p[0] - p[0]) ** 2 + (e.p[1] - p[1]) ** 2 + (e.p[2] - p[2]) ** 2 <
+          150 ** 2
+      )
+        return;
+      this.lastNuke = this.ctx.currentTime;
+      p[0] = e.p[0];
+      p[1] = e.p[1];
+      p[2] = e.p[2];
       // Bounded overlap during rapid drops; older voices fade out instead of stacking forever.
       if (this.nukeVoices.length >= 4) this.nukeVoices.shift()!.stop();
       const voice = playNukeBlast(

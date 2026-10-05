@@ -19,6 +19,9 @@ export const MONSTER_BODY_HEIGHT = 14 * MONSTER_SCALE;
 export const MONSTER_BODY_RADIUS = 12 * MONSTER_SCALE;
 
 export class Monsters {
+  private tick = 0;
+  private castleBounds: WorldData["castleBounds"][];
+  private settlementCenters: Vec3[];
   readonly states: MonsterState[] = [];
   readonly spikes: MonsterSpike[] = [];
   readonly throws: Vec3[] = [];
@@ -32,6 +35,8 @@ export class Monsters {
     private terrain: Terrain,
     saved?: MonsterState[],
   ) {
+    this.castleBounds=world.castles?.map(c=>c.bounds) ?? [world.castleBounds];
+    this.settlementCenters=[...(world.castles?.map(c=>c.p) ?? [world.castle]),...world.sites.filter(s=>s.kind==='hamlet').map(s=>s.p)];
     this.ensureStates(
       Math.min(
         MAX_MONSTER_COUNT,
@@ -90,10 +95,7 @@ export class Monsters {
       this.walkable(x, z) &&
       this.states.every((m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= spacing);
     for (let attempt = 0; attempt < 1000; attempt++) {
-      const settlements = [
-        this.world.castle,
-        ...this.world.sites.filter((s) => s.kind === "hamlet").map((s) => s.p),
-      ];
+      const settlements=this.settlementCenters;
       const center = settlements[id % settlements.length];
       const angle =
         hash(id * 887 + attempt * 31 + this.world.seed) * Math.PI * 2;
@@ -146,10 +148,13 @@ export class Monsters {
       )
         return false;
     if (
-      x > this.world.castleBounds.min[0] - 75 &&
-      x < this.world.castleBounds.max[0] + 75 &&
-      z > this.world.castleBounds.min[1] - 75 &&
-      z < this.world.castleBounds.max[1] + 75
+      this.castleBounds.some(
+        (b) =>
+          x > b.min[0] - 75 &&
+          x < b.max[0] + 75 &&
+          z > b.min[1] - 75 &&
+          z < b.max[1] + 75,
+      )
     )
       return false;
     if (distanceXZ([x, h, z], this.world.spawn) < 120) return false;
@@ -226,6 +231,7 @@ export class Monsters {
     disco = false,
     planeVelocity: Vec3 = [0, 0, 0],
   ) {
+    this.tick++;
     let swipe = false;
     this.throws.length = 0;
     if (disco || crashed) {
@@ -304,6 +310,9 @@ export class Monsters {
         m.windup = 0.75;
         continue;
       }
+      const range=distanceXZ(m.p,plane), period=near ? 1 : range<900 ? 2 : 6;
+      if((this.tick+m.id)%period) {m.phase+=dt*4.5;continue;}
+      const navDT=dt*period;
       const desired = near
         ? Math.atan2(plane[0] - m.p[0], plane[2] - m.p[2])
         : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;
@@ -311,10 +320,10 @@ export class Monsters {
         Math.sin(desired - m.yaw),
         Math.cos(desired - m.yaw),
       );
-      m.yaw += clamp(turn, -dt * 1.1, dt * 1.1);
+      m.yaw += clamp(turn, -navDT * 1.1, navDT * 1.1);
       const speed = near ? 14 : 4.5;
-      const x = m.p[0] + Math.sin(m.yaw) * speed * dt;
-      const z = m.p[2] + Math.cos(m.yaw) * speed * dt;
+      const x = m.p[0] + Math.sin(m.yaw) * speed * navDT;
+      const z = m.p[2] + Math.cos(m.yaw) * speed * navDT;
       const next: Vec3 = [x, this.terrain.sample(x, z), z];
       if (this.walkable(x, z) && !obstacle(m.p, next)) m.p = next;
       else {

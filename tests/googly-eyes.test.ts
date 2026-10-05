@@ -52,10 +52,11 @@ it("toggles existing and newly created faces without changing source visibility"
   expect(first.getObjectByName("googly-eyes")!.visible).toBe(false);
   expect(first.visible).toBe(true);
   faces.update([first, next], snapshot);
-  expect(next.getObjectByName("googly-eyes")!.visible).toBe(false);
+  expect(next.getObjectByName("googly-eyes")).toBeUndefined();
   expect(faces.count).toBe(0);
   faces.setEnabled(true);
   expect(first.getObjectByName("googly-eyes")!.visible).toBe(true);
+  faces.update([first, next], snapshot);
   expect(next.getObjectByName("googly-eyes")!.visible).toBe(true);
   expect(faces.count).toBe(2);
   faces.update([], snapshot);

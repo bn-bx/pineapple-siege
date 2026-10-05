@@ -8,7 +8,8 @@
     "dev": "node scripts/generate-world.mjs && vite --host 127.0.0.1",
     "build": "node scripts/generate-world.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node scripts/generate-world.mjs && vitest run",
+    "test": "node scripts/generate-world.mjs && node scripts/generate-legacy-world.mjs && vitest run --maxWorkers=1",
+    "benchmark:performance": "node scripts/benchmark-performance.mjs",
     "benchmark:world": "node scripts/generate-world.mjs && node scripts/benchmark-world.mjs",
     "benchmark:destruction": "node scripts/generate-world.mjs && node scripts/benchmark-destruction.mjs"
   },

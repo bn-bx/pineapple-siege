@@ -5,12 +5,12 @@ import { TerrainView } from "../src/render/terrain-view";
 import { Terrain } from "../src/sim/terrain";
 import { readFileSync } from "node:fs";
 it("stitches unequal terrain detail levels with identical shared heights and normals after excavation", () => {
-  const bytes = readFileSync("public/world.bin");
+  const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
   const base = new Float32Array(
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
   );
   const view = new TerrainView(
-    JSON.parse(readFileSync("public/world.json", "utf8")),
+    JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8")),
     base.slice(),
     new THREE.Texture(),
   );
@@ -30,6 +30,7 @@ it("stitches unequal terrain detail levels with identical shared heights and nor
     return values.sort((a, b) => a[0] - b[0]);
   };
   expect(edge(a.mesh)).toHaveLength(33);
+  expect(edge(a.mesh).every(values=>values.every(Number.isFinite))).toBe(true);
   expect(edge(b.mesh)).toEqual(edge(a.mesh));
   const geometry = a.mesh.geometry;
   const patch = terrain.crater(1088, 1030, 35, 12);
@@ -110,12 +111,12 @@ it("stitches unequal terrain detail levels with identical shared heights and nor
   view.floodTexture.dispose();
 });
 it("removes distant terrain draw tiles when range shrinks and restores them when increased", () => {
-  const bytes = readFileSync("public/world.bin");
+  const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
   const base = new Float32Array(
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
   );
   const view = new TerrainView(
-    JSON.parse(readFileSync("public/world.json", "utf8")),
+    JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8")),
     base,
     new THREE.Texture(),
   );
@@ -140,4 +141,21 @@ it("removes distant terrain draw tiles when range shrinks and restores them when
   view.material.dispose();
   view.heightTexture.dispose();
   view.floodTexture.dispose();
+});
+it('rejects mesh results from obsolete islands, edits, and detail levels',()=>{
+  const original=globalThis.Worker;
+  class MeshWorker {onmessage:any;onerror:any;postMessage(){}terminate(){}}
+  globalThis.Worker=MeshWorker as any;
+  const bytes=readFileSync('tests/fixtures/legacy-world/world.bin');
+  const base=new Float32Array(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+  let view:TerrainView|undefined;
+  try {
+    view=new TerrainView(JSON.parse(readFileSync('tests/fixtures/legacy-world/world.json','utf8')),base,new THREE.Texture());
+    const runtime=view as any;runtime.activeTiles.add(0);runtime.editRevisions[0]=3;runtime.requestedSteps[0]=2;
+    const result={epoch:1,tile:0,serial:1,buildMS:1,members:[{id:0,revision:3,step:2}]};
+    for(const stale of [{...result,epoch:0},{...result,members:[{id:0,revision:2,step:2}]},{...result,members:[{id:0,revision:3,step:8}]}])runtime.worker.onmessage({data:stale});
+    expect(runtime.completed).toHaveLength(0);
+    runtime.worker.onmessage({data:result});expect(runtime.completed).toHaveLength(1);
+    view.restore(base);runtime.worker.onmessage({data:result});expect(runtime.completed).toHaveLength(0);
+  } finally {view?.dispose();globalThis.Worker=original;}
 });

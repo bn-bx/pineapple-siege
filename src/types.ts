@@ -113,6 +113,7 @@ export interface Entity {
   foundation: boolean;
   supports: number[];
   variant: number;
+  treeSpecies?: "pine" | "broadleaf" | "riverside";
 }
 export interface CivilianSpawn {
   id: number;
@@ -135,7 +136,25 @@ export interface SettlementState {
   sad: number;
   threatened: boolean;
 }
+export interface CastleSite {
+  id: string;
+  p: Vec3;
+  bounds: { min: [number, number]; max: [number, number] };
+  assemblies: string[];
+  grand: boolean;
+  turn: number;
+  landmarks: { gate: Vec3; keep: Vec3; towers: Vec3[] };
+}
+export interface RiverData {
+  id: string;
+  width: number;
+  points: Vec3[];
+}
 export interface WorldData {
+  generatorVersion?: number;
+  castles?: CastleSite[];
+  rivers?: RiverData[];
+  roadConnections?: [string, string][];
   heightFiles?: string[];
   civilians?: CivilianSpawn[];
   version: number;
@@ -147,7 +166,7 @@ export interface WorldData {
   castle: Vec3;
   castleBounds: { min: [number, number]; max: [number, number] };
   landmarks: { gate: Vec3; keep: Vec3; towers: Vec3[] };
-  banners: { owner: number; p: Vec3; s: Vec3 }[];
+  banners: { owner: number; p: Vec3; s: Vec3; yaw?: number }[];
   bridge: [number, number];
   spawn: Vec3;
   paths: [number, number][][];
@@ -244,6 +263,9 @@ export interface FragmentEffect {
   spread: number;
 }
 export interface SimulationSnapshot {
+  epoch?: number;
+  slot?: number;
+  packedMotion?: PackedMotion;
   type: "snapshot";
   tick: number;
   time: number;
@@ -270,6 +292,13 @@ export interface SimulationSnapshot {
   bodies: BodyView[];
   packedBodies?: PackedBodies;
   stats: {
+    stageMS?: Record<string, number>;
+    saveSliceMS?: number;
+    snapshotMS?: number;
+    packetPoolBusy?: number;
+    packetPoolBytes?: number;
+    stepMS?: number;
+    stepSamples?: number[];
     physicsMS: number;
     destructionMS: number;
     pendingJobs: number;
@@ -281,11 +310,41 @@ export interface SimulationSnapshot {
     revision: number;
   };
 }
+export interface PackedMotion {
+  buffer: ArrayBuffer;
+  counts: [number, number, number, number];
+}
 export interface PackedBodies {
   count: number;
   buffer: ArrayBuffer;
 }
+export interface SupportJob {
+  name: string;
+  origin: Vec3;
+  coarse: number;
+  budget: number;
+  ownerSeed?: number;
+  phase: "foundations" | "links" | "falling" | "emit";
+  cursor: number;
+  alive: number[];
+  connected: number[];
+  clusters: number[][];
+}
+export interface SaveSection {
+  id: number;
+  terrain: Float32Array;
+  dry: Uint32Array;
+  ruins: Ruin[];
+  removedRuins: number[];
+}
 export interface SaveSnapshot {
+  moving?: PackedBodies;
+  incremental?: boolean;
+  capture?: number;
+  sections?: SaveSection[];
+  sectioned?: boolean;
+  supportJobs?: SupportJob[];
+  generatorVersion?: number;
   destruction?: DestructionSettings;
   version: number;
   worldVersion: number;
@@ -310,6 +369,7 @@ export interface SaveSnapshot {
 export type GameCommand =
   | {
       type: "init";
+      epoch?: number;
       world: WorldData;
       heights: ArrayBuffer;
       save?: SaveSnapshot;
@@ -325,7 +385,15 @@ export type GameCommand =
   | { type: "monsterCount"; value: number }
   | { type: "respawn" }
   | { type: "reset" }
-  | { type: "save"; request: number }
+  | { type: "save"; request: number; port?: MessagePort }
+  | { type: "saveAck"; capture: number }
+  | {
+      type: "recycleMotion";
+      epoch: number;
+      slot: number;
+      bodies: ArrayBuffer;
+      actors: ArrayBuffer;
+    }
   | { type: "hour"; hour: number }
   | { type: "holdTime"; hold: boolean }
   | { type: "debugBlast"; p: Vec3; yield?: NukeYield }
@@ -359,9 +427,10 @@ export type WorkerMessage =
       ruins: Ruin[];
       heights: ArrayBuffer;
       flood: Uint32Array;
+      waterMask?: Uint8Array;
       hour: number;
     }
-  | { type: "saved"; request: number; save: SaveSnapshot }
+  | { type: "saved"; request: number; save: SaveSnapshot; slices?: number[] }
   | { type: "error"; message: string }
   | { type: "resetDone" }
   | { type: "debugResult"; state: unknown };

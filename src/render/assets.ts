@@ -390,3 +390,49 @@ export function fractureMaterials(
     }),
   ) as Record<Material, THREE.MeshStandardMaterial>;
 }
+
+/** Normalized crowns share the existing base-to-tip tree transform and wreckage bounds. */
+export function treeCrownGeometry(
+  species: "pine" | "broadleaf" | "riverside" = "pine",
+) {
+  if (species === "pine") return pineGeometry();
+  const pieces: THREE.BufferGeometry[] = [];
+  const lobes =
+    species === "broadleaf"
+      ? [
+          [0, 0.66, 0, 0.72, 0.3],
+          [0.4, 0.62, 0, 0.55, 0.24],
+          [-0.36, 0.6, 0.18, 0.55, 0.24],
+          [0, 0.83, -0.2, 0.48, 0.19],
+        ]
+      : [
+          [0, 0.68, 0, 0.48, 0.32],
+          [0.24, 0.62, 0.1, 0.36, 0.25],
+          [-0.22, 0.65, -0.1, 0.36, 0.25],
+          [0, 0.87, 0, 0.28, 0.13],
+        ];
+  for (const [x, y, z, r, h] of lobes) {
+    const g = new THREE.IcosahedronGeometry(1, 1);
+    g.scale(r, h, r);
+    g.translate(x, y, z);
+    pieces.push(g);
+  }
+  return mergeGeometries(pieces);
+}
+export function treeCrownLowGeometry(
+  species: "pine" | "broadleaf" | "riverside" = "pine",
+) {
+  if (species === "pine") {
+    const g = new THREE.ConeGeometry(1, 1, 7);
+    g.translate(0, 0.5, 0);
+    return g;
+  }
+  const g = new THREE.IcosahedronGeometry(1, 0);
+  g.scale(
+    species === "broadleaf" ? 0.95 : 0.52,
+    0.36,
+    species === "broadleaf" ? 0.8 : 0.52,
+  );
+  g.translate(0, 0.64, 0);
+  return g;
+}

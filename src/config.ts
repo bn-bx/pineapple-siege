@@ -5,7 +5,7 @@ export const CHUNK_SIZE = 64;
 export const CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 export const CHUNK_SAMPLES = CHUNK_SIZE / TERRAIN_SPACING;
 export const CONFIG = {
-  version: 7,
+  version: 9,
   dt: 1 / 60,
   debrisGravity: 21.6,
   minSpeed: 35,

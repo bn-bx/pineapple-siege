@@ -13,8 +13,8 @@ import { Fragments } from "../src/render/fragments";
 import { flightPose } from "../src/render/flight-pose";
 import { compatible } from "../src/storage";
 import type { WorldData, WorkerMessage, Vec3 } from "../src/types";
-const world: WorldData = JSON.parse(readFileSync("public/world.json", "utf8"));
-const bytes = readFileSync("public/world.bin");
+const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
 const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 );

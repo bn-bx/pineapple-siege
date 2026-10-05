@@ -6,6 +6,13 @@ import type { SimulationSnapshot } from "../types";
 export class CivilianView {
   readonly group = new THREE.Group();
   private parts: THREE.InstancedMesh[];
+  private distant: THREE.InstancedMesh;
+  private frustum = new THREE.Frustum();
+  private projection = new THREE.Matrix4();
+  private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
+  private colors = [0xe2ac4a, 0x67a5b9, 0x9670b3, 0xc97462, 0x73a16e].map(
+    (c) => new THREE.Color(c),
+  );
   private dummy = new THREE.Object3D();
   private root = new THREE.Object3D();
   constructor(count: number) {
@@ -29,6 +36,11 @@ export class CivilianView {
       new THREE.InstancedMesh(box, dark, count),
       new THREE.InstancedMesh(sphere, dark, count * 2),
     ];
+    this.distant = new THREE.InstancedMesh(box, cloth, count);
+    this.distant.count = 0;
+    this.distant.frustumCulled = false;
+    this.distant.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.distant.setColorAt(0, new THREE.Color());
     const colors = [0xe2ac4a, 0x67a5b9, 0x9670b3, 0xc97462, 0x73a16e];
     for (let i = 0; i < count; i++)
       for (const k of [0, 2, 3])
@@ -40,6 +52,7 @@ export class CivilianView {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       this.group.add(mesh);
     }
+    this.group.add(this.distant);
   }
   update(
     snap: SimulationSnapshot,
@@ -47,8 +60,17 @@ export class CivilianView {
     alpha: number,
     camera: THREE.Vector3,
     renderDistance = DEFAULT_RENDER_DISTANCE,
+    viewCamera?: THREE.Camera,
   ) {
-    let n = 0;
+    let n = 0,
+      far = 0;
+    if (viewCamera)
+      this.frustum.setFromProjectionMatrix(
+        this.projection.multiplyMatrices(
+          viewCamera.projectionMatrix,
+          viewCamera.matrixWorldInverse,
+        ),
+      );
     for (const c of snap.civilians ?? []) {
       if (
         !c.alive ||
@@ -56,9 +78,34 @@ export class CivilianView {
       )
         continue;
       const old = previous?.civilians?.[c.id];
-      const p = old?.alive
-        ? old.p.map((v, k) => THREE.MathUtils.lerp(v, c.p[k], alpha))
-        : c.p;
+      const px = old?.alive
+          ? THREE.MathUtils.lerp(old.p[0], c.p[0], alpha)
+          : c.p[0],
+        py = old?.alive
+          ? THREE.MathUtils.lerp(old.p[1], c.p[1], alpha)
+          : c.p[1],
+        pz = old?.alive
+          ? THREE.MathUtils.lerp(old.p[2], c.p[2], alpha)
+          : c.p[2];
+      if (
+        viewCamera &&
+        !this.frustum.intersectsSphere(
+          this.sphere.center.set(px, py + 2, pz) && this.sphere,
+        )
+      )
+        continue;
+      if (
+        viewCamera &&
+        (px - camera.x) ** 2 + (pz - camera.z) ** 2 > 350 * 350
+      ) {
+        this.dummy.position.set(px, py + 2, pz);
+        this.dummy.rotation.set(0, c.yaw, 0);
+        this.dummy.scale.set(1.7, 4, 0.9);
+        this.dummy.updateMatrix();
+        this.distant.setMatrixAt(far, this.dummy.matrix);
+        this.distant.setColorAt(far++, this.colors[c.id % 5]);
+        continue;
+      }
       const phase = old?.alive
         ? THREE.MathUtils.lerp(old.phase, c.phase, alpha)
         : c.phase;
@@ -68,10 +115,9 @@ export class CivilianView {
       const walk = c.mood === "walk" || flee;
       const stride = walk ? Math.sin(phase * 2) * (flee ? 0.65 : 0.35) : 0;
       this.root.position.set(
-        p[0],
-        p[1] +
-          (cheer ? Math.max(0, Math.sin(phase * 3 + c.id * 0.4)) * 0.8 : 0),
-        p[2],
+        px,
+        py + (cheer ? Math.max(0, Math.sin(phase * 3 + c.id * 0.4)) * 0.8 : 0),
+        pz,
       );
       this.root.rotation.set(sad ? 0.15 : 0, c.yaw, 0);
       this.root.updateMatrix();
@@ -183,6 +229,11 @@ export class CivilianView {
       );
       n++;
     }
+    this.distant.count = far;
+    this.distant.instanceMatrix.clearUpdateRanges();
+    if (far) this.distant.instanceMatrix.addUpdateRange(0, far * 16);
+    this.distant.instanceMatrix.needsUpdate = true;
+    this.distant.instanceColor!.needsUpdate = !!far;
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k === 6 ? n * 2 : n;
@@ -192,6 +243,7 @@ export class CivilianView {
     }
   }
   reset() {
+    this.distant.count = 0;
     for (const mesh of this.parts) mesh.count = 0;
   }
 }

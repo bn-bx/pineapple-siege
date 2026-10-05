@@ -62,10 +62,11 @@ export class SpaceLaser {
       this.capacity,
     );
     this.distant = new THREE.InstancedMesh(
-      cylinder,
+      new THREE.CylinderGeometry(1, 1, 1, 6, 1, true),
       material("#ffffff", 0.7),
       256,
     );
+    this.distant.setColorAt(0, new THREE.Color());
     this.distant.count = 0;
     this.distant.frustumCulled = false;
     const arcGeo = new THREE.BufferGeometry();
@@ -93,6 +94,7 @@ export class SpaceLaser {
       this.rings,
       this.impacts,
     ]) {
+      mesh.setColorAt(0, new THREE.Color());
       mesh.count = 0;
       mesh.frustumCulled = false;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -151,13 +153,21 @@ export class SpaceLaser {
     // Bound aftermath storage as well as draw instances.
     while (this.hot.size > this.capacity)
       this.hot.delete(this.hot.keys().next().value!);
-    const ordered = [...visible].sort(
+    const representatives = new Map<string, LaserStrike>();
+    for (const l of visible) {
+      const profile = resolvedLaserProfile(l.profile),
+        key = `${l.phase}:${Math.floor(l.p[0] / Math.max(4, profile.beamRadius))}:${Math.floor(l.p[2] / Math.max(4, profile.beamRadius))}`;
+      const old = representatives.get(key);
+      if (!old || l.age > old.age) representatives.set(key, l);
+    }
+    const ordered = [...representatives.values()].sort(
       (a, b) =>
         Math.hypot(a.p[0] - camera.x, a.p[2] - camera.z) -
         Math.hypot(b.p[0] - camera.x, b.p[2] - camera.z),
     );
-    const selected = ordered.slice(0, this.capacity),
-      distant = ordered.slice(this.capacity);
+    const embellishmentLimit = this.reduced ? 8 : this.capacity;
+    const selected = ordered.slice(0, embellishmentLimit),
+      distant = ordered.slice(embellishmentLimit);
     if (distant.length > this.distant.instanceMatrix.count) {
       const previous = this.distant;
       this.distant = new THREE.InstancedMesh(
@@ -189,9 +199,12 @@ export class SpaceLaser {
         height,
         radius,
       );
-      this.color.setHSL((time * 0.12 + l.id * 0.19) % 1, 0.9, 0.6)
-        .multiplyScalar((l.phase === "charging" ? 1 : profile.brightness) *
-          (this.reduced ? 0.7 : 1));
+      this.color
+        .setHSL((time * 0.12 + l.id * 0.19) % 1, 0.9, 0.6)
+        .multiplyScalar(
+          (l.phase === "charging" ? 1 : profile.brightness) *
+            (this.reduced ? 0.7 : 1),
+        );
       this.distant.setColorAt(i, this.color);
     });
     this.distant.count = distant.length;
@@ -206,7 +219,11 @@ export class SpaceLaser {
     for (const l of selected) {
       const profile = resolvedLaserProfile(l.profile),
         scale = profile.radius / LASER.radius;
-      const baseColor = new THREE.Color().setHSL((time * 0.12 + l.id * 0.19) % 1, 0.95, 0.62);
+      const baseColor = new THREE.Color().setHSL(
+        (time * 0.12 + l.id * 0.19) % 1,
+        0.95,
+        0.62,
+      );
       const charge = l.phase === "charging",
         progress = clamp(l.age / LASER.charge, 0, 1);
       const [x, targetY, z] = l.p;
@@ -261,7 +278,7 @@ export class SpaceLaser {
             ground(x + profile.radius, z),
             ground(x - profile.radius, z),
           ) + 2;
-      for (let r = 0; r < 3; r++) {
+      for (let r = 0; r < (this.reduced ? 1 : 3); r++) {
         const rr =
           profile.radius *
           (charge ? 0.5 + 0.25 * r : 0.65 + 0.17 * r) *
@@ -277,10 +294,12 @@ export class SpaceLaser {
           rr,
           true,
         );
-        this.color.copy(baseColor).multiplyScalar(charge ? 0.25 + progress * 0.75 : 0.9);
+        this.color
+          .copy(baseColor)
+          .multiplyScalar(charge ? 0.25 + progress * 0.75 : 0.9);
         this.rings.setColorAt(ringCount++, this.color);
       }
-      for (let r = 0; r < 2; r++) {
+      for (let r = 0; r < (this.reduced ? 0 : 2); r++) {
         const y = bottom + ((time * (charge ? 150 : 280) + r * 500) % height);
         const rr = charge
           ? (18 + progress * 45) * scale
@@ -289,7 +308,7 @@ export class SpaceLaser {
         this.rings.setColorAt(ringCount++, this.color);
       }
       const beamAge = l.age - LASER.charge;
-      if (!charge && beamAge < 1) {
+      if (!this.reduced && !charge && beamAge < 1) {
         const rr = (20 + clamp(beamAge, 0, 1) * LASER.radius * 1.5) * scale;
         this.place(this.rings, ringCount, x, rimY + 4, z, rr, rr, rr, true);
         this.color.copy(baseColor).multiplyScalar(1 - beamAge);
@@ -337,7 +356,7 @@ export class SpaceLaser {
     }
     for (const glow of [...this.hot.values()].slice(
       0,
-      this.capacity - impactCount,
+      embellishmentLimit - impactCount,
     )) {
       this.place(
         this.impacts,
@@ -357,7 +376,7 @@ export class SpaceLaser {
     for (const [mesh, count] of [
       [this.core, beamCount],
       [this.halo, beamCount],
-      [this.aura, beamCount],
+      [this.aura, this.reduced ? 0 : beamCount],
       [this.rings, ringCount],
       [this.impacts, impactCount],
     ] as const) {
@@ -366,7 +385,11 @@ export class SpaceLaser {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     this.arcs.geometry.setDrawRange(0, arcCount * 2);
-    (this.arcs.material as THREE.LineBasicMaterial).color.setHSL((time * 0.12) % 1, 0.9, 0.7);
+    (this.arcs.material as THREE.LineBasicMaterial).color.setHSL(
+      (time * 0.12) % 1,
+      0.9,
+      0.7,
+    );
     this.arcs.geometry.getAttribute("position").needsUpdate = true;
   }
   reset() {

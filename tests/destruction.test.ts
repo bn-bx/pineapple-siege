@@ -4,8 +4,8 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { CONFIG, NUKE_PROFILES } from "../src/config";
 import { compatible } from "../src/storage";
 import type { WorldData, WorkerMessage } from "../src/types";
-const world: WorldData = JSON.parse(readFileSync("public/world.json", "utf8"));
-const b = readFileSync("public/world.bin"),
+const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const b = readFileSync("tests/fixtures/legacy-world/world.bin"),
   base = new Float32Array(
     b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
   );

@@ -34,9 +34,7 @@
           <div class="actions">
             <button class="primary" id="enter" disabled>
               <span id="enterLabel">Loading world…</span><span>↗</span></button
-            ><button class="secondary" id="newWorld" hidden>
-              Start a new world
-            </button>
+            ><button class="secondary" id="newWorld" hidden>New island</button>
           </div>
         </div>
         <div class="controls">
@@ -167,6 +165,26 @@
             aria-labelledby="heading-world"
           >
             <h3 id="heading-world">World</h3>
+            <div class="island-sharing">
+              <label
+                >Island seed<input
+                  id="currentSeed"
+                  readonly
+                  aria-label="Current island seed"
+              /></label>
+              <div>
+                <button id="copySeed">Copy seed</button
+                ><button id="copyIslandLink">Copy island link</button>
+              </div>
+              <input
+                id="shareFallback"
+                readonly
+                hidden
+                aria-label="Select and copy this island code or link"
+              />
+              <p id="islandShareStatus" role="status"></p>
+              <button id="createIsland" class="primary">New island</button>
+            </div>
             <div class="settings-grid">
               <label
                 >Pineapple monsters
@@ -286,6 +304,70 @@
     </div>
     <div id="saveStatus" role="status"></div>
     <pre id="perf" hidden></pre>
+    <dialog id="islandPreview" aria-labelledby="islandPreviewTitle">
+      <h2 id="islandPreviewTitle">Choose your island</h2>
+      <p>
+        Explore a lush kingdom of rugged mountains, rivers, forests, and coastal
+        castles.
+      </p>
+      <form id="previewSeedForm" class="island-seed-form">
+        <label for="previewSeed">Island seed</label>
+        <input
+          id="previewSeed"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="32"
+          placeholder="PS1-0000A301"
+        />
+        <button type="submit">Preview seed</button>
+      </form>
+      <p id="islandSeedNotice" role="alert"></p>
+      <progress
+        id="islandProgress"
+        max="1"
+        value="0"
+        aria-label="Island generation progress"
+      ></progress>
+      <p id="islandPreviewStatus" role="status" aria-live="polite">
+        Generating your island…
+      </p>
+      <canvas
+        id="islandMap"
+        width="768"
+        height="768"
+        role="img"
+        aria-label="Overhead island preview showing mountains, forests, rivers, roads, and landmarks"
+        hidden
+      ></canvas>
+      <p class="island-map-legend">
+        Gold squares: castles · Cyan dots: harbors · Ivory dots: landmarks ·
+        White arrow: flight start
+      </p>
+      <p id="islandLandmarks"></p>
+      <div class="island-preview-actions">
+        <button id="rerollIsland">Reroll</button
+        ><button id="cancelIsland">Cancel</button
+        ><button id="keepIsland" class="primary" disabled>
+          Keep this island
+        </button>
+      </div>
+      <section
+        id="islandReplacePrompt"
+        hidden
+        aria-label="Confirm island replacement"
+      >
+        <p>
+          This replaces your current island and its saved destruction,
+          casualties, and monster progress. Your settings stay the same.
+        </p>
+        <div>
+          <button id="backToIsland">Back to preview</button
+          ><button id="confirmIsland" class="danger">
+            Replace current island
+          </button>
+        </div>
+      </section>
+    </dialog>
     <dialog id="confirm">
       <p class="eyebrow">RESET WORLD</p>
       <h2>Reset this world?</h2>

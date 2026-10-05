@@ -1,4 +1,8 @@
+import { TerrainMesher, type SectionData } from "./terrain-mesher";
+import { TerrainTextureUploads } from "./terrain-texture-uploads";
+import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
 import * as THREE from "three";
+import { pathIndex } from "../world/generator.mjs";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData, TerrainPatch } from "../types";
 import { CONFIG, CHUNKS, clamp, DEFAULT_RENDER_DISTANCE } from "../config";
@@ -18,7 +22,41 @@ export class TerrainView {
   readonly heightTexture: THREE.DataTexture;
   readonly base: Float32Array;
   readonly material: THREE.MeshStandardMaterial;
+  private mesher: TerrainMesher;
+  private worker?: Worker;
+  private textureUploads?: TerrainTextureUploads;
+  enableStreamingUploads() {
+    this.textureUploads ??= new TerrainTextureUploads(
+      this.heightTexture,
+      this.floodTexture,
+    );
+  }
+  uploadTextures(renderer: THREE.WebGLRenderer, budgetMS: number) {
+    return this.textureUploads?.flush(renderer, Math.max(0, budgetMS)) ?? 0;
+  }
+  get textureQueue() {
+    return this.textureUploads?.pending ?? 0;
+  }
+  get workerActive() {
+    return !!this.worker;
+  }
+  private epoch = 1;
+  private serial = 0;
+  private inFlight = new Map<number, number>();
+  private completed: TerrainResult[] = [];
+  private activeTiles = new Set<number>();
+  private dirtyTiles = new Set<number>();
+  private requestedSteps = new Uint8Array(CHUNKS * CHUNKS);
+  private editRevisions = new Uint32Array(CHUNKS * CHUNKS);
+  private lastCell = -1;
+  private lastDistance = 0;
+  private lastDetail = 0;
+  private coarseIndices?: Uint16Array | Uint32Array;
+  private coarse?: THREE.Mesh;
+  queueDepth = 0;
+  workerMS = 0;
   private pathBounds: number[];
+  private roadDistance: (x: number, z: number) => number;
   private fullHeightUpload = true;
   private fullFloodUpload = true;
   private tiles = new Map<
@@ -34,6 +72,47 @@ export class TerrainView {
     public heights: Float32Array,
     grass: THREE.Texture,
   ) {
+    this.mesher = new TerrainMesher(world);
+    if (typeof Worker !== "undefined") {
+      this.worker = new Worker(
+        new URL("./terrain-mesh-worker.ts", import.meta.url),
+        { type: "module" },
+      );
+      this.worker.postMessage({
+        type: "init",
+        world: {
+          paths: world.paths,
+          castleBounds: world.castleBounds,
+          castles: world.castles,
+        },
+      });
+      this.worker.onmessage = (event: MessageEvent<TerrainResult>) => {
+        const result = event.data;
+        if (result.epoch !== this.epoch) return;
+        this.inFlight.delete(result.tile);
+        if (
+          !this.activeTiles.has(result.tile) ||
+          result.members.some(
+            (c) =>
+              c.revision !== this.editRevisions[c.id] ||
+              c.step !== this.requestedSteps[c.id],
+          )
+        ) {
+          if (this.activeTiles.has(result.tile))
+            this.dirtyTiles.add(result.tile);
+          return;
+        }
+        this.completed.push(result);
+        this.workerMS = result.buildMS;
+      };
+      this.worker.onerror = (event) => {
+        console.error("Terrain meshing worker failed", event.message);
+        this.worker?.terminate();
+        this.worker = undefined;
+        this.inFlight.clear();
+      };
+    }
+    this.roadDistance = pathIndex(world.paths);
     const points = world.paths.flat();
     this.pathBounds = [
       Math.min(...points.map((p) => p[0])) - 6,
@@ -86,6 +165,7 @@ export class TerrainView {
         c.step = 0;
         c.mesh.visible = false;
         if (
+          !this.worker &&
           Math.hypot(
             x * 64 + 32 - world.spawn[0],
             z * 64 + 32 - world.spawn[2],
@@ -93,6 +173,32 @@ export class TerrainView {
         )
           this.build(c, 16);
       }
+    if (this.worker) {
+      const g = new THREE.PlaneGeometry(
+        CONFIG.worldSize,
+        CONFIG.worldSize,
+        CHUNKS,
+        CHUNKS,
+      );
+      g.rotateX(-Math.PI / 2);
+      g.translate(CONFIG.worldSize / 2, 0, CONFIG.worldSize / 2);
+      const pos = g.getAttribute("position"),
+        colors = new Float32Array(pos.count * 3),
+        c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const h = this.sample(pos.getX(i), pos.getZ(i));
+        pos.setY(i, h - 1);
+        c.set(h < 6 ? "#a69c73" : h > 135 ? "#8c9187" : "#4b672b");
+        c.toArray(colors, i * 3);
+      }
+      g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      g.computeVertexNormals();
+      this.coarseIndices = (g.index!.array as Uint16Array).slice();
+      this.coarse = new THREE.Mesh(g, this.material);
+      this.coarse.receiveShadow = true;
+      this.coarse.matrixAutoUpdate = false;
+      this.group.add(this.coarse);
+    }
   }
   sample(x: number, z: number, heights = this.heights) {
     const gx = clamp(x / 2, 0, CONFIG.grid - 1.0001),
@@ -120,23 +226,28 @@ export class TerrainView {
     )
       return result;
 
-    for (const path of this.world.paths)
-      for (let i = 1; i < path.length; i++) {
-        let a = path[i - 1],
-          b = path[i],
-          dx = b[0] - a[0],
-          dz = b[1] - a[1],
-          t = clamp(
-            ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz),
-            0,
-            1,
-          );
-        result = Math.min(
-          result,
-          Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz),
-        );
-      }
+    result = this.roadDistance(x, z);
     return result;
+  }
+  private section(id: number): SectionData {
+    const x = (id % CHUNKS) * 32,
+      z = Math.floor(id / CHUNKS) * 32;
+    const originX = Math.max(0, x - 2),
+      originZ = Math.max(0, z - 2);
+    const width = Math.min(CONFIG.grid - 1, x + 34) - originX + 1;
+    const height = Math.min(CONFIG.grid - 1, z + 34) - originZ + 1;
+    const heights = new Float32Array(width * height),
+      base = new Float32Array(width * height);
+    for (let row = 0; row < height; row++) {
+      const offset = (originZ + row) * CONFIG.grid + originX;
+      heights.set(this.heights.subarray(offset, offset + width), row * width);
+      base.set(this.base.subarray(offset, offset + width), row * width);
+    }
+    return { id, originX, originZ, width, heights, base };
+  }
+  private build(chunk: Chunk, step: number) {
+    this.mesher.section = this.section(chunk.id);
+    this.mesher.build(chunk, step);
   }
   private scar(
     color: THREE.Color,
@@ -160,121 +271,12 @@ export class TerrainView {
     color.g += (grey * 0.97 - color.g) * rock;
     color.b += (grey * 0.87 - color.b) * rock;
   }
-  private build(chunk: Chunk, step: number) {
-    const cx = (chunk.id % CHUNKS) * 64,
-      cz = Math.floor(chunk.id / CHUNKS) * 64;
-    const positions: number[] = [],
-      colors: number[] = [],
-      baseColors: number[] = [],
-      uv: number[] = [],
-      normals: number[] = [],
-      indices: number[] = [];
-    const cache = new Map<string, number>(),
-      c = new THREE.Color(),
-      stone = new THREE.Color("#8c9187"),
-      sand = new THREE.Color("#a69c73"),
-      earth = new THREE.Color("#705139");
-    const vertex = (x: number, z: number) => {
-      const key = `${x},${z}`,
-        cached = cache.get(key);
-      if (cached !== undefined) return cached;
-      const index = positions.length / 3,
-        wx = cx + x,
-        wz = cz + z,
-        h = this.sample(wx, wz),
-        dx = this.sample(wx - 2, wz) - this.sample(wx + 2, wz),
-        dz = this.sample(wx, wz - 2) - this.sample(wx, wz + 2),
-        length = Math.hypot(dx, 4, dz),
-        baseHeight = this.sample(wx, wz, this.base),
-        slope =
-          Math.hypot(
-            this.sample(wx - 2, wz, this.base) -
-              this.sample(wx + 2, wz, this.base),
-            this.sample(wx, wz - 2, this.base) -
-              this.sample(wx, wz + 2, this.base),
-          ) * 0.25,
-        damage = baseHeight - h,
-        noise =
-          Math.sin(wx * 0.04 + wz * 0.019) *
-            Math.sin(wz * 0.063 - wx * 0.02) *
-            0.5 +
-          0.5;
-      positions.push(wx, h, wz);
-      normals.push(dx / length, 4 / length, dz / length);
-      uv.push(wx * 0.07, wz * 0.07);
-      c.setRGB(0.21 + noise * 0.08, 0.34 + noise * 0.09, 0.095 + noise * 0.04);
-      c.lerp(
-        stone,
-        Math.max(
-          clamp((slope - 0.6) * 1.4, 0, 1),
-          clamp((baseHeight - 135) / 50, 0, 1),
-        ),
-      );
-      if (
-        this.pathDistance(wx, wz) < 3.2 ||
-        (wx > this.world.castleBounds.min[0] &&
-          wx < this.world.castleBounds.max[0] &&
-          wz > this.world.castleBounds.min[1] &&
-          wz < this.world.castleBounds.max[1])
-      )
-        c.set("#a5966f");
-      if (baseHeight < 1) c.lerp(sand, 0.65);
-      baseColors.push(c.r, c.g, c.b);
-      this.scar(earth, wx, wz, h, damage, Math.hypot(dx, dz) / 4);
-      if (damage > 0.1) c.lerp(earth, clamp(damage / 0.6, 0, 1));
-      colors.push(c.r, c.g, c.b);
-      cache.set(key, index);
-      return index;
-    };
-    for (let z = 0; z < 64; z += step)
-      for (let x = 0; x < 64; x += step) {
-        if (step === 2 || (x > 0 && z > 0 && x + step < 64 && z + step < 64)) {
-          const a = vertex(x, z),
-            b = vertex(x + step, z),
-            cc = vertex(x, z + step),
-            d = vertex(x + step, z + step);
-          indices.push(a, cc, b, d, b, cc);
-        } else {
-          // Every boundary has identical two-meter samples, regardless of neighbor LOD.
-          const edge: number[] = [];
-          for (let k = 0; k < step; k += z === 0 ? 2 : step)
-            edge.push(vertex(x + k, z));
-          for (let k = 0; k < step; k += x + step === 64 ? 2 : step)
-            edge.push(vertex(x + step, z + k));
-          for (let k = 0; k < step; k += z + step === 64 ? 2 : step)
-            edge.push(vertex(x + step - k, z + step));
-          for (let k = 0; k < step; k += x === 0 ? 2 : step)
-            edge.push(vertex(x, z + step - k));
-          const center = vertex(x + step / 2, z + step / 2);
-          for (let k = 0; k < edge.length; k++)
-            indices.push(center, edge[(k + 1) % edge.length], edge[k]);
-        }
-      }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(positions, 3),
-    );
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(indices);
-    geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
-    geo.computeBoundingSphere();
-    chunk.mesh.geometry.dispose();
-    chunk.mesh.geometry = geo;
-    chunk.step = step;
-    chunk.baseColors = new Float32Array(baseColors);
-    chunk.dirty = false;
-    chunk.revision++;
-  }
   private refresh(chunk: Chunk) {
-    // Cratering preserves topology. Update existing GPU attributes instead of
-    // allocating indices, UVs, vertex maps and geometry for every blast batch.
     const geo = chunk.mesh.geometry,
       positions = geo.getAttribute("position"),
       normals = geo.getAttribute("normal"),
-      colors = geo.getAttribute("color"),
-      earth = new THREE.Color("#705139"),
+      colors = geo.getAttribute("color");
+    const earth = new THREE.Color(),
       baseColors = chunk.baseColors!;
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i),
@@ -300,7 +302,17 @@ export class TerrainView {
     chunk.dirty = false;
     chunk.revision++;
   }
-  update(camera: THREE.Vector3, renderDistance = DEFAULT_RENDER_DISTANCE) {
+
+  update(
+    camera: THREE.Vector3,
+    renderDistance = DEFAULT_RENDER_DISTANCE,
+    budgetMS = 2,
+    detailScale = 1,
+  ) {
+    if (this.worker) {
+      this.updateAsync(camera, renderDistance, budgetMS, detailScale);
+      return;
+    }
     let rebuilt = 0;
     const started = performance.now();
     const visible: { c: Chunk; d: number }[] = [];
@@ -339,6 +351,223 @@ export class TerrainView {
       }
     }
     this.batch(visible.filter(({ d }) => d < renderDistance + 64));
+  }
+
+  private updateAsync(
+    camera: THREE.Vector3,
+    distance: number,
+    budgetMS: number,
+    detailScale: number,
+  ) {
+    const started = performance.now(),
+      cell = Math.floor(camera.x / 32) + Math.floor(camera.z / 32) * 192;
+    if (
+      cell !== this.lastCell ||
+      distance !== this.lastDistance ||
+      detailScale !== this.lastDetail
+    ) {
+      this.lastCell = cell;
+      this.lastDistance = distance;
+      this.lastDetail = detailScale;
+      const next = new Set<number>(),
+        tilesPerRow = CHUNKS / 4;
+      const x0 = clamp(
+          Math.floor((camera.x - distance - 160) / 256),
+          0,
+          tilesPerRow - 1,
+        ),
+        x1 = clamp(
+          Math.floor((camera.x + distance + 160) / 256),
+          0,
+          tilesPerRow - 1,
+        );
+      const z0 = clamp(
+          Math.floor((camera.z - distance - 160) / 256),
+          0,
+          tilesPerRow - 1,
+        ),
+        z1 = clamp(
+          Math.floor((camera.z + distance + 160) / 256),
+          0,
+          tilesPerRow - 1,
+        );
+      for (let z = z0; z <= z1; z++)
+        for (let x = x0; x <= x1; x++) {
+          if (
+            (x * 256 + 128 - camera.x) ** 2 + (z * 256 + 128 - camera.z) ** 2 >
+            (distance + 320) ** 2
+          )
+            continue;
+          const key = z * tilesPerRow + x;
+          next.add(key);
+          let dirty = !this.activeTiles.has(key);
+          for (let dz = 0; dz < 4; dz++)
+            for (let dx = 0; dx < 4; dx++) {
+              const id = (z * 4 + dz) * CHUNKS + x * 4 + dx,
+                d =
+                  Math.hypot(
+                    x * 256 + dx * 64 + 32 - camera.x,
+                    z * 256 + dz * 64 + 32 - camera.z,
+                  ) / detailScale;
+              const old = this.requestedSteps[id];
+              const step = d < 240 ? 2 : d < 600 ? 4 : d < 1000 ? 8 : 16;
+              // Keep a 12% overlap around thresholds to prevent repeated LOD churn.
+              const thresholds = [0, 0, 240, 0, 600, 0, 0, 0, 1000];
+              const keep =
+                old &&
+                old !== step &&
+                Math.abs(d - (thresholds[Math.min(old, step)] || 1000)) < 45;
+              if (!keep && old !== step) {
+                this.requestedSteps[id] = step;
+                dirty = true;
+              }
+            }
+          if (dirty) this.dirtyTiles.add(key);
+          const tile = this.tiles.get(key);
+          if (tile) {
+            tile.mesh.castShadow =
+              Math.hypot(x * 256 + 128 - camera.x, z * 256 + 128 - camera.z) <
+              400;
+            if (!tile.mesh.parent) this.group.add(tile.mesh);
+          }
+        }
+      for (const key of this.activeTiles)
+        if (!next.has(key)) {
+          const tile = this.tiles.get(key);
+          if (tile) this.group.remove(tile.mesh);
+          this.dirtyTiles.delete(key);
+        }
+      this.activeTiles = next;
+      // Bounded LRU for GPU tiles. Detached tiles avoid scene traversal.
+      for (const [key, tile] of this.tiles)
+        if (this.tiles.size > 160 && !next.has(key)) {
+          tile.mesh.geometry.dispose();
+          this.tiles.delete(key);
+          this.coverCoarse(key, false);
+        }
+    }
+    while (this.completed.length && performance.now() - started < budgetMS) {
+      const r = this.completed.shift()!;
+      if (r.epoch !== this.epoch || !this.activeTiles.has(r.tile)) continue;
+      if (
+        r.members.some(
+          (c) =>
+            c.revision !== this.editRevisions[c.id] ||
+            c.step !== this.requestedSteps[c.id],
+        )
+      ) {
+        this.dirtyTiles.add(r.tile);
+        continue;
+      }
+      const g = new THREE.BufferGeometry();
+      for (const [name, array, size] of [
+        ["position", r.position, 3],
+        ["normal", r.normal, 3],
+        ["color", r.color, 3],
+        ["uv", r.uv, 2],
+      ] as const)
+        g.setAttribute(name, new THREE.BufferAttribute(array, size));
+      g.setIndex(new THREE.BufferAttribute(r.index, 1));
+      g.boundingSphere = new THREE.Sphere(
+        new THREE.Vector3(...r.sphere.slice(0, 3)),
+        r.sphere[3],
+      );
+      let tile = this.tiles.get(r.tile);
+      if (tile) {
+        tile.mesh.geometry.dispose();
+        tile.mesh.geometry = g;
+      } else {
+        const mesh = new THREE.Mesh(g, this.material);
+        mesh.receiveShadow = true;
+        mesh.matrixAutoUpdate = false;
+        this.tiles.set(
+          r.tile,
+          (tile = { mesh, signature: "", members: new Set() }),
+        );
+      }
+      tile.members.clear();
+      for (const c of r.members) {
+        const chunk = this.chunks[c.id];
+        chunk.step = c.step;
+        chunk.dirty = false;
+        chunk.revision = c.revision;
+        tile.members.add(c.id);
+      }
+      this.group.add(tile.mesh);
+      this.coverCoarse(r.tile, true);
+    }
+    while (
+      this.inFlight.size < 2 &&
+      performance.now() - started < budgetMS &&
+      this.dirtyTiles.size
+    ) {
+      let key = -1,
+        best = Infinity;
+      for (const k of this.dirtyTiles) {
+        if (this.inFlight.has(k)) continue;
+        const d =
+          ((k % (CHUNKS / 4)) * 256 + 128 - camera.x) ** 2 +
+          (Math.floor(k / (CHUNKS / 4)) * 256 + 128 - camera.z) ** 2;
+        if (d < best) {
+          best = d;
+          key = k;
+        }
+      }
+      if (key < 0) break;
+      this.dirtyTiles.delete(key);
+      if (!this.activeTiles.has(key)) continue;
+      const sections: TerrainJob["sections"] = [],
+        transfer: ArrayBuffer[] = [];
+      const x = (key % (CHUNKS / 4)) * 4,
+        z = Math.floor(key / (CHUNKS / 4)) * 4;
+      for (let dz = 0; dz < 4; dz++)
+        for (let dx = 0; dx < 4; dx++) {
+          const id = (z + dz) * CHUNKS + x + dx,
+            section = this.section(id);
+          sections.push({
+            ...section,
+            step: this.requestedSteps[id] || 16,
+            revision: this.editRevisions[id],
+          });
+          transfer.push(
+            section.heights.buffer as ArrayBuffer,
+            section.base.buffer as ArrayBuffer,
+          );
+        }
+      const serial = ++this.serial;
+      this.inFlight.set(key, serial);
+      this.worker!.postMessage(
+        {
+          type: "mesh",
+          job: { epoch: this.epoch, tile: key, serial, sections },
+        },
+        transfer,
+      );
+    }
+    this.queueDepth =
+      this.dirtyTiles.size + this.completed.length + this.inFlight.size;
+  }
+  private coverCoarse(tile: number, covered: boolean) {
+    if (!this.coarse || !this.coarseIndices) return;
+    const index = this.coarse.geometry.index!,
+      x = (tile % (CHUNKS / 4)) * 4,
+      z = Math.floor(tile / (CHUNKS / 4)) * 4;
+    for (let row = z; row < z + 4; row++) {
+      const start = (row * CHUNKS + x) * 6;
+      for (let i = start; i < start + 24; i++)
+        index.array[i] = covered ? 0 : this.coarseIndices[i];
+      index.addUpdateRange(start, 24);
+    }
+    index.needsUpdate = true;
+  }
+  dispose() {
+    this.textureUploads?.dispose();
+    this.worker?.terminate();
+    this.completed.length = 0;
+    this.inFlight.clear();
+    for (const tile of this.tiles.values()) tile.mesh.geometry.dispose();
+    this.tiles.clear();
+    this.coarse?.geometry.dispose();
   }
 
   private batch(visible: { c: Chunk; d: number }[]) {
@@ -413,6 +642,11 @@ export class TerrainView {
       this.heights[p.indices[j]] = p.values[j];
     for (const id of p.chunks) {
       this.chunks[id].dirty = true;
+      this.editRevisions[id]++;
+      this.dirtyTiles.add(
+        Math.floor((id % CHUNKS) / 4) +
+          Math.floor(id / CHUNKS / 4) * (CHUNKS / 4),
+      );
     }
     this.uploadRows(this.heightTexture, p.indices, this.fullHeightUpload);
   }
@@ -421,6 +655,10 @@ export class TerrainView {
     indices: Uint32Array,
     full: boolean,
   ) {
+    if (this.textureUploads && !full) {
+      this.textureUploads.queue(texture, indices);
+      return;
+    }
     if (!indices.length) return;
     if (!full) {
       const rows = new Map<number, [number, number]>();
@@ -438,6 +676,7 @@ export class TerrainView {
     texture.needsUpdate = true;
   }
   fullTextureUpload() {
+    this.textureUploads?.reset();
     this.fullHeightUpload = this.fullFloodUpload = true;
     this.heightTexture.clearUpdateRanges();
     this.floodTexture.clearUpdateRanges();
@@ -453,12 +692,42 @@ export class TerrainView {
     for (const i of indices) this.flood[i] = 255;
     this.uploadRows(this.floodTexture, indices, this.fullFloodUpload);
   }
+  setWaterMask(mask: Uint8Array) {
+    this.flood.set(mask);
+    this.fullFloodUpload = true;
+    this.floodTexture.clearUpdateRanges();
+    this.floodTexture.needsUpdate = true;
+  }
   setDry(indices: Uint32Array) {
     for (const i of indices) this.flood[i] = 0;
     this.uploadRows(this.floodTexture, indices, this.fullFloodUpload);
   }
   restore(h: Float32Array) {
+    this.textureUploads?.reset();
     this.heights.set(h);
+    if (this.coarse) {
+      const p = this.coarse.geometry.getAttribute("position");
+      for (let i = 0; i < p.count; i++)
+        p.setY(i, this.sample(p.getX(i), p.getZ(i)) - 1);
+      p.needsUpdate = true;
+    }
+    this.epoch++;
+    this.inFlight.clear();
+    this.completed.length = 0;
+    if (this.worker) {
+      for (const tile of this.tiles.values()) {
+        this.group.remove(tile.mesh);
+        tile.mesh.geometry.dispose();
+      }
+      this.tiles.clear();
+      if (this.coarse && this.coarseIndices) {
+        this.coarse.geometry.index!.array.set(this.coarseIndices);
+        this.coarse.geometry.index!.needsUpdate = true;
+      }
+    }
+    this.editRevisions.fill(0);
+    this.lastCell = -1;
+    for (const key of this.activeTiles) this.dirtyTiles.add(key);
     for (const c of this.chunks) c.dirty = true;
     this.fullHeightUpload = true;
     this.heightTexture.clearUpdateRanges();

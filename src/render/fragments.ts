@@ -19,7 +19,7 @@ const palette = {
 const STRIDE = 21;
 /** Cosmetic ballistic chunks. Permanent, collidable rubble is owned by the worker. */
 export class Fragments {
-  readonly capacity = Math.max(...COSMETIC_LIMITS);
+  capacity = COSMETIC_LIMITS[1];
   private limit = COSMETIC_LIMITS[1];
   private live = 0;
   private next = 0;
@@ -60,7 +60,17 @@ export class Fragments {
     return this.mesh.count;
   }
   setLimit(value: number) {
-    this.limit = Math.max(1, Math.min(this.capacity, Math.floor(value)));
+        const limit=Math.max(1,Math.min(Math.max(...COSMETIC_LIMITS),Math.floor(value)));
+    if(limit>this.capacity) {
+      this.capacity=Math.min(Math.max(...COSMETIC_LIMITS),2**Math.ceil(Math.log2(limit)));
+      const data=new Float32Array(this.capacity*STRIDE);data.set(this.data);this.data=data;
+      const matrix=new THREE.InstancedBufferAttribute(new Float32Array(this.capacity*16),16).setUsage(THREE.DynamicDrawUsage);
+      matrix.array.set(this.mesh.instanceMatrix.array);
+      const color=new THREE.InstancedBufferAttribute(new Float32Array(this.capacity*3),3).setUsage(THREE.DynamicDrawUsage);
+      color.array.set(this.mesh.instanceColor!.array);
+      this.mesh.dispose();this.mesh.instanceMatrix=matrix;this.mesh.instanceColor=color;
+    }
+    this.limit = limit;
     this.live = Math.min(this.live, this.limit);
     this.next %= this.limit;
     this.dirty = this.colorsDirty = true;
@@ -226,6 +236,12 @@ export class Fragments {
     this.next = 0;
     this.mesh.count = 0;
     this.dirty = this.colorsDirty = false;
+  }
+  vaporizeMany(regions: {p:Vec3;radius:number}[]) {
+    for(let i=0;i<this.live;) {const j=i*STRIDE,extent=Math.max(this.data[j+6],this.data[j+7],this.data[j+8]);let hit=false;
+      for(const zone of regions) {const dx=this.data[j]-zone.p[0],dz=this.data[j+2]-zone.p[2],r=zone.radius+extent;if(dx*dx+dz*dz<r*r) {hit=true;break;}}
+      if(hit) this.remove(i);else i++;
+    }
   }
   vaporize(center: Vec3, radius: number) {
     for (let i = 0; i < this.live; ) {

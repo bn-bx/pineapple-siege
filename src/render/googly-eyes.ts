@@ -76,10 +76,13 @@ export class GooglyEyes {
   private jet = { value: new THREE.Vector3() };
   private entries = new Map<THREE.Object3D, THREE.Mesh>();
   private seen = new Set<THREE.Object3D>();
+  private roots = new Set<THREE.Object3D>();
+  private membership = new Map<THREE.Object3D,THREE.Object3D>();
+  private currentRoot!:THREE.Object3D;
 
   /** Groups can supply a single face instead of giving every limb its own eyes. */
   private visit = (source: THREE.Object3D) => {
-    if (source.name === "googly-eyes") return;
+    if (!source.visible || source.name === "googly-eyes") return;
     const bounds = source.userData.googlyBounds as number[] | undefined;
     if (!bounds && !(source instanceof THREE.Mesh)) {
       for (const child of source.children) this.visit(child);
@@ -94,7 +97,7 @@ export class GooglyEyes {
         size = new THREE.Vector3(...bounds.slice(3, 6));
       } else {
         const geometry = (source as THREE.Mesh).geometry;
-        geometry.computeBoundingBox();
+        if (!geometry.boundingBox) geometry.computeBoundingBox();
         center = geometry.boundingBox!.getCenter(new THREE.Vector3());
         size = geometry
           .boundingBox!.getSize(new THREE.Vector3())
@@ -125,6 +128,7 @@ export class GooglyEyes {
       eyes.renderOrder = 2;
       source.add(eyes);
       this.entries.set(source, eyes);
+      this.membership.set(source,this.currentRoot);
     }
     if (source instanceof THREE.InstancedMesh) {
       const instanced = eyes as THREE.InstancedMesh;
@@ -144,13 +148,16 @@ export class GooglyEyes {
     snapshot: SimulationSnapshot,
     jetPosition?: THREE.Vector3,
   ) {
+    if (!this.enabled) return;
     if (jetPosition) this.jet.value.copy(jetPosition);
     else this.jet.value.fromArray(snapshot.plane.p);
-    this.seen.clear();
-    for (const root of roots) this.visit(root);
+    this.seen.clear();this.roots.clear();
+    for (const root of roots) {this.roots.add(root);this.currentRoot=root;this.visit(root);}
     // Settled batches, reset projectiles and vaporized rubble retire cleanly.
     for (const [source, eyes] of this.entries) {
       if (this.seen.has(source)) continue;
+      if(this.roots.has(this.membership.get(source)!)) {eyes.visible=false;continue;}
+      this.membership.delete(source);
       source.remove(eyes);
       (eyes.material as THREE.Material).dispose();
       if (eyes instanceof THREE.InstancedMesh) {
@@ -166,6 +173,21 @@ export class GooglyEyes {
     }
   }
 
+  dispose() {
+    for (const [source, eyes] of this.entries) {
+      source.remove(eyes);
+      (eyes.material as THREE.Material).dispose();
+      if (eyes instanceof THREE.InstancedMesh) {
+        eyes.instanceMatrix = new THREE.InstancedBufferAttribute(
+          new Float32Array(16),
+          16,
+        );
+        eyes.dispose();
+      }
+    }
+    this.entries.clear();this.membership.clear();this.roots.clear();
+    this.geometry.dispose();
+  }
   get count() {
     if (!this.enabled) return 0;
     let count = 0;

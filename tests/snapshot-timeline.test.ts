@@ -1,6 +1,25 @@
 import { expect, it } from "vitest";
 import { SnapshotTimeline } from "../src/render/snapshot-timeline";
 const state = (time: number) => ({ time, x: time * 100 });
+it("keeps the latest transferable packet owned through repeated resumes", () => {
+  const retired: number[] = [];
+  const t = new SnapshotTimeline<ReturnType<typeof state>>(0.1, (s) =>
+    retired.push(s.time),
+  );
+  const first = state(1),
+    latest = state(1.1);
+  t.receive(first, 0);
+  t.receive(latest, 100);
+  t.reset(latest);
+  t.reset(latest);
+  expect(retired).toEqual([1]);
+  expect(t.sample(300, false)?.current).toBe(latest);
+  t.receive(state(1.2), 400);
+  t.sample(500, false);
+  expect(retired).toEqual([1, 1.1]);
+  t.reset();
+  expect(retired).toEqual([1, 1.1, 1.2]);
+});
 const position = (
   p: NonNullable<
     ReturnType<SnapshotTimeline<ReturnType<typeof state>>["sample"]>

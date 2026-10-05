@@ -15,7 +15,7 @@ import {
 import { compatible } from "../src/storage";
 import type { Entity, Vec3, WorldData, WorkerMessage } from "../src/types";
 const manifest: WorldData = JSON.parse(
-  readFileSync("public/world.json", "utf8"),
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
 );
 const flat = new Float32Array(CONFIG.grid * CONFIG.grid).fill(10);
 beforeAll(initializePhysics);

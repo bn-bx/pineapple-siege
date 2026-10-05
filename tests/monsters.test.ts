@@ -13,9 +13,9 @@ import { compatible } from "../src/storage";
 import type { Vec3, WorldData } from "../src/types";
 
 const world = JSON.parse(
-  readFileSync("public/world.json", "utf8"),
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
 ) as WorldData;
-const bytes = readFileSync("public/world.bin");
+const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
 const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 );

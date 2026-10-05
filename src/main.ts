@@ -1,5 +1,13 @@
+import { SaveCaptureCoordinator } from "./save-capture";
+import { SaveWriter } from "./save-writer";
 import { unpackBodies } from "./sim/body-buffer";
-import { loadTerrain } from "./world-loader";
+import { IslandPreview } from "./world/preview";
+import {
+  seedCode,
+  parseSeedCode,
+  islandLink,
+  type IslandBaseline,
+} from "./world/generator.mjs";
 import { normalizePreferences } from "./preferences";
 import { discoActive } from "./disco";
 import {
@@ -50,14 +58,14 @@ let worker: Worker,
   contextLost = false,
   saveEnabled = true,
   hasSave = false,
-  saving = false,
   savedRevision = -1,
-  saveRequest = 0,
   lastSaveAt = 0,
   lastSavedHour = -1;
 const audio = new GameAudio(),
-  store = new SaveStore(),
+  saveWriter = new SaveWriter("lantern-vale"),
+  store = new SaveStore("lantern-vale", saveWriter),
   keys = new Set<string>();
+saveWriter.onPreparation = (ms) => view?.performance.record("saveDispatch", ms);
 let steerX = 0,
   steerY = 0,
   fireUntil = 0,
@@ -84,6 +92,9 @@ let perfSummary = "",
   lastPerfSummary = 0;
 let queuedReset = false,
   saveEpoch = 0;
+let islandChanging = false;
+let islandLinkError = "";
+const islandPreview = new IslandPreview();
 function resetFrameStats() {
   frameTimes.length = 0;
   perfSummary = "";
@@ -91,7 +102,7 @@ function resetFrameStats() {
   avgFrame = 16.7;
 }
 let debugInput: import("./types").InputState | undefined;
-const pendingSaves = new Map<number, (save: SaveSnapshot) => void>();
+const saveCaptures = new SaveCaptureCoordinator();
 const stepWaiters: ((value: unknown) => void)[] = [];
 const pendingReady: (() => void)[] = [];
 const touchControls = $("touchControls");
@@ -173,8 +184,11 @@ function send(message: GameCommand, transfer: Transferable[] = []) {
   worker?.postMessage(message, transfer);
 }
 function fatal(message: string, detail = "") {
-  pause();
   ready = false;
+  saveEpoch++;
+  saveCaptures.retire();
+  saveWriter.close();
+  pause();
   enterButton.disabled = true;
   $("fatalMessage").textContent = message;
   $("fatalDetails").textContent = detail;
@@ -275,15 +289,19 @@ function input() {
     },
   });
 }
-async function requestSave() {
-  return new Promise<SaveSnapshot>((resolve) => {
-    const request = ++saveRequest;
-    pendingSaves.set(request, resolve);
-    send({ type: "save", request });
-  });
+function requestSave() {
+  return saveCaptures.request((request) => send({ type: "save", request }));
 }
 async function saveNow(force = false) {
-  if (!ready || !saveEnabled || saving || !snapshot || queuedReset) return;
+  if (
+    !ready ||
+    !saveEnabled ||
+    saveCaptures.saving ||
+    !snapshot ||
+    queuedReset ||
+    islandChanging
+  )
+    return;
   if (
     !force &&
     snapshot.stats.revision === savedRevision &&
@@ -291,15 +309,21 @@ async function saveNow(force = false) {
   )
     return;
   const epoch = saveEpoch;
-  saving = true;
+  const owner = saveCaptures.begin();
   lastSaveAt = performance.now();
   clearTimeout(saveNoticeTimer);
   $("saveStatus").style.opacity = "1";
   $("saveStatus").textContent = "Saving world…";
   try {
-    const save = await requestSave();
+    const save = await saveWriter.capture((port) =>
+      worker.postMessage(
+        { type: "save", request: 0, port } satisfies GameCommand,
+        [port],
+      ),
+    );
     if (epoch !== saveEpoch) return;
-    await store.write(save);
+    if (save.capture !== undefined)
+      send({ type: "saveAck", capture: save.capture });
     savedRevision = save.revision;
     lastSavedHour = save.hour;
     hasSave = true;
@@ -308,13 +332,14 @@ async function saveNow(force = false) {
       $("saveStatus").style.opacity = "0";
     }, 2000);
   } catch (e) {
+    if (epoch !== saveEpoch) return;
     saveEnabled = false;
     $("saveStatus").classList.add("save-error");
     $("saveStatus").textContent = "Not saving · browser storage is unavailable";
     $("status").textContent =
       "Flight is available, but your changes cannot be saved. " + String(e);
   } finally {
-    saving = false;
+    saveCaptures.finish(owner);
   }
 }
 function askReset() {
@@ -324,6 +349,7 @@ function askReset() {
 async function resetWorld() {
   queuedReset = true;
   saveEpoch++;
+  saveCaptures.retire();
   enterButton.disabled = true;
   $("enterLabel").textContent = "Resetting world…";
   $<HTMLDialogElement>("confirm").close();
@@ -336,24 +362,25 @@ async function resetWorld() {
   }
   send({ type: "reset" });
 }
-function handle(message: WorkerMessage) {
+async function handle(message: WorkerMessage) {
   const received =
     message.type === "snapshot"
       ? message
       : message.type === "paused"
         ? message.snapshot
         : undefined;
-  if (received?.packedBodies) {
+  if (received?.packedBodies && !received.packedMotion) {
     received.bodies = unpackBodies(received.packedBodies);
     delete received.packedBodies;
   }
   switch (message.type) {
     case "paused":
+      snapshot = message.snapshot;
+      view.receive(message.snapshot);
       if (photoPending) {
         photoPending = false;
         photoMode = true;
         snapshot = message.snapshot;
-        view.receive(message.snapshot);
         view.rig.photo(view.camera);
         document.body.classList.add("photo");
         $("photoToolbar").hidden = false;
@@ -389,7 +416,11 @@ function handle(message: WorkerMessage) {
         message.removed,
         message.ruins,
         message.flood,
+        message.waterMask,
       );
+      const warmingView = view;
+      await view.prewarm();
+      if (warmingView !== view) return;
       ready = true;
       send({ type: "nukeYield", value: nukeYield });
       send({ type: "holdTime", hold: !!extras.holdTime });
@@ -402,7 +433,9 @@ function handle(message: WorkerMessage) {
         : hasSave
           ? "Continue"
           : "Start";
-      $("status").textContent = "Ready";
+      $("status").textContent = islandLinkError
+        ? `Island link could not open: ${islandLinkError}`
+        : "Ready";
       $("intro").textContent = saveEnabled
         ? "World changes are saved in this browser."
         : "World changes are not being saved.";
@@ -418,7 +451,7 @@ function handle(message: WorkerMessage) {
       lastShots = message.stats.shots;
       break;
     case "vaporize":
-      view.effects.fragments.vaporize(message.p, message.radius);
+      view.effects.vaporize(message.p, message.radius);
       break;
     case "delta":
       view.delta(message);
@@ -431,8 +464,7 @@ function handle(message: WorkerMessage) {
       audio.explosion(message);
       break;
     case "saved":
-      pendingSaves.get(message.request)?.(message.save);
-      pendingSaves.delete(message.request);
+      saveCaptures.deliver(message.request, message.save);
       break;
     case "error":
       fatal(
@@ -450,82 +482,219 @@ function handle(message: WorkerMessage) {
       break;
   }
 }
+function consumeIslandLink() {
+  const url = new URL(location.href);
+  url.searchParams.delete("island");
+  history.replaceState(null, "", url);
+}
+function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot) {
+  saveEpoch++;
+  saveCaptures.retire();
+  worker?.terminate();
+  view?.dispose();
+  audio.reset();
+  world = baseline.world;
+  snapshot = undefined;
+  ready = false;
+  active = false;
+  everEntered = false;
+  contextLost = false;
+  savedRevision = -1;
+  lastSavedHour = -1;
+  enterButton.disabled = true;
+  $("enterLabel").textContent = "Loading island…";
+  $("currentSeed").setAttribute("value", seedCode(world.seed));
+  $<HTMLInputElement>("currentSeed").value = seedCode(world.seed);
+  view = new GameRenderer(canvas, world, baseline.heights.slice(), (s) => {
+    if (
+      s.epoch !== undefined &&
+      s.slot !== undefined &&
+      s.packedBodies &&
+      s.packedMotion
+    )
+      send(
+        {
+          type: "recycleMotion",
+          epoch: s.epoch,
+          slot: s.slot,
+          bodies: s.packedBodies.buffer,
+          actors: s.packedMotion.buffer,
+        },
+        [s.packedBodies.buffer, s.packedMotion.buffer],
+      );
+  });
+  view.setQuality(extras.quality!);
+  view.setRenderDistance(extras.renderDistance!);
+  view.setReducedEffects(!!extras.reduceEffects);
+  view.setGooglyEyes(extras.googlyEyes === true);
+  view.setShake(!extras.reduceShake);
+  audio.setVolume(extras.volume!);
+  audio.setMute(!!extras.mute);
+  worker = new Worker(new URL("./sim/worker.ts", import.meta.url), {
+    type: "module",
+  });
+  worker.onmessage = (event: MessageEvent<WorkerMessage>) => handle(event.data);
+  worker.onerror = (e) =>
+    fatal("The simulation worker could not start.", e.message);
+  const terrainBytes = baseline.heights.slice().buffer;
+  send(
+    {
+      type: "init",
+      world,
+      heights: terrainBytes,
+      save,
+      debug,
+      destruction,
+      monsterCount,
+    },
+    [terrainBytes],
+  );
+  if (debug) installDebug();
+}
+async function replaceIsland(baseline: IslandBaseline, reload: boolean) {
+  islandChanging = true;
+  try {
+    const deadline = performance.now() + 5000;
+    while (saveCaptures.saving) {
+      if (performance.now() > deadline)
+        throw Error("A save is still in progress. Try New island again.");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    saveEpoch++;
+    if (saveEnabled) await store.replaceBaseline(baseline);
+    consumeIslandLink();
+    hasSave = false;
+    if (saveEnabled && reload) {
+      location.reload();
+      return;
+    }
+    initializeWorld(baseline);
+  } finally {
+    if (!reload || !saveEnabled) islandChanging = false;
+  }
+}
+async function newIsland(seed?: number) {
+  if (islandPreview.dialog.open || islandChanging) return;
+  pause();
+  const candidate = await islandPreview.choose(seed, !!view, true);
+  if (!candidate) {
+    consumeIslandLink();
+    return;
+  }
+  try {
+    await replaceIsland(candidate, true);
+  } catch (error) {
+    islandChanging = false;
+    $("status").textContent = `Island was not replaced: ${String(error)}`;
+  }
+}
+async function copyIsland(kind: "seed" | "link") {
+  if (!world) return;
+  const code = seedCode(world.seed),
+    text = kind === "seed" ? code : islandLink(code, location.href);
+  try {
+    await navigator.clipboard.writeText(text);
+    $("shareFallback").hidden = true;
+    $("islandShareStatus").textContent =
+      kind === "seed"
+        ? "Seed copied."
+        : "Island link copied. Damage and progress stay private.";
+  } catch {
+    const field = $<HTMLInputElement>("shareFallback");
+    field.hidden = false;
+    field.value = text;
+    field.focus();
+    field.select();
+    $("islandShareStatus").textContent = "Select and copy the text below.";
+  }
+}
 async function load() {
   try {
-    world = await fetch(`${import.meta.env.BASE_URL}world.json`).then((r) => {
-      if (!r.ok) throw Error("World data did not load");
-      return r.json();
-    });
-    const bytes = await loadTerrain(world, import.meta.env.BASE_URL);
-    let save: SaveSnapshot | undefined;
+    let stored: SaveSnapshot | undefined,
+      baseline: IslandBaseline | undefined,
+      baselineIssue = false;
     try {
       await store.open();
-      const prefs = await store.preferences();
-      applyPreferences(prefs || normalizePreferences());
+      applyPreferences((await store.preferences()) || normalizePreferences());
       await store.writePreferences(preferences()).catch(() => {
         $("status").textContent =
-          "Settings apply for this session; storage is unavailable.";
+          "Settings apply for this session; preference storage is unavailable.";
       });
-      const stored = await store.load();
-      if (stored) {
-        if (compatible(stored, world.version, world.seed)) {
-          save = stored;
-          hasSave = true;
-        } else {
-          const action = await new Promise<"temporary" | "replace">(
-            (resolve) => {
-              $<HTMLDialogElement>("recovery").showModal();
-              $("temporary").onclick = () => resolve("temporary");
-              $("replaceSave").onclick = () => resolve("replace");
-            },
-          );
-          $<HTMLDialogElement>("recovery").close();
-          if (action === "temporary") {
-            saveEnabled = false;
-            $("saveStatus").textContent =
-              "Temporary flight · existing save untouched";
-          } else await store.clear();
+      stored = await store.load();
+      try {
+        baseline = await store.baseline();
+      } catch (error) {
+        baselineIssue = true;
+        $("status").textContent = String(error);
+      }
+    } catch (error) {
+      saveEnabled = false;
+      $("saveStatus").textContent = "Local saving unavailable · session only";
+      console.warn("Local save unavailable", error);
+    }
+    let linkedSeed: number | undefined,
+      linkError = "";
+    const code = new URLSearchParams(location.search).get("island");
+    if (code !== null) {
+      try {
+        linkedSeed = parseSeedCode(code);
+      } catch (error) {
+        linkError = (error as Error).message;
+        islandLinkError = linkError;
+        consumeIslandLink();
+      }
+    }
+    let save: SaveSnapshot | undefined;
+    if (
+      baseline &&
+      (!stored ||
+        compatible(stored, baseline.world.version, baseline.world.seed))
+    ) {
+      save = stored;
+      hasSave = !!save;
+    } else {
+      if (stored || baselineIssue) {
+        const action = await new Promise<"temporary" | "replace">((resolve) => {
+          $<HTMLDialogElement>("recovery").oncancel = (e) => e.preventDefault();
+          $<HTMLDialogElement>("recovery").showModal();
+          $("temporary").onclick = () => resolve("temporary");
+          $("replaceSave").onclick = () => resolve("replace");
+        });
+        $<HTMLDialogElement>("recovery").close();
+        if (action === "temporary") {
+          saveEnabled = false;
+          $("saveStatus").textContent =
+            "Temporary island · existing save untouched";
         }
       }
-    } catch (e) {
-      saveEnabled = false;
-      $("saveStatus").classList.add("save-error");
-      $("saveStatus").textContent = "Local saving unavailable · session only";
-      console.warn("Local save unavailable", e);
+      baseline = (await islandPreview.choose(
+        linkedSeed,
+        false,
+        saveEnabled && (!!stored || baselineIssue),
+        linkError,
+      )) as IslandBaseline;
+      if (saveEnabled) {
+        try {
+          await store.replaceBaseline(baseline);
+        } catch (error) {
+          if (stored || baselineIssue) throw error;
+          saveEnabled = false;
+          $("saveStatus").textContent =
+            "Island could not be saved · temporary play";
+        }
+      }
+      consumeIslandLink();
+      linkedSeed = undefined;
     }
-    view = new GameRenderer(canvas, world, new Float32Array(bytes.slice(0)));
-    view.setQuality(extras.quality!);
-    view.setRenderDistance(extras.renderDistance!);
-    view.setReducedEffects(!!extras.reduceEffects);
-    view.setGooglyEyes(extras.googlyEyes === true);
-    view.setShake(!extras.reduceShake);
-    audio.setVolume(extras.volume!);
-    audio.setMute(!!extras.mute);
-    worker = new Worker(new URL("./sim/worker.ts", import.meta.url), {
-      type: "module",
-    });
-    worker.onmessage = (event: MessageEvent<WorkerMessage>) =>
-      handle(event.data);
-    worker.onerror = (e) =>
-      fatal("The simulation worker could not start.", e.message);
-    send(
-      {
-        type: "init",
-        world,
-        heights: bytes,
-        save,
-        debug,
-        destruction,
-        monsterCount,
-      },
-      [bytes],
-    );
+    initializeWorld(baseline, save);
     requestAnimationFrame(frame);
-    if (debug) installDebug();
-  } catch (e) {
+    if (linkError) $("islandShareStatus").textContent = linkError;
+    if (linkedSeed !== undefined) await newIsland(linkedSeed);
+  } catch (error) {
+    islandChanging = false;
     fatal(
-      "This game needs WebGL 2 and its local game assets. Try a current desktop browser with WebGL 2 enabled.",
-      e instanceof Error ? e.stack || e.message : String(e),
+      "The island could not load. Your previous save has been preserved.",
+      String(error),
     );
   }
 }
@@ -626,15 +795,20 @@ function frame(now: number) {
       button.classList.toggle("selected", snapshot.weapon === weapon);
       button.setAttribute("aria-pressed", String(snapshot.weapon === weapon));
     }
-    $("region").textContent =
-      p.p[0] >= world.castleBounds.min[0] &&
-      p.p[0] <= world.castleBounds.max[0] &&
-      p.p[2] >= world.castleBounds.min[1] &&
-      p.p[2] <= world.castleBounds.max[1]
-        ? "CASTLE"
-        : p.p[1] > 240
-          ? "HIGH ALTITUDE"
-          : "VALLEY";
+    const castle = world.castles?.find(
+      (c) =>
+        p.p[0] >= c.bounds.min[0] &&
+        p.p[0] <= c.bounds.max[0] &&
+        p.p[2] >= c.bounds.min[1] &&
+        p.p[2] <= c.bounds.max[1],
+    );
+    $("region").textContent = castle
+      ? castle.grand
+        ? "GRAND CASTLE"
+        : "CASTLE"
+      : p.p[1] > 240
+        ? "HIGH ALTITUDE"
+        : "ISLAND";
     $("damage").textContent = snapshot.stats.removed
       ? `Objects destroyed: ${snapshot.stats.removed}`
       : "Objects destroyed: 0";
@@ -708,7 +882,10 @@ document.querySelector(".brand")!.addEventListener("click", (e) => {
   e.preventDefault();
   pause();
 });
-$("newWorld").onclick = askReset;
+$("newWorld").onclick = () => void newIsland();
+$("createIsland").onclick = () => void newIsland();
+$("copySeed").onclick = () => void copyIsland("seed");
+$("copyIslandLink").onclick = () => void copyIsland("link");
 $("reset").onclick = askReset;
 $("cancelReset").onclick = () => $<HTMLDialogElement>("confirm").close();
 $("confirmReset").onclick = resetWorld;
@@ -965,13 +1142,18 @@ canvas.addEventListener("webglcontextlost", (e) => {
   $("status").textContent = "Graphics interrupted. Waiting for recovery…";
 });
 canvas.addEventListener("webglcontextrestored", () => {
-  queueMicrotask(() => {
-    contextLost = false;
-    view.terrain.fullTextureUpload();
-    view.renderer.shadowMap.needsUpdate = true;
-    view.resize();
-    enterButton.disabled = false;
-    $("status").textContent = "Graphics restored. Your world is preserved.";
+  queueMicrotask(async () => {
+    const recoveringView = view;
+    try {
+      await recoveringView.recoverGraphics();
+      if (view !== recoveringView) return;
+      contextLost = false;
+      enterButton.disabled = false;
+      $("status").textContent = "Graphics restored. Your world is preserved.";
+    } catch (error) {
+      if (view === recoveringView)
+        fatal("The graphics renderer could not recover.", String(error));
+    }
   });
 });
 function installDebug() {
@@ -984,13 +1166,19 @@ function installDebug() {
         cameraMode: view.rig.mode,
         photoPending,
         saveEnabled,
-        snapshot,
+        snapshot: snapshot?.packedBodies
+          ? { ...snapshot, bodies: unpackBodies(snapshot.packedBodies) }
+          : snapshot,
+        performance: view.performance.stats,
         render: view.stats,
         savedRevision,
       };
     },
     get world() {
       return world;
+    },
+    get view() {
+      return view;
     },
     inspect: (p: number[], target: number[]) => view.inspectCamera(p, target),
     clearInspect: () => view.clearInspect(),
