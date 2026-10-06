@@ -319,6 +319,69 @@ it("animates windmill sails from existing destructible owners and freezes on sna
   view.update(2, new Set([11]));
   expect(sails.count).toBe(3);
 });
+it("animates waterwheel paddles and spokes through existing owners", async () => {
+  const { waterwheelPartIds } = await import("../src/render/landmark-geometry");
+  const { WaterwheelView } = await import("../src/render/waterwheel-view");
+  const block = (id: number, p: number[], s: number[]) => ({
+    id,
+    kind: "block",
+    p,
+    s,
+    material: "wood",
+    assembly: "watermill-1-mill",
+    foundation: false,
+    supports: [],
+  });
+  const entities = [
+    block(20, [88, 18, 100], [4, 1, 1]),
+    block(21, [85, 18, 100], [1, 7, 0.6]),
+    block(22, [85, 18, 100], [1, 0.6, 7]),
+    ...Array.from({ length: 16 }, (_, i) => {
+      const angle = (i * Math.PI) / 8;
+      return block(
+        30 + i,
+        [85, 18 + Math.sin(angle) * 7, 100 + Math.cos(angle) * 7],
+        [1.6, 1.6, 1.6],
+      );
+    }),
+  ];
+  const world = {
+    sites: [{ id: "watermill-1", kind: "watermill", p: [100, 10, 100] }],
+    entities,
+  } as any;
+  expect([...waterwheelPartIds(world)].sort((a, b) => a - b)).toEqual([
+    21,
+    22,
+    ...Array.from({ length: 16 }, (_, i) => 30 + i),
+  ]);
+  const view = new WaterwheelView(
+    world,
+    new THREE.MeshStandardMaterial(),
+    new THREE.BoxGeometry(2, 2, 2),
+  );
+  const paddles = view.group.children.find(
+    (object) => object.name === "waterwheel-paddles",
+  ) as THREE.InstancedMesh;
+  const spokes = view.group.children.find(
+    (object) => object.name === "waterwheel-spokes",
+  ) as THREE.InstancedMesh;
+  const before = new THREE.Matrix4();
+  paddles.getMatrixAt(0, before);
+  view.update(3, new Set());
+  const moving = new THREE.Matrix4();
+  paddles.getMatrixAt(0, moving);
+  expect(moving.equals(before)).toBe(false);
+  view.update(3, new Set());
+  const paused = new THREE.Matrix4();
+  paddles.getMatrixAt(0, paused);
+  expect(paused.equals(moving)).toBe(true);
+  view.update(3, new Set([30, 21]));
+  expect(paddles.count).toBe(15);
+  expect(spokes.count).toBe(1);
+  view.update(3, new Set());
+  expect(paddles.count).toBe(16);
+  expect(spokes.count).toBe(2);
+});
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
   const material = new THREE.MeshStandardMaterial();
