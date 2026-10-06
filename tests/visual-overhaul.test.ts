@@ -247,6 +247,31 @@ it.each([
     ).toBe(true);
   },
 );
+it("renders logging-camp stacks as round, horizontal timber", async () => {
+  const { isLoggingCampLog, loggingCampLogGeometry } = await import(
+    "../src/render/landmark-geometry"
+  );
+  expect(
+    isLoggingCampLog({
+      kind: "block",
+      material: "wood",
+      assembly: "landmark-logging-3-stack-2",
+    }),
+  ).toBe(true);
+  expect(
+    isLoggingCampLog({
+      kind: "block",
+      material: "wood",
+      assembly: "landmark-hamlet-house-2",
+    }),
+  ).toBe(false);
+  const geometry = loggingCampLogGeometry();
+  const bounds = geometry.boundingBox!;
+  expect(bounds.max.x - bounds.min.x).toBeCloseTo(2);
+  expect(bounds.max.y - bounds.min.y).toBeCloseTo(2);
+  expect(bounds.max.z - bounds.min.z).toBeCloseTo(2);
+  geometry.dispose();
+});
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
   const material = new THREE.MeshStandardMaterial();

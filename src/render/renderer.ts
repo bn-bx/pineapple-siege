@@ -11,6 +11,7 @@ import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
 import { VisualAssets, visualGeometry } from "./visual-assets";
+import { isLoggingCampLog, loggingCampLogGeometry } from "./landmark-geometry";
 import { Presentation } from "./presentation";
 import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
 import { sceneResources } from "./resource-budget";
@@ -975,7 +976,12 @@ export class GameRenderer {
       // batch-derived distant-coverage boundary are rebuilt together.
       const size = 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
-      let key = e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
+      let key =
+        (isLoggingCampLog(e) ? "log-" : "") +
+        e.kind +
+        e.material +
+        (e.treeSpecies ?? "pine") +
+        cell;
       if (e.kind === "tree") {
         const trunkKey = "trunk" + cell;
         let trunks = grouped.get(trunkKey);
@@ -990,6 +996,7 @@ export class GameRenderer {
       low = new THREE.ConeGeometry(1, 1, 7, 1);
     low.translate(0, 0.5, 0);
     const roof = this.roof;
+    const log = loggingCampLogGeometry();
     const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
       rock = new THREE.DodecahedronGeometry(1, 0);
     for (const [groupKey, list] of grouped) {
@@ -1065,6 +1072,10 @@ export class GameRenderer {
       };
       if (groupKey.startsWith("trunk")) {
         add(trunk, this.materials.wood, "trunk");
+        continue;
+      }
+      if (groupKey.startsWith("log-")) {
+        add(log, this.materials.wood, "log");
         continue;
       }
       if (e.kind === "tree") {
