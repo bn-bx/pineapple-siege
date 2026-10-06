@@ -182,6 +182,71 @@ it("keeps farm crop beds clear of wet ground and tied to a building owner", asyn
   expect(beds?.count).toBe(0);
   expect(ownedCropCount).toBeGreaterThan(10);
 });
+it.each([
+  ["house", "roof-chimney-stack"],
+  ["barn", "roof-chimney-stack"],
+  ["shed", "roof-chimney-stack"],
+  ["warehouse", "roof-vent-cupola"],
+  ["mill", "roof-vent-cupola"],
+])(
+  "adds a %s-specific roofline detail owned by its destructible roof",
+  async (family, detail) => {
+    const { Scenery } = await import("../src/render/scenery");
+    const roof = {
+      id: 71,
+      kind: "block",
+      p: [100, 30, 100],
+      s: [8, 2, 6],
+      material: "roof",
+      assembly: `landmark-${family}`,
+      foundation: false,
+      supports: [],
+    };
+    const scenery = new Scenery(
+      { paths: [], entities: [roof] } as any,
+      { sample: () => 10 } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    );
+    scenery.update(
+      new THREE.Vector3(100, 34, 100),
+      new Set(),
+      1200,
+      120,
+      0,
+      true,
+    );
+    const detailBatch = scenery.group.children.find(
+      (object) => object.name === `scenery:${detail}`,
+    ) as THREE.InstancedMesh | undefined;
+    expect(detailBatch?.count).toBeGreaterThan(0);
+    expect(
+      scenery.group.children.some(
+        (object) =>
+          object.name.startsWith("scenery:roof-") &&
+          (object as THREE.InstancedMesh).count > 0,
+      ),
+    ).toBe(true);
+    scenery.update(
+      new THREE.Vector3(100, 34, 100),
+      new Set([roof.id]),
+      1200,
+      120,
+      1,
+      true,
+    );
+    expect(
+      scenery.group.children.every(
+        (object) =>
+          !object.name.startsWith("scenery:roof-") ||
+          (object as THREE.InstancedMesh).count === 0,
+      ),
+    ).toBe(true);
+  },
+);
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
   const material = new THREE.MeshStandardMaterial();

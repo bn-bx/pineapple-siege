@@ -72,9 +72,8 @@ export class Scenery {
       "broadleaf_lod1",
       () => new THREE.IcosahedronGeometry(0.7, 1),
     );
-    const riversideShrub = visualGeometry(
-      "riverside_lod1",
-      () => broadleafShrub.clone(),
+    const riversideShrub = visualGeometry("riverside_lod1", () =>
+      broadleafShrub.clone(),
     );
     const structuralTimber = materials.wood.clone();
     structuralTimber.color.multiplyScalar(0.52);
@@ -294,10 +293,10 @@ export class Scenery {
         // crowns. A small, seed-locked count keeps density stable between runs.
         const shrubKind =
             e.treeSpecies === "riverside" ? "riverside" : "broadleaf",
-          shrub =
-            shrubKind === "riverside" ? riversideShrub : broadleafShrub;
+          shrub = shrubKind === "riverside" ? riversideShrub : broadleafShrub;
         for (let i = 0; i < 2; i++) {
-          const angle = (e.variant * 29 + i * 3.7 + e.id * 0.13) % (Math.PI * 2);
+          const angle =
+            (e.variant * 29 + i * 3.7 + e.id * 0.13) % (Math.PI * 2);
           const radius = Math.max(sx, sz) + 4 + ((e.id * 3 + i * 7) % 6);
           const px = x + Math.cos(angle) * radius;
           const pz = z + Math.sin(angle) * radius;
@@ -581,7 +580,10 @@ export class Scenery {
       );
       geometry.setAttribute(
         "uv",
-        new THREE.Float32BufferAttribute([0, 0, 0.5, 1, 1, 0, 0, 0, 1, 0.5, 0, 1], 2),
+        new THREE.Float32BufferAttribute(
+          [0, 0, 0.5, 1, 1, 0, 0, 0, 1, 0.5, 0, 1],
+          2,
+        ),
       );
       geometry.setIndex([0, 1, 2, 3, 4, 5]);
       geometry.computeVertexNormals();
@@ -590,13 +592,112 @@ export class Scenery {
     // Authored leaf blades are centered vertically; seat their roots on the
     // field rows so the lower half does not disappear beneath the terrain.
     crop.translate(0, 1, 0);
+    const chimneyMasonry = (materials.stone ?? materials.rock).clone();
+    chimneyMasonry.color.multiplyScalar(0.78);
+    const ventMaterial = (materials.wood ?? materials.rock).clone();
+    ventMaterial.color.multiplyScalar(0.72);
     for (const [name, parts] of assemblies) {
+      // Give ordinary roofs family-specific silhouettes. These pieces are
+      // presentation only and share the roof entity's removal lifetime.
+      const rooflineFamily = name.match(
+        /-(house|barn|shed|warehouse|mill)(?:-\d+)?$/,
+      )?.[1];
+      if (rooflineFamily) {
+        const roofOwner = parts
+          .filter(
+            (part) =>
+              part.kind === "block" &&
+              (part.material === "roof" || part.material === "slate"),
+          )
+          .sort((a, b) => b.p[2] - a.p[2])[0];
+        if (roofOwner) {
+          const [x, y, z] = roofOwner.p;
+          const roofPeak = y + roofOwner.s[1];
+          if (
+            rooflineFamily === "house" ||
+            rooflineFamily === "barn" ||
+            rooflineFamily === "shed"
+          ) {
+            const stackY = roofPeak + 0.72;
+            add(
+              "roof-chimney-stack",
+              roofOwner,
+              [x, stackY, z],
+              [0.58, 1.8, 0.58],
+              chimneyMasonry,
+            );
+            for (const lift of [0.2, 1.15])
+              add(
+                "roof-chimney-courses",
+                roofOwner,
+                [x, roofPeak + lift, z],
+                [0.64, 0.09, 0.64],
+                materials.stone ?? materials.rock,
+              );
+            for (const [sideX, sideZ, sx, sz] of [
+              [0, -0.59, 0.24, 0.035],
+              [0, 0.59, 0.24, 0.035],
+              [-0.59, 0, 0.035, 0.24],
+              [0.59, 0, 0.035, 0.24],
+            ])
+              add(
+                "roof-chimney-flues",
+                roofOwner,
+                [x + sideX, roofPeak + 1.98, z + sideZ],
+                [sx, 0.18, sz],
+                iron,
+              );
+            add(
+              "roof-chimney-cap",
+              roofOwner,
+              [x, roofPeak + 2.64, z],
+              [0.82, 0.14, 0.82],
+              chimneyMasonry,
+            );
+          } else {
+            // Working buildings use a restrained louvered cupola rather than
+            // a domestic flue; mills and warehouses remain legible at range.
+            add(
+              "roof-vent-cupola",
+              roofOwner,
+              [x, roofPeak + 0.42, z],
+              [1.02, 0.52, 1.02],
+              ventMaterial,
+            );
+            for (const side of [-1, 1]) {
+              add(
+                "roof-vent-louvers",
+                roofOwner,
+                [x, roofPeak + 0.3, z + side * 1.04],
+                [0.7, 0.07, 0.035],
+                iron,
+              );
+              add(
+                "roof-vent-louvers",
+                roofOwner,
+                [x + side * 1.04, roofPeak + 0.3, z],
+                [0.035, 0.07, 0.7],
+                iron,
+              );
+            }
+            add(
+              "roof-vent-cap",
+              roofOwner,
+              [x, roofPeak + 1.08, z],
+              [1.24, 0.12, 1.24],
+              materials.wood,
+            );
+          }
+        }
+      }
       // The farm remains readable as a working landscape, not just a barn and
       // fence. Beds follow the canonical ground, are excluded from wet/road
       // areas, and use the barn's existing foundation owner for removal.
       if (/(?:^|-)farm-\d+-barn$/.test(name)) {
         const barn = parts.find((part) => part.kind === "block");
-        const owner = parts.find((part) => part.kind === "block" && part.foundation);
+        const owner = parts.find(
+          (part) => part.kind === "block" && part.foundation,
+        );
         if (barn && owner) {
           const [bx, , bz] = barn.p;
           const across = Math.max(8, Math.min(15, barn.s[0] * 0.58));

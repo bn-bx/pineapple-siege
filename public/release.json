@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-2",
+  "release": "visual-overhaul-2026-10-06-batch-3",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -10,7 +10,8 @@
     "quality-photo-ui",
     "owner-linked-farm-fields",
     "isolated-landmark-inspection",
-    "owner-linked-forest-understory"
+    "owner-linked-forest-understory",
+    "family-specific-roofline-details"
   ],
   "performanceCertification": "deferred by release instruction"
 }
