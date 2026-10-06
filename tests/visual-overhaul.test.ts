@@ -4,6 +4,7 @@ import { textureBytes, sceneResources } from "../src/render/resource-budget";
 import { qualityProfile, VISUAL_BUDGET } from "../src/render/quality-profile";
 import { SimulationCadence } from "../src/simulation-cadence";
 import { installFractureSurface } from "../src/render/fracture-surface";
+import { CONFIG } from "../src/config";
 it("estimates shared and detached resident resources once, including shader textures", () => {
   const texture = new THREE.DataTexture(new Uint8Array(64), 4, 4);
   texture.generateMipmaps = false;
@@ -118,6 +119,61 @@ it.each(["tree", "rock"])(
     ).toBe(true);
   },
 );
+it("keeps farm crop beds clear of wet ground and tied to a building owner", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const owner = {
+    id: 10,
+    kind: "block",
+    p: [100, 10, 100],
+    s: [8, 5, 12],
+    material: "wood",
+    assembly: "landmark-farm-0-barn",
+    foundation: true,
+    supports: [],
+  };
+  const terrain = {
+    flood: new Uint8Array(CONFIG.grid * CONFIG.grid),
+    sample: () => 10,
+  } as any;
+  const materials = {
+    wood: new THREE.MeshStandardMaterial(),
+    rock: new THREE.MeshStandardMaterial(),
+    earth: new THREE.MeshStandardMaterial(),
+    foliage: new THREE.MeshStandardMaterial(),
+  };
+  const scenery = new Scenery(
+      { paths: [], entities: [owner] } as any,
+      terrain,
+      materials,
+    ),
+    camera = new THREE.Vector3(100, 20, 66),
+    cropBatch = () =>
+      scenery.group.children.find(
+        (object) => object.name === "scenery:farm-crops",
+      ) as THREE.InstancedMesh | undefined;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(cropBatch()?.count).toBeGreaterThan(0);
+  const beds = scenery.group.children.find(
+    (object) => object.name === "scenery:farm-beds",
+  ) as THREE.InstancedMesh | undefined;
+  expect(beds?.count).toBeGreaterThan(0);
+  const ownedCropCount = cropBatch()!.count;
+  for (let z = 56; z <= 80; z += CONFIG.spacing)
+    for (let x = 80; x <= 120; x += CONFIG.spacing)
+      terrain.flood[
+        Math.round(z / CONFIG.spacing) * CONFIG.grid +
+          Math.round(x / CONFIG.spacing)
+      ] = 1;
+  scenery.update(camera, new Set(), 1200, 120, 1, true);
+  expect(cropBatch()?.count).toBe(0);
+  expect(beds?.count).toBe(0);
+  terrain.flood.fill(0);
+  const removed = new Set([owner.id]);
+  scenery.update(camera, removed, 1200, 120, 2, true);
+  expect(cropBatch()?.count).toBe(0);
+  expect(beds?.count).toBe(0);
+  expect(ownedCropCount).toBeGreaterThan(10);
+});
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
   const material = new THREE.MeshStandardMaterial();

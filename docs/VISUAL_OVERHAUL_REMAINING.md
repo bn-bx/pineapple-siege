@@ -2,6 +2,8 @@
 
 Status as of October 6, 2026. Existing implementation is a working foundation; the original ten-stage overhaul is not complete. No stage is accepted solely because its code compiles or one reference view renders. Whole-island visibility without scene fog is a required constraint.
 
+**Current completion record:** see [`VISUAL_OVERHAUL_LEDGER.md`](./VISUAL_OVERHAUL_LEDGER.md). The dated investigation and batch results below are retained as history, not as evidence that the remaining families have shipped.
+
 ## 1. Production architecture and assets
 
 - Finish cohesive modular artwork for castles, hamlets, farms, windmills, watermills, docks, warehouses, watchtowers, bridges, logging camps and the quarry; review the existing lighthouse and coastal ruins too.

@@ -946,8 +946,10 @@ function inspect() {
     last = 0;
     return;
   }
-  if (world.sites.some((s) => s.kind === kind))
-    p = world.sites.find((s) => s.kind === kind)!.p.slice();
+  const selectedSite = world.sites.find(
+    (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
+  );
+  if (selectedSite) p = selectedSite.p.slice();
   if (kind === "coast")
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
@@ -1073,6 +1075,19 @@ document.querySelector("#inspect-nuke")!.addEventListener("click", () => {
     yield: "castle",
   });
   status.textContent = "Nuke inspection running";
+});
+document.querySelector("#restore-view")!.addEventListener("click", async () => {
+  if (active || benchmarkRunning || checkingContext || !ready) return;
+  touring = false;
+  send({ type: "pause", paused: true });
+  status.textContent = "Restoring isolated test world…";
+  try {
+    await store.clear();
+    send({ type: "reset" });
+    status.textContent = "Test world restored";
+  } catch (error) {
+    status.textContent = "Restore failed: " + String(error);
+  }
 });
 document.querySelector("#viewpoint")!.addEventListener("change", inspect);
 document.querySelector("#altitude")!.addEventListener("change", inspect);

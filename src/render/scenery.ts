@@ -58,6 +58,13 @@ export class Scenery {
       roughness: 1,
       color: "#6d7849",
     });
+    const cropMaterial = foliage.clone();
+    // The authored leaf mesh has no vertex-color attribute. Keep the forest
+    // grass's vertex-color variant for clumps and give crops their own tint.
+    cropMaterial.vertexColors = false;
+    cropMaterial.color.set("#567d36");
+    cropMaterial.emissive.set("#101b08");
+    cropMaterial.emissiveIntensity = 0.16;
     const structuralTimber = materials.wood.clone();
     structuralTimber.color.multiplyScalar(0.52);
     structuralTimber.onBeforeCompile = materials.wood.onBeforeCompile;
@@ -518,7 +525,92 @@ export class Scenery {
       "coping_lod0",
       () => new THREE.BoxGeometry(2, 2, 2),
     );
+    const crop = visualGeometry("leaf_lod0", () => {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        "position",
+        new THREE.Float32BufferAttribute(
+          [-0.45, 0, 0, 0, 0.55, 0.08, 0.45, 0, 0, 0, 0.55, 0.08],
+          3,
+        ),
+      );
+      geometry.setAttribute(
+        "uv",
+        new THREE.Float32BufferAttribute([0, 0, 0.5, 1, 1, 0, 0, 0, 1, 0.5, 0, 1], 2),
+      );
+      geometry.setIndex([0, 1, 2, 3, 4, 5]);
+      geometry.computeVertexNormals();
+      return geometry;
+    });
+    // Authored leaf blades are centered vertically; seat their roots on the
+    // field rows so the lower half does not disappear beneath the terrain.
+    crop.translate(0, 1, 0);
     for (const [name, parts] of assemblies) {
+      // The farm remains readable as a working landscape, not just a barn and
+      // fence. Beds follow the canonical ground, are excluded from wet/road
+      // areas, and use the barn's existing foundation owner for removal.
+      if (/(?:^|-)farm-\d+-barn$/.test(name)) {
+        const barn = parts.find((part) => part.kind === "block");
+        const owner = parts.find((part) => part.kind === "block" && part.foundation);
+        if (barn && owner) {
+          const [bx, , bz] = barn.p;
+          const across = Math.max(8, Math.min(15, barn.s[0] * 0.58));
+          const rowCount = 5;
+          for (let row = 0; row < rowCount; row++) {
+            // Keep the field beyond the barn's front doorway and courtyard.
+            const z = bz - 32 - row * 2.5;
+            const left = bx - across;
+            const right = bx + across;
+            const middle = (left + right) / 2;
+            const ground = terrain.sample(middle, z);
+            if (
+              ground < 2 ||
+              this.wet(middle, z) ||
+              roads(middle, z) < 5 ||
+              Math.abs(ground - terrain.sample(middle + 2, z)) > 0.8 ||
+              Math.abs(ground - terrain.sample(middle, z + 2)) > 0.8
+            )
+              continue;
+            add(
+              "farm-beds",
+              owner,
+              [middle, ground + 0.06, z],
+              [across, 0.06, 0.48],
+              materials.earth,
+              box,
+              true,
+            );
+            const count = Math.floor((right - left) / 2.4);
+            for (let plant = 0; plant <= count; plant++) {
+              const px = left + (plant + 0.5) * ((right - left) / (count + 1));
+              const h = terrain.sample(px, z);
+              if (
+                h < 2 ||
+                this.wet(px, z) ||
+                roads(px, z) < 5 ||
+                Math.abs(h - terrain.sample(px + 1, z)) > 0.7 ||
+                Math.abs(h - terrain.sample(px, z + 1)) > 0.7
+              )
+                continue;
+              const variant = (owner.id * 17 + row * 31 + plant * 13) % 7;
+              const height = 0.85 + variant * 0.045;
+              for (let blade = 0; blade < 3; blade++) {
+                const yaw = ((variant + blade) * Math.PI) / 3;
+                add(
+                  "farm-crops",
+                  owner,
+                  [px, h + height * 0.5, z],
+                  [0.42, height, 0.42],
+                  cropMaterial,
+                  crop,
+                  true,
+                  yaw,
+                );
+              }
+            }
+          }
+        }
+      }
       if (
         !name.includes(":") &&
         !/watchtower|coastal-ruin|lighthouse|bridge/.test(name)
