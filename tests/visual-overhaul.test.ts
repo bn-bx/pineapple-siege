@@ -102,6 +102,14 @@ it.each(["tree", "rock"])(
     expect(
       scenery.group.children.some((o) => (o as THREE.InstancedMesh).count > 0),
     ).toBe(true);
+    if (kind === "tree")
+      expect(
+        scenery.group.children.some(
+          (o) =>
+            o.name.startsWith("scenery:forest-understory-") &&
+            (o as THREE.InstancedMesh).count > 0,
+        ),
+      ).toBe(true);
     removed.add(3);
     scenery.update(camera, removed, 1200, 120, 1, true);
     expect(

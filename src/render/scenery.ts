@@ -65,6 +65,17 @@ export class Scenery {
     cropMaterial.color.set("#567d36");
     cropMaterial.emissive.set("#101b08");
     cropMaterial.emissiveIntensity = 0.16;
+    const understoryMaterial = foliage.clone();
+    understoryMaterial.vertexColors = false;
+    understoryMaterial.color.set("#607b49");
+    const broadleafShrub = visualGeometry(
+      "broadleaf_lod1",
+      () => new THREE.IcosahedronGeometry(0.7, 1),
+    );
+    const riversideShrub = visualGeometry(
+      "riverside_lod1",
+      () => broadleafShrub.clone(),
+    );
     const structuralTimber = materials.wood.clone();
     structuralTimber.color.multiplyScalar(0.52);
     structuralTimber.onBeforeCompile = materials.wood.onBeforeCompile;
@@ -278,6 +289,40 @@ export class Scenery {
               true,
               angle,
             );
+        }
+        // Broadleaf and riverside shrubs fill the open ground under larger
+        // crowns. A small, seed-locked count keeps density stable between runs.
+        const shrubKind =
+            e.treeSpecies === "riverside" ? "riverside" : "broadleaf",
+          shrub =
+            shrubKind === "riverside" ? riversideShrub : broadleafShrub;
+        for (let i = 0; i < 2; i++) {
+          const angle = (e.variant * 29 + i * 3.7 + e.id * 0.13) % (Math.PI * 2);
+          const radius = Math.max(sx, sz) + 4 + ((e.id * 3 + i * 7) % 6);
+          const px = x + Math.cos(angle) * radius;
+          const pz = z + Math.sin(angle) * radius;
+          const h = terrain.sample(px, pz);
+          if (
+            h < 2 ||
+            this.wet(px, pz) ||
+            roads(px, pz) < 8 ||
+            Math.abs(h - terrain.sample(px + 1.5, pz)) > 1 ||
+            Math.abs(h - terrain.sample(px - 1.5, pz)) > 1 ||
+            Math.abs(h - terrain.sample(px, pz + 1.5)) > 1 ||
+            Math.abs(h - terrain.sample(px, pz - 1.5)) > 1
+          )
+            continue;
+          const size = 0.9 + ((e.id + i * 3) % 5) * 0.12;
+          add(
+            `forest-understory-${shrubKind}`,
+            e,
+            [px, h + 0.85, pz],
+            [size, 0.95 + size * 0.35, size],
+            understoryMaterial,
+            shrub,
+            true,
+            angle,
+          );
         }
         continue;
       }
