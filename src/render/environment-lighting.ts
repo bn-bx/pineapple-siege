@@ -18,7 +18,7 @@ const palette = {
   cloudDay: new Color("#fff5df"),
   cloudSet: new Color("#ffc092"),
   cloudNight: new Color("#3c4d6a"),
-  waterDay: new Color("#126b88"),
+  waterDay: new Color("#285f65"),
   waterSet: new Color("#365e7c"),
   waterNight: new Color("#102940"),
 };
@@ -77,7 +77,7 @@ export class EnvironmentLighting {
       .lerpColors(palette.waterNight, palette.waterDay, this.daylight)
       .lerp(palette.waterSet, this.twilight * 0.65);
     this.sunIntensity = 0.55 + this.daylight * 2.45;
-    this.ambientIntensity = 0.8 + this.daylight * 1.08;
+    this.ambientIntensity = 0.72 + this.daylight * 0.23;
   }
 }
 
@@ -106,8 +106,19 @@ void main(){
   float alignment=max(dot(d,sun),0.);
   float sunVisible=smoothstep(-.1,.015,sun.y);
   c+=vec3(1.,.48,.18)*pow(alignment,32.)*twilight*.18;
-  c+=vec3(1.,.77,.37)*pow(alignment,1500.)*sunVisible;
-  c+=vec3(.7,.8,1.)*pow(max(dot(d,-sun),0.),1800.)*(1.-day);
+  float solarDisk=smoothstep(.99998,.999989,alignment);
+  c+=vec3(6.,5.2,4.4)*solarDisk*sunVisible*(1.-cloud*.85);
+  c+=vec3(1.,.77,.45)*pow(alignment,350.)*sunVisible*.08;
+  float lunarAlignment=max(dot(d,-sun),0.);
+  float lunarDisk=smoothstep(.999978,.999988,lunarAlignment);
+  if(lunarDisk>0. && day<1.){
+    vec3 axis=abs(sun.y)>.9 ? vec3(1.,0.,0.) : vec3(0.,1.,0.);
+    vec3 moonRight=normalize(cross(-sun,axis)),moonUp=cross(moonRight,-sun);
+    vec2 moonUv=vec2(dot(d,moonRight),dot(d,moonUp))*110.;
+    float maria=noise(moonUv*7.+13.);
+    float lunarShade=mix(.45,.9,smoothstep(.2,.8,maria));
+    c+=vec3(.74,.8,.88)*lunarShade*lunarDisk*(1.-day)*(1.-cloud*.8);
+  }
   float stars=step(.9985,hash(floor(d.xz/(abs(d.y)+.2)*600.)))*max(d.y,0.);
   c+=stars*(1.-day)*(1.-cloud);
   gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);

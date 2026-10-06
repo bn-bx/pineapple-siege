@@ -1,8 +1,31 @@
-import { waterNormals, OCEAN_COLOR_GLSL } from "./water-surface";
+import { crownSurface } from "./fruit-surface";
+import { IslandHorizon } from "./island-horizon";
+import { constructionScale } from "./material-scale";
+import { bannerWind } from "./banner-wind";
+import { foliageWind } from "./foliage-wind";
+import { skipEmptyPointLights } from "./local-light-cost";
+import { budgetSurfaceNormals } from "./surface-normal-budget";
+import { treeLOD } from "./tree-lod";
+import { treeImpostor } from "./tree-impostor";
+import { waterPrepass } from "./water-prepass";
+import { installFractureSurface } from "./fracture-surface";
+import { Scenery } from "./scenery";
+import { VisualAssets, visualGeometry } from "./visual-assets";
+import { Presentation } from "./presentation";
+import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
+import { sceneResources } from "./resource-budget";
+import { installTerrainSurface } from "./terrain-surface";
+import { SimulationCadence } from "../simulation-cadence";
+import {
+  waterNormals,
+  OCEAN_COLOR_GLSL,
+  OCEAN_NORMAL_GLSL,
+} from "./water-surface";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { VillageLighting, villageDecorations } from "./village-lighting";
 import {
   prepareDebrisMotion,
+  refreshDebrisMaterial,
   resizeDebrisMotion,
   writeDebrisMotion,
   uploadDebrisMotion,
@@ -15,6 +38,8 @@ import {
 import { motionFrame, bindMotion } from "../sim/motion-buffer";
 import { PerformanceMonitor, GPUTimer } from "../performance";
 import { AutoQuality } from "./auto-quality";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { withReflectionDetail } from "./reflection-detail";
 import { makeRivers } from "./river-view";
 import { SnapshotTimeline } from "./snapshot-timeline";
 import { CivilianView } from "./civilians";
@@ -27,6 +52,7 @@ import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
 import { discoActive } from "../disco";
 import {
   makeMonster,
+  upgradeMonsterTemplate,
   makeDistantMonster,
   DistantMonsterView,
   NearMonsterView,
@@ -46,6 +72,7 @@ import {
   treeCrownLowGeometry,
   makeJet,
   makePineapple,
+  upgradePineapple,
 } from "./assets";
 import { TerrainView } from "./terrain-view";
 import { Effects } from "./effects";
@@ -76,9 +103,11 @@ import {
 interface Batch {
   mesh: THREE.InstancedMesh;
   low?: THREE.InstancedMesh;
+  middle?: THREE.InstancedMesh;
   ids: number[];
   allIds: number[];
   kind: string;
+  detailGeometry?: [THREE.BufferGeometry, THREE.BufferGeometry];
   x: number;
   z: number;
   radius: number;
@@ -99,6 +128,7 @@ export class GameRenderer {
   readonly projectileView = new ProjectileView();
   readonly rig = new CameraRig();
   private cameraCells = new Map<number, Entity[]>();
+  private forestCells = new Map<number, Entity[]>();
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(64, 1, 0.5, 2800);
@@ -107,11 +137,81 @@ export class GameRenderer {
   readonly disco = new DiscoScene();
   readonly jet = makeJet();
   readonly performance = new PerformanceMonitor(4096);
+  warmupStages: Record<string, number> = {};
+  get assetLoadingStages() {
+    return this.visualAssets?.loadingStages ?? {};
+  }
   private gpu: GPUTimer;
   private warming?: Promise<void>;
   private disposed = false;
   private graphicsLost = false;
-  private auto = new AutoQuality();
+  private auto = new AutoQuality(2);
+  private visualAssets: VisualAssets;
+  private presentation: Presentation;
+  private visualsInstalled = false;
+  private scenery?: Scenery;
+  private foliageTime = { value: 0 };
+  private foliageDay = { value: 1 };
+  private treeLODState = {
+    camera: { value: new THREE.Vector3() },
+    ranges: { value: new THREE.Vector2(140 ** 2, 300 ** 2) },
+    warming: { value: 0 },
+  };
+  private surfaceNormalDetail = { value: 1 };
+  private foliageMaterials = new Map<string, THREE.MeshStandardMaterial>();
+  private foliageDepthMaterials = new Map<string, THREE.MeshDepthMaterial>();
+  private cadence = new SimulationCadence();
+  private nextResources = 0;
+  private environmentTarget?: THREE.WebGLRenderTarget;
+  private reflectionTarget?: THREE.WebGLRenderTarget;
+  private retiredGeometry = new Set<THREE.BufferGeometry>();
+  private cachedProfile?: {
+    selection: string;
+    level: number;
+    value: RenderQualityProfile;
+  };
+  get visualProfile() {
+    if (
+      !this.cachedProfile ||
+      this.cachedProfile.selection !== this.quality ||
+      this.cachedProfile.level !== this.auto.level
+    )
+      this.cachedProfile = {
+        selection: this.quality,
+        level: this.auto.level,
+        value: Object.freeze(qualityProfile(this.quality, this.auto.level)),
+      };
+    return this.cachedProfile.value;
+  }
+  get assetStatus() {
+    return {
+      loaded: this.visualAssets.loaded,
+      total: this.visualAssets.total,
+      failures: this.visualAssets.failures,
+    };
+  }
+  ambience() {
+    const p = this.jet.position,
+      h = this.terrain.sample(p.x, p.z);
+    const entities =
+      this.forestCells.get(
+        Math.floor(p.z / 64) * CHUNKS + Math.floor(p.x / 64),
+      ) ?? [];
+    return {
+      altitude: Math.max(0, p.y - h),
+      forest: entities.some((e) => e.kind === "tree" && !this.removed.has(e.id))
+        ? 1
+        : 0,
+      water: h < 4 ? 1 : 0,
+    };
+  }
+  setPhotoExposure(value: number) {
+    this.renderer.toneMappingExposure = THREE.MathUtils.clamp(value, 0.4, 2.2);
+  }
+  setPhotoFocus(value: number) {
+    this.presentation.setFocus(value);
+  }
+
   private nextShadow = 0;
   private shadowDirty = true;
   private lightingHour = NaN;
@@ -140,6 +240,7 @@ export class GameRenderer {
   private batches: Batch[] = [];
   private refs = new Map<number, { batch: Batch; index: number }[]>();
   private removed = new Set<number>();
+  private islandHorizon?: IslandHorizon;
   private ruins = new Map<number, Ruin>();
   private ruinCells = new Map<number, Set<number>>();
   private ruinGroups = new Map<number, THREE.Group>();
@@ -201,6 +302,16 @@ export class GameRenderer {
   private googlyEyes = false;
   private eyesRoots: THREE.Object3D[] = [];
   private spikeMeshes: THREE.Mesh[] = [];
+  private spikeGeometry: THREE.BufferGeometry = new THREE.ConeGeometry(
+    0.75,
+    5,
+    5,
+  );
+  private spikeMaterial = new THREE.MeshStandardMaterial({
+    color: "#596d3a",
+    roughness: 0.78,
+    side: THREE.DoubleSide,
+  });
   private flagGroup = new THREE.Group();
   private marker: THREE.Mesh;
   private inspect?: { p: THREE.Vector3; target: THREE.Vector3 };
@@ -230,6 +341,7 @@ export class GameRenderer {
   private fractureRoof = fractureGeometry(roofGeometry());
   private roofFragments = new Map<number, THREE.BufferGeometry>();
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
+  private settledTrunkMaterial?: THREE.Material;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
   private cameraBox = new THREE.Box3();
@@ -254,7 +366,13 @@ export class GameRenderer {
     this.scene.add(this.civilians.group);
     this.scene.add(this.projectileView.group);
     for (const e of world.entities) {
-      if (e.kind === "tree") continue;
+      if (e.kind === "tree") {
+        const key = Math.floor(e.p[2] / 64) * CHUNKS + Math.floor(e.p[0] / 64);
+        let cell = this.forestCells.get(key);
+        if (!cell) this.forestCells.set(key, (cell = []));
+        cell.push(e);
+        continue;
+      }
       for (
         let z = Math.max(0, Math.floor((e.p[2] - e.s[2]) / 64));
         z <= Math.min(CHUNKS - 1, Math.floor((e.p[2] + e.s[2]) / 64));
@@ -273,7 +391,7 @@ export class GameRenderer {
     }
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: "high-performance",
     });
     this.renderer.debug.onShaderError = (gl, program, vertex, fragment) => {
@@ -285,6 +403,32 @@ export class GameRenderer {
           " " +
           gl.getShaderInfoLog(fragment),
       );
+    };
+    this.visualAssets = new VisualAssets(this.renderer);
+    this.presentation = new Presentation(
+      this.renderer,
+      this.scene,
+      this.camera,
+    );
+    this.presentation.onPass = (name, ms) =>
+      this.performance.record(name + "Submit", ms);
+    const shadowRender = this.renderer.shadowMap.render.bind(
+      this.renderer.shadowMap,
+    );
+    this.renderer.shadowMap.render = (lights, scene, camera) => {
+      const updating = this.renderer.shadowMap.needsUpdate,
+        started = performance.now(),
+        programsBefore = this.renderer.info.programs?.length ?? 0;
+      shadowRender(lights, scene, camera);
+      if (updating) {
+        this.performance.record("shadowSubmit", performance.now() - started);
+        this.performance.queues.shadowShaderProgramsCreated =
+          (this.performance.queues.shadowShaderProgramsCreated ?? 0) +
+          Math.max(
+            0,
+            (this.renderer.info.programs?.length ?? 0) - programsBefore,
+          );
+      }
     };
     this.gpu = new GPUTimer(
       this.renderer.getContext() as WebGL2RenderingContext,
@@ -321,7 +465,8 @@ export class GameRenderer {
     );
 
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    const initialShadow = this.visualProfile.shadowSize;
+    this.sun.shadow.mapSize.set(initialShadow, initialShadow);
     Object.assign(this.sun.shadow.camera, {
       left: -220,
       right: 220,
@@ -362,8 +507,8 @@ export class GameRenderer {
     this.water = new Water(
       new THREE.PlaneGeometry(CONFIG.worldSize * 3, CONFIG.worldSize * 3),
       {
-        textureWidth: 768,
-        textureHeight: 432,
+        textureWidth: this.visualProfile.reflectionWidth,
+        textureHeight: this.visualProfile.reflectionHeight,
         waterNormals: normals,
         sunDirection: new THREE.Vector3(0.3, 0.6, 0.2),
         sunColor: 0xffeed5,
@@ -381,6 +526,10 @@ export class GameRenderer {
     mat.uniforms.uDiscoTime = this.disco.time;
     mat.fragmentShader = mat.fragmentShader
       .replace(
+        /vec4 getNoise\( vec2 uv \) \{[\s\S]*?\n\s*\}/,
+        OCEAN_NORMAL_GLSL,
+      )
+      .replace(
         "uniform float alpha;",
         `uniform float alpha; uniform sampler2D uFlood; uniform sampler2D uHeight;
          uniform float uDiscoAmount; uniform float uDiscoTime; ${DISCO_PATTERN_GLSL}`,
@@ -393,18 +542,28 @@ export class GameRenderer {
       .replace("vec3 outgoingLight = albedo;", OCEAN_COLOR_GLSL);
     const original = this.water.onBeforeRender;
     this.water.onBeforeRender = (r, s, c, g, m, group) => {
+      if (s.overrideMaterial) return;
       if (
         this.elapsed >= this.nextReflection &&
         !this.renderer.shadowMap.needsUpdate
       ) {
         this.nextReflection =
-          this.elapsed +
-          (this.quality === "auto" ? this.auto.reflectionInterval : 1 / 12);
+          this.elapsed + this.visualProfile.reflectionInterval;
         const visible = this.effects.group.visible;
         this.effects.group.visible = false;
         const started = performance.now();
         try {
-          original.call(this.water, r, s, c, g, m, group);
+          this.configureReflection();
+          const reflect = () => original.call(this.water, r, s, c, g, m, group);
+          if (this.visualProfile.reflectionFoliageDetail) reflect();
+          else
+            withReflectionDetail(
+              this.scene,
+              this.batches,
+              this.treeLODState.ranges.value,
+              this.scenery?.group,
+              reflect,
+            );
         } finally {
           this.effects.group.visible = visible;
           this.performance.record(
@@ -414,6 +573,11 @@ export class GameRenderer {
         }
       }
     };
+    waterPrepass(
+      this.water.material,
+      this.terrain.heightTexture,
+      this.terrain.floodTexture,
+    );
     this.scene.add(this.water);
     this.rivers = makeRivers(world, this.terrain);
     this.scene.add(this.rivers);
@@ -454,13 +618,30 @@ export class GameRenderer {
       this.shotMeshes.push(shot);
       this.scene.add(shot);
     }
+    const markerBands = [
+      [3.6, 3.9, 0x071015],
+      [3.9, 4.3, 0xffe29a],
+      [4.3, 4.6, 0x071015],
+    ].map(([inner, outer, tint]) => {
+      const geometry = new THREE.RingGeometry(inner, outer, 40);
+      const colors = new Float32Array(geometry.attributes.position.count * 3);
+      const color = new THREE.Color(tint);
+      for (let i = 0; i < geometry.attributes.position.count; i++)
+        color.toArray(colors, i * 3);
+      geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      return geometry;
+    });
+    const markerGeometry = mergeGeometries(markerBands)!;
+    markerBands.forEach((geometry) => geometry.dispose());
     this.marker = new THREE.Mesh(
-      new THREE.RingGeometry(3.8, 4.3, 40),
+      markerGeometry,
       new THREE.MeshBasicMaterial({
-        color: "#ffcf65",
+        vertexColors: true,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.7,
+        opacity: 1,
+        toneMapped: false,
+        depthWrite: false,
         depthTest: false,
       }),
     );
@@ -483,13 +664,316 @@ export class GameRenderer {
       this.scene.add(mesh);
     }
     this.disco.decorateScene(this.scene);
+    // Water skips reflections for an underwater camera. Warm from the real
+    // spawn so the first flight never compiles the entire mirrored scene.
+    this.camera.position.fromArray(world.spawn);
+    this.camera.lookAt(world.castle[0], world.castle[1], world.castle[2]);
+    this.camera.updateMatrixWorld();
     this.setRenderDistance(this.renderDistance);
     this.resize();
+  }
+  private installVisuals() {
+    this.visualsInstalled = true;
+    if (this.visualAssets.puffAtlas)
+      this.effects.installParticles(this.visualAssets.puffAtlas);
+    this.effects.setParticleDepth(this.presentation.particleDepth);
+    this.visualAssets.applyMaterials(this.materials);
+    const cloth = this.visualAssets.surfaces.get("cloth");
+    const bannerMaterial = (
+      this.flagGroup.children[0] as THREE.Mesh | undefined
+    )?.material as THREE.MeshStandardMaterial | undefined;
+    if (cloth && bannerMaterial) {
+      bannerMaterial.map = cloth.color;
+      bannerMaterial.normalMap = cloth.normal;
+      bannerMaterial.normalScale.set(0.25, 0.25);
+      bannerMaterial.roughnessMap = cloth.orm;
+      bannerMaterial.needsUpdate = true;
+    }
+    for (const [name, material] of Object.entries(this.materials))
+      if (material.normalMap)
+        constructionScale(
+          material,
+          ["roof", "slate"].includes(name)
+            ? 0.32
+            : name === "wood"
+              ? 0.22
+              : 0.4,
+        );
+    this.visualAssets.applyMaterials(this.fragmentMaterials);
+    for (const material of Object.values(this.fragmentMaterials))
+      if (material.normalMap) installFractureSurface(material);
+    for (const [key, mesh] of this.bodyMeshes) {
+      const source = this.fragmentMaterials[key.split(":")[0] as Material];
+      refreshDebrisMaterial(mesh, source, this.bodyAlpha, this.bodyGPUEnabled);
+    }
+    this.scene.fog = null;
+    installTerrainSurface(this.terrain.material, this.visualAssets);
+    const library = new Map<string, THREE.BufferGeometry>();
+    const geometry = (name: string, old: THREE.BufferGeometry) => {
+      let value = library.get(name);
+      if (!value)
+        library.set(name, (value = visualGeometry(name, () => old.clone())));
+      this.retiredGeometry.add(old);
+      return value;
+    };
+    const foliageMaterials = this.foliageMaterials;
+    for (const species of ["pine", "broadleaf", "riverside"]) {
+      const map = this.visualAssets.foliage.get(
+        species === "pine" ? "pine" : "broadleaf",
+      );
+      const mat = new THREE.MeshStandardMaterial({
+        map,
+        alphaTest: 0.42,
+        side: THREE.DoubleSide,
+        roughness: 0.92,
+        color: species === "riverside" ? "#bbc5a3" : "#c9cbb1",
+      });
+      foliageWind(mat, this.foliageTime);
+      const depth = new THREE.MeshDepthMaterial({
+        depthPacking: THREE.RGBADepthPacking,
+        map,
+        alphaTest: mat.alphaTest,
+        side: mat.side,
+      });
+      foliageWind(depth, this.foliageTime);
+      this.foliageDepthMaterials.set(species, depth);
+      foliageMaterials.set(species, mat);
+      this.disco.decorate(mat);
+    }
+    for (const batch of this.batches) {
+      const entity = this.world.entities[batch.allIds[0]];
+      const family =
+        batch.kind === "pine"
+          ? (entity.treeSpecies ?? "pine")
+          : entity.kind === "rock"
+            ? "rock"
+            : isRoof(entity.material)
+              ? "roof"
+              : batch.kind === "trunk"
+                ? undefined
+                : entity.material === "window"
+                  ? "window"
+                  : "module";
+      if (!family) continue;
+      if (batch.kind === "pine") {
+        const mat = foliageMaterials.get(family)!;
+        batch.mesh.material = mat;
+        batch.mesh.customDepthMaterial = this.foliageDepthMaterials.get(family);
+        if (batch.low) batch.low.material = mat;
+      }
+      batch.mesh.geometry = geometry(`${family}_lod0`, batch.mesh.geometry);
+      if (batch.low) {
+        const impostor = this.visualAssets.foliage.get(`${family}-impostor`);
+        batch.low.geometry = impostor
+          ? new THREE.PlaneGeometry(2.25, 2.25).translate(0, 0.5, 0)
+          : geometry(`${family}_lod2`, batch.low.geometry);
+        if (impostor)
+          batch.low.material = treeImpostor(impostor, this.foliageDay);
+      }
+      const middle = geometry(`${family}_lod1`, batch.mesh.geometry);
+      if (batch.kind === "pine") {
+        const source = foliageMaterials.get(family)!;
+        const standing = (band: number) => {
+          const mat = source.clone();
+          foliageWind(mat, this.foliageTime);
+          treeLOD(mat, this.treeLODState, band);
+          this.disco.decorate(mat);
+          const depth = new THREE.MeshDepthMaterial({
+            depthPacking: THREE.RGBADepthPacking,
+            map: source.map,
+            alphaTest: source.alphaTest,
+            side: source.side,
+          });
+          foliageWind(depth, this.foliageTime);
+          treeLOD(depth, this.treeLODState, band);
+          this.foliageDepthMaterials.set(`${family}:${band}`, depth);
+          return { mat, depth };
+        };
+        // Reuse species materials across spatial batches, with separate bands.
+        const getStanding = (band: number) => {
+          const key = `${family}:${band}`;
+          let mat = foliageMaterials.get(key);
+          if (!mat) {
+            const result = standing(band);
+            mat = result.mat;
+            foliageMaterials.set(key, mat);
+          }
+          return { mat, depth: this.foliageDepthMaterials.get(key)! };
+        };
+        const near = getStanding(0),
+          mid = getStanding(1);
+        batch.mesh.material = near.mat;
+        batch.mesh.customDepthMaterial = near.depth;
+        batch.middle = new THREE.InstancedMesh(
+          middle,
+          mid.mat,
+          batch.mesh.instanceMatrix.count,
+        );
+        batch.middle.instanceMatrix = batch.mesh.instanceMatrix;
+        batch.middle.instanceColor = batch.mesh.instanceColor;
+        batch.middle.count = batch.mesh.count;
+        batch.middle.receiveShadow = true;
+        batch.middle.customDepthMaterial = mid.depth;
+        batch.middle.matrixAutoUpdate =
+          batch.middle.matrixWorldAutoUpdate = false;
+        batch.middle.computeBoundingSphere();
+        this.scene.add(batch.middle);
+        if (batch.low)
+          treeLOD(batch.low.material as THREE.Material, this.treeLODState, 2);
+      } else batch.detailGeometry = [batch.mesh.geometry, middle];
+      batch.mesh.computeBoundingSphere();
+      batch.low?.computeBoundingSphere();
+    }
+    for (const shot of this.shotMeshes)
+      upgradePineapple(shot, this.visualAssets.fruitSkin);
+    for (const [species, mesh] of [
+      ["pine", this.fallenPines],
+      ...this.fallenCanopies.entries(),
+    ] as [string, THREE.InstancedMesh][]) {
+      this.retiredGeometry.add(mesh.geometry);
+      mesh.geometry = geometry(`${species}_lod1`, mesh.geometry);
+      (mesh.material as THREE.Material).dispose();
+      mesh.material = foliageMaterials.get(species)!;
+      mesh.customDepthMaterial?.dispose();
+      delete mesh.userData.motion;
+      prepareDebrisMotion(mesh, this.bodyAlpha, this.bodyGPUEnabled);
+    }
+    for (const old of this.crownGeometries.values())
+      this.retiredGeometry.add(old);
+    this.crownGeometries.clear();
+    upgradeMonsterTemplate(
+      this.visualAssets.fruitSkin,
+      this.visualAssets.surfaces.get("wood"),
+    );
+    for (const view of [
+      this.nearMonsterView,
+      this.distantMonsterView,
+      this.monsterFragmentView,
+    ]) {
+      this.scene.remove(view.group);
+      view.group.traverse((o) => {
+        if (o instanceof THREE.InstancedMesh) {
+          this.retiredGeometry.add(o.geometry);
+          o.dispose();
+        }
+      });
+    }
+    this.nearMonsterView = new NearMonsterView(MAX_MONSTER_COUNT);
+    this.distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
+    this.monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
+    this.scene.add(
+      this.nearMonsterView.group,
+      this.distantMonsterView.group,
+      this.monsterFragmentView.group,
+    );
+    this.disco.decorateScene(this.scene);
+    this.retiredGeometry.add(this.villageLighting.windows.geometry);
+    this.villageLighting.windows.geometry = visualGeometry(
+      "window_lod1",
+      () => new THREE.BoxGeometry(2, 2, 2),
+    ).scale(0.5, 0.5, 0.5);
+    this.villageLighting.windows.computeBoundingSphere();
+    this.civilians.installVisuals(this.visualAssets.surfaces.get("cloth"));
+    this.retiredGeometry.add(this.spikeGeometry);
+    this.spikeGeometry = visualGeometry(
+      "leaf_lod1",
+      () => new THREE.ConeGeometry(0.75, 5, 5),
+    ).scale(0.75, 2.5, 0.75);
+    crownSurface(this.spikeMaterial, 2.5, 0.75);
+    for (const spike of this.spikeMeshes) spike.geometry = this.spikeGeometry;
+    const bark = this.visualAssets.surfaces.get("bark");
+    if (bark) {
+      const material = new THREE.MeshStandardMaterial({
+        map: bark.color,
+        normalMap: bark.normal,
+        roughnessMap: bark.orm,
+        roughness: 1,
+      });
+      constructionScale(material, 0.35);
+      this.disco.decorate(material);
+      for (const batch of this.batches)
+        if (batch.kind === "trunk") batch.mesh.material = material;
+      (this.fallenTrunks.material as THREE.Material).dispose();
+      this.fallenTrunks.material = material;
+      this.settledTrunkMaterial = material;
+      this.fallenTrunks.customDepthMaterial?.dispose();
+      delete this.fallenTrunks.userData.motion;
+      prepareDebrisMotion(
+        this.fallenTrunks,
+        this.bodyAlpha,
+        this.bodyGPUEnabled,
+      );
+    }
+    this.scenery = new Scenery(
+      this.world,
+      this.terrain,
+      this.materials,
+      this.visualAssets.foliage.get("grass"),
+      this.villageLighting.windowSources,
+    );
+    this.scene.add(this.scenery.group);
+    this.islandHorizon = new IslandHorizon(
+      this.world,
+      this.batches,
+      this.materials,
+      this.visualAssets,
+      this.foliageDay,
+    );
+    this.islandHorizon.restore(this.removed);
+    this.scene.add(this.islandHorizon.group);
+    this.scenery.group.traverse((o) => {
+      if (
+        o instanceof THREE.Mesh &&
+        o.material instanceof THREE.MeshStandardMaterial
+      )
+        this.disco.decorate(o.material);
+    });
+    if (this.visualAssets.jet) {
+      for (const mesh of [...this.jet.children])
+        if (mesh.name !== "flame") {
+          this.jet.remove(mesh);
+          this.retiredGeometry.add((mesh as THREE.Mesh).geometry);
+        }
+      this.jet.add(this.visualAssets.jet);
+    }
+    // Roughness-aware lighting is baked once, then its strength follows hour.
+    const environment = new THREE.Scene();
+    environment.background = new THREE.Color("#a9bfca");
+    for (const [color, p, scale] of [
+      ["#fff1db", [0, 8, 0], [15, 0.2, 15]],
+      ["#46543a", [0, -6, 0], [20, 0.2, 20]],
+      ["#f4e8ce", [7, 5, -5], [3, 3, 3]],
+    ] as const) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(scale[0], scale[1], scale[2]),
+        new THREE.MeshBasicMaterial({ color }),
+      );
+      mesh.position.set(p[0], p[1], p[2]);
+      environment.add(mesh);
+    }
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.environmentTarget = pmrem.fromScene(environment, 0.04, 0.1, 100, {
+      size: 128,
+    });
+    this.scene.environment = this.environmentTarget.texture;
+    pmrem.dispose();
+    environment.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.shadowDirty = true;
   }
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
     for (const e of this.world.entities) {
-      const size = e.kind === "tree" ? 512 : 256;
+      // Larger construction batches reduce CPU draw submission while retaining
+      // spatial bounds, owner lookup and the original collision entities.
+      // Match construction to the existing forest/rock spatial grid. Fewer
+      // material batches reduce submission work; owner references and the
+      // batch-derived distant-coverage boundary are rebuilt together.
+      const size = 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
       let key = e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
       if (e.kind === "tree") {
@@ -605,6 +1089,12 @@ export class GameRenderer {
       side: THREE.DoubleSide,
       roughness: 0.9,
     });
+    bannerWind(mat, this.foliageTime);
+    const depth = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      side: THREE.DoubleSide,
+    });
+    bannerWind(depth, this.foliageTime);
     for (const banner of this.world.banners) {
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(banner.s[0], banner.s[1], 3, 8),
@@ -612,6 +1102,9 @@ export class GameRenderer {
       );
       mesh.position.fromArray(banner.p);
       mesh.rotation.y = banner.yaw ?? 0;
+      mesh.updateMatrix();
+      mesh.matrixAutoUpdate = false;
+      mesh.customDepthMaterial = depth;
       mesh.userData.owner = banner.owner;
       this.flagGroup.add(mesh);
     }
@@ -625,15 +1118,89 @@ export class GameRenderer {
     return this.warming;
   }
   private async prewarmOnce() {
+    this.warmupStages = {};
+    let stageStarted = performance.now();
+    const mark = (name: string) => {
+      const now = performance.now();
+      this.warmupStages[name] = now - stageStarted;
+      stageStarted = now;
+    };
+    if (this.visualAssets) await this.visualAssets.ready;
+    mark("assetWaitMS");
+    if (this.disposed || this.graphicsLost) return;
+    if (this.visualAssets && !this.visualsInstalled) this.installVisuals();
+    mark("visualInstallMS");
     this.renderer.initTexture(this.terrain.heightTexture);
     this.renderer.initTexture(this.terrain.floodTexture);
     this.fallenCanopy("broadleaf");
     this.fallenCanopy("riverside");
     this.effects.prewarm();
+    // Roof fragments omit instance colors, unlike ordinary airborne chunks.
+    // Prepare every shape with its actual attributes before reflections see it.
+    for (const material of Object.keys(this.fragmentMaterials) as Material[])
+      if (isRoof(material))
+        for (const roofPart of [1, 2, 3, 4]) {
+          const key = this.debrisKey({ material, roofPart });
+          if (this.bodyMeshes.has(key)) continue;
+          const mesh = new THREE.InstancedMesh(
+            this.debrisGeometry({ material, roofPart }),
+            this.fragmentMaterials[material],
+            64,
+          );
+          mesh.count = 0;
+          mesh.frustumCulled = false;
+          mesh.receiveShadow = true;
+          mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+          prepareDebrisMotion(mesh, this.bodyAlpha, this.bodyGPUEnabled);
+          this.disco.decorate(mesh.material as THREE.MeshStandardMaterial);
+          this.bodyMeshes.set(key, mesh);
+          this.scene.add(mesh);
+        }
     for (const mesh of this.effects.prewarmMeshes) this.scene.add(mesh);
     const temporary: THREE.Mesh[] = [];
+    // Streamed terrain arrives after warmup; its mapped, non-instanced shadow
+    // program is absent from the coarse terrain (which does not cast shadows).
+    const terrainWarmGeometry = this.terrain.material
+      ? new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
+      : undefined;
+    if (terrainWarmGeometry) {
+      terrainWarmGeometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(new Float32Array(12).fill(1), 3),
+      );
+      const mesh = new THREE.Mesh(terrainWarmGeometry, this.terrain.material);
+      mesh.castShadow = mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      temporary.push(mesh);
+    }
+    if (this.settledTrunkMaterial) {
+      const mesh = new THREE.InstancedMesh(
+        this.fallenTrunks.geometry,
+        this.settledTrunkMaterial,
+        1,
+      );
+      mesh.setColorAt(0, new THREE.Color(1, 1, 1));
+      mesh.setMatrixAt(0, new THREE.Matrix4());
+      mesh.receiveShadow = true;
+      mesh.castShadow = true;
+      this.scene.add(mesh);
+      temporary.push(mesh);
+    }
+    for (const [species, material] of this.foliageMaterials ?? []) {
+      const mesh = new THREE.InstancedMesh(
+        this.crownGeometry(species as "pine" | "broadleaf" | "riverside"),
+        material,
+        1,
+      );
+      mesh.setColorAt(0, new THREE.Color(1, 1, 1));
+      mesh.setMatrixAt(0, new THREE.Matrix4());
+      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.customDepthMaterial = this.foliageDepthMaterials.get(species);
+      this.scene.add(mesh);
+      temporary.push(mesh);
+    }
     for (const batch of this.batches)
-      for (const mesh of [batch.mesh, batch.low])
+      for (const mesh of [batch.mesh, batch.middle, batch.low])
         if (mesh && !mesh.parent) {
           this.scene.add(mesh);
           temporary.push(mesh);
@@ -646,6 +1213,7 @@ export class GameRenderer {
       mesh.setColorAt(0, new THREE.Color(1, 1, 1));
       mesh.setMatrixAt(0, new THREE.Matrix4());
       mesh.receiveShadow = true;
+      mesh.castShadow = true;
       this.scene.add(mesh);
       temporary.push(mesh);
     }
@@ -656,6 +1224,15 @@ export class GameRenderer {
       count?: number;
     }[] = [];
     this.scene.traverse((o) => {
+      if (o instanceof THREE.Mesh)
+        for (const material of Array.isArray(o.material)
+          ? o.material
+          : [o.material])
+          if (material instanceof THREE.MeshStandardMaterial) {
+            skipEmptyPointLights(material);
+            this.surfaceNormalDetail ??= { value: 1 };
+            budgetSurfaceNormals(material, this.surfaceNormalDetail);
+          }
       states.push({
         object: o,
         visible: o.visible,
@@ -664,13 +1241,16 @@ export class GameRenderer {
       });
       o.visible = true;
       o.frustumCulled = false;
-      if (o instanceof THREE.InstancedMesh && !o.count) o.count = 1;
+      if (o instanceof THREE.InstancedMesh) o.count = 1;
     });
+    mark("variantAssemblyMS");
+    if (this.treeLODState) this.treeLODState.warming.value = 1;
     try {
       // Keep polling cancellable: Three's compileAsync continues polling old
       // programs after a context loss/disposal. These properties are pinned to
       // the installed Three revision, as with our texture-upload adapter.
       const compiling = this.renderer.compile(this.scene, this.camera);
+      mark("compileSubmitMS");
       while (compiling.size) {
         await new Promise<void>((resolve) => setTimeout(resolve, 10));
         if (this.disposed || this.graphicsLost) return;
@@ -681,16 +1261,61 @@ export class GameRenderer {
           if (program?.isReady()) compiling.delete(material);
         }
       }
+      mark("compileWaitMS");
       if (this.disposed || this.graphicsLost) return;
       this.renderer.shadowMap.needsUpdate = true;
       this.renderer.render(this.scene, this.camera);
+      mark("shadowAndSceneWarmMS");
       // Reflection renders use a different output colour space. compileAsync for
       // the screen does not warm those programs or allocate the reflection target.
       // Render it deliberately while paused, after the shadow pass has completed.
       this.nextReflection = this.elapsed;
       this.renderer.shadowMap.needsUpdate = false;
       this.renderer.render(this.scene, this.camera);
+      mark("reflectionWarmMS");
+      this.presentation?.prewarm();
+      this.presentation?.configure(
+        this.visualProfile,
+        this.reducedEffects,
+        false,
+      );
+      this.presentation?.render();
+      mark("postWarmMS");
+      // The laser's light disappears with its inactive group. That changes
+      // Three's light-count shader defines, so prepare the inactive variant as
+      // well as the active one before normal flight can submit either.
+      this.effects.group.traverse((object) => {
+        if (object instanceof THREE.PointLight) object.visible = false;
+      });
+      this.renderer.render(this.scene, this.camera);
+      this.presentation?.prewarm();
+      this.presentation?.configure(
+        this.visualProfile,
+        this.reducedEffects,
+        false,
+      );
+      this.presentation?.render();
+      mark("inactiveEffectsWarmMS");
+      // Wait asynchronously for queued preparation, only while gameplay is
+      // paused. This does not block the driver or call finish/readPixels.
+      if (typeof this.renderer.getContext === "function") {
+        const gl = this.renderer.getContext() as WebGL2RenderingContext;
+        const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (fence) {
+          gl.flush();
+          try {
+            while (gl.clientWaitSync(fence, 0, 0) === gl.TIMEOUT_EXPIRED) {
+              await new Promise<void>((r) => setTimeout(r, 10));
+              if (this.disposed || this.graphicsLost) return;
+            }
+          } finally {
+            if (!this.graphicsLost) gl.deleteSync(fence);
+          }
+        }
+      }
+      mark("gpuCompletionWaitMS");
     } finally {
+      if (this.treeLODState) this.treeLODState.warming.value = 0;
       for (const state of states) {
         state.object.visible = state.visible;
         state.object.frustumCulled = state.culled;
@@ -700,9 +1325,15 @@ export class GameRenderer {
       for (const mesh of this.effects.prewarmMeshes) this.scene.remove(mesh);
       for (const mesh of temporary) {
         this.scene.remove(mesh);
-        if (!this.batches.some((b) => b.mesh === mesh || b.low === mesh))
+        if (
+          (mesh as THREE.InstancedMesh).isInstancedMesh &&
+          !this.batches.some(
+            (b) => b.mesh === mesh || b.middle === mesh || b.low === mesh,
+          )
+        )
           (mesh as THREE.InstancedMesh).dispose();
       }
+      terrainWarmGeometry?.dispose();
     }
   }
   setReducedEffects(value: boolean) {
@@ -739,7 +1370,36 @@ export class GameRenderer {
     this.quality = q;
     this.targetHeight = q === "auto" ? this.auto.height : Number(q);
     this.qualityChanged = performance.now();
+    const size = this.visualProfile.shadowSize;
+    if (this.sun.shadow.mapSize.x !== size) {
+      this.sun.shadow.mapSize.set(size, size);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+    this.lastLOD = -Infinity;
     this.resize();
+  }
+  private configureReflection() {
+    // Water owns this target in a closure. Keep its owner once allocated;
+    // resizing releases Three's texture properties until the next render.
+    const properties = this.renderer.properties.get(
+      this.water.material.uniforms.mirrorSampler.value,
+    ) as { __renderTarget?: THREE.WebGLRenderTarget };
+    this.reflectionTarget ??= properties.__renderTarget;
+    const target = this.reflectionTarget,
+      profile = this.visualProfile;
+    if (
+      target &&
+      (target.width !== profile.reflectionWidth ||
+        target.height !== profile.reflectionHeight)
+    )
+      target.setSize(profile.reflectionWidth, profile.reflectionHeight);
+  }
+  /** Independent certification cases begin with the same startup quality. */
+  resetAutoQuality() {
+    this.auto = new AutoQuality(2);
+    this.setQuality("auto");
   }
   setRenderDistance(value: number) {
     this.renderDistance = normalizeRenderDistance(value);
@@ -761,6 +1421,8 @@ export class GameRenderer {
       );
     this.renderer.setPixelRatio(Math.max(0.5, ratio));
     this.renderer.setSize(innerWidth, innerHeight);
+    const drawing = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.presentation?.resize(drawing.x, drawing.y);
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
   }
@@ -799,6 +1461,7 @@ export class GameRenderer {
   ) {
     this.setChase();
     this.removed.clear();
+    this.islandHorizon?.restore([]);
     this.ruins.clear();
     this.ruinCells.clear();
     this.dirtyRuinBatches.clear();
@@ -818,6 +1481,7 @@ export class GameRenderer {
       batch.ids = batch.allIds.slice();
       batch.mesh.count = batch.ids.length;
       if (batch.low) batch.low.count = batch.ids.length;
+      if (batch.middle) batch.middle.count = batch.ids.length;
       batch.ids.forEach((id, i) => {
         let refs = this.refs.get(id);
         if (!refs) this.refs.set(id, (refs = []));
@@ -884,6 +1548,7 @@ export class GameRenderer {
   }
   private hideEntity(id: number) {
     this.removed.add(id);
+    this.islandHorizon?.remove(id);
     const refs = this.refs.get(id);
     if (!refs) return;
     for (const ref of refs) {
@@ -892,7 +1557,7 @@ export class GameRenderer {
       if (ref.index !== last) {
         const moved = batch.ids[last];
         batch.ids[ref.index] = moved;
-        for (const mesh of [batch.mesh, batch.low])
+        for (const mesh of [batch.mesh, batch.middle, batch.low])
           if (mesh) {
             mesh.getMatrixAt(last, dummy.matrix);
             mesh.setMatrixAt(ref.index, dummy.matrix);
@@ -907,7 +1572,7 @@ export class GameRenderer {
         movedRef.index = ref.index;
       }
       batch.ids.pop();
-      for (const mesh of [batch.mesh, batch.low])
+      for (const mesh of [batch.mesh, batch.middle, batch.low])
         if (mesh) {
           mesh.count = batch.ids.length;
           mesh.instanceMatrix.addUpdateRange(ref.index * 16, 16);
@@ -927,13 +1592,10 @@ export class GameRenderer {
     this.shadowDirty = true;
   }
   fragment(e: FragmentEffect) {
-    this.effects.fragment(e, this.targetHeight < 1080 ? 0.6 : 1);
+    this.effects.fragment(e, this.visualProfile.cosmetics);
   }
   explosion(e: Explosion) {
-    this.effects.explosion(
-      e,
-      this.targetHeight < 1080 || this.effects.reduced ? 0.6 : 1,
-    );
+    this.effects.explosion(e, this.visualProfile.cosmetics);
   }
   private ruinCell(p: number[]) {
     return (
@@ -1021,7 +1683,11 @@ export class GameRenderer {
         if (r.kind === "tree") {
           const e = this.world.entities[r.source];
           dummy.scale.set(r.s[0], r.s[1] * 2, r.s[2]);
-          add("trunk", this.fallenTrunks.geometry, this.materials.wood);
+          add(
+            "trunk",
+            this.fallenTrunks.geometry,
+            this.settledTrunkMaterial ?? this.materials.wood,
+          );
           dummy.position.add(
             new THREE.Vector3(0, -r.s[1], 0).applyQuaternion(dummy.quaternion),
           );
@@ -1034,7 +1700,8 @@ export class GameRenderer {
           add(
             `canopy-${e.treeSpecies ?? "pine"}`,
             this.crownGeometry(e.treeSpecies ?? "pine"),
-            this.materials.foliage,
+            this.foliageMaterials?.get(e.treeSpecies ?? "pine") ??
+              this.materials.foliage,
           );
         } else if (r.pile) {
           // A compact record renders as several irregular solid chunks rather
@@ -1084,6 +1751,9 @@ export class GameRenderer {
           );
         }
         mesh.receiveShadow = true;
+        for (const [species, foliage] of this.foliageMaterials ?? [])
+          if (mat === foliage)
+            mesh.customDepthMaterial = this.foliageDepthMaterials?.get(species);
         mesh.boundingSphere = bounds.clone();
         mesh.matrixAutoUpdate = false;
         mesh.matrixWorldAutoUpdate = false;
@@ -1132,7 +1802,12 @@ export class GameRenderer {
       g.visible = d < this.renderDistance + bounds.radius;
       if (g.visible && !g.parent) this.scene.add(g);
       else if (!g.visible && g.parent) this.scene.remove(g);
-      for (const m of g.children) m.castShadow = d < 230;
+      for (const m of g.children)
+        m.castShadow =
+          d < 230 &&
+          (!(m as THREE.Mesh).customDepthMaterial ||
+            (this.visualProfile?.debrisShadows !== false &&
+              !this.reducedEffects));
     }
   }
   private ruinBatch(cell: number) {
@@ -1184,7 +1859,9 @@ export class GameRenderer {
     this.crownGeometries ??= new Map();
     let geometry = this.crownGeometries.get(species);
     if (!geometry) {
-      geometry = treeCrownGeometry(species);
+      geometry = this.visualsInstalled
+        ? visualGeometry(`${species}_lod1`, () => treeCrownGeometry(species))
+        : treeCrownGeometry(species);
       this.crownGeometries.set(species, geometry);
     }
     return geometry;
@@ -1199,7 +1876,7 @@ export class GameRenderer {
     if (!mesh) {
       mesh = new THREE.InstancedMesh(
         this.crownGeometry(species),
-        this.materials.foliage,
+        this.foliageMaterials?.get(species) ?? this.materials.foliage,
         Math.max(64, needed),
       );
       mesh.setColorAt(0, new THREE.Color());
@@ -1513,7 +2190,7 @@ export class GameRenderer {
     }
     this.wasActive = active;
     const workStarted = performance.now(),
-      optionalDeadline = workStarted + 2;
+      optionalDeadline = workStarted + 0.65;
     this.gpu.poll();
     this.performance.record(
       "textureUpload",
@@ -1589,6 +2266,15 @@ export class GameRenderer {
     for (const flame of this.jet.children.filter((c) => c.name === "flame"))
       flame.scale.y =
         0.8 + Math.sin(this.elapsed * 42) * 0.13 + (p.speed > 95 ? 0.7 : 0);
+    for (const name of ["aileron-left", "aileron-right"]) {
+      const surface = this.jet.getObjectByName(name);
+      if (surface)
+        surface.rotation.x = THREE.MathUtils.clamp(
+          p.roll * (name.endsWith("left") ? 1 : -1) * 0.2,
+          -0.22,
+          0.22,
+        );
+    }
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(rotation);
     let target = position.clone().addScaledVector(f, 40);
     let desired = position
@@ -1605,11 +2291,12 @@ export class GameRenderer {
         ? this.rig.fov
         : this.rig.mode === "cinematic"
           ? 72
-          : 64;
+          : 64 + THREE.MathUtils.smoothstep(p.speed, 90, 120) * 5;
     if (this.camera.fov !== fov) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
+    this.rig.prepareBoom(desired, this.cameraPosition, dt, this.readyCamera);
     desired.y = Math.max(
       desired.y,
       this.terrain.sample(desired.x, desired.z) + 5,
@@ -1715,7 +2402,8 @@ export class GameRenderer {
       this.cameraTarget.copy(target);
       this.readyCamera = true;
     } else {
-      this.cameraPosition.lerp(desired, 1 - Math.exp(-dt * 6));
+      // The smoothed position has already passed terrain and structure checks.
+      this.cameraPosition.copy(desired);
       this.cameraTarget.lerp(target, 1 - Math.exp(-dt * 10));
     }
     this.camera.position.copy(this.cameraPosition);
@@ -1755,6 +2443,7 @@ export class GameRenderer {
       this.camera.position,
       this.renderDistance,
       this.camera,
+      (x, z) => this.terrain.sample(x, z),
     );
     this.ensureMonsterMeshes(snap.monsters.length);
     this.monsterFragmentView.begin(this.googlyEyes);
@@ -1878,14 +2567,7 @@ export class GameRenderer {
     this.nearMonsterView.finish(this.googlyEyes);
     this.distantMonsterView.finish(this.googlyEyes);
     while (this.spikeMeshes.length < snap.monsterSpikes.length) {
-      const spike = new THREE.Mesh(
-        new THREE.ConeGeometry(0.75, 5, 5),
-        new THREE.MeshStandardMaterial({
-          color: "#518329",
-          emissive: "#163909",
-          emissiveIntensity: 0.6,
-        }),
-      );
+      const spike = new THREE.Mesh(this.spikeGeometry, this.spikeMaterial);
       spike.scale.setScalar(MONSTER_SCALE);
       this.spikeMeshes.push(spike);
       this.scene.add(spike);
@@ -1980,6 +2662,16 @@ export class GameRenderer {
     }
     this.lightingHour = snap.hour;
     this.lighting.update(snap.hour);
+    this.foliageTime.value = snap.time;
+    this.foliageDay.value = this.lighting.daylight;
+    this.scenery?.update(
+      this.camera.position,
+      this.removed,
+      this.renderDistance,
+      this.visualProfile.foliageDistance,
+      snap.time,
+      this.rig.mode === "photo" || !active,
+    );
     const { daylight: day, night, lightDirection: ld } = this.lighting;
     this.sky.material.uniforms.day.value = day;
     this.sky.material.uniforms.twilight.value = this.lighting.twilight;
@@ -2012,7 +2704,8 @@ export class GameRenderer {
     this.ambient.intensity = this.lighting.ambientIntensity;
     this.ambient.color.copy(this.lighting.ambientColor);
     this.ambient.groundColor.copy(this.lighting.groundColor);
-    this.materials.window.emissiveIntensity = night * 2.4;
+    this.scene.environmentIntensity = 0.28 + day * 0.72;
+    this.materials.window.emissiveIntensity = night * 0.45;
     this.sun.intensity = THREE.MathUtils.lerp(
       this.sun.intensity,
       0.55,
@@ -2067,17 +2760,23 @@ export class GameRenderer {
     this.performance.record("terrain", performance.now() - terrainStarted);
     this.performance.record("terrainWorker", this.terrain.workerMS);
     this.performance.queues.terrain = this.terrain.queueDepth;
+    this.performance.queues.renderRuins = this.dirtyRuinBatches.size;
     this.performance.queues.terrainWorkerActive = this.terrain.workerActive
       ? 1
       : 0;
+    this.treeLODState.camera.value.copy(this.camera.position);
+    this.treeLODState.ranges.value.set(
+      this.visualProfile.nearFoliageDistance ** 2,
+      this.visualProfile.middleFoliageDistance ** 2,
+    );
+    this.performance.queues.nearFoliageDistance =
+      this.visualProfile.nearFoliageDistance;
+    this.performance.queues.middleFoliageDistance =
+      this.visualProfile.middleFoliageDistance;
     this.flagGroup.visible = true;
     for (const flag of this.flagGroup.children) {
-      let m = flag as THREE.Mesh<THREE.PlaneGeometry>;
+      const m = flag as THREE.Mesh;
       m.visible = !this.removed.has(m.userData.owner);
-      let pos = m.geometry.attributes.position;
-      for (let i = 0; i < pos.count; i++)
-        pos.setZ(i, Math.sin(pos.getY(i) * 1.5 + this.elapsed * 2) * 0.16);
-      pos.needsUpdate = true;
     }
     if (
       this.rig.mode === "photo" ||
@@ -2089,14 +2788,35 @@ export class GameRenderer {
           b.x - this.camera.position.x,
           b.z - this.camera.position.z,
         );
-        b.mesh.castShadow = d < 280;
-        if (b.low) {
+        b.mesh.castShadow =
+          d < (this.visualProfile.name === "Recovery" ? 140 : 220);
+        if (b.detailGeometry)
+          b.mesh.geometry =
+            b.detailGeometry[
+              d <
+              (b.kind === "pine"
+                ? this.visualProfile.nearFoliageDistance
+                : 180 * this.visualProfile.detail)
+                ? 0
+                : 1
+            ];
+        if (b.middle && b.low) {
+          const near = this.visualProfile.nearFoliageDistance;
+          const middle = this.visualProfile.middleFoliageDistance;
+          b.mesh.visible = near > 0 && d < near * 1.06 + b.radius;
+          b.middle.visible =
+            d < middle * 1.06 + b.radius && d + b.radius >= near * 0.94;
+          b.low.visible =
+            d + b.radius >= middle * 0.94 && d < this.renderDistance + b.radius;
+          b.mesh.castShadow = b.middle.castShadow =
+            d - b.radius < (this.visualProfile.name === "Recovery" ? 140 : 220);
+        } else if (b.low) {
           b.mesh.visible = d < 360;
           b.low.visible = d >= 360 && d < this.renderDistance + b.radius;
         } else if (b.kind === "trunk")
           b.mesh.visible = d < Math.min(700, this.renderDistance + 90);
         else b.mesh.visible = d < this.renderDistance + b.radius;
-        for (const mesh of [b.mesh, b.low])
+        for (const mesh of [b.mesh, b.middle, b.low])
           if (mesh) {
             if (mesh.visible && mesh.count && !mesh.parent)
               this.scene.add(mesh);
@@ -2104,17 +2824,21 @@ export class GameRenderer {
               this.scene.remove(mesh);
           }
       }
+      this.islandHorizon?.setView(this.camera.position, this.renderDistance);
       this.lastLOD = this.elapsed;
     }
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowDirty = false;
-      this.nextShadow =
-        this.elapsed +
-        (this.quality === "auto" ? this.auto.shadowInterval : 1 / 24);
+      this.nextShadow = this.elapsed + this.visualProfile.shadowInterval;
     }
     this.effects.ground = (x, z) => this.terrain.sample(x, z);
     const effectsStarted = performance.now();
+    this.effects.setEnvironment(
+      this.lighting.daylight,
+      this.lighting.lightDirection,
+      this.camera,
+    );
     this.effects.update(active ? dt : 0);
     this.performance.record("effects", performance.now() - effectsStarted);
     this.effects.laser.reduced = this.effects.reduced;
@@ -2147,6 +2871,7 @@ export class GameRenderer {
       );
       for (const batch of this.batches) {
         roots.push(batch.mesh);
+        if (batch.middle) roots.push(batch.middle);
         if (batch.low) roots.push(batch.low);
       }
       for (const mesh of this.fallenCanopies.values()) roots.push(mesh);
@@ -2159,14 +2884,81 @@ export class GameRenderer {
       this.eyes.update(roots, snap, this.jet.position);
     }
     this.performance.record("prepare", performance.now() - workStarted);
+    const terrainNormalDetail =
+      this.terrain.material.userData.terrainNormalDetail;
+    if (terrainNormalDetail)
+      terrainNormalDetail.value = +this.visualProfile.ambientOcclusion;
+    (this.surfaceNormalDetail ??= { value: 1 }).value =
+      +this.visualProfile.surfaceNormals;
+    this.performance.queues.surfaceNormals = +this.visualProfile.surfaceNormals;
+    // Thousands of alpha-tested falling leaf cards must not dominate the
+    // shadow pass when Auto has already reduced foliage and cosmetic detail.
+    const debrisShadows =
+      this.visualProfile.debrisShadows && !this.reducedEffects;
+    for (const [key, mesh] of this.bodyMeshes)
+      mesh.castShadow = debrisShadows && !key.includes(":");
+    for (const mesh of [
+      this.fallenPines,
+      this.fallenTrunks,
+      ...this.fallenCanopies.values(),
+    ])
+      mesh.castShadow = debrisShadows;
+    this.performance.queues.movingDebrisShadows = +debrisShadows;
     this.gpu.begin("gpu");
     const drawStarted = performance.now();
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.info.autoReset = false;
+    this.renderer.info.reset();
+    this.performance.queues.shaderPrograms =
+      this.renderer.info.programs?.length ?? 0;
+    this.presentation.setHeat(snap.lasers, this.camera, snap.time);
+    this.presentation.configure(
+      this.visualProfile,
+      this.reducedEffects,
+      this.rig.mode === "photo",
+    );
+    this.presentation.render(dt);
     this.gpu.end();
     this.performance.record("submit", performance.now() - drawStarted);
     this.performance.queues.drawCalls = this.renderer.info.render.calls;
     this.performance.queues.geometries = this.renderer.info.memory.geometries;
     this.performance.queues.textures = this.renderer.info.memory.textures;
+    this.performance.queues.triangles = this.renderer.info.render.triangles;
+    this.performance.queues.simulationRatio = this.cadence.sample(
+      frameTime,
+      snap.time,
+      active,
+    );
+    this.performance.queues.qualityLevel =
+      this.quality === "auto" ? this.auto.level : -1;
+    this.performance.queues.sceneHeight = this.presentation.size[1];
+    this.performance.queues.sceneWidth = this.presentation.size[0];
+    this.performance.queues.postProcessing =
+      +this.presentation.ao.enabled +
+      +this.presentation.bloom.enabled +
+      +this.presentation.smaa.enabled +
+      this.presentation.particleDepth.enabled.value +
+      +this.presentation.focus.enabled +
+      +this.presentation.heat.enabled;
+    this.performance.queues.renderTargetBytes =
+      this.presentation.targetBytes +
+      (this.reflectionTarget?.width ?? this.visualProfile.reflectionWidth) *
+        (this.reflectionTarget?.height ?? this.visualProfile.reflectionHeight) *
+        8 +
+      this.sun.shadow.mapSize.x ** 2 * 8 +
+      384 * 512 * 8;
+    this.performance.queues.reflectionWidth =
+      this.reflectionTarget?.width ?? this.visualProfile.reflectionWidth;
+    this.performance.queues.reflectionHeight =
+      this.reflectionTarget?.height ?? this.visualProfile.reflectionHeight;
+    this.performance.queues.reflectionFoliageDetail =
+      +this.visualProfile.reflectionFoliageDetail;
+    if (this.elapsed >= this.nextResources) {
+      Object.assign(
+        this.performance.queues,
+        sceneResources(this.scene, this.visualAssets.residentTextures),
+      );
+      this.nextResources = this.elapsed + 3;
+    }
     this.cpuMS = this.cpuMS * 0.9 + (performance.now() - workStarted) * 0.1;
     for (const s of this.retired) {
       if (s !== this.last && s !== this.previous && s !== snap) {
@@ -2203,6 +2995,10 @@ export class GameRenderer {
 
   dispose() {
     this.disposed = true;
+    this.visualAssets?.dispose();
+    this.presentation?.dispose();
+    this.environmentTarget?.dispose();
+    this.retiredGeometry?.forEach((g) => g.dispose());
     this.timeline.reset();
     this.last = this.previous = undefined;
     for (const snapshot of this.retired) this.recycle?.(snapshot);
@@ -2214,6 +3010,7 @@ export class GameRenderer {
     this.effects.reset();
     for (const b of this.batches) {
       this.scene.add(b.mesh);
+      if (b.middle) this.scene.add(b.middle);
       if (b.low) this.scene.add(b.low);
     }
     for (const group of this.ruinGroups.values()) this.scene.add(group);
@@ -2225,13 +3022,18 @@ export class GameRenderer {
     const geometries = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(),
       textures = new Set<THREE.Texture>();
+    geometries.add(this.spikeGeometry);
+    materials.add(this.spikeMaterial);
+    for (const material of this.foliageDepthMaterials?.values() ?? [])
+      materials.add(material);
+    if (this.settledTrunkMaterial) materials.add(this.settledTrunkMaterial);
     // Water keeps its render target in a closure. r180 records the owner on the
     // sampled texture; disposing only that texture leaves its framebuffer behind.
     const reflectionTexture = this.water.material.uniforms.mirrorSampler.value;
     const reflection = this.renderer.properties.get(reflectionTexture) as {
       __renderTarget?: THREE.WebGLRenderTarget;
     };
-    reflection.__renderTarget?.dispose();
+    (this.reflectionTarget ?? reflection.__renderTarget)?.dispose();
     this.sun.shadow.dispose();
     this.scene.traverse((object) => {
       const mesh = object as THREE.Mesh;
@@ -2310,7 +3112,12 @@ export class GameRenderer {
     ];
   }
   capture(): Promise<Blob> {
-    this.renderer.render(this.scene, this.camera);
+    this.presentation.configure(
+      this.visualProfile,
+      this.reducedEffects,
+      this.rig.mode === "photo",
+    );
+    this.presentation.render();
     return new Promise((resolve, reject) =>
       this.canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(Error("Capture unavailable"))),

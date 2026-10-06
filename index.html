@@ -111,7 +111,7 @@
                 </select></label
               >
               <label
-                >Render distance
+                >Detail distance
                 <output id="renderDistanceValue" for="renderDistance"
                   >1,200 m</output
                 >
@@ -125,8 +125,8 @@
                   aria-describedby="renderDistanceHelp"
                 />
                 <small id="renderDistanceHelp"
-                  >Lower distances draw less of the world. Higher distances may
-                  reduce FPS.</small
+                  >The whole island stays visible. Higher distances add more
+                  nearby detail and may reduce FPS.</small
                 >
               </label>
               <label class="check"
@@ -212,6 +212,11 @@
             </div>
           </section>
         </div>
+        <p class="asset-credits">
+          <a href="/assets/CREDITS.md" target="_blank" rel="noopener"
+            >Sound and asset credits</a
+          >
+        </p>
         <p id="status" role="status">Loading world…</p>
       </section>
     </main>
@@ -292,6 +297,24 @@
           max="100"
           value="64"
       /></label>
+      <label
+        >Exposure<input
+          id="photoExposure"
+          type="range"
+          min=".4"
+          max="2.2"
+          step=".05"
+          value="1.15"
+      /></label>
+      <label
+        >Focus · 0 disables blur<input
+          id="photoFocus"
+          type="range"
+          min="0"
+          max="1200"
+          step="5"
+          value="0"
+      /></label>
       <button id="savePhoto">Save PNG</button
       ><button id="hidePhoto">Hide controls</button
       ><button id="exitPhoto">Exit photo mode</button
@@ -304,6 +327,7 @@
       boost
     </div>
     <div id="saveStatus" role="status"></div>
+    <aside id="assetNotice" role="status" hidden></aside>
     <pre id="perf" hidden></pre>
     <dialog id="islandPreview" aria-labelledby="islandPreviewTitle">
       <h2 id="islandPreviewTitle">Choose your island</h2>

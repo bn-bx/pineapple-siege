@@ -1,0 +1,47 @@
+import { expect, it } from "vitest";
+import * as THREE from "three";
+import { IslandHorizon } from "../src/render/island-horizon";
+import type { WorldData } from "../src/types";
+import type { VisualAssets } from "../src/render/visual-assets";
+
+it("keeps distant owners aligned with destruction and restored saves without modifying world entities", () => {
+  const entities = [0, 1].map((id) => ({
+    id,
+    kind: "block",
+    material: "stone",
+    p: [3000 + id * 20, 30, 3000],
+    s: [4, 8, 4],
+    variant: 0.5,
+  }));
+  const world = { entities } as unknown as WorldData;
+  const before = JSON.stringify(entities);
+  const view = new IslandHorizon(
+    world,
+    [{ allIds: [0, 1], kind: "block", x: 3010, z: 3000, radius: 30 }],
+    { stone: new THREE.MeshStandardMaterial() } as any,
+    { foliage: new Map() } as VisualAssets,
+    { value: 1 },
+  );
+  const mesh = view.group.children[0] as THREE.InstancedMesh;
+  const first = new THREE.Matrix4(),
+    neighbor = new THREE.Matrix4();
+  mesh.getMatrixAt(0, first);
+  mesh.getMatrixAt(1, neighbor);
+  view.remove(0);
+  const hidden = new THREE.Matrix4();
+  mesh.getMatrixAt(0, hidden);
+  expect(hidden.elements[0]).toBe(0);
+  const unchanged = new THREE.Matrix4();
+  mesh.getMatrixAt(1, unchanged);
+  expect(unchanged.elements).toEqual(neighbor.elements);
+  view.restore([1]);
+  mesh.getMatrixAt(0, unchanged);
+  expect(unchanged.elements).toEqual(first.elements);
+  mesh.getMatrixAt(1, hidden);
+  expect(hidden.elements[0]).toBe(0);
+  view.restore([]);
+  mesh.getMatrixAt(1, unchanged);
+  expect(unchanged.elements).toEqual(neighbor.elements);
+  expect(JSON.stringify(entities)).toBe(before);
+  expect(mesh.castShadow).toBe(false);
+});

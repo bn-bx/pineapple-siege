@@ -93,8 +93,8 @@ export interface DestructionJob {
   yield: NukeYield;
   phase: "terrain" | "entities" | "support";
   cursor: number;
-  chunks: number[];
-  entities: number[];
+  chunks: readonly number[];
+  entities: readonly number[];
   assemblies: string[];
   fragments: number;
   profile: BlastProfile;
@@ -306,6 +306,12 @@ export interface SimulationSnapshot {
   packedBodies?: PackedBodies;
   stats: {
     stageMS?: Record<string, number>;
+    worstStep?: {
+      tick: number;
+      time: number;
+      ms: number;
+      stages: Record<string, number>;
+    };
     saveSliceMS?: number;
     snapshotMS?: number;
     packetPoolBusy?: number;
@@ -321,6 +327,7 @@ export interface SimulationSnapshot {
     removed: number;
     shots: number;
     revision: number;
+    terrainHeightJournalDataBytes?: number;
   };
 }
 export interface PackedMotion {

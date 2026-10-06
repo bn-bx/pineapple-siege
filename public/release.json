@@ -1,0 +1,13 @@
+{
+  "release": "visual-overhaul-2026-10-06",
+  "worldVersion": 8,
+  "includes": [
+    "local-pbr-assets",
+    "whole-island-no-fog",
+    "owner-linked-scenery",
+    "aircraft-residents-monsters",
+    "weapon-presentation",
+    "quality-photo-ui"
+  ],
+  "performanceCertification": "deferred by release instruction"
+}

@@ -1,3 +1,5 @@
+import { voiceReplacement, type AudibleVoice } from "./audio-priority";
+import { loadRecordings, type Recording } from "./audio-recordings";
 import type {
   Vec3,
   Explosion,
@@ -16,6 +18,12 @@ export class GameAudio {
     number,
     { update: (l: LaserStrike) => void; stop: () => void }
   >();
+  private recordings = new Map<Recording, AudioBuffer>();
+  private loops = new Map<
+    Recording,
+    { source: AudioBufferSourceNode; gain: GainNode }
+  >();
+  private listenerPosition: Vec3 = [0, 0, 0];
   private ctx?: AudioContext;
   private master?: GainNode;
   private mix?: DynamicsCompressorNode;
@@ -24,7 +32,7 @@ export class GameAudio {
   private engine?: OscillatorNode;
   private engineGain?: GainNode;
   private filter?: BiquadFilterNode;
-  private voices: (() => void)[] = [];
+  private voices: (AudibleVoice & { stop: () => void })[] = [];
   private turbine?: OscillatorNode;
   private turbineGain?: GainNode;
   private windGain?: GainNode;
@@ -71,6 +79,32 @@ export class GameAudio {
       this.windGain.gain.value = 0.02;
       wind.connect(this.windFilter).connect(this.windGain).connect(this.mix);
       wind.start();
+      void loadRecordings(this.ctx).then((buffers) => {
+        this.recordings = buffers;
+        for (const name of ["turbine", "wind", "forest", "river"] as const) {
+          const buffer = buffers.get(name);
+          if (!buffer || !this.ctx || !this.mix) continue;
+          const source = this.ctx.createBufferSource(),
+            gain = this.ctx.createGain();
+          source.buffer = buffer;
+          source.loop = true;
+          gain.gain.value = 0;
+          source.connect(gain).connect(this.mix);
+          source.start();
+          this.loops.set(name, { source, gain });
+          // Recordings can finish decoding during combat. Reserve their voices
+          // immediately instead of exceeding the ordinary pool until another hit.
+          while (this.voices.length + this.loops.size > 24) {
+            const quietest = voiceReplacement(
+              this.voices,
+              { p: this.listenerPosition, gain: Infinity, priority: 1 },
+              this.listenerPosition,
+              this.voices.length,
+            );
+            this.voices[quietest].stop();
+          }
+        }
+      });
     }
     await this.ctx.resume();
   }
@@ -85,7 +119,13 @@ export class GameAudio {
   pause() {
     this.ctx?.suspend().catch(() => {});
   }
-  update(speed: number, p: Vec3, forward: Vec3, boost = false) {
+  update(
+    speed: number,
+    p: Vec3,
+    forward: Vec3,
+    boost = false,
+    ambience = { altitude: 200, forest: 0, water: 0 },
+  ) {
     if (!this.ctx || !this.engine) return;
     this.engine.frequency.setTargetAtTime(
       45 + speed * 0.6,
@@ -123,14 +163,50 @@ export class GameAudio {
       this.ctx.currentTime,
       0.3,
     );
+    this.listenerPosition = p;
+    const near = Math.max(0, 1 - ambience.altitude / 180);
+    for (const [name, loop] of this.loops) {
+      const gain =
+        name === "turbine"
+          ? 0.025 + throttle * 0.075
+          : name === "wind"
+            ? 0.015 + throttle * 0.035
+            : name === "forest"
+              ? ambience.forest * near * 0.07
+              : ambience.water * near * 0.09;
+      loop.gain.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.8);
+      if (name === "turbine")
+        loop.source.playbackRate.setTargetAtTime(
+          0.85 + throttle * 0.3,
+          this.ctx.currentTime,
+          0.4,
+        );
+    }
     const l = this.ctx.listener;
     setAudioPosition(l, p);
     setListenerOrientation(l, forward);
   }
-  private noise(p: Vec3, duration: number, gain: number, cutoff: number) {
+  private admit(p: Vec3, gain: number, priority: number) {
+    const index = voiceReplacement(
+      this.voices,
+      { p, gain, priority },
+      this.listenerPosition,
+      24 - this.loops.size,
+    );
+    if (index < 0) return false;
+    if (index < this.voices.length) this.voices[index].stop();
+    return true;
+  }
+  private noise(
+    p: Vec3,
+    duration: number,
+    gain: number,
+    cutoff: number,
+    priority = 1,
+  ) {
     if (!this.ctx || !this.master) return;
     const c = this.ctx;
-    if (this.voices.length >= 24) this.voices[0]();
+    if (!this.admit(p, gain, priority)) return;
     const source = c.createBufferSource();
     source.buffer = this.blastNoise!;
     source.loop = true;
@@ -158,26 +234,126 @@ export class GameAudio {
       filter.disconnect();
       volume.disconnect();
       pan.disconnect();
-      this.voices = this.voices.filter((v) => v !== stop);
+      this.voices = this.voices.filter((v) => v.stop !== stop);
     };
     const stop = () => {
       source.stop();
       finish();
     };
-    this.voices.push(stop);
+    this.voices.push({ stop, p: [...p], gain, priority });
     source.onended = finish;
     source.start();
     source.stop(c.currentTime + duration);
   }
-  contact(e: ContactSound) {
-    const timber = e.material === "wood" || e.material === "foliage";
-    const settle = e.action === "settle";
-    this.noise(
-      e.p,
-      settle ? 0.35 : timber ? 0.65 : 0.28,
-      (settle ? 0.035 : 0.08) * Math.min(2, e.energy),
-      timber ? (settle ? 380 : 1250) : settle ? 1100 : 2600,
+  private recording(
+    name: Recording,
+    p: Vec3,
+    gain: number,
+    duration = 2,
+    rate = 1,
+    cutoff = 6800,
+  ) {
+    const buffer = this.recordings.get(name);
+    if (!buffer || !this.ctx || !this.mix) return false;
+    const priority = name === "explosion" ? 3 : name === "cheer" ? 0.7 : 1;
+    // A suppressed recording is handled; do not recreate it as a synth voice.
+    if (!this.admit(p, gain, priority)) return true;
+    const c = this.ctx,
+      source = c.createBufferSource(),
+      filter = c.createBiquadFilter(),
+      volume = c.createGain(),
+      pan = c.createPanner();
+    const distance = Math.hypot(
+      p[0] - this.listenerPosition[0],
+      p[1] - this.listenerPosition[1],
+      p[2] - this.listenerPosition[2],
     );
+    source.buffer = buffer;
+    source.playbackRate.value = rate;
+    filter.type = "lowpass";
+    filter.frequency.value = 800 + (cutoff - 800) * Math.exp(-distance / 450);
+    volume.gain.value = gain;
+    volume.gain.setTargetAtTime(
+      0.0001,
+      c.currentTime + duration * 0.6,
+      duration * 0.15,
+    );
+    pan.distanceModel = "inverse";
+    pan.refDistance = 80;
+    pan.maxDistance = 2500;
+    pan.rolloffFactor = 1.1;
+    setAudioPosition(pan, p);
+    source.connect(filter).connect(volume).connect(pan).connect(this.mix);
+    let stopped = false;
+    const finish = () => {
+      if (stopped) return;
+      stopped = true;
+      source.disconnect();
+      filter.disconnect();
+      volume.disconnect();
+      pan.disconnect();
+      this.voices = this.voices.filter((v) => v.stop !== stop);
+    };
+    const stop = () => {
+      try {
+        source.stop();
+      } catch {}
+      finish();
+    };
+    this.voices.push({ stop, p: [...p], gain, priority });
+    source.onended = finish;
+    source.start();
+    source.stop(c.currentTime + Math.min(duration, buffer.duration / rate));
+    return true;
+  }
+  contact(e: ContactSound) {
+    const settle = e.action === "settle";
+    const energy = Math.min(2, Math.max(0, e.energy));
+    // Loose soil, leaves and glazing have no masonry-sized thump.
+    if (
+      e.material === "earth" ||
+      e.material === "foliage" ||
+      e.material === "window"
+    ) {
+      const glass = e.material === "window",
+        leaves = e.material === "foliage";
+      this.noise(
+        e.p,
+        settle ? 0.16 : glass ? 0.42 : leaves ? 0.5 : 0.3,
+        (settle ? 0.018 : glass ? 0.045 : 0.035) * energy,
+        glass ? 7200 : leaves ? 2400 : 650,
+        settle ? 0.45 : 1,
+      );
+      return;
+    }
+    const timber = e.material === "wood";
+    const tile = e.material === "roof" || e.material === "slate";
+    const plaster = e.material === "plaster";
+    const duration = settle
+      ? 0.2
+      : timber
+        ? 0.65
+        : tile
+          ? 0.32
+          : plaster
+            ? 0.38
+            : 0.8;
+    const gain =
+      (settle ? 0.04 : tile ? 0.085 : plaster ? 0.095 : 0.13) * energy;
+    const rate = (tile ? 1.35 : plaster ? 1.15 : 0.9) + (e.energy % 1) * 0.2;
+    const cutoff = timber ? 3300 : tile ? 6800 : plaster ? 2800 : 5200;
+    if (
+      this.recording(
+        timber ? "wood" : "stone",
+        e.p,
+        gain,
+        duration,
+        rate,
+        cutoff,
+      )
+    )
+      return;
+    this.noise(e.p, duration, gain * 0.65, cutoff, settle ? 0.45 : 1);
   }
   monster(p: Vec3, kind: "hit" | "defeat" | "throw" | "swipe") {
     this.noise(
@@ -188,9 +364,10 @@ export class GameAudio {
     );
   }
   settlement(p: Vec3, kind: "cheer" | "sad") {
+    if (kind === "cheer" && this.recording("cheer", p, 0.2, 2.5)) return;
     if (!this.ctx || this.ctx.state !== "running") return;
     const c = this.ctx;
-    if (this.voices.length >= 24) this.voices[0]();
+    if (!this.admit(p, 0.06, 0.7)) return;
     const pan = c.createPanner();
     pan.distanceModel = "inverse";
     pan.refDistance = 90;
@@ -226,7 +403,7 @@ export class GameAudio {
       for (const v of nodes) v.disconnect();
       gain.disconnect();
       pan.disconnect();
-      this.voices = this.voices.filter((v) => v !== stop);
+      this.voices = this.voices.filter((v) => v.stop !== stop);
     };
     const stop = () => {
       for (const v of nodes)
@@ -236,25 +413,36 @@ export class GameAudio {
       finish();
     };
     nodes[0].onended = finish;
-    this.voices.push(stop);
+    this.voices.push({ stop, p: [...p], gain: 0.06, priority: 0.7 });
   }
   reset() {
     this.lastNuke = -Infinity;
     this.lastDiscoStep = -1;
     for (const voice of this.laserVoices.values()) voice.stop();
     this.laserVoices.clear();
-    for (const stop of [...this.voices]) stop();
+    for (const voice of [...this.voices]) voice.stop();
     for (const voice of this.nukeVoices.splice(0)) voice.stop();
   }
   get stats() {
     return {
-      ordinaryVoices: this.voices.length,
+      ordinaryVoices: this.voices.length + this.loops.size,
+      recordingsLoaded: this.recordings.size,
       nukeVoices: this.nukeVoices.length,
       laserVoices: this.laserVoices.size,
     };
   }
 
   explosion(e: Explosion) {
+    if (
+      e.kind !== "nuke" &&
+      this.recording(
+        e.water ? "river" : "explosion",
+        e.p,
+        e.water ? 0.15 : 0.18,
+        e.water ? 0.8 : 1,
+      )
+    )
+      return;
     if (e.kind === "nuke") {
       if (!this.ctx || !this.mix || !this.blastNoise) return;
       const p = this.lastNukePosition;
@@ -297,6 +485,7 @@ export class GameAudio {
       weapon === "nuke" ? 0.45 : 0.22,
       weapon === "nuke" ? 0.3 : 0.2,
       weapon === "nuke" ? 420 : 1700,
+      3,
     );
   }
   syncDisco(enabled: boolean, simTime: number) {
@@ -392,7 +581,7 @@ export class GameAudio {
             const charge = strike.phase === "charging",
               progress = Math.min(1, strike.age / 4);
             if (prior === "charging" && !charge)
-              this.noise(strike.p, 1.5, 0.8, 3000);
+              this.noise(strike.p, 1.5, 0.8, 3000, 3);
             prior = strike.phase;
             tone.frequency.setTargetAtTime(
               charge

@@ -34,17 +34,17 @@ export function drawIslandPreview(
       const color =
         h < 0
           ? [
-              29 + Math.max(0, 22 + h),
-              76 + Math.max(0, 35 + h),
-              95 + Math.max(0, 35 + h),
+              22 + Math.max(0, 1 + h / 30) * 26,
+              54 + Math.max(0, 1 + h / 30) * 55,
+              65 + Math.max(0, 1 + h / 30) * 51,
             ]
           : h < 6
-            ? [192, 183, 132]
+            ? [181, 170, 133]
             : h > 550
-              ? [139, 150, 141]
+              ? [128, 132, 123]
               : h > 250
-                ? [110, 128, 87]
-                : [92, 134, 75];
+                ? [107, 115, 88]
+                : [89, 118, 74];
       image.data[i] = color[0] * (h < 0 ? 1 : light);
       image.data[i + 1] = color[1] * (h < 0 ? 1 : light);
       image.data[i + 2] = color[2] * (h < 0 ? 1 : light);
@@ -74,7 +74,7 @@ export function drawIslandPreview(
     path.forEach(([x, z], i) => (i ? ctx.lineTo(x, z) : ctx.moveTo(x, z)));
     ctx.stroke();
   }
-  ctx.strokeStyle = "#73c1c8";
+  ctx.strokeStyle = "#4d929b";
   ctx.lineCap = "round";
   for (const river of world.rivers ?? []) {
     ctx.lineWidth = river.width * 2;

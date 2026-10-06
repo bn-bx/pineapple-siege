@@ -180,6 +180,7 @@ export class TerrainView {
     for (let z = 0; z < CHUNKS; z++)
       for (let x = 0; x < CHUNKS; x++) {
         let mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
+        mesh.matrixAutoUpdate = false;
         mesh.receiveShadow = true;
         mesh.castShadow = true;
 
@@ -322,7 +323,10 @@ export class TerrainView {
     detailScale = 1,
   ) {
     const coarseStarted = performance.now();
-    this.refreshCoarse(false, Math.min(0.35, Math.max(0, budgetMS) * 0.25));
+    this.refreshCoarse(
+      false,
+      Math.max(0.05, Math.min(0.35, Math.max(0, budgetMS) * 0.25)),
+    );
     budgetMS = Math.max(0, budgetMS - (performance.now() - coarseStarted));
     if (this.worker) {
       this.updateAsync(camera, renderDistance, budgetMS, detailScale);
@@ -376,6 +380,9 @@ export class TerrainView {
   ) {
     const started = performance.now(),
       cell = Math.floor(camera.x / 32) + Math.floor(camera.z / 32) * 192;
+    // Mandatory presentation can exhaust the shared frame allowance. One
+    // bounded tile operation still progresses; extra operations use headroom.
+    let progressed = false;
     if (
       cell !== this.lastCell ||
       distance !== this.lastDistance ||
@@ -465,7 +472,11 @@ export class TerrainView {
           this.coverCoarse(key, false);
         }
     }
-    while (this.completed.length && performance.now() - started < budgetMS) {
+    while (
+      this.completed.length &&
+      (!progressed || performance.now() - started < budgetMS)
+    ) {
+      progressed = true;
       const r = this.completed.shift()!;
       if (r.epoch !== this.epoch || !this.activeTiles.has(r.tile)) continue;
       if (
@@ -517,7 +528,7 @@ export class TerrainView {
     }
     while (
       this.inFlight.size < 2 &&
-      performance.now() - started < budgetMS &&
+      (!progressed || performance.now() - started < budgetMS) &&
       this.dirtyTiles.size
     ) {
       let key = -1,
@@ -533,6 +544,7 @@ export class TerrainView {
         }
       }
       if (key < 0) break;
+      progressed = true;
       this.dirtyTiles.delete(key);
       if (!this.activeTiles.has(key)) continue;
       const sections: TerrainJob["sections"] = [],
@@ -750,6 +762,7 @@ export class TerrainView {
           tile.mesh.geometry = geometry;
         } else {
           const mesh = new THREE.Mesh(geometry, this.material);
+          mesh.matrixAutoUpdate = false;
           mesh.receiveShadow = true;
           this.group.add(mesh);
           this.tiles.set(key, (tile = { mesh, signature, members: new Set() }));

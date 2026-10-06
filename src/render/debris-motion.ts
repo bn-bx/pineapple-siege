@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { copyFoliageWind } from "./foliage-wind";
 import type { BodyView } from "../types";
 const declarations = `
 attribute vec3 motionPreviousP, motionPreviousS;
@@ -20,6 +21,7 @@ function patch(
   enabled: { value: number },
 ) {
   const previous = material.onBeforeCompile.bind(material);
+  const key = material.customProgramCacheKey();
   material.onBeforeCompile = (shader, renderer) => {
     previous(shader, renderer);
     shader.uniforms.motionAlpha = alpha;
@@ -55,7 +57,7 @@ function patch(
         ),
       );
   };
-  material.customProgramCacheKey = () => "debris-motion-v2";
+  material.customProgramCacheKey = () => `${key}:debris-motion-v3`;
   material.needsUpdate = true;
 }
 /** The GPU interpolates poses. CPU uploads only when a new motion packet arrives. */
@@ -66,18 +68,40 @@ export function prepareDebrisMotion(
 ) {
   if (mesh.userData.motion) return;
   mesh.geometry = mesh.geometry.clone();
-  const material = (mesh.material as THREE.Material).clone();
-  material.onBeforeCompile = (mesh.material as THREE.Material).onBeforeCompile;
+  refreshDebrisMaterial(mesh, mesh.material as THREE.Material, alpha, enabled);
+  resizeDebrisMotion(mesh);
+  mesh.userData.motion = true;
+  mesh.setMatrixAt(0, new THREE.Matrix4());
+}
+
+/** Replace loading surfaces without reallocating or losing packed motion data. */
+export function refreshDebrisMaterial(
+  mesh: THREE.InstancedMesh,
+  source: THREE.Material,
+  alpha: { value: number },
+  enabled: { value: number },
+) {
+  const old = mesh.material as THREE.Material;
+  const material = source.clone();
+  material.onBeforeCompile = source.onBeforeCompile;
+  const sourceKey = source.customProgramCacheKey();
+  material.customProgramCacheKey = () => sourceKey;
   mesh.material = material;
   patch(material, alpha, enabled);
   const depth = new THREE.MeshDepthMaterial({
     depthPacking: THREE.RGBADepthPacking,
+    map:
+      (material as THREE.MeshStandardMaterial).alphaTest > 0
+        ? (material as THREE.MeshStandardMaterial).map
+        : null,
+    alphaTest: (material as THREE.MeshStandardMaterial).alphaTest,
+    side: material.side,
   });
+  copyFoliageWind(source, depth);
   patch(depth, alpha, enabled);
+  mesh.customDepthMaterial?.dispose();
   mesh.customDepthMaterial = depth;
-  resizeDebrisMotion(mesh);
-  mesh.userData.motion = true;
-  mesh.setMatrixAt(0, new THREE.Matrix4());
+  if (mesh.userData.motion && old !== source) old.dispose();
 }
 export function resizeDebrisMotion(mesh: THREE.InstancedMesh) {
   const count = mesh.instanceMatrix.count;

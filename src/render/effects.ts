@@ -1,3 +1,4 @@
+import { softenParticles, type ParticleDepth } from "./soft-particles";
 import { GroundDust } from "./dust";
 import * as THREE from "three";
 import { NukeCloud } from "./nuke-cloud";
@@ -16,6 +17,7 @@ export class Effects {
   private life = new Float32Array(this.capacity);
   private totalLife = new Float32Array(this.capacity);
   private next = 0;
+  private activeParticles = new Set<number>();
   private points: THREE.Points;
   private vaporRegions = new Map<
     string,
@@ -28,6 +30,22 @@ export class Effects {
   private flashGeometry = new THREE.SphereGeometry(1, 16, 10);
   private blastColor = new THREE.Color();
   private cloudsPool: NukeCloud[] = [];
+  private particleDepth?: ParticleDepth;
+  private puffAtlas?: THREE.Texture;
+  installParticles(texture: THREE.Texture) {
+    this.puffAtlas = texture;
+    this.dust.installAtlas(texture);
+    for (const cloud of [...this.clouds, ...this.cloudsPool])
+      cloud.installAtlas(texture);
+    if (this.particleDepth) this.setParticleDepth(this.particleDepth);
+  }
+  setParticleDepth(depth: ParticleDepth) {
+    this.particleDepth = depth;
+    softenParticles(this.dust.mesh.material, depth);
+    softenParticles(this.points.material as THREE.PointsMaterial, depth, 1.5);
+    for (const cloud of [...this.clouds, ...this.cloudsPool])
+      cloud.setParticleDepth(depth);
+  }
   private flashes: {
     mesh: THREE.Mesh;
     life: number;
@@ -42,6 +60,16 @@ export class Effects {
   ground: (x: number, z: number) => number = () => 0;
   fragment(e: FragmentEffect, scale = 1) {
     this.fragments.emit(e, this.reduced ? scale * 0.5 : scale);
+    this.dust.impact(e, this.reduced, scale);
+  }
+  setEnvironment(day: number, direction: THREE.Vector3, camera: THREE.Camera) {
+    for (const cloud of this.clouds)
+      cloud.setEnvironment(day, direction, camera);
+    (this.dust.mesh.material as THREE.MeshBasicMaterial).color.setRGB(
+      0.42 + day * 0.24,
+      0.38 + day * 0.23,
+      0.3 + day * 0.2,
+    );
   }
   reduced = false;
   private lastReduced = false;
@@ -135,13 +163,19 @@ export class Effects {
         this.cloudsPool.filter((c) => c.reduced === reduced).length +
         this.clouds.filter((c) => c.reduced === reduced).length;
       for (let i = count; i < 3; i++)
-        this.cloudsPool.push(new NukeCloud(event, reduced));
+        this.cloudsPool.push(this.makeCloud(event, reduced));
     }
+  }
+  private makeCloud(event: Explosion, reduced: boolean) {
+    const cloud = new NukeCloud(event, reduced);
+    if (this.puffAtlas) cloud.installAtlas(this.puffAtlas);
+    if (this.particleDepth) cloud.setParticleDepth(this.particleDepth);
+    return cloud;
   }
   private takeCloud(event: Explosion, reduced: boolean) {
     const index = this.cloudsPool.findIndex((c) => c.reduced === reduced);
     return index < 0
-      ? new NukeCloud(event, reduced)
+      ? this.makeCloud(event, reduced)
       : this.cloudsPool.splice(index, 1)[0];
   }
   disposePools() {
@@ -187,6 +221,8 @@ export class Effects {
         a = Math.random() * Math.PI * 2,
         u = Math.random(),
         speed = 4 + Math.random() * 27 * e.power;
+      this.activeParticles.add(i);
+      this.points.visible = true;
       this.positions.set(e.p, i * 3);
       this.velocity.set(
         [
@@ -256,6 +292,8 @@ export class Effects {
   }
   trail(p: number[], v: number[]) {
     const i = this.next++ % this.capacity;
+    this.activeParticles.add(i);
+    this.points.visible = true;
     this.positions.set(p, i * 3);
     this.velocity.set(
       v.map((x) => x * 0.1),
@@ -291,17 +329,31 @@ export class Effects {
       }
     }
 
-    for (let i = 0; i < this.capacity; i++)
-      if (this.life[i] > 0) {
-        this.life[i] -= dt;
-        for (let k = 0; k < 3; k++)
-          this.positions[i * 3 + k] += this.velocity[i * 3 + k] * dt;
-        this.velocity[i * 3 + 1] -= 6 * dt;
-        this.velocity[i * 3] *= 1 - dt * 0.4;
-        this.velocity[i * 3 + 2] *= 1 - dt * 0.4;
-        if (this.life[i] <= 0) this.positions[i * 3 + 1] = -100000;
+    let first = this.capacity,
+      last = -1;
+    for (const i of this.activeParticles) {
+      this.life[i] -= dt;
+      for (let k = 0; k < 3; k++)
+        this.positions[i * 3 + k] += this.velocity[i * 3 + k] * dt;
+      this.velocity[i * 3 + 1] -= 6 * dt;
+      this.velocity[i * 3] *= 1 - dt * 0.4;
+      this.velocity[i * 3 + 2] *= 1 - dt * 0.4;
+      if (this.life[i] <= 0) {
+        this.positions[i * 3 + 1] = -100000;
+        this.activeParticles.delete(i);
       }
-    this.points.geometry.attributes.position.needsUpdate = true;
+      first = Math.min(first, i);
+      last = Math.max(last, i);
+    }
+    if (last >= first) {
+      const position = this.points.geometry.attributes
+        .position as THREE.BufferAttribute;
+      // Three clears ranges after upload. Retain dirty slots while the whole
+      // pool is hidden, so expired particles cannot reappear on its next use.
+      position.addUpdateRange(first * 3, (last - first + 1) * 3);
+      position.needsUpdate = true;
+    }
+    this.points.visible = this.activeParticles.size > 0;
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const f = this.flashes[i];
       f.life -= dt;
@@ -339,8 +391,15 @@ export class Effects {
       this.cloudsPool.push(c);
     }
     this.clouds = [];
+    this.activeParticles.clear();
+    this.points.visible = false;
     this.life.fill(0);
     this.positions.fill(-100000);
+    const position = this.points.geometry.attributes
+      .position as THREE.BufferAttribute;
+    position.clearUpdateRanges();
+    position.addUpdateRange(0, this.capacity * 3);
+    this.points.geometry.attributes.position.needsUpdate = true;
     for (const f of this.flashes) {
       this.group.remove(f.mesh);
       this.flashPool.push(

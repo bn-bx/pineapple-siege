@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { copyTreeLOD } from "./tree-lod";
 import type { SimulationSnapshot } from "../types";
 
 const vertexShader = `
@@ -77,8 +78,8 @@ export class GooglyEyes {
   private entries = new Map<THREE.Object3D, THREE.Mesh>();
   private seen = new Set<THREE.Object3D>();
   private roots = new Set<THREE.Object3D>();
-  private membership = new Map<THREE.Object3D,THREE.Object3D>();
-  private currentRoot!:THREE.Object3D;
+  private membership = new Map<THREE.Object3D, THREE.Object3D>();
+  private currentRoot!: THREE.Object3D;
 
   /** Groups can supply a single face instead of giving every limb its own eyes. */
   private visit = (source: THREE.Object3D) => {
@@ -119,6 +120,12 @@ export class GooglyEyes {
         fog: true,
         toneMapped: false,
       });
+      if (source instanceof THREE.Mesh) {
+        const surface = Array.isArray(source.material)
+          ? source.material[0]
+          : source.material;
+        copyTreeLOD(surface, material);
+      }
       if (source instanceof THREE.InstancedMesh) {
         eyes = new THREE.InstancedMesh(this.geometry, material, 1);
         (eyes as THREE.InstancedMesh).instanceMatrix = source.instanceMatrix;
@@ -128,7 +135,7 @@ export class GooglyEyes {
       eyes.renderOrder = 2;
       source.add(eyes);
       this.entries.set(source, eyes);
-      this.membership.set(source,this.currentRoot);
+      this.membership.set(source, this.currentRoot);
     }
     if (source instanceof THREE.InstancedMesh) {
       const instanced = eyes as THREE.InstancedMesh;
@@ -151,12 +158,20 @@ export class GooglyEyes {
     if (!this.enabled) return;
     if (jetPosition) this.jet.value.copy(jetPosition);
     else this.jet.value.fromArray(snapshot.plane.p);
-    this.seen.clear();this.roots.clear();
-    for (const root of roots) {this.roots.add(root);this.currentRoot=root;this.visit(root);}
+    this.seen.clear();
+    this.roots.clear();
+    for (const root of roots) {
+      this.roots.add(root);
+      this.currentRoot = root;
+      this.visit(root);
+    }
     // Settled batches, reset projectiles and vaporized rubble retire cleanly.
     for (const [source, eyes] of this.entries) {
       if (this.seen.has(source)) continue;
-      if(this.roots.has(this.membership.get(source)!)) {eyes.visible=false;continue;}
+      if (this.roots.has(this.membership.get(source)!)) {
+        eyes.visible = false;
+        continue;
+      }
       this.membership.delete(source);
       source.remove(eyes);
       (eyes.material as THREE.Material).dispose();
@@ -185,7 +200,9 @@ export class GooglyEyes {
         eyes.dispose();
       }
     }
-    this.entries.clear();this.membership.clear();this.roots.clear();
+    this.entries.clear();
+    this.membership.clear();
+    this.roots.clear();
     this.geometry.dispose();
   }
   get count() {

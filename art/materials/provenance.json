@@ -1,0 +1,272 @@
+[
+  {
+    "family": "stone",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_sandstone_blocks/large_sandstone_blocks_diff_1k.jpg",
+    "sourceMD5": "fbc24ce12cb1dd05490749c7b951c4bc",
+    "sha256": "060e4c4d07bf33034d1c7779cb649994461b6f8b0ae3bab0e15fb39855665873",
+    "bytes": 1218865,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/large_sandstone_blocks"
+  },
+  {
+    "family": "stone",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_sandstone_blocks/large_sandstone_blocks_nor_gl_1k.jpg",
+    "sourceMD5": "59752e8ca6c832c87292825ce53e1ab7",
+    "sha256": "2f6c03737aaac82c688ee92f0d28942f70583fa6ddab9c7f6b1d27bd02bdbf4e",
+    "bytes": 1115497,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/large_sandstone_blocks"
+  },
+  {
+    "family": "stone",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_sandstone_blocks/large_sandstone_blocks_arm_1k.jpg",
+    "sourceMD5": "888f5663748f5c80ce73c7bd7ced2478",
+    "sha256": "d36a5b106a41334b56cfee9a408d763b2a6da45722f1fbf1b7b0d77d4da97190",
+    "bytes": 1115542,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/large_sandstone_blocks"
+  },
+  {
+    "family": "wood",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_wood/medieval_wood_diff_1k.jpg",
+    "sourceMD5": "6c464ccb8e5dc5b1ab1b93c05dcc4a8c",
+    "sha256": "ee7ac6471dc2eec0870d6bf20c4ae23ec2effea5c6dc2d695d03969d83dafda5",
+    "bytes": 1289072,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/medieval_wood"
+  },
+  {
+    "family": "wood",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_wood/medieval_wood_nor_gl_1k.jpg",
+    "sourceMD5": "f392a90a1e5155b0cfdc0c9534275594",
+    "sha256": "7e29e680cb7248d6a7eaebff44a7272a3c9d61359473fa3222dd17c4987faabe",
+    "bytes": 1253268,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/medieval_wood"
+  },
+  {
+    "family": "wood",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/medieval_wood/medieval_wood_arm_1k.jpg",
+    "sourceMD5": "f556e1bff61e9889ad77f6d8a4d69ca0",
+    "sha256": "b353cae2c6537c6b10ac1ec9c85a613edefe4d69a848d621035f0cdd17ebef43",
+    "bytes": 1126316,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/medieval_wood"
+  },
+  {
+    "family": "grass",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_diff_1k.jpg",
+    "sourceMD5": "0dbc071e91d6905edfcfbe8eb785a1ab",
+    "sha256": "b9efb405616940d897df94c1aad00de10d579669c14cd4031ca1737b580eb6e4",
+    "bytes": 1321548,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/leafy_grass"
+  },
+  {
+    "family": "grass",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_nor_gl_1k.jpg",
+    "sourceMD5": "8279e096e204ea326d57a318869f99df",
+    "sha256": "34d9e600a035fd9d80c4b46ca32a3a4ae1e155fbddd06985e618cdaa7f412f01",
+    "bytes": 1297913,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/leafy_grass"
+  },
+  {
+    "family": "grass",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leafy_grass/leafy_grass_arm_1k.jpg",
+    "sourceMD5": "44fb4e40ef0f3425a7d1a14bc328e4d8",
+    "sha256": "a4314cbe57f8a883bfb293b593ed2f765d38497dcb0d7be038dcefe74a0a9a7a",
+    "bytes": 1210201,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/leafy_grass"
+  },
+  {
+    "family": "rock",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_rock/dark_rock_diff_1k.jpg",
+    "sourceMD5": "ee1bf662b14c31830e0683197f6a4c65",
+    "sha256": "0febf4be355d449d4d3c8b676522c0d8cbe7d91b5b855b43ea9100e88044e670",
+    "bytes": 1024635,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/dark_rock"
+  },
+  {
+    "family": "rock",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_rock/dark_rock_nor_gl_1k.jpg",
+    "sourceMD5": "ec29e852e783b353c06b630121f5d61c",
+    "sha256": "0feffdaf7de07dee8e55f51088610823c7b19cf2b8db6839e55f63ae414ac1ae",
+    "bytes": 1280310,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/dark_rock"
+  },
+  {
+    "family": "rock",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dark_rock/dark_rock_arm_1k.jpg",
+    "sourceMD5": "3f8428428560f43e80a84ccb70d87632",
+    "sha256": "c03ae10c6cfa6119d5eecddac4f98e9a4006c36bf874a040f281e1d840760d80",
+    "bytes": 1170578,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/dark_rock"
+  },
+  {
+    "family": "soil",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_diff_1k.jpg",
+    "sourceMD5": "6ad9df4d731a238299806f739a26af83",
+    "sha256": "8e89d54ae075443b8bb2e2787b7813cc921474133e14765345b70c222571d33b",
+    "bytes": 1235274,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/forest_ground_04"
+  },
+  {
+    "family": "soil",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_nor_gl_1k.jpg",
+    "sourceMD5": "a010a0802c2d9a930c6f00d3b1f196d2",
+    "sha256": "a7fbf71f83e0a7424e0786f0f25f5f732ac2162ecf02d26a9d958c964ac347b2",
+    "bytes": 1301919,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/forest_ground_04"
+  },
+  {
+    "family": "soil",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_ground_04/forest_ground_04_arm_1k.jpg",
+    "sourceMD5": "3fbb079d961f59b8fac7ec4f6dab9f20",
+    "sha256": "a5939fa544bcc17797e62087ea17785ec4bc4ab739aacf12ee4280808df02380",
+    "bytes": 1236785,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/forest_ground_04"
+  },
+  {
+    "family": "roof",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_diff_1k.jpg",
+    "sourceMD5": "9a0d2c1ca66e79972c7c35cefa238cf7",
+    "sha256": "ed49c09308f1d6a7afaba6f34e0311d1731f8ad2e2900546be0b0673deffaad2",
+    "bytes": 1277597,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/grey_roof_tiles"
+  },
+  {
+    "family": "roof",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_nor_gl_1k.jpg",
+    "sourceMD5": "95003919cdb2fcb2f499594bdf0ee827",
+    "sha256": "d6832157a6b3fd7e4bf2c07e2413aeb0aec01bdd37285ba32ae86bbfbbbae0cf",
+    "bytes": 1191291,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/grey_roof_tiles"
+  },
+  {
+    "family": "roof",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_arm_1k.jpg",
+    "sourceMD5": "9c7eefaca8e99854cb1a3dc2d999ee9b",
+    "sha256": "ab46223172fa81bfc7ef02e80bf542f173c7e87f62b7f94925649359a23fbccd",
+    "bytes": 1075100,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/grey_roof_tiles"
+  },
+  {
+    "family": "bark",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg",
+    "sourceMD5": "7bb38cccfc647aeaf2f5b6488c815e75",
+    "sha256": "18057c1f5ba1ddf677842650a61f8df4daf2509bed2b6df297a332b05707bcaa",
+    "bytes": 1242921,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/pine_bark"
+  },
+  {
+    "family": "bark",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_nor_gl_1k.jpg",
+    "sourceMD5": "7b971070fc986e517b5d2795cec0f4e0",
+    "sha256": "ded887c8eb696d929f2676e0ef0c0b7924e8ccf032dd7cd633dd8d7039aeef59",
+    "bytes": 1300825,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/pine_bark"
+  },
+  {
+    "family": "bark",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_arm_1k.jpg",
+    "sourceMD5": "8f47278dc2643509cd1f9d9268214097",
+    "sha256": "191c795293a679fd5dd39c1cdd4692fd922c6ca4df83fd80da1e9c36f807f3bb",
+    "bytes": 1210180,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/pine_bark"
+  },
+  {
+    "family": "cloth",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_linen/rough_linen_diff_1k.jpg",
+    "sourceMD5": "663db789fb075462b685c1f740e58930",
+    "sha256": "2c74806c6c1cf368ec5ea6ee637f5f77ffa3addcfbe7940b735afb719f0f2e93",
+    "bytes": 1061406,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/rough_linen"
+  },
+  {
+    "family": "cloth",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_linen/rough_linen_nor_gl_1k.jpg",
+    "sourceMD5": "3350269a2e9c472aa406bd3cc1eaf2c8",
+    "sha256": "4d663e8f0a02d2d3ecdf8965057c5c680cdf4944827fbae0333bb40f1da4e4e6",
+    "bytes": 1098698,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/rough_linen"
+  },
+  {
+    "family": "cloth",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rough_linen/rough_linen_arm_1k.jpg",
+    "sourceMD5": "ffe777973056d79d6b2a1324e8451295",
+    "sha256": "577edd0851ecc0367a9450e5b1436a22e97d091012e47bb0546ab59d1e77b39e",
+    "bytes": 1209422,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/rough_linen"
+  },
+  {
+    "family": "sand",
+    "channel": "color",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_diff_1k.jpg",
+    "sourceMD5": "a1e243fc8635806381505c7dc44b192a",
+    "sha256": "adb310ecc4956c6524e6110635d5829459c23cf9eeffb90c99d23c86720dbf46",
+    "bytes": 1217881,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/coast_sand_01"
+  },
+  {
+    "family": "sand",
+    "channel": "normal",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_nor_gl_1k.jpg",
+    "sourceMD5": "38bbe6863249a3d20d8417c9db207780",
+    "sha256": "a8bff31349b0395b67f2abc8acf1fbc9a2963d3b808289859669f756a6dc7b63",
+    "bytes": 1271255,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/coast_sand_01"
+  },
+  {
+    "family": "sand",
+    "channel": "orm",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_arm_1k.jpg",
+    "sourceMD5": "f044891a328d284c9e7cd46da12fa45d",
+    "sha256": "8a64fe5271499694909d6d744546bc0818e60c69ec766d2da18f6374955f23bd",
+    "bytes": 1067443,
+    "license": "CC0-1.0",
+    "asset": "https://polyhaven.com/a/coast_sand_01"
+  }
+]

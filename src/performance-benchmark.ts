@@ -9,6 +9,7 @@ import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
 import type {
   GameCommand,
+  Vec3,
   WorkerMessage,
   SimulationSnapshot,
   WorldData,
@@ -55,6 +56,14 @@ const { world, heights } = await baseline();
 (document.querySelector("#seed") as HTMLInputElement).value = String(
   world.seed,
 );
+const viewpoints = document.querySelector<HTMLSelectElement>("#viewpoint")!;
+for (const kind of new Set(world.sites.map((s) => s.kind)))
+  if (!Array.from(viewpoints.options).some((o) => o.value === kind)) {
+    const option = document.createElement("option");
+    option.value = kind;
+    option.textContent = kind.replaceAll("-", " ");
+    viewpoints.add(option);
+  }
 const saveWriter = new SaveWriter("siege-performance-test"),
   store = new SaveStore("siege-performance-test", saveWriter);
 await store.open();
@@ -101,7 +110,8 @@ let snapshot: SimulationSnapshot,
   saving = false,
   caseIndex = -1,
   benchmarkRunning = false,
-  soak = false;
+  soak = false,
+  normalSoak = false;
 const cases = [120, 400].flatMap((count) =>
   ["flight", "nuke", "laser"].map((kind) => ({ count, kind, duration: 30 })),
 );
@@ -109,8 +119,59 @@ cases.push(
   { count: 120, kind: "single-nuke", duration: 20 },
   { count: 120, kind: "single-nuke-no-save", duration: 20 },
 );
+cases.push(
+  ...[120, 400].flatMap((count) =>
+    ["cannon-projectiles", "nuke-projectiles", "flight-3000"].map((kind) => ({
+      count,
+      kind,
+      duration: 45,
+    })),
+  ),
+);
+const caseSelector = document.querySelector<HTMLSelectElement>("#case")!;
+for (const [index, c] of cases.entries())
+  if (index >= 8) {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = `${c.kind} · ${c.count}`;
+    caseSelector.add(option);
+  }
+const routes = [
+  world.castle,
+  ...world.sites.map((s) => s.p),
+  ...(world.rivers ?? []).map((r) => r.points[Math.floor(r.points.length / 2)]),
+];
+const normalRoutes = [routes[0]],
+  remainingRoutes = routes.slice(1);
+while (remainingRoutes.length) {
+  const lastRoute = normalRoutes.at(-1)!;
+  let nearest = 0;
+  for (let i = 1; i < remainingRoutes.length; i++)
+    if (
+      Math.hypot(
+        remainingRoutes[i][0] - lastRoute[0],
+        remainingRoutes[i][2] - lastRoute[2],
+      ) <
+      Math.hypot(
+        remainingRoutes[nearest][0] - lastRoute[0],
+        remainingRoutes[nearest][2] - lastRoute[2],
+      )
+    )
+      nearest = i;
+  normalRoutes.push(remainingRoutes.splice(nearest, 1)[0]);
+}
+let routeIndex = -1,
+  weaponIndex = -1,
+  recovering = false;
+let recoveryBoundary = { frames: 0, cpu: 0, ticks: 0, captures: 0 };
+let loadStarted = 0,
+  preparationMS = 0,
+  startupMS = 0;
+let initialPreparationStages: Record<string, number> = {};
 const results: unknown[] = [];
 const frames: number[] = [];
+const callbackFrames: number[] = [];
+let lastCallback = 0;
 let foregroundFrames = 0;
 const cpu: number[] = [];
 const ticks: number[] = [];
@@ -166,18 +227,24 @@ worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
       m.flood,
       m.waterMask,
     );
+    const preparing = performance.now();
     await view.prewarm();
+    preparationMS = performance.now() - preparing;
     // Finish initial terrain while deliberately paused; first combat shaders remain prewarmed.
     for (let i = 0; i < 240; i++) {
       view.terrain.update(view.camera.position.set(...world.spawn));
       if (i > 10 && !view.terrain.queueDepth) break;
       await new Promise((r) => setTimeout(r, 16));
     }
+    if (!startupMS) {
+      startupMS = performance.now() - loadStarted;
+      initialPreparationStages = { ...view.warmupStages };
+    }
     ready = true;
     readyResolve();
     if (caseIndex < 0 && !benchmarkRunning)
       document
-        .querySelectorAll<HTMLButtonElement>("#run,#soak")
+        .querySelectorAll<HTMLButtonElement>("#run,#soak,#normal-soak")
         .forEach((b) => (b.disabled = false));
     status.textContent = "Ready";
   }
@@ -226,7 +293,30 @@ const summarize = (a: number[]) => {
   };
 };
 let caseLimit = cases.length;
+function projectilePass(pass: number, kind: string) {
+  const angle = ((pass % 4) * Math.PI) / 2;
+  const target: Vec3 = [world.castle[0], world.castle[1] + 35, world.castle[2]];
+  const p: Vec3 = [
+    target[0] - Math.sin(angle) * 300,
+    0,
+    target[2] - Math.cos(angle) * 300,
+  ];
+  p[1] = Math.max(world.castle[1] + 130, view.terrain.sample(p[0], p[2]) + 130);
+  send({
+    type: "debugPlane",
+    p,
+    yaw: Math.atan2(target[0] - p[0], target[2] - p[2]),
+    pitch: kind.startsWith("cannon") ? Math.atan2(target[1] - p[1], 300) : 0,
+  });
+}
 async function beginCase(index: number) {
+  view.rig.chase();
+  view.setPhotoExposure(1.15);
+  view.setPhotoFocus(0);
+  (document.querySelector("#inspect-photo") as HTMLInputElement).checked =
+    false;
+  (document.querySelector("#inspect-quality") as HTMLSelectElement).value =
+    "auto";
   foregroundFrames = 0;
   active = false;
   touring = false;
@@ -244,7 +334,13 @@ async function beginCase(index: number) {
   const wait = new Promise<void>((r) => (readyResolve = r));
   send({ type: "reset" });
   await wait;
-  const c = soak ? { count: 400, kind: "mixed", duration: 900 } : cases[index];
+  const c = soak
+    ? {
+        count: normalSoak ? 120 : 400,
+        kind: normalSoak ? "normal" : "mixed",
+        duration: 900,
+      }
+    : cases[index];
   send({ type: "monsterCount", value: c.count });
   send({
     type: "debugPlane",
@@ -256,7 +352,37 @@ async function beginCase(index: number) {
     type: "input",
     input: { x: 0, y: 0, bank: 0, throttle: 0, boost: false, fire: false },
   });
-  if (c.kind === "flight") {
+  routeIndex = weaponIndex = -1;
+  recovering = false;
+  view.resetAutoQuality();
+  view.setQuality("auto");
+  view.setRenderDistance(
+    c.kind === "flight-3000" || (soak && !normalSoak) ? 3000 : 1200,
+  );
+  send({
+    type: "destructionSettings",
+    value: { ...DEFAULT_DESTRUCTION, noCooldown: !normalSoak },
+  });
+  if (c.kind.endsWith("projectiles")) {
+    projectilePass(0, c.kind);
+    routeIndex = 0;
+    send({
+      type: "weapon",
+      weapon: c.kind.startsWith("cannon") ? "cannon" : "nuke",
+    });
+    if (c.kind.startsWith("nuke")) send({ type: "nukeYield", value: "castle" });
+    send({
+      type: "input",
+      input: { x: 0, y: 0, bank: 0, throttle: 0, boost: false, fire: true },
+    });
+  }
+  if (
+    c.kind === "flight" ||
+    c.kind === "flight-3000" ||
+    c.kind === "normal" ||
+    soak ||
+    c.kind.endsWith("projectiles")
+  ) {
     view.clearInspect();
     view.setChase();
   } else
@@ -265,6 +391,7 @@ async function beginCase(index: number) {
       [world.castle[0], 80, world.castle[2]],
     );
   frames.length =
+    callbackFrames.length =
     cpu.length =
     ticks.length =
     saveSlices.length =
@@ -274,12 +401,14 @@ async function beginCase(index: number) {
   handlerWork = 0;
   lastStatus = 0;
   view.performance.reset();
+  view.performance.queues.shadowShaderProgramsCreated = 0;
   await audio.start();
   resources.length = 0;
   lastResource = 0;
   caseIndex = index;
   started = performance.now();
   last = 0;
+  lastCallback = 0;
   nextStrike = started + (c.kind.startsWith("single-nuke") ? 3000 : 0);
   lastSave = started;
   lastResource = started;
@@ -288,13 +417,18 @@ async function beginCase(index: number) {
   send({ type: "pause", paused: false });
 }
 function frame(now: number) {
+  const arrival = performance.now();
   requestAnimationFrame(frame);
   if (!ready || !snapshot) return;
   if (!active && !touring && now - last < 100) return;
   const raw = last ? now - last : 1000 / 60;
   last = now;
   const c = soak
-    ? { count: 400, kind: "mixed", duration: 900 }
+    ? {
+        count: normalSoak ? 120 : 400,
+        kind: normalSoak ? "normal" : "mixed",
+        duration: 900,
+      }
     : cases[caseIndex];
   if (active) {
     if (document.hidden) {
@@ -304,9 +438,102 @@ function frame(now: number) {
       return;
     }
     frames.push(raw);
+    callbackFrames.push(lastCallback ? arrival - lastCallback : 1000 / 60);
+    lastCallback = arrival;
     if (document.visibilityState === "visible" && document.hasFocus())
       foregroundFrames++;
-    if (c.kind !== "flight" && now >= nextStrike) {
+    if (!recovering && c.kind.endsWith("projectiles")) {
+      const pass = Math.floor((now - started) / 3000);
+      if (pass !== routeIndex) {
+        routeIndex = pass;
+        projectilePass(pass, c.kind);
+      }
+    }
+    if (soak && !recovering) {
+      const elapsed = (now - started) / 1000,
+        route = Math.floor(elapsed / 45) % routes.length;
+      if (!normalSoak && route !== routeIndex) {
+        routeIndex = route;
+        const p = routes[route],
+          ground = view.terrain.sample(p[0], p[2]);
+        send({
+          type: "debugPlane",
+          p: [p[0] - 120, ground + 140, p[2] - 180],
+          yaw: 0.4,
+          pitch: -0.08,
+        });
+      }
+      const weapon = Math.floor(elapsed / 20) % 3;
+      if (weapon !== weaponIndex) {
+        weaponIndex = weapon;
+        send({
+          type: "weapon",
+          weapon: (["cannon", "nuke", "laser"] as const)[weapon],
+        });
+      }
+      let steering = Math.sin(elapsed * 0.08) * 0.15,
+        climb = 0;
+      if (normalSoak) {
+        routeIndex = Math.max(0, routeIndex);
+        let target = normalRoutes[routeIndex],
+          plane = snapshot.plane;
+        if (Math.hypot(target[0] - plane.p[0], target[2] - plane.p[2]) < 200) {
+          routeIndex = (routeIndex + 1) % normalRoutes.length;
+          target = normalRoutes[routeIndex];
+        }
+        const dx = target[0] - plane.p[0],
+          dz = target[2] - plane.p[2],
+          distance = Math.hypot(dx, dz),
+          yaw = Math.atan2(dx, dz);
+        const ahead = view.terrain.sample(
+          plane.p[0] + Math.sin(plane.yaw) * 400,
+          plane.p[2] + Math.cos(plane.yaw) * 400,
+        );
+        const altitude = Math.max(
+          view.terrain.sample(plane.p[0], plane.p[2]) + 180,
+          ahead + 180,
+          view.terrain.sample(target[0], target[2]) + 180,
+        );
+        const pitch = Math.max(
+          -0.2,
+          Math.min(
+            0.3,
+            Math.atan2(
+              altitude - plane.p[1],
+              Math.min(500, Math.max(100, distance)),
+            ),
+          ),
+        );
+        steering = Math.max(
+          -0.6,
+          Math.min(
+            0.6,
+            Math.atan2(Math.sin(yaw - plane.yaw), Math.cos(yaw - plane.yaw)) *
+              -0.7,
+          ),
+        );
+        climb = Math.max(-0.5, Math.min(0.5, (pitch - plane.pitch) * 1.5));
+      }
+      send({
+        type: "input",
+        input: {
+          x: steering,
+          y: climb,
+          bank: 0,
+          throttle: 0,
+          boost: false,
+          fire: elapsed % 20 < 12,
+        },
+      });
+    }
+    if (
+      !recovering &&
+      c.kind !== "flight" &&
+      c.kind !== "flight-3000" &&
+      c.kind !== "normal" &&
+      !c.kind.endsWith("projectiles") &&
+      now >= nextStrike
+    ) {
       const n = Math.floor((now - started) / 100),
         radius = soak ? 350 : 80;
       const p: [number, number, number] = [
@@ -353,7 +580,7 @@ function frame(now: number) {
     const elapsed = (now - started) / 1000;
     if (now - lastStatus >= 250) {
       lastStatus = now;
-      status.textContent = `${c.kind} / ${c.count} monsters · ${elapsed.toFixed(0)} / ${c.duration}s · ${view.stats.quality}p`;
+      status.textContent = `${c.kind} / ${c.count} monsters · ${elapsed.toFixed(0)} / ${c.duration + (recovering ? 60 : 0)}s · ${recovering ? "recovery · " : ""}${view.stats.quality}p`;
     }
     if (
       now - lastResource >=
@@ -373,23 +600,77 @@ function frame(now: number) {
         render: view.stats,
       });
     }
-    if (elapsed >= c.duration) {
+    const needsRecovery =
+      soak || (c.kind !== "flight" && c.kind !== "flight-3000");
+    if (needsRecovery && !recovering && elapsed >= c.duration) {
+      recovering = true;
+      recoveryBoundary = {
+        frames: frames.length,
+        cpu: cpu.length,
+        ticks: ticks.length,
+        captures: captures.length,
+      };
+      send({
+        type: "input",
+        input: { x: 0, y: 0, bank: 0, throttle: 0, boost: false, fire: false },
+      });
+      // Hold the presentation view after firing. Continued camera flight would
+      // create fresh terrain requests and conceal whether existing work drained.
+      if (c.kind.endsWith("projectiles") || soak) {
+        const p = view.camera.position.clone();
+        const target = p
+          .clone()
+          .addScaledVector(view.camera.getWorldDirection(p.clone()), 100);
+        view.inspectCamera(p.toArray(), target.toArray());
+      }
+    }
+    if (elapsed >= c.duration + (needsRecovery ? 60 : 0)) {
       active = false;
       audio.pause();
+      send({
+        type: "input",
+        input: { x: 0, y: 0, bank: 0, throttle: 0, boost: false, fire: false },
+      });
       send({ type: "pause", paused: true });
-      const stats = frameStats(frames, Infinity),
-        fps = (frames.length * 1000) / frames.reduce((a, b) => a + b, 0);
-      const main = summarize(cpu),
-        simulation = summarize(ticks),
-        saveCapture = summarize(captures);
+      const workloadFrames = needsRecovery
+        ? frames.slice(0, recoveryBoundary.frames)
+        : frames;
+      const stats = frameStats(workloadFrames, Infinity),
+        fps =
+          (workloadFrames.length * 1000) /
+          workloadFrames.reduce((a, b) => a + b, 0);
+      const main = summarize(
+          needsRecovery ? cpu.slice(0, recoveryBoundary.cpu) : cpu,
+        ),
+        simulation = summarize(
+          needsRecovery ? ticks.slice(0, recoveryBoundary.ticks) : ticks,
+        ),
+        saveCapture = summarize(
+          needsRecovery
+            ? captures.slice(0, recoveryBoundary.captures)
+            : captures,
+        );
       results.push({
         case: c,
-        frames: { ...stats, fps, total: frames.length },
+        frames: { ...stats, fps, total: workloadFrames.length },
+        callbackDelivery: frameStats(
+          needsRecovery
+            ? callbackFrames.slice(0, recoveryBoundary.frames)
+            : callbackFrames,
+          Infinity,
+        ),
         environment: {
           userAgent: navigator.userAgent,
           viewport: [innerWidth, innerHeight],
           seed: world.seed,
-          distance: 1200,
+          route: soak
+            ? normalSoak
+              ? "continuous flight, nearest landmark route"
+              : "teleport streaming pressure"
+            : c.kind.endsWith("projectiles")
+              ? "repeated three-second cardinal castle attack passes"
+              : "single route",
+          distance: view.stats.renderDistance,
           foregroundFraction: foregroundFrames / frames.length,
         },
         main,
@@ -399,6 +680,47 @@ function frame(now: number) {
         render: view.stats,
         resources: resources.slice(),
         audio: audio.stats,
+        assets: view.assetStatus,
+        loading: {
+          shaderAndAssetsMS: preparationMS,
+          totalStartupMS: startupMS,
+          initialPreparationStages,
+          casePreparationStages: { ...view.warmupStages },
+          assetStages: { ...view.assetLoadingStages },
+          downloads: performance
+            .getEntriesByType("resource")
+            .filter((r: any) => r.name.includes("/assets/"))
+            .map((r: any) => ({
+              name: r.name,
+              durationMS: r.duration,
+              transferBytes: r.transferSize,
+            })),
+        },
+        recovery: needsRecovery
+          ? {
+              duration: 60,
+              frames: frameStats(
+                frames.slice(recoveryBoundary.frames),
+                Infinity,
+              ),
+              callbackDelivery: frameStats(
+                callbackFrames.slice(recoveryBoundary.frames),
+                Infinity,
+              ),
+              main: summarize(cpu.slice(recoveryBoundary.cpu)),
+              simulation: summarize(ticks.slice(recoveryBoundary.ticks)),
+              queues: { ...view.performance.queues },
+              worker: snapshot.stats,
+              queueCompleted:
+                snapshot.stats.pendingJobs === 0 &&
+                snapshot.stats.bodies === 0 &&
+                snapshot.stats.ballistic === 0 &&
+                view.performance.queues.terrain === 0 &&
+                view.performance.queues.textureUploads === 0 &&
+                (view.performance.queues.renderRuins ?? 0) === 0,
+              remainingTerrain: view.performance.queues.terrain,
+            }
+          : null,
         performance: view.performance.stats,
         gatesPassed:
           foregroundFrames / frames.length >= 0.99 &&
@@ -410,7 +732,15 @@ function frame(now: number) {
           main.p99MS <= 6 &&
           simulation.p95MS <= 5 &&
           simulation.p99MS <= 8 &&
-          saveCapture.maxMS <= 2,
+          saveCapture.maxMS <= 2 &&
+          resources.every(
+            (r: any) =>
+              r.elapsed < 10 ||
+              (r.simulationRatio >= 0.98 && r.simulationRatio <= 1.02),
+          ) &&
+          (view.performance.queues.residentTextureBytes ?? 0) <=
+            192 * 1048576 &&
+          (view.performance.queues.renderTargetBytes ?? 0) <= 64 * 1048576,
       });
       report.style.display = "block";
       report.textContent = JSON.stringify(results, null, 2);
@@ -425,7 +755,7 @@ function frame(now: number) {
         benchmarkRunning = false;
         status.textContent = "Complete";
         document
-          .querySelectorAll<HTMLButtonElement>("#run,#soak")
+          .querySelectorAll<HTMLButtonElement>("#run,#soak,#normal-soak")
           .forEach((b) => (b.disabled = false));
       }
     }
@@ -434,7 +764,13 @@ function frame(now: number) {
   view.render(Math.min(raw / 1000, 0.1), active || touring, now);
   if (active || touring) {
     const p = view.camera.position.toArray() as [number, number, number];
-    audio.update(snapshot.plane.speed, p, view.cameraDirection());
+    audio.update(
+      snapshot.plane.speed,
+      p,
+      view.cameraDirection(),
+      false,
+      view.ambience(),
+    );
     audio.syncLasers(snapshot.lasers, p);
     audio.syncDisco(discoActive(snapshot.lasers), snapshot.time);
   }
@@ -444,29 +780,48 @@ function frame(now: number) {
   }
 }
 requestAnimationFrame(frame);
+function foregroundBenchmark() {
+  if (!document.hidden && document.hasFocus()) return true;
+  status.textContent =
+    "Select this browser tab in the foreground before measuring";
+  return false;
+}
 document.querySelector("#run")!.addEventListener("click", () => {
-  if (benchmarkRunning) return;
+  if (benchmarkRunning || !foregroundBenchmark()) return;
   benchmarkRunning = true;
   void audio.start().catch(() => {});
   soak = false;
+  normalSoak = false;
   results.length = 0;
   document
-    .querySelectorAll<HTMLButtonElement>("#run,#soak")
+    .querySelectorAll<HTMLButtonElement>("#run,#soak,#normal-soak")
     .forEach((b) => (b.disabled = true));
   const selected = Number(
     (document.querySelector("#case") as HTMLSelectElement).value,
   );
   caseLimit = selected < 0 ? cases.length : selected + 1;
-  void beginCase(Math.max(0, selected));
+  void beginCase(selected === -2 ? 8 : Math.max(0, selected));
 });
 document.querySelector("#soak")!.addEventListener("click", () => {
-  if (benchmarkRunning) return;
+  if (benchmarkRunning || !foregroundBenchmark()) return;
   benchmarkRunning = true;
   void audio.start().catch(() => {});
   soak = true;
+  normalSoak = false;
   results.length = 0;
   document
-    .querySelectorAll<HTMLButtonElement>("#run,#soak")
+    .querySelectorAll<HTMLButtonElement>("#run,#soak,#normal-soak")
+    .forEach((b) => (b.disabled = true));
+  void beginCase(0);
+});
+document.querySelector("#normal-soak")!.addEventListener("click", () => {
+  if (benchmarkRunning || !foregroundBenchmark()) return;
+  benchmarkRunning = true;
+  soak = true;
+  normalSoak = true;
+  results.length = 0;
+  document
+    .querySelectorAll<HTMLButtonElement>("#run,#soak,#normal-soak")
     .forEach((b) => (b.disabled = true));
   void beginCase(0);
 });
@@ -566,11 +921,33 @@ document.querySelector("#export")!.addEventListener("click", async () => {
   }
 });
 
+let inspectionTarget: Vec3 = [0, 0, 0];
 function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "aircraft" && snapshot) {
+    const p = snapshot.plane.p;
+    inspectionTarget = [p[0], p[1], p[2]];
+    view.inspectCamera([p[0] + 18, p[1] + 9, p[2] + 22], p);
+    last = 0;
+    return;
+  }
   let p = world.castle.slice();
+  if (kind === "monster" && snapshot.monsters.length) {
+    const position = snapshot.monsters[0].p;
+    p = [position[0], position[1], position[2]];
+    inspectionTarget = p as Vec3;
+    const yaw = snapshot.monsters[0].yaw + 0.3;
+    view.inspectCamera(
+      [p[0] + Math.sin(yaw) * 120, p[1] + 45, p[2] + Math.cos(yaw) * 120],
+      [p[0], p[1] + 32, p[2]],
+    );
+    last = 0;
+    return;
+  }
+  if (world.sites.some((s) => s.kind === kind))
+    p = world.sites.find((s) => s.kind === kind)!.p.slice();
   if (kind === "coast")
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
@@ -603,6 +980,7 @@ function inspect() {
         }
       }
   }
+  inspectionTarget = p as Vec3;
   const altitude = Number(
     (document.querySelector("#altitude") as HTMLSelectElement).value,
   );
@@ -619,6 +997,83 @@ function inspect() {
   );
   last = 0;
 }
+document
+  .querySelector("#inspect-quality")!
+  .addEventListener("change", (event) => {
+    if (!active) view.setQuality((event.target as HTMLSelectElement).value);
+  });
+document
+  .querySelector("#inspect-photo")!
+  .addEventListener("change", (event) => {
+    if (active || !ready) return;
+    if ((event.target as HTMLInputElement).checked) {
+      touring = false;
+      send({ type: "pause", paused: true });
+      view.rig.photo(view.camera);
+      view.setPhotoFocus(
+        Number(
+          (document.querySelector("#inspect-focus") as HTMLInputElement).value,
+        ),
+      );
+    } else {
+      view.rig.exitPhoto();
+      view.setPhotoFocus(0);
+      inspect();
+    }
+  });
+document.querySelector("#inspect-focus")!.addEventListener("input", (event) => {
+  if (!active)
+    view.setPhotoFocus(Number((event.target as HTMLInputElement).value));
+});
+document
+  .querySelector("#inspect-exposure")!
+  .addEventListener("input", (event) => {
+    if (!active)
+      view.setPhotoExposure(Number((event.target as HTMLInputElement).value));
+  });
+document.querySelector("#inspect-impact")!.addEventListener("click", () => {
+  if (active || !ready) return;
+  const materials = [
+    "stone",
+    "wood",
+    "earth",
+    "foliage",
+    "roof",
+    "slate",
+  ] as const;
+  for (const [i, material] of materials.entries()) {
+    const p: Vec3 = [
+      inspectionTarget[0] + (i - 2.5) * 8,
+      inspectionTarget[1] + 5,
+      inspectionTarget[2],
+    ];
+    view.effects.fragment({
+      type: "fragments",
+      material,
+      p,
+      origin: p,
+      seed: 31 + i,
+      count: 32,
+      speed: 20,
+      spread: 4,
+    });
+  }
+  touring = true;
+  send({ type: "pause", paused: false });
+  status.textContent = "Material impact inspection running";
+});
+document.querySelector("#inspect-nuke")!.addEventListener("click", () => {
+  if (active || !ready) return;
+  view.rig.exitPhoto();
+  touring = true;
+  send({ type: "pause", paused: false });
+  send({
+    type: "debugBlast",
+    p: inspectionTarget.slice() as Vec3,
+    yield: "castle",
+  });
+  status.textContent = "Nuke inspection running";
+});
 document.querySelector("#viewpoint")!.addEventListener("change", inspect);
 document.querySelector("#altitude")!.addEventListener("change", inspect);
 document.querySelector("#distance")!.addEventListener("change", (event) => {

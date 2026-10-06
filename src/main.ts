@@ -236,6 +236,10 @@ function pause() {
   $("hint").hidden = true;
   $("warning").hidden = true;
 }
+let guideSeen = false;
+try {
+  guideSeen = localStorage.getItem("siege-control-guide-v1") === "1";
+} catch {}
 async function enter(event?: Event) {
   if (!ready || contextLost) return;
   resetFrameStats();
@@ -247,8 +251,14 @@ async function enter(event?: Event) {
   $("flightHUD").hidden = false;
   $("pauseButton").hidden = false;
   touchControls.hidden = false;
-  $("hint").hidden = false;
+  $("hint").hidden = guideSeen;
   $("hint").style.opacity = "1";
+  if (!guideSeen) {
+    guideSeen = true;
+    try {
+      localStorage.setItem("siege-control-guide-v1", "1");
+    } catch {}
+  }
   setTimeout(() => ($("hint").style.opacity = "0"), 9000);
   audio.start().catch(() => {
     $("status").textContent = "Sound is unavailable; flight is still ready.";
@@ -268,6 +278,7 @@ async function enter(event?: Event) {
     pointerFallback = false;
   } catch {
     pointerFallback = true;
+    $("hint").hidden = false;
     $("hint").textContent =
       "Hold and drag to steer · A/D also steers · SPACE fires";
     $("status").textContent =
@@ -425,6 +436,10 @@ async function handle(message: WorkerMessage) {
       await view.prewarm();
       if (warmingView !== view) return;
       ready = true;
+      $("assetNotice").hidden = !view.assetStatus.failures.length;
+      $("assetNotice").textContent = view.assetStatus.failures.length
+        ? `Some visual assets could not load (${view.assetStatus.failures.join(", ")}). Reload to retry; your island is preserved.`
+        : "";
       send({ type: "nukeYield", value: nukeYield });
       send({ type: "holdTime", hold: !!extras.holdTime });
       send({ type: "monsterCount", value: monsterCount });
@@ -745,6 +760,7 @@ function frame(now: number) {
     view.camera.position.toArray() as Vec3,
     view.cameraDirection(),
     held("ShiftLeft") || held("ShiftRight"),
+    view.ambience(),
   );
   if (p.crashed > 0 && view.rig.mode === "cinematic") {
     view.setChase();
@@ -860,7 +876,7 @@ function frame(now: number) {
     }
     const r = view.stats;
     $("perf").textContent =
-      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.packedBodies?.count ?? snapshot.bodies.length}/${BLAST_DEBRIS_LIMIT} wreckage · ${snapshot.stats.ballistic} flying pieces\n${r.fragments}/${BLAST_COSMETIC_LIMIT} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}`;
+      `${Math.round(1000 / avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.packedBodies?.count ?? snapshot.bodies.length}/${BLAST_DEBRIS_LIMIT} wreckage · ${snapshot.stats.ballistic} flying pieces\n${r.fragments}/${BLAST_COSMETIC_LIMIT} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${perfSummary}\nQuality ${view.visualProfile.name} · simulation ${view.performance.queues.simulationRatio?.toFixed(3) ?? "—"}×\nTextures ${((view.performance.queues.residentTextureBytes ?? 0) / 1048576).toFixed(1)} MiB · targets ${((view.performance.queues.renderTargetBytes ?? 0) / 1048576).toFixed(1)} MiB`;
     lastHUD = now;
   }
 }
@@ -983,6 +999,10 @@ function togglePhoto() {
   if (photoMode) {
     photoMode = false;
     view.rig.exitPhoto();
+    view.setPhotoExposure(1.15);
+    view.setPhotoFocus(0);
+    $<HTMLInputElement>("photoExposure").value = "1.15";
+    $<HTMLInputElement>("photoFocus").value = "0";
     document.body.classList.remove("photo");
     $("photoToolbar").hidden = true;
     clearInput();
@@ -1017,6 +1037,10 @@ $("exitPhoto").onclick = togglePhoto;
 $("hidePhoto").onclick = () => ($("photoToolbar").hidden = true);
 $<HTMLInputElement>("photoFov").oninput = (e) =>
   (view.rig.fov = +(e.target as HTMLInputElement).value);
+$<HTMLInputElement>("photoExposure").oninput = (e) =>
+  view?.setPhotoExposure(Number((e.target as HTMLInputElement).value));
+$<HTMLInputElement>("photoFocus").oninput = (e) =>
+  view?.setPhotoFocus(Number((e.target as HTMLInputElement).value));
 $("savePhoto").onclick = () => {
   view
     .capture()

@@ -103,6 +103,9 @@ export class Fragments {
         horizontal = Math.sqrt(1 - up * up) * speed,
         size = 0.5 + random() * 2.5,
         wood = e.material === "wood",
+        tile = e.material === "roof" || e.material === "slate",
+        shard = e.material === "window",
+        leaf = e.material === "foliage",
         life = WRECKAGE_LIFETIME;
       d[j] = x;
       d[j + 1] = Math.max(y, this.ground(x, z) + 1);
@@ -110,9 +113,11 @@ export class Fragments {
       d[j + 3] = Math.cos(angle) * horizontal;
       d[j + 4] = speed * up;
       d[j + 5] = Math.sin(angle) * horizontal;
-      d[j + 6] = size * (wood ? 0.35 : 1);
-      d[j + 7] = size * (wood ? 2.5 : 0.7);
-      d[j + 8] = size * 0.65;
+      d[j + 6] =
+        size * (wood ? 0.35 : tile ? 1.3 : shard ? 0.8 : leaf ? 0.65 : 1);
+      d[j + 7] =
+        size * (wood ? 2.5 : tile ? 0.16 : shard ? 0.04 : leaf ? 0.035 : 0.7);
+      d[j + 8] = size * (wood ? 0.25 : tile ? 0.8 : leaf ? 1.2 : 0.65);
       for (let k = 0; k < 3; k++) d[j + 9 + k] = random() * 6;
       for (let k = 0; k < 3; k++) d[j + 12 + k] = random() * 5 - 2.5;
       d[j + 15] = life;
@@ -169,6 +174,18 @@ export class Fragments {
             d[j + 5] *= 0.45;
             if (Math.hypot(d[j + 3], d[j + 4], d[j + 5]) < 5) {
               d[j + 19] = 1;
+              // Rest on the thinnest face, including roof tiles and splinters.
+              // The old arbitrary final rotation buried thin chips in terrain.
+              if (d[j + 7] <= d[j + 6] && d[j + 7] <= d[j + 8]) {
+                d[j + 9] = d[j + 11] = 0;
+              } else if (d[j + 6] <= d[j + 8]) {
+                d[j + 9] = 0;
+                d[j + 11] = Math.PI / 2;
+              } else {
+                d[j + 9] = Math.PI / 2;
+                d[j + 10] = 0;
+              }
+              d[j + 12] = d[j + 13] = d[j + 14] = 0;
             }
             break;
           }

@@ -12,6 +12,15 @@ export class CameraRig {
   private shot = -1;
   private blend = 1;
   fov = 64;
+  /** Smooth before collision resolution; never blend back into an obstruction. */
+  prepareBoom(
+    desired: THREE.Vector3,
+    previous: THREE.Vector3,
+    dt: number,
+    ready: boolean,
+  ) {
+    if (ready) desired.lerp(previous, Math.exp(-Math.max(0, dt) * 6));
+  }
   toggle() {
     this.mode = this.mode === "cinematic" ? "chase" : "cinematic";
     this.elapsed = 0;

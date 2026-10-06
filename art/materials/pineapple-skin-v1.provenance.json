@@ -1,0 +1,7 @@
+{
+  "source": "Custom generated artwork using built-in imagegen",
+  "prompt": "Seamless photoreal pineapple rind diffuse texture: golden ochre fruit eyes, olive brown creases, fibrous detail, uniform flat illumination, no leaves, face, text, border or perspective; staggered diamonds with matching edges.",
+  "runtime": "1024x1024 UASTC KTX2 with mipmaps; locally hosted",
+  "sourceSha256": "86191c5a33fb7df1250d0857e150ffb9281f52d1ca9ec80f192528c131ea64da",
+  "runtimeSha256": "5b3c1e3caacd5cf4cb64479967744cb86516302dbd1ef6e6850b858bf3dd0a97"
+}

@@ -1,0 +1,789 @@
+import type { VillageWindow } from "./village-lighting";
+import { CONFIG } from "../config";
+import * as THREE from "three";
+import type { WorldData, Entity } from "../types";
+import type { TerrainView } from "./terrain-view";
+import { pathIndex } from "../world/generator.mjs";
+import { visualGeometry } from "./visual-assets";
+
+interface Piece {
+  owner: number;
+  offset: number;
+  p: THREE.Vector3;
+  matrix: THREE.Matrix4;
+}
+/** Presentation pieces have no independent saved identity or collision authority. */
+export class Scenery {
+  readonly group = new THREE.Group();
+  private batches: {
+    mesh: THREE.InstancedMesh;
+    pieces: Piece[];
+    cells: Map<string, Piece[]>;
+    ground: boolean;
+  }[] = [];
+  private dummy = new THREE.Object3D();
+  private next = -Infinity;
+  private wind = { value: 0 };
+  constructor(
+    world: WorldData,
+    private terrain: TerrainView,
+    materials: Record<string, THREE.MeshStandardMaterial>,
+    grass?: THREE.Texture,
+    windowSources: readonly VillageWindow[] = [],
+  ) {
+    const lists = new Map<
+      string,
+      {
+        material: THREE.Material;
+        geometry: THREE.BufferGeometry;
+        pieces: Piece[];
+        ground: boolean;
+      }
+    >();
+    const box = visualGeometry(
+      "module_lod1",
+      () => new THREE.BoxGeometry(2, 2, 2),
+    );
+    const rock = visualGeometry(
+      "rock_lod1",
+      () => new THREE.IcosahedronGeometry(1),
+    );
+    const clump = visualGeometry("grass-clump_lod0", () =>
+      new THREE.PlaneGeometry(0.08, 0.6).translate(0, 0.3, 0),
+    );
+    const foliage = new THREE.MeshStandardMaterial({
+      vertexColors: !!clump.getAttribute("color"),
+      alphaTest: 0.45,
+      side: THREE.DoubleSide,
+      roughness: 1,
+      color: "#6d7849",
+    });
+    const structuralTimber = materials.wood.clone();
+    structuralTimber.color.multiplyScalar(0.52);
+    structuralTimber.onBeforeCompile = materials.wood.onBeforeCompile;
+    structuralTimber.customProgramCacheKey =
+      materials.wood.customProgramCacheKey.bind(materials.wood);
+    const iron = new THREE.MeshStandardMaterial({
+      color: "#303333",
+      metalness: 0.65,
+      roughness: 0.75,
+    });
+    foliage.onBeforeCompile = (shader) => {
+      shader.uniforms.grassWind = this.wind;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nuniform float grassWind;",
+        )
+        .replace(
+          "#include <begin_vertex>",
+          "#include <begin_vertex>\ntransformed.x+=sin(grassWind*1.7+instanceMatrix[3].x*.3+instanceMatrix[3].z*.2)*.08*position.y*position.y;",
+        );
+    };
+    foliage.customProgramCacheKey = () => "grass-wind-v1";
+    const add = (
+      key: string,
+      owner: Entity,
+      p: number[],
+      scale: number[],
+      material: THREE.Material,
+      geometry = box,
+      ground = false,
+      yaw = 0,
+      roll = 0,
+    ) => {
+      let list = lists.get(key);
+      if (!list)
+        lists.set(key, (list = { material, geometry, pieces: [], ground }));
+      this.dummy.position.fromArray(p);
+      this.dummy.scale.fromArray(scale);
+      this.dummy.rotation.set(0, yaw, roll);
+      this.dummy.updateMatrix();
+      list.pieces.push({
+        owner: owner.id,
+        offset: ground ? p[1] - terrain.sample(p[0], p[2]) : 0,
+        p: this.dummy.position.clone(),
+        matrix: this.dummy.matrix.clone(),
+      });
+    };
+    const arch = visualGeometry(
+      "arch-trim_lod1",
+      () => new THREE.RingGeometry(1, 1.18, 8, 1, 0, Math.PI),
+    );
+    const addBeam = (
+      key: string,
+      owner: Entity,
+      from: THREE.Vector3,
+      to: THREE.Vector3,
+      thickness: number,
+      material: THREE.Material,
+    ) => {
+      const direction = to.clone().sub(from);
+      add(
+        key,
+        owner,
+        from.clone().add(to).multiplyScalar(0.5).toArray(),
+        [thickness, direction.length() / 2, thickness],
+        material,
+      );
+      const piece = lists.get(key)!.pieces.at(-1)!;
+      piece.matrix.compose(
+        piece.p,
+        new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction.normalize(),
+        ),
+        new THREE.Vector3(thickness, from.distanceTo(to) / 2, thickness),
+      );
+    };
+    const addWindow = (e: Entity) => {
+      const [sx, sy, sz] = e.s;
+      if (sx > sy && sz > sy) return; // Lighthouse glazing belongs to its lantern room.
+      const axis = sx < sz ? 0 : 2,
+        horizontal = axis === 2;
+      const width = horizontal ? sx : sz,
+        cap = sy * 0.38;
+      const stone = !e.assembly.includes("house"),
+        frameMaterial = stone
+          ? (materials.stone ?? materials.wood)
+          : materials.wood;
+      // Both faces are finished, including the reverse side of a broken wall.
+      for (const outward of [-1, 1]) {
+        const face = e.p.slice();
+        face[axis] += outward * (e.s[axis] + 0.08);
+        for (const sign of [-1, 1]) {
+          const p = face.slice();
+          p[horizontal ? 0 : 2] += sign * width;
+          p[1] -= cap * 0.5;
+          add(
+            stone ? "stone-window-frame" : "window-frame",
+            e,
+            p,
+            [0.16, sy - cap * 0.5, 0.16],
+            frameMaterial,
+          );
+        }
+        const sill = face.slice();
+        sill[1] -= sy;
+        add(
+          stone ? "stone-window-frame" : "window-frame",
+          e,
+          sill,
+          horizontal ? [sx + 0.16, 0.16, 0.18] : [0.18, 0.16, sz + 0.16],
+          frameMaterial,
+        );
+        const top = face.slice();
+        top[1] += sy - cap;
+        add(
+          stone ? "stone-window-arch" : "timber-window-arch",
+          e,
+          top,
+          [width, cap, 1],
+          frameMaterial,
+          arch,
+          false,
+          horizontal ? 0 : Math.PI / 2,
+        );
+        if (!stone) {
+          for (const sign of [-1, 1]) {
+            const panel = face.slice();
+            panel[horizontal ? 0 : 2] += sign * width * 1.65;
+            add(
+              "timber-shutters",
+              e,
+              panel,
+              horizontal
+                ? [width * 0.42, sy * 0.8, 0.1]
+                : [0.1, sy * 0.8, width * 0.42],
+              structuralTimber,
+            );
+          }
+        }
+        add(
+          "window-frame",
+          e,
+          face,
+          horizontal ? [0.09, sy, 0.12] : [0.12, sy, 0.09],
+          materials.wood,
+        );
+        const transom = face.slice();
+        transom[1] += sy * 0.25;
+        add(
+          "window-frame",
+          e,
+          transom,
+          horizontal ? [width, 0.07, 0.12] : [0.12, 0.07, width],
+          materials.wood,
+        );
+      }
+    };
+    const roads = pathIndex(world.paths);
+    for (const e of world.entities) {
+      const [x, y, z] = e.p,
+        [sx, sy, sz] = e.s;
+      if (e.kind === "tree") {
+        // Ground dressing is attached to its authoritative tree and resampled
+        // after excavation. No plants appear on roads, steep faces or water.
+        for (let i = 0; i < 4; i++) {
+          const angle = (e.variant * 17 + i) * 2.399963,
+            radius = 3 + (i * 7 + (e.id % 13));
+          const px = x + Math.cos(angle) * radius,
+            pz = z + Math.sin(angle) * radius;
+          const h = terrain.sample(px, pz);
+          if (
+            h < 2 ||
+            this.wet(px, pz) ||
+            roads(px, pz) < 6 ||
+            Math.abs(h - terrain.sample(px + 2, pz)) > 1.4 ||
+            Math.abs(h - terrain.sample(px, pz + 2)) > 1.4
+          )
+            continue;
+          const wet = e.treeSpecies === "riverside";
+          add(
+            "grass",
+            e,
+            [px, h, pz],
+            [wet ? 1.1 : 0.8, wet ? 1.6 : 0.75, 1],
+            foliage,
+            clump,
+            true,
+            angle,
+          );
+          if (i === 0)
+            add(
+              "ground-rock",
+              e,
+              [px + 1, h + 0.2, pz],
+              [0.5, 0.25, 0.4],
+              materials.rock,
+              rock,
+              true,
+              angle,
+            );
+          if (i === 1)
+            add(
+              "fallen-branch",
+              e,
+              [px, h + 0.15, pz],
+              [2, 0.12, 0.12],
+              materials.wood,
+              box,
+              true,
+              angle,
+            );
+        }
+        continue;
+      }
+      if (e.kind === "rock") {
+        // Break up isolated boulders with deterministic, owner-linked scree.
+        // Reuse the existing rock batch, surface and authored geometry.
+        for (let i = 0; i < 6; i++) {
+          const angle = e.variant * Math.PI * 2 + i * 2.399963;
+          const radius = Math.max(sx, sz) + 2 + ((i * 7 + e.id) % 9);
+          const px = x + Math.cos(angle) * radius;
+          const pz = z + Math.sin(angle) * radius;
+          const h = terrain.sample(px, pz);
+          const size = 0.3 + ((i * 3 + e.id) % 7) * 0.12;
+          const halfHeight = size * 0.55;
+          if (
+            h < 2 ||
+            this.wet(px, pz) ||
+            roads(px, pz) < 7 ||
+            Math.abs(h - terrain.sample(px + size, pz)) > halfHeight ||
+            Math.abs(h - terrain.sample(px - size, pz)) > halfHeight ||
+            Math.abs(h - terrain.sample(px, pz + size)) > halfHeight ||
+            Math.abs(h - terrain.sample(px, pz - size)) > halfHeight
+          )
+            continue;
+          add(
+            "ground-rock",
+            e,
+            [px, h + halfHeight * 0.6, pz],
+            [size, halfHeight, size * (0.65 + (i % 3) * 0.15)],
+            materials.rock,
+            rock,
+            true,
+            angle,
+          );
+        }
+        continue;
+      }
+      if (e.kind !== "block") continue;
+      if (
+        e.material === "wood" &&
+        /dock|bridge|logging|watchtower|windmill|watermill/.test(e.assembly)
+      ) {
+        if (sy > 2 && sx <= 2.1 && sz <= 2.1) {
+          for (const sign of [-1, 1])
+            add(
+              "iron-straps",
+              e,
+              [x, y + sign * (sy - 0.4), z],
+              [sx + 0.06, 0.09, sz + 0.06],
+              iron,
+            );
+        } else if (sx > 2.3 && sy <= 1.5 && sz <= 1.5) {
+          for (const sign of [-1, 1])
+            add(
+              "iron-straps",
+              e,
+              [x + sign * (sx - 0.35), y, z],
+              [0.09, sy + 0.04, sz + 0.04],
+              iron,
+            );
+        } else if (sz > 2.3 && sx <= 1.5 && sy <= 1.5) {
+          for (const sign of [-1, 1])
+            add(
+              "iron-straps",
+              e,
+              [x, y, z + sign * (sz - 0.35)],
+              [sx + 0.04, sy + 0.04, 0.09],
+              iron,
+            );
+        }
+      }
+      if (
+        e.material === "wood" &&
+        /-(house|warehouse|barn|mill|shed)(-|$)/.test(e.assembly) &&
+        sy > 1.2 &&
+        Math.min(sx, sz) >= 0.7 &&
+        Math.min(sx, sz) <= 1.2 &&
+        Math.max(sx, sz) > 2.4
+      ) {
+        const horizontal = sz < sx;
+        const extent = horizontal ? sx : sz;
+        // Each wall course owns its posts, plates and braces, so a broken
+        // course cannot leave a full-height decorative skeleton standing.
+        const bays = Math.max(1, Math.ceil((extent * 2) / 4.5));
+        const width = (extent * 2) / bays;
+        for (const outward of [-1, 1]) {
+          const face = horizontal
+            ? z + outward * (sz + 0.1)
+            : x + outward * (sx + 0.1);
+          for (const lift of [-sy + 0.14, sy - 0.14])
+            add(
+              "wood-wall-plates",
+              e,
+              horizontal ? [x, y + lift, face] : [face, y + lift, z],
+              horizontal ? [extent, 0.14, 0.14] : [0.14, 0.14, extent],
+              structuralTimber,
+            );
+          for (let bay = 0; bay <= bays; bay++) {
+            const offset = -extent + bay * width;
+            add(
+              "wood-wall-posts",
+              e,
+              horizontal ? [x + offset, y, face] : [face, y, z + offset],
+              [0.14, sy, 0.14],
+              structuralTimber,
+            );
+          }
+          for (let bay = 0; bay < bays; bay++) {
+            const start = -extent + bay * width + 0.18;
+            const end = start + width - 0.36;
+            const rising = (bay + e.id) % 2 === 0;
+            const bottom = y - sy + 0.22,
+              top = y + sy - 0.22;
+            addBeam(
+              "wood-wall-braces",
+              e,
+              horizontal
+                ? new THREE.Vector3(x + start, rising ? bottom : top, face)
+                : new THREE.Vector3(face, rising ? bottom : top, z + start),
+              horizontal
+                ? new THREE.Vector3(x + end, rising ? top : bottom, face)
+                : new THREE.Vector3(face, rising ? top : bottom, z + end),
+              0.11,
+              structuralTimber,
+            );
+          }
+        }
+      }
+      if (e.foundation && e.material !== "plaster") continue;
+      if (e.material === "window") {
+        addWindow(e);
+      } else if (e.material === "roof" || e.material === "slate") {
+        // Eaves and fascia follow every roof owner, from farms to warehouses.
+        for (const sign of [-1, 1])
+          add(
+            "roof-fascia",
+            e,
+            [x, y - sy + 0.12, z + sign * sz],
+            [sx, 0.18, 0.14],
+            materials.wood,
+          );
+        for (const sign of [-1, 1])
+          add(
+            "roof-fascia",
+            e,
+            [x + sign * sx, y - sy + 0.12, z],
+            [0.14, 0.18, sz],
+            materials.wood,
+          );
+        // Hip caps follow the authored roof's four sloping edges. Their
+        // transforms are derived from the existing owner, never new collision.
+        for (const a of [-1, 1])
+          for (const b of [-1, 1])
+            addBeam(
+              "roof-hip-caps",
+              e,
+              new THREE.Vector3(x + a * sx, y - sy + 0.18, z + b * sz),
+              new THREE.Vector3(x, y + sy + 0.12, z),
+              0.16,
+              materials[e.material] ?? materials.stone ?? materials.wood,
+            );
+      } else if (
+        e.material === "plaster" &&
+        sy > 1.2 &&
+        (sx < 1.2 || sz < 1.2)
+      ) {
+        const horizontal = sz < sx;
+        add(
+          "timber-joints",
+          e,
+          [x, y - sy + 0.12, z],
+          horizontal ? [sx, 0.12, sz + 0.06] : [sx + 0.06, 0.12, sz],
+          structuralTimber,
+        );
+        add(
+          "timber-joints",
+          e,
+          [x, y + sy - 0.12, z],
+          horizontal ? [sx, 0.12, sz + 0.06] : [sx + 0.06, 0.12, sz],
+          structuralTimber,
+        );
+        for (const outward of [-1, 1]) {
+          for (const side of [-1, 1]) {
+            const face = horizontal
+              ? z + outward * (sz + 0.04)
+              : x + outward * (sx + 0.04);
+            const extent = horizontal ? sx : sz;
+            const post = side * Math.max(0, extent - 0.13);
+            add(
+              "timber-posts",
+              e,
+              horizontal ? [x + post, y, face] : [face, y, z + post],
+              [0.12, sy, 0.12],
+              structuralTimber,
+            );
+            const span = Math.min(0.8, extent * 0.3, sy * 0.55);
+            add(
+              "timber-knee-braces",
+              e,
+              horizontal
+                ? [x + post - side * span * 0.5, y + sy - span * 0.5, face]
+                : [face, y + sy - span * 0.5, z + post - side * span * 0.5],
+              [0.09, span * Math.SQRT2 * 0.5, 0.09],
+              structuralTimber,
+              box,
+              false,
+              horizontal ? 0 : Math.PI / 2,
+              (side * Math.PI) / 4,
+            );
+          }
+        }
+        if (e.id % 3 === 0)
+          add(
+            "timber-joints",
+            e,
+            [x, y, z],
+            horizontal ? [0.14, sy, sz + 0.07] : [sx + 0.07, sy, 0.14],
+            structuralTimber,
+          );
+      } else if (e.material === "wood" && sy > 0.7 && e.id % 3 === 0) {
+        // Pegs/joints add construction detail to docks, mills and logging camps.
+        add(
+          "joinery",
+          e,
+          [x + sx + 0.025, y, z],
+          [0.08, 0.12, Math.min(sz, 0.32)],
+          materials.rock,
+        );
+      }
+    }
+    // Working settlements receive small stacks beside their side walls. One
+    // existing foundation owns each stack; roads and entrances remain clear.
+    const dressed = new Set<string>();
+    const assemblies = new Map<string, Entity[]>();
+    for (const e of world.entities) {
+      const parts = assemblies.get(e.assembly);
+      if (parts) parts.push(e);
+      else assemblies.set(e.assembly, [e]);
+    }
+    const door = visualGeometry(
+      "door_lod0",
+      () => new THREE.BoxGeometry(2, 2, 0.1),
+    );
+    const coping = visualGeometry(
+      "coping_lod0",
+      () => new THREE.BoxGeometry(2, 2, 2),
+    );
+    for (const [name, parts] of assemblies) {
+      if (
+        !name.includes(":") &&
+        !/watchtower|coastal-ruin|lighthouse|bridge/.test(name)
+      )
+        continue;
+      const tops = new Map<string, Entity>();
+      for (const part of parts) {
+        if (part.kind !== "block") continue;
+        const key = `${Math.round(part.p[0] * 2)}:${Math.round(part.p[2] * 2)}`;
+        const prior = tops.get(key);
+        if (!prior || part.p[1] + part.s[1] > prior.p[1] + prior.s[1])
+          tops.set(key, part);
+      }
+      for (const owner of tops.values()) {
+        if (owner.material !== "sandstone" && owner.material !== "stone")
+          continue;
+        const [x, y, z] = owner.p,
+          [sx, sy, sz] = owner.s;
+        add(
+          "stone-coping",
+          owner,
+          [x, y + sy + 0.1, z],
+          [sx + 0.12, 0.16, sz + 0.12],
+          materials[owner.material] ?? materials.stone,
+          coping,
+        );
+      }
+    }
+    for (const [name, parts] of assemblies) {
+      if (!/-(house|warehouse|barn|mill|shed)(-|$)/.test(name)) continue;
+      const walls = parts.filter(
+        (part) =>
+          part.kind === "block" &&
+          part.foundation &&
+          part.s[2] <= 1.05 &&
+          part.s[0] > 1.2 &&
+          part.material !== "window",
+      );
+      if (walls.length < 2) continue;
+      const front = Math.min(...walls.map((wall) => wall.p[2]));
+      const pair = walls
+        .filter((wall) => Math.abs(wall.p[2] - front) < 0.05)
+        .sort((a, b) => a.p[0] - b.p[0]);
+      if (pair.length !== 2) continue;
+      const [left, right] = pair;
+      const hinge = left.p[0] + left.s[0],
+        end = right.p[0] - right.s[0];
+      const halfWidth = (end - hinge) / 2;
+      const base = Math.max(left.p[1] - left.s[1], right.p[1] - right.s[1]);
+      const halfHeight = Math.min(left.s[1], right.s[1]);
+      if (halfWidth < 0.6 || halfWidth > 4 || halfHeight < 1) continue;
+      const face = front - Math.max(left.s[2], right.s[2]) - 0.14;
+      const angle = Math.PI * 0.59;
+      add(
+        "open-plank-doors",
+        left,
+        [
+          hinge + Math.cos(angle) * halfWidth,
+          base + halfHeight,
+          face - Math.sin(angle) * halfWidth,
+        ],
+        [halfWidth * 0.97, halfHeight * 0.97, 1],
+        materials.wood,
+        door,
+        false,
+        angle,
+      );
+      for (const [owner, px] of [
+        [left, hinge - 0.13],
+        [right, end + 0.13],
+      ] as const)
+        add(
+          "entrance-timber",
+          owner,
+          [px, base + halfHeight, face],
+          [0.13, halfHeight, 0.14],
+          materials.wood,
+        );
+      const middle = hinge + halfWidth;
+      const header =
+        parts.find(
+          (part) =>
+            part.kind === "block" &&
+            !part.foundation &&
+            Math.abs(part.p[0] - middle) < 0.1 &&
+            Math.abs(part.p[2] - front) < 0.1,
+        ) ?? left;
+      add(
+        "entrance-timber",
+        header,
+        [middle, base + halfHeight * 2 + 0.08, face],
+        [halfWidth + 0.25, 0.14, 0.14],
+        materials.wood,
+      );
+      for (const lift of [0.48, halfHeight * 2 - 0.48])
+        add(
+          "door-hinges",
+          left,
+          [hinge - 0.03, base + lift, face - 0.035],
+          [0.09, 0.16, 0.11],
+          materials.rock,
+        );
+      const ground = terrain.sample(middle, face - 0.4);
+      if (Math.abs(ground - base) < 0.6 && !this.wet(middle, face - 0.4))
+        add(
+          "entrance-thresholds",
+          left,
+          [middle, ground + 0.09, face - 0.4],
+          [halfWidth, 0.09, 0.38],
+          materials.stone ?? materials.rock,
+          box,
+          true,
+        );
+    }
+    for (const e of world.entities) {
+      if (
+        e.kind !== "block" ||
+        !e.foundation ||
+        dressed.has(e.assembly) ||
+        !/-(house|warehouse)(-|$)/.test(e.assembly)
+      )
+        continue;
+      const siblings = assemblies.get(e.assembly)!;
+      const roofs = siblings.filter(
+        (part) => part.material === "roof" || part.material === "slate",
+      );
+      if (!roofs.length) continue;
+      dressed.add(e.assembly);
+      const x =
+        Math.max(...siblings.map((part) => part.p[0] + part.s[0])) + 2.5;
+      const z = roofs.reduce((sum, part) => sum + part.p[2], 0) / roofs.length;
+      const h = terrain.sample(x, z);
+      if (
+        h < 2 ||
+        this.wet(x, z) ||
+        roads(x, z) < 6 ||
+        Math.abs(h - terrain.sample(x + 2, z)) > 0.8
+      )
+        continue;
+      for (let i = 0; i < 3; i++) {
+        const px = x + (i === 2 ? 0 : i * 1.65),
+          py = h + (i === 2 ? 2.1 : 0.7),
+          pz = z + (i === 2 ? 0.12 : 0);
+        add(
+          "settlement-crates",
+          e,
+          [px, py, pz],
+          [0.72, 0.7, 0.65],
+          materials.wood,
+          box,
+          true,
+        );
+        for (const sign of [-1, 1])
+          add(
+            "crate-straps",
+            e,
+            [px + sign * 0.43, py, pz],
+            [0.055, 0.73, 0.68],
+            materials.rock,
+            box,
+            true,
+          );
+      }
+    }
+    const owners = new Map(world.entities.map((entity) => [entity.id, entity]));
+    for (const window of windowSources) {
+      const owner = owners.get(window.owner);
+      if (!owner) continue;
+      addWindow({
+        ...owner,
+        p: window.p,
+        s: window.s.map((value) => value / 2) as Entity["s"],
+        material: "window",
+      });
+    }
+    for (const [key, list] of lists) {
+      const mesh = new THREE.InstancedMesh(
+        list.geometry,
+        list.material,
+        list.pieces.length,
+      );
+      mesh.name = `scenery:${key}`;
+      list.pieces.forEach((piece, i) => mesh.setMatrixAt(i, piece.matrix));
+      mesh.count = 0;
+      mesh.matrixAutoUpdate = false;
+      mesh.frustumCulled = false;
+      mesh.receiveShadow = true;
+      const cells = new Map<string, Piece[]>();
+      for (const piece of list.pieces) {
+        const key = `${Math.floor(piece.p.x / 128)}:${Math.floor(piece.p.z / 128)}`;
+        let entries = cells.get(key);
+        if (!entries) cells.set(key, (entries = []));
+        entries.push(piece);
+      }
+      this.batches.push({
+        mesh,
+        pieces: list.pieces,
+        cells,
+        ground: list.ground,
+      });
+      this.group.add(mesh);
+    }
+  }
+  private wet(x: number, z: number) {
+    const gx = Math.round(x / CONFIG.spacing),
+      gz = Math.round(z / CONFIG.spacing);
+    return (
+      gx >= 0 &&
+      gz >= 0 &&
+      gx < CONFIG.grid &&
+      gz < CONFIG.grid &&
+      !!this.terrain.flood?.[gz * CONFIG.grid + gx]
+    );
+  }
+  update(
+    camera: THREE.Vector3,
+    removed: Set<number>,
+    distance: number,
+    foliageDistance: number,
+    time: number,
+    force = false,
+  ) {
+    this.wind.value = time;
+    if (!force && time < this.next) return;
+    this.next = time + 0.25;
+    for (const batch of this.batches) {
+      let count = 0;
+      const range = batch.ground
+        ? Math.min(120, foliageDistance)
+        : Math.min(450, distance);
+      for (
+        let z = Math.floor((camera.z - range) / 128);
+        z <= Math.floor((camera.z + range) / 128);
+        z++
+      )
+        for (
+          let x = Math.floor((camera.x - range) / 128);
+          x <= Math.floor((camera.x + range) / 128);
+          x++
+        )
+          for (const piece of batch.cells.get(`${x}:${z}`) ?? []) {
+            if (
+              removed.has(piece.owner) ||
+              Math.abs(piece.p.x - camera.x) > range ||
+              Math.abs(piece.p.z - camera.z) > range ||
+              piece.p.distanceToSquared(camera) > range * range
+            )
+              continue;
+            if (batch.ground) {
+              const h = this.terrain.sample(piece.p.x, piece.p.z);
+              if (
+                h < 2 ||
+                this.wet(piece.p.x, piece.p.z) ||
+                Math.abs(h - (piece.p.y - piece.offset)) > 2
+              )
+                continue;
+              piece.matrix.elements[13] = h + piece.offset;
+            }
+            batch.mesh.setMatrixAt(count++, piece.matrix);
+          }
+      batch.mesh.count = count;
+      batch.mesh.visible = count > 0;
+      batch.mesh.instanceMatrix.needsUpdate = true;
+      batch.mesh.instanceMatrix.clearUpdateRanges();
+      if (count) batch.mesh.instanceMatrix.addUpdateRange(0, count * 16);
+    }
+  }
+}

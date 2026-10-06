@@ -111,6 +111,28 @@ it("cinematic shots remain finite and cycle with a level target", () => {
   r.toggle();
   expect(r.mode).toBe("chase");
 });
+it("prepares the actual smoothed camera boom for obstruction checks and resets without dragging across the island", () => {
+  const rig = new CameraRig();
+  const previous = new THREE.Vector3(0, 10, -30);
+  const desired = new THREE.Vector3(0, 10, -5);
+  const wall = new THREE.Box3(
+    new THREE.Vector3(-4, 0, -24),
+    new THREE.Vector3(4, 20, -20),
+  );
+  rig.prepareBoom(desired, previous, 1 / 60, true);
+  const hit = new THREE.Ray(
+    new THREE.Vector3(0, 10, 0),
+    desired.clone().normalize(),
+  ).intersectBox(wall, new THREE.Vector3());
+  // Smoothing can put the boom behind a wall even when its requested end
+  // was clear. The obstruction pass must receive this smoothed endpoint.
+  expect(desired.z).toBeLessThan(-24);
+  expect(hit).not.toBeNull();
+  expect(previous.toArray()).toEqual([0, 10, -30]);
+  const reset = new THREE.Vector3(2000, 200, 2000);
+  rig.prepareBoom(reset, previous, 1 / 60, false);
+  expect(reset.toArray()).toEqual([2000, 200, 2000]);
+});
 it("photo movement leaves the original camera untouched until applied and restores cinematic mode", () => {
   const r = new CameraRig(),
     c = new THREE.PerspectiveCamera();

@@ -54,8 +54,14 @@ export class DiscoScene {
     this.ball.userData.googlyBounds = [0, 0, 0, 125, 125, 125];
     this.ball.position.set(CONFIG.worldSize / 2, 1100, CONFIG.worldSize / 2);
     const mirror = new THREE.Mesh(
-      new THREE.SphereGeometry(125, 48, 32),
-      new THREE.MeshBasicMaterial({ map, color: "#d8e7ff" }),
+      new THREE.SphereGeometry(125, 32, 16),
+      new THREE.MeshStandardMaterial({
+        map,
+        color: "#eeeeee",
+        metalness: 1,
+        roughness: 0.12,
+        flatShading: true,
+      }),
     );
     const halo = new THREE.Mesh(
       new THREE.SphereGeometry(133, 32, 20),
@@ -103,6 +109,8 @@ export class DiscoScene {
       original(shader, renderer);
       shader.uniforms.uDiscoAmount = this.amount;
       shader.uniforms.uDiscoTime = this.time;
+      // Debris clones retain their wrapped compiler; only rebind this scene's uniforms.
+      if (shader.vertexShader.includes("varying vec3 vDiscoWorld;")) return;
       shader.vertexShader = shader.vertexShader
         .replace(
           "#include <common>",

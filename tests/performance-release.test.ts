@@ -33,6 +33,30 @@ const bytes = readFileSync("public/world.bin");
 const base = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 );
+it("retains an isolated worst worker-step breakdown without adding save or motion data", () => {
+  const sim = new Simulation(
+    { ...world, entities: [], civilians: [] },
+    base,
+    () => {},
+    undefined,
+    true,
+  );
+  try {
+    sim.step();
+    const first = sim.snapshot(true);
+    expect(first.stats.worstStep?.tick).toBe(1);
+    expect(first.stats.worstStep?.ms).toBeGreaterThanOrEqual(0);
+    expect(first.stats.stageMS?.projectiles).toBeGreaterThanOrEqual(0);
+    first.stats.worstStep!.stages.projectiles = -123;
+    expect(
+      sim.snapshot(true).stats.worstStep?.stages.projectiles,
+    ).toBeGreaterThanOrEqual(0);
+    expect(first.packedMotion).toBeDefined();
+    expect(sim.save()).not.toHaveProperty("worstStep");
+  } finally {
+    sim.dispose();
+  }
+});
 it("stores dry cells compactly and enumerates bit 31 without duplicating indices", () => {
   const indices = new SparseIndices();
   for (const i of [0, 31, 32, 1023, 1024, 31, 9440000]) indices.add(i);
@@ -68,6 +92,23 @@ it("requires fresh active headroom and overload intervals after a pause", () => 
   expect(auto.update(100000, load)).toBe(false);
   expect(auto.update(100449, load)).toBe(false);
   expect(auto.update(100450, load)).toBe(true);
+});
+it("reduces quality for recurring GPU spikes without reacting to one isolated pass", () => {
+  const idle = { frameMS: 16.67, cpuMS: 2, gpuMS: 9, workerMS: 2, lagMS: 0 };
+  const spike = { ...idle, gpuMS: 16 };
+  const isolated = new AutoQuality(2);
+  isolated.update(100, idle);
+  isolated.update(116, spike);
+  for (let now = 132; now < 2000; now += 16) isolated.update(now, idle);
+  expect(isolated.level).toBe(2);
+  const recurring = new AutoQuality(2);
+  for (let i = 0; i < 120; i++)
+    recurring.update(100 + i * 16, i % 2 ? idle : spike);
+  expect(recurring.level).toBeGreaterThan(2);
+  recurring.resume();
+  const pausedLevel = recurring.level;
+  expect(recurring.update(100000, spike)).toBe(false);
+  expect(recurring.level).toBe(pausedLevel);
 });
 it("borrows packed transforms, reuses record identity, and preserves all actor flags", () => {
   const frame = motionFrame();
@@ -173,7 +214,11 @@ it("keeps exact global shape queries when static colliders are outside the resid
     variant: 0,
   } as any;
   const sim = new Simulation(
-    { ...world, entities: [e], civilians: [] },
+    {
+      ...world,
+      entities: [e, { ...e, id: 1, p: [200, 100, 240] }],
+      civilians: [],
+    },
     base,
     () => {},
     undefined,
@@ -181,6 +226,12 @@ it("keeps exact global shape queries when static colliders are outside the resid
   );
   try {
     expect(sim.entityColliders.has(0)).toBe(false);
+    // Same broad-phase cells, but outside the swept capsule's lateral bounds.
+    (sim as any).staticShapes.set(1, {
+      castShape() {
+        throw Error("off-axis exact cast");
+      },
+    });
     const hit = (sim as any).sweep([180, 100, 200], [220, 100, 200], 1);
     expect(hit).not.toBeNull();
     expect(hit[0]).toBeCloseTo(194, 2);
@@ -283,4 +334,55 @@ it("bounds previous-body lookup storage by population rather than the largest id
   lookup.build(packBodies([{ ...body, id: 7 }], 1));
   expect(lookup.get(100000001)).toBe(0);
   expect(lookup.get(7)).toBe(1);
+});
+
+it("keeps captured destruction progress stable while immutable targets are shared", () => {
+  const sim = new Simulation(
+    { ...world, entities: [], civilians: [] },
+    base,
+    () => {},
+    undefined,
+    true,
+  );
+  try {
+    const job = {
+      p: [100, 30, 100] as [number, number, number],
+      yield: "local" as const,
+      phase: "terrain" as const,
+      cursor: 0,
+      chunks: Object.freeze([1, 2, 3]),
+      entities: Object.freeze([4, 5]),
+      assemblies: ["wall"],
+      fragments: 0,
+      profile: {
+        damageRadius: 20,
+        craterRadius: 10,
+        depth: 2,
+        cloudHeight: 20,
+        bodyLimit: 8,
+        scatterMin: 1,
+        scatterMax: 3,
+        ejecta: 4,
+      },
+      seed: 1,
+      excavation: 1,
+      supportQueue: [[4, 5]],
+    };
+    sim.pendingJobs.push(job);
+    const generator = sim.captureSave();
+    generator.next();
+    job.cursor = 2;
+    job.assemblies.push("tower");
+    job.supportQueue[0].pop();
+    let result = generator.next();
+    while (!result.done) result = generator.next();
+    const saved = structuredClone(result.value).pendingJobs[0];
+    expect(saved.cursor).toBe(0);
+    expect(saved.chunks).toEqual([1, 2, 3]);
+    expect(saved.entities).toEqual([4, 5]);
+    expect(saved.assemblies).toEqual(["wall"]);
+    expect(saved.supportQueue).toEqual([[4, 5]]);
+  } finally {
+    sim.dispose();
+  }
 });

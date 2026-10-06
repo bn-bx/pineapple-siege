@@ -92,7 +92,10 @@ it("adds house decorations from existing walls and removes them with their owner
   village.update(new THREE.Vector3(), new Set(), 1, 600, 0.016);
   expect(
     (village.windows.material as THREE.MeshStandardMaterial).emissiveIntensity,
-  ).toBe(2.4);
+  ).toBeGreaterThan(0);
+  expect(
+    (village.windows.material as THREE.MeshStandardMaterial).emissiveIntensity,
+  ).toBeLessThan(0.6);
   village.update(new THREE.Vector3(), new Set([10]), 1, 600, 0.016);
   const matrix = new THREE.Matrix4();
   village.windows.getMatrixAt(0, matrix);

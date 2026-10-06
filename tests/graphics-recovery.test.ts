@@ -75,3 +75,69 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   await view.prewarm();
   expect(view.renderer.compile).toHaveBeenCalledOnce();
 });
+
+it("prepares active and inactive effect-light variants before flight and restores ownership", async () => {
+  const view = Object.create(GameRenderer.prototype) as any;
+  const light = new THREE.PointLight(),
+    group = new THREE.Group();
+  group.add(light);
+  group.visible = false;
+  view.scene = new THREE.Scene();
+  view.scene.add(group);
+  view.camera = new THREE.PerspectiveCamera();
+  view.terrain = { heightTexture: {}, floodTexture: {} };
+  view.effects = { group, prewarm() {}, prewarmMeshes: [] };
+  view.fallenCanopy = () => {};
+  view.batches = [];
+  view.fragmentMaterials = {};
+  const rendered: boolean[] = [];
+  view.renderer = {
+    initTexture() {},
+    compile: () => new Set(),
+    shadowMap: {},
+    render: () => rendered.push(group.visible && light.visible),
+  };
+  await view.prewarm();
+  expect(rendered).toContain(true);
+  expect(rendered).toContain(false);
+  expect(group.visible).toBe(false);
+  expect(light.visible).toBe(true);
+});
+
+it("warms the mapped non-instanced terrain shadow layout before tiles arrive", async () => {
+  const view = Object.create(GameRenderer.prototype) as any;
+  const terrainMaterial = new THREE.MeshStandardMaterial({
+    map: new THREE.Texture(),
+    vertexColors: true,
+  });
+  const disposed = vi.fn();
+  let proxy: THREE.Mesh | undefined;
+  view.scene = new THREE.Scene();
+  view.camera = new THREE.PerspectiveCamera();
+  view.terrain = {
+    heightTexture: {},
+    floodTexture: {},
+    material: terrainMaterial,
+  };
+  view.effects = { group: new THREE.Group(), prewarm() {}, prewarmMeshes: [] };
+  view.fallenCanopy = () => {};
+  view.batches = [];
+  view.fragmentMaterials = {};
+  view.renderer = {
+    initTexture() {},
+    compile: () => new Set(),
+    shadowMap: {},
+    render: () => {
+      proxy = view.scene.children.find(
+        (o: THREE.Object3D) => (o as THREE.Mesh).material === terrainMaterial,
+      );
+      expect(proxy?.castShadow).toBe(true);
+      expect((proxy as THREE.InstancedMesh).isInstancedMesh).toBeUndefined();
+      expect(proxy!.geometry.getAttribute("color").count).toBe(4);
+      proxy!.geometry.addEventListener("dispose", disposed);
+    },
+  };
+  await view.prewarm();
+  expect(proxy?.parent).toBeNull();
+  expect(disposed).toHaveBeenCalledOnce();
+});

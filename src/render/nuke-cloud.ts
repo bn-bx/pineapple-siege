@@ -1,8 +1,19 @@
+import { softenParticles, type ParticleDepth } from "./soft-particles";
 import * as THREE from "three";
 import type { Explosion } from "../types";
 const dummy = new THREE.Object3D();
 const vertex = `varying vec2 vUv;varying vec3 vColor;void main(){vUv=uv;vColor=instanceColor;vec4 center=modelViewMatrix*instanceMatrix*vec4(0.,0.,0.,1.);center.xy+=position.xy*vec2(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz));gl_Position=projectionMatrix*center;}`;
-const fragment = `uniform float opacity,time;varying vec2 vUv;varying vec3 vColor;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}void main(){vec2 p=vUv*2.-1.;float r=length(p);float n=noise(p*5.+time*.13);float a=smoothstep(1.,.23,r+(n-.5)*.24)*opacity*.55;if(a<.015)discard;vec3 c=vColor*(.65+.35*(1.-vUv.y)+n*.2);gl_FragColor=vec4(c,a);}`;
+const fragment = `uniform float opacity,time,daylight;uniform vec3 cloudLight;varying vec2 vUv;varying vec3 vColor;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
+void main(){vec2 p=vUv*2.-1.;float r=length(p);float n=noise(p*5.+time*.13)*.7+noise(p*11.-time*.08)*.3;
+float a=smoothstep(1.,.23,r+(n-.5)*.24)*opacity*.55;if(a<.015)discard;
+vec3 puffNormal=normalize(vec3(p,sqrt(max(.01,1.-dot(p,p)))));
+float light=.35+.65*max(dot(puffNormal,cloudLight),0.);
+vec3 c=vColor*(.28+.72*daylight)*light*(.84+n*.24);
+c+=vec3(.8,.25,.04)*exp(-time*.65)*(1.-r)*.28;
+gl_FragColor=vec4(c,a);}`;
+
 interface Puff {
   p: THREE.Vector3;
   size: number;
@@ -14,6 +25,7 @@ export class NukeCloud {
   readonly face = new THREE.Group();
   private material: THREE.ShaderMaterial;
   private smoke: THREE.InstancedMesh;
+  private atlasInstalled = false;
   private puffs: Puff[] = [];
   private shock: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   age = 0;
@@ -27,7 +39,12 @@ export class NukeCloud {
       fragmentShader: fragment,
       transparent: true,
       depthWrite: false,
-      uniforms: { opacity: { value: 1 }, time: { value: 0 } },
+      uniforms: {
+        opacity: { value: 1 },
+        time: { value: 0 },
+        daylight: { value: 1 },
+        cloudLight: { value: new THREE.Vector3(0.4, 0.8, 0.4) },
+      },
     });
     const bodyCount = reduced ? 180 : 360,
       leafCount = reduced ? 12 : 22,
@@ -36,6 +53,16 @@ export class NukeCloud {
       new THREE.PlaneGeometry(1, 1),
       this.material,
       total,
+    );
+    this.smoke.geometry.setAttribute(
+      "cloudPuffFrame",
+      new THREE.InstancedBufferAttribute(
+        Float32Array.from(
+          { length: total },
+          (_, i) => (i * 17 + event.seed) % 25,
+        ),
+        1,
+      ),
     );
     this.smoke.frustumCulled = false;
     this.smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -172,6 +199,16 @@ export class NukeCloud {
     this.group.scale.setScalar(1);
     this.update(0);
   }
+  setEnvironment(
+    daylight: number,
+    direction: THREE.Vector3,
+    camera: THREE.Camera,
+  ) {
+    this.material.uniforms.daylight.value = daylight;
+    (this.material.uniforms.cloudLight.value as THREE.Vector3)
+      .copy(direction)
+      .transformDirection(camera.matrixWorldInverse);
+  }
   update(dt: number) {
     this.age += dt;
     const grow = 1 - Math.exp(-this.age * 0.55),
@@ -208,6 +245,35 @@ export class NukeCloud {
   }
   get finished() {
     return this.age >= 20;
+  }
+  installAtlas(texture: THREE.Texture) {
+    this.material.uniforms.cloudAtlas = { value: texture };
+    if (this.atlasInstalled) return;
+    this.atlasInstalled = true;
+    this.material.vertexShader =
+      "attribute float cloudPuffFrame;varying float vCloudPuffFrame;\n" +
+      this.material.vertexShader.replace(
+        "vColor=instanceColor;",
+        "vColor=instanceColor;vCloudPuffFrame=cloudPuffFrame;",
+      );
+    this.material.fragmentShader =
+      `uniform sampler2D cloudAtlas;varying float vCloudPuffFrame;
+      vec2 cloudAtlasUV(vec2 uv,float frame){return (vec2(mod(frame,5.),floor(frame/5.))+(vec2(4.)+uv*248.)/256.)/5.;}\n` +
+      this.material.fragmentShader
+        .replace(
+          "if(a<.015)discard;",
+          `float frame=vCloudPuffFrame+time*.35;
+        vec4 puff=mix(texture2D(cloudAtlas,cloudAtlasUV(vUv,mod(floor(frame),25.))),texture2D(cloudAtlas,cloudAtlasUV(vUv,mod(floor(frame)+1.,25.))),smoothstep(0.,1.,fract(frame)));
+        a*=puff.a;if(a<.015)discard;`,
+        )
+        .replace(
+          "gl_FragColor=vec4(c,a);",
+          "c*=mix(.75,1.05,puff.r);gl_FragColor=vec4(c,a);",
+        );
+    this.material.needsUpdate = true;
+  }
+  setParticleDepth(depth: ParticleDepth) {
+    softenParticles(this.material, depth, 8, true);
   }
   dispose() {
     this.smoke.dispose();

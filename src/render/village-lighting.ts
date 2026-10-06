@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { CONFIG } from "../config";
 import type { Vec3, WorldData, Entity } from "../types";
 
-interface VillageWindow {
+export interface VillageWindow {
   owner: number;
   p: Vec3;
   s: Vec3;
@@ -102,7 +102,7 @@ export class VillageLighting {
   private windowMatrices: THREE.Matrix4[];
   constructor(
     private sources: { p: Vec3; owner: number }[],
-    private windowSources: VillageWindow[] = [],
+    readonly windowSources: VillageWindow[] = [],
     heightTexture?: THREE.Texture,
   ) {
     this.mesh = new THREE.InstancedMesh(
@@ -223,7 +223,7 @@ export class VillageLighting {
     }
     this.pools.visible = night > 0.001;
     (this.pools.material as THREE.ShaderMaterial).uniforms.strength.value =
-      night * 0.36;
+      night * 0.18;
     let windowsChanged = false;
     for (let i = 0; i < this.windowSources.length; i++) {
       const visible = Number(
@@ -238,7 +238,7 @@ export class VillageLighting {
     }
     if (windowsChanged) this.windows.instanceMatrix.needsUpdate = true;
     (this.windows.material as THREE.MeshStandardMaterial).emissiveIntensity =
-      night * 2.4;
+      night * 0.45;
     (this.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity =
       night * 3.5;
     const fade = 1 - Math.exp(-Math.min(dt, 0.1) * 10);

@@ -30,7 +30,9 @@ it("stitches unequal terrain detail levels with identical shared heights and nor
     return values.sort((a, b) => a[0] - b[0]);
   };
   expect(edge(a.mesh)).toHaveLength(33);
-  expect(edge(a.mesh).every(values=>values.every(Number.isFinite))).toBe(true);
+  expect(edge(a.mesh).every((values) => values.every(Number.isFinite))).toBe(
+    true,
+  );
   expect(edge(b.mesh)).toEqual(edge(a.mesh));
   const geometry = a.mesh.geometry;
   const patch = terrain.crater(1088, 1030, 35, 12);
@@ -143,20 +145,119 @@ it("removes distant terrain draw tiles when range shrinks and restores them when
   view.heightTexture.dispose();
   view.floodTexture.dispose();
 });
-it('rejects mesh results from obsolete islands, edits, and detail levels',()=>{
-  const original=globalThis.Worker;
-  class MeshWorker {onmessage:any;onerror:any;postMessage(){}terminate(){}}
-  globalThis.Worker=MeshWorker as any;
-  const bytes=readFileSync('tests/fixtures/legacy-world/world.bin');
-  const base=new Float32Array(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
-  let view:TerrainView|undefined;
+it("rejects mesh results from obsolete islands, edits, and detail levels", () => {
+  const original = globalThis.Worker;
+  class MeshWorker {
+    onmessage: any;
+    onerror: any;
+    postMessage() {}
+    terminate() {}
+  }
+  globalThis.Worker = MeshWorker as any;
+  const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
+  const base = new Float32Array(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  );
+  let view: TerrainView | undefined;
   try {
-    view=new TerrainView(JSON.parse(readFileSync('tests/fixtures/legacy-world/world.json','utf8')),base,new THREE.Texture());
-    const runtime=view as any;runtime.activeTiles.add(0);runtime.editRevisions[0]=3;runtime.requestedSteps[0]=2;
-    const result={epoch:1,tile:0,serial:1,buildMS:1,members:[{id:0,revision:3,step:2}]};
-    for(const stale of [{...result,epoch:0},{...result,members:[{id:0,revision:2,step:2}]},{...result,members:[{id:0,revision:3,step:8}]}])runtime.worker.onmessage({data:stale});
+    view = new TerrainView(
+      JSON.parse(
+        readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+      ),
+      base,
+      new THREE.Texture(),
+    );
+    const runtime = view as any;
+    runtime.activeTiles.add(0);
+    runtime.editRevisions[0] = 3;
+    runtime.requestedSteps[0] = 2;
+    const result = {
+      epoch: 1,
+      tile: 0,
+      serial: 1,
+      buildMS: 1,
+      members: [{ id: 0, revision: 3, step: 2 }],
+    };
+    for (const stale of [
+      { ...result, epoch: 0 },
+      { ...result, members: [{ id: 0, revision: 2, step: 2 }] },
+      { ...result, members: [{ id: 0, revision: 3, step: 8 }] },
+    ])
+      runtime.worker.onmessage({ data: stale });
     expect(runtime.completed).toHaveLength(0);
-    runtime.worker.onmessage({data:result});expect(runtime.completed).toHaveLength(1);
-    view.restore(base);runtime.worker.onmessage({data:result});expect(runtime.completed).toHaveLength(0);
-  } finally {view?.dispose();globalThis.Worker=original;}
+    runtime.worker.onmessage({ data: result });
+    expect(runtime.completed).toHaveLength(1);
+    view.restore(base);
+    runtime.worker.onmessage({ data: result });
+    expect(runtime.completed).toHaveLength(0);
+  } finally {
+    view?.dispose();
+    globalThis.Worker = original;
+  }
+});
+it("makes bounded terrain request and installation progress with no shared frame headroom", () => {
+  const original = globalThis.Worker;
+  class MeshWorker {
+    onmessage: any;
+    onerror: any;
+    messages: any[] = [];
+    postMessage(message: any) {
+      this.messages.push(message);
+    }
+    terminate() {}
+  }
+  globalThis.Worker = MeshWorker as any;
+  const bytes = readFileSync("tests/fixtures/legacy-world/world.bin");
+  const base = new Float32Array(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  );
+  let view: TerrainView | undefined;
+  try {
+    view = new TerrainView(
+      JSON.parse(
+        readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+      ),
+      base,
+      new THREE.Texture(),
+    );
+    const runtime = view as any,
+      worker = runtime.worker as MeshWorker;
+    const camera = new THREE.Vector3(128, 200, 128);
+    view.update(camera, 600, 0);
+    const jobs = () =>
+      worker.messages.filter((message) => message.type === "mesh");
+    expect(jobs()).toHaveLength(1);
+    const job = jobs()[0].job;
+    worker.onmessage({
+      data: {
+        epoch: job.epoch,
+        tile: job.tile,
+        serial: job.serial,
+        buildMS: 0.1,
+        members: job.sections.map((section: any) => ({
+          id: section.id,
+          step: section.step,
+          revision: section.revision,
+        })),
+        position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 1]),
+        normal: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0]),
+        color: new Float32Array(9).fill(0.5),
+        uv: new Float32Array(6),
+        index: new Uint16Array([0, 1, 2]),
+        sphere: [0, 0, 0, 2],
+      },
+    });
+    view.update(camera, 600, 0);
+    expect(
+      runtime.tiles.get(job.tile).mesh.geometry.getAttribute("position").count,
+    ).toBe(3);
+    expect(runtime.completed).toHaveLength(0);
+    expect(jobs()).toHaveLength(1); // installation consumes the one guaranteed operation
+    view.update(camera, 600, 0);
+    expect(jobs()).toHaveLength(2);
+    expect(runtime.inFlight.size).toBe(1);
+  } finally {
+    view?.dispose();
+    globalThis.Worker = original;
+  }
 });

@@ -50,7 +50,8 @@
       <label
         >Cases
         <select id="case">
-          <option value="-1">All eight</option>
+          <option value="-1">Complete matrix</option>
+          <option value="-2">Projectile and distance matrix</option>
           <option value="0">Flight · 120</option>
           <option value="1">Nuke · 120</option>
           <option value="2">Laser · 120</option>
@@ -61,7 +62,8 @@
           <option value="7">Single nuke · saves disabled</option>
         </select></label
       ><button id="run" disabled>Run benchmark</button
-      ><button id="soak" disabled>15-minute combat soak</button
+      ><button id="normal-soak" disabled>15-minute normal certification</button
+      ><button id="soak" disabled>15-minute stress soak</button
       ><button id="storage">Storage correctness</button
       ><button id="context">Context recovery check</button
       ><button id="export">Save local report</button
@@ -77,6 +79,8 @@
           >View
           <select id="viewpoint">
             <option value="castle">Castle</option>
+            <option value="aircraft">Aircraft</option>
+            <option value="monster">Pineapple monster</option>
             <option value="coast">Coast</option>
             <option value="river">River</option>
             <option value="village">Village</option>
@@ -109,7 +113,40 @@
             <option value="1200">High</option>
           </select></label
         ><label><input id="eyes" type="checkbox" />Eyes</label
-        ><button id="tour">Play inspection</button
+        ><label
+          >Quality
+          <select id="inspect-quality">
+            <option value="auto">Auto</option>
+            <option value="720">Performance</option>
+            <option value="1080">High</option>
+            <option value="1440">Ultra</option>
+          </select></label
+        >
+        <label><input id="inspect-photo" type="checkbox" />Photo</label>
+        <label
+          >Focus (m)
+          <input
+            id="inspect-focus"
+            type="number"
+            min="0"
+            max="1200"
+            value="120"
+            size="5"
+        /></label>
+        <label
+          >Exposure
+          <input
+            id="inspect-exposure"
+            type="number"
+            min="0.4"
+            max="2.2"
+            step="0.1"
+            value="1.15"
+            size="4"
+        /></label>
+        <button id="inspect-impact">Material impacts</button>
+        <button id="inspect-nuke">Nuke at view</button>
+        <button id="tour">Play inspection</button
         ><button id="pause-tour">Pause inspection</button>
       </details>
       <details>

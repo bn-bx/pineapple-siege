@@ -1,11 +1,12 @@
 import { SparseIndices } from "./sparse-indices";
+import { SparseValues } from "./sparse-values";
 import { CONFIG, CHUNKS, CHUNK_SAMPLES, LASER, clamp } from "../config";
 import { RiverField } from "../world/rivers";
 import type { RiverData, TerrainPatch } from "../types";
 export class Terrain {
   readonly base: Float32Array;
   readonly heights: Float32Array;
-  readonly changed = new Map<number, number>();
+  readonly changed = new SparseValues();
   readonly sectionVersions = new Uint32Array(CHUNKS * CHUNKS);
   sectionAt(x: number, z: number) {
     return (
@@ -22,7 +23,7 @@ export class Terrain {
   }
   readonly flooded = new Uint8Array(CONFIG.grid * CONFIG.grid);
   readonly dryIndices = new SparseIndices();
-  dirtySamples = new Map<number, number>();
+  dirtySamples = new SparseValues();
   dirtyDry = new SparseIndices();
   readonly laserDry = new Uint8Array(CONFIG.grid * CONFIG.grid);
   private floodQueue = new Uint32Array(4096);

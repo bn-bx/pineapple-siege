@@ -356,16 +356,19 @@ input[type="checkbox"] {
   top: 50%;
   width: 30px;
   height: 30px;
-  border: 1px solid #ffffdc7a;
+  border: 1px solid #fff5d9;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 7px #0003;
+  box-shadow:
+    0 0 0 1px #071015d9,
+    inset 0 0 0 1px #071015d9;
 }
 #reticle:after,
 #reticle:before {
   content: "";
   position: absolute;
-  background: #fff8d3b0;
+  background: #fff5d9;
+  box-shadow: 0 0 0 1px #071015d9;
 }
 #reticle:before {
   left: 13px;
@@ -983,6 +986,7 @@ body.photo #perf {
 }
 #islandPreview {
   width: min(880px, calc(100vw - 32px));
+  max-width: 880px;
   max-height: calc(100dvh - 32px);
   overflow: auto;
   padding: 24px;
@@ -1005,7 +1009,7 @@ body.photo #perf {
 #islandMap {
   display: block;
   width: 100%;
-  max-height: 55dvh;
+  max-height: clamp(140px, calc(100dvh - 360px), 480px);
   object-fit: contain;
   background: #1d4c5f;
   border-radius: 12px;
@@ -1019,6 +1023,13 @@ body.photo #perf {
   color: #c7d2b8;
 }
 #islandPreview .island-preview-actions {
+  position: sticky;
+  bottom: -24px;
+  z-index: 1;
+  margin: 0 -24px -24px;
+  padding: 16px 24px 24px;
+  background: #1c3033;
+  border-top: 1px solid #d9c49326;
   display: flex;
   gap: 10px;
   justify-content: flex-end;
@@ -1047,7 +1058,12 @@ body.photo #perf {
     grid-column: 1/-1;
   }
   #islandMap {
-    max-height: 43dvh;
+    max-height: clamp(120px, calc(100dvh - 380px), 360px);
+  }
+  #islandPreview .island-preview-actions {
+    bottom: -16px;
+    margin: 0 -16px -16px;
+    padding: 12px 16px 16px;
   }
 }
 #islandPreview button,
@@ -1104,4 +1120,77 @@ body.photo #perf {
 body.photo #ceilingWarning,
 body.cinematic #ceilingWarning {
   display: none;
+}
+
+/* Stable menu geometry keeps scrolling titles below the fixed identity bar. */
+body:has(#overlay:not([hidden])) header {
+  background: #102024f5;
+  inset: 0 0 auto;
+  padding: 20px 30px;
+  min-height: 76px;
+  border-bottom: 1px solid #d9c49326;
+}
+#overlay {
+  padding-top: 102px;
+  background:
+    radial-gradient(ellipse at 90% 0%, #34464b70, transparent 55%), #102024f5;
+}
+.menu-heading h1,
+.menu-heading h2 {
+  font-family: Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+}
+button,
+input,
+select {
+  transition:
+    border-color 0.16s,
+    background-color 0.16s;
+}
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #efc76b;
+  outline-offset: 3px;
+}
+#photoToolbar {
+  max-width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+#warning,
+#ceilingWarning {
+  text-shadow: 0 1px 3px #000;
+  background: #15252eef;
+  border: 1px solid #ffd08390;
+}
+@media (max-width: 650px) {
+  body:has(#overlay:not([hidden])) header {
+    padding: 16px 20px;
+  }
+  #overlay {
+    padding-top: 100px;
+  }
+  .edition {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button,
+  input,
+  select {
+    transition: none;
+  }
+}
+
+#assetNotice {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  max-width: 420px;
+  padding: 12px;
+  background: #13262aee;
+  border: 1px solid #d9a65b;
+  z-index: 8;
+  font-size: 12px;
 }

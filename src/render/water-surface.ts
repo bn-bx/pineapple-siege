@@ -34,6 +34,18 @@ export function waterNormals() {
   return texture;
 }
 
+/** Metre-scaled wind ripples and swell; retain the existing four texture reads. */
+export const OCEAN_NORMAL_GLSL = `
+vec4 getNoise( vec2 uv ) {
+  vec2 wind = vec2(.24,.13) * time;
+  vec4 ripples = texture2D(normalSampler,(uv-wind)/12.);
+  vec4 chop = texture2D(normalSampler,(uv+wind*vec2(-.7,.9))/35.);
+  vec4 waves = texture2D(normalSampler,(uv-wind*.65)/97.);
+  vec4 swell = texture2D(normalSampler,(uv-wind*.35)/311.);
+  return (ripples*1.3+chop*1.2+waves+swell*.5)*.5-1.;
+}
+`;
+
 /** Keep depth tint in shallow water, rather than blending mud into the open sea. */
 export const OCEAN_COLOR_GLSL = `
 vec3 shallow = mix(waterColor * 1.35, waterColor * vec3(.65,1.6,1.25), .45);

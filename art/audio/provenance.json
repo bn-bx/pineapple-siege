@@ -1,0 +1,74 @@
+[
+  {
+    "name": "river",
+    "source": "https://opengameart.org/sites/default/files/park_ambience_river.wav",
+    "page": "https://opengameart.org/content/park-ambiences",
+    "author": "Thimras",
+    "license": "CC0",
+    "sha256": "da0c0c9b1249a83a1611cc116d5737b0864a8db9f45f1ae8dcc079d0f7c0bbbf",
+    "edits": "Mono 22050 Hz; truncated; ambient endpoint crossfade"
+  },
+  {
+    "name": "wind",
+    "source": "https://opengameart.org/sites/default/files/park_ambience_wind.wav",
+    "page": "https://opengameart.org/content/park-ambiences",
+    "author": "Thimras",
+    "license": "CC0",
+    "sha256": "5c381856745b4706e7eba55eb9271a61a530e90c05df8126adb2db89ecfa6c5a",
+    "edits": "Mono 22050 Hz; truncated; ambient endpoint crossfade"
+  },
+  {
+    "name": "forest",
+    "source": "https://opengameart.org/sites/default/files/Forest_Ambience.mp3",
+    "page": "https://opengameart.org/content/forest-ambience",
+    "author": "TinyWorlds",
+    "license": "CC0",
+    "sha256": "9850aa1d0d5d66bd9c5daf8bb77c6d852e01f2f4de22f283bd5621e8bed13b75",
+    "edits": "Mono 22050 Hz; truncated; ambient endpoint crossfade"
+  },
+  {
+    "name": "turbine",
+    "source": "https://opengameart.org/sites/default/files/engine_takeoff.wav",
+    "page": "https://opengameart.org/content/jet-engine-takeoff",
+    "author": "dklon",
+    "license": "CC-BY-3.0",
+    "sha256": "c7aa06c63a4fc5a638cab2b9f292a34ca03b3f3a1016d01e3b69cfd65f328e87",
+    "edits": "Mono 22050 Hz; truncated; ambient endpoint crossfade"
+  },
+  {
+    "name": "explosion",
+    "source": "https://opengameart.org/sites/default/files/mechanical_explosion.wav",
+    "page": "https://opengameart.org/content/mechanical-explosion",
+    "author": "Spring Spring",
+    "license": "CC0",
+    "sha256": "13e9f713bd0d5921b223b01d29d68bb7625a1a1fbf1894af35ebfd5ef72c8632",
+    "edits": "Mono 22050 Hz; truncated; ambient endpoint crossfade"
+  },
+  {
+    "name": "cheer",
+    "source": "https://opengameart.org/sites/default/files/cheers.ogg",
+    "page": "https://opengameart.org/content/cheers-0",
+    "author": "AuraVoice / Nocturnal_Vanguard",
+    "license": "CC0",
+    "sha256": "10d9f614307127a8c2b2b129e9a291b6071c8fc91f1fed4916f78ad47c956b25",
+    "edits": "Original Ogg recording"
+  },
+  {
+    "name": "wood",
+    "source": "https://opengameart.org/sites/default/files/saw_-_starninjas.ogg",
+    "page": "https://opengameart.org/content/saw-or-wood-impact",
+    "author": "StarNinjas",
+    "license": "CC0",
+    "sha256": "4ed1587394af8adde4fe6443ca6367a16b6dbb8e5e09d39c96df608de32c5d32",
+    "edits": "Original Ogg recording"
+  },
+  {
+    "name": "stone",
+    "source": "https://opengameart.org/sites/default/files/rock_break.ogg",
+    "page": "https://opengameart.org/content/breaking-rock",
+    "author": "themightyglider / SoundCollectah",
+    "license": "CC0",
+    "sha256": "b645f35d21194e7855dd4a5405b1e8e6bec070731b92df6abcb202676b8e9f2e",
+    "edits": "Original Ogg recording"
+  }
+]

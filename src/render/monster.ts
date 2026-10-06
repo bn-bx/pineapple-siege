@@ -1,3 +1,5 @@
+import { crownSurface, fruitSurface } from "./fruit-surface";
+import { visualGeometry } from "./visual-assets";
 import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
 import {
@@ -157,6 +159,56 @@ function build() {
   }
   g.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
   return g;
+}
+export function upgradeMonsterTemplate(
+  texture?: THREE.Texture,
+  wood?: { color: THREE.Texture; normal: THREE.Texture },
+) {
+  template ??= build();
+  const body = template.children.find(
+    (o) => o instanceof THREE.Mesh && o.position.y === 15,
+  ) as THREE.Mesh;
+  fruitSurface(body.material as THREE.MeshStandardMaterial, texture);
+  body.geometry = visualGeometry("fruit_lod0", () => body.geometry.clone());
+  for (const name of ["leftArm", "rightArm"]) {
+    template.getObjectByName(name)?.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const material = object.material as THREE.MeshStandardMaterial;
+      if (material.color.getHex() !== 0x987126 && !material.userData.rootLimb)
+        return;
+      material.userData.rootLimb = true;
+      material.map = wood?.color ?? null;
+      material.normalMap = wood?.normal ?? null;
+      material.normalScale.set(0.35, 0.35);
+      material.color.set(wood ? "#b5a06b" : "#987126");
+      material.needsUpdate = true;
+    });
+  }
+  const crown = template.getObjectByName("crown")!;
+  crown.children.forEach((o, i) => {
+    const mesh = o as THREE.Mesh;
+    crownSurface(mesh.material as THREE.MeshStandardMaterial, 5.5, 1.4);
+    mesh.geometry = visualGeometry("leaf_lod0", () =>
+      mesh.geometry.clone(),
+    ).scale(1.4, 4.5 + (i % 3), 1.4);
+  });
+  if (distantTemplate) {
+    const fruit = distantTemplate.children[0] as THREE.Mesh;
+    fruit.geometry = visualGeometry("fruit_lod2", () => fruit.geometry.clone());
+    fruit.material = body.material;
+    const crown = distantTemplate.children[1] as THREE.Mesh;
+    const blades = Array.from({ length: 7 }, (_, i) =>
+      visualGeometry("leaf_lod2", () => crown.geometry.clone())
+        .scale(1.4, 5, 1.4)
+        .rotateZ(0.3)
+        .rotateY((i * Math.PI * 2) / 7),
+    );
+    crown.geometry = mergeMonsterGeometry(blades)!;
+    for (const blade of blades) blade.dispose();
+    crown.material = (
+      template.getObjectByName("crown")!.children[0] as THREE.Mesh
+    ).material;
+  }
 }
 export function makeMonster() {
   template ??= build();

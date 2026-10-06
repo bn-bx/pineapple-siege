@@ -3,16 +3,18 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { CONFIG } from "../config";
+import { waterPrepass } from "./water-prepass";
 
 export function makeRivers(world: WorldData, terrain: TerrainView) {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({
-    color: 0x126b88,
-    roughness: 0.3,
-    metalness: 0.05,
+    color: 0x285951,
+    roughness: 0.24,
+    metalness: 0.02,
 
     side: THREE.DoubleSide,
   });
+  waterPrepass(material, terrain.heightTexture, terrain.floodTexture);
   const uniforms = {
     time: { value: 0 },
     sky: { value: new THREE.Color("#b1d3e1") },
@@ -50,11 +52,18 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         `#include <clipping_planes_fragment>\nvec2 riverUV=(riverPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.;float riverDepth=riverPosition.y-texture2D(uTerrain,riverUV).r;
         if(texture2D(uWet,riverUV).r<.5 || riverDepth<=0.)discard;
         diffuseColor.rgb=mix(diffuseColor.rgb*1.5,diffuseColor.rgb*.65,smoothstep(.3,5.,riverDepth));
-        float along=dot(riverPosition.xz,riverFlow), across=dot(riverPosition.xz,vec2(-riverFlow.y,riverFlow.x));
-        float current=sin(along*.24-uRiverTime*.8+sin(across*.19))*sin(across*.33+along*.09);
-        float broad=sin(along*.045+across*.07-uRiverTime*.08);
-        diffuseColor.rgb*=.95+.06*current+.06*broad;
-        vec2 ripple=vec2(cos(riverPosition.x*.42+riverPosition.z*.26-uRiverTime*1.3),sin(riverPosition.z*.65-riverPosition.x*.18-uRiverTime*.9))*.035;
+        // Advect continuous world-space waves along the local flow. Dotting
+        // absolute coordinates with a changing tangent creates striped bends.
+        vec2 flowDirection=normalize(riverFlow);
+        vec2 advected=riverPosition.xz-flowDirection*uRiverTime*.8;
+        float phaseA=dot(advected,vec2(.71,.43));
+        float phaseB=dot(advected,vec2(-.31,1.1));
+        float rippleA=exp(-.5*pow(fwidth(phaseA),2.));
+        float rippleB=exp(-.5*pow(fwidth(phaseB),2.));
+        float current=sin(phaseA*.3)*sin(phaseB*.25);
+        float broad=sin(dot(advected,vec2(.045,.07)));
+        diffuseColor.rgb*=.97+.025*current+.035*broad;
+        vec2 ripple=(vec2(.71,.43)*cos(phaseA)*rippleA+vec2(-.31,1.1)*sin(phaseB)*rippleB)*.018;
         vec3 riverNormal=normalize(vec3(ripple.x,1.,ripple.y));`,
       )
       .replace(
@@ -70,7 +79,8 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         float glint=pow(max(dot(toEye,reflect(-uRiverSunDirection,riverNormal)),0.),100.);
         totalEmissiveRadiance+=uRiverSky*fresnel*.55+uRiverSun*glint*.65;
         float bank=(1.-smoothstep(.1,.8,riverDepth))*smoothstep(0.,.12,riverDepth);
-        totalEmissiveRadiance+=uRiverSun*bank*.12;`,
+        float foam=smoothstep(.35,.85,current)*(.65+.35*broad);
+        totalEmissiveRadiance+=uRiverSun*bank*foam*.12;`,
       );
   };
   const tiles = new Map<number, THREE.BufferGeometry[]>();

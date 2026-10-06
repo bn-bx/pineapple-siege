@@ -1,3 +1,5 @@
+import { visualGeometry } from "./visual-assets";
+import { crownSurface, fruitSurface } from "./fruit-surface";
 import { roofParts } from "../debris-shape";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -256,6 +258,24 @@ export function makeJet() {
   }
   g.userData.googlyBounds = [0, 1, 1.5, 1.4, 0.9, 3];
   return g;
+}
+export function upgradePineapple(group: THREE.Group, texture?: THREE.Texture) {
+  const fruit = group.children[0] as THREE.Mesh;
+  fruitSurface(fruit.material as THREE.MeshStandardMaterial, texture);
+  if (pineappleTemplate && group !== pineappleTemplate)
+    upgradePineapple(pineappleTemplate, texture);
+  if (group.userData.visualUpgrade) return;
+  group.userData.visualUpgrade = true;
+  fruit.geometry = visualGeometry("fruit_lod1", () =>
+    fruit.geometry.clone(),
+  ).scale(0.85, 0.85, 0.85);
+  for (const object of group.children.slice(1)) {
+    const mesh = object as THREE.Mesh;
+    crownSurface(mesh.material as THREE.MeshStandardMaterial, 0.625, 0.18);
+    mesh.geometry = visualGeometry("leaf_lod1", () =>
+      mesh.geometry.clone(),
+    ).scale(0.18, 0.625, 0.18);
+  }
 }
 let pineappleTemplate: THREE.Group | undefined;
 export function makePineapple(length = 6): THREE.Group {

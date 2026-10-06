@@ -2,6 +2,7 @@ import { VERTICAL_LIMITS } from "../world/vertical-limits.mjs";
 import { packMotion } from "./motion-buffer";
 import { StaticBlockerIndex } from "./static-blockers";
 import { SparseIndices } from "./sparse-indices";
+import { SparseValues } from "./sparse-values";
 import { civilianPopulation } from "../civilian-morale";
 import { Civilians } from "./civilians";
 import { CHUNKS } from "../config";
@@ -271,7 +272,7 @@ export class Simulation {
   private captures = new Map<
     number,
     {
-      terrain: Map<number, number>;
+      terrain: SparseValues;
       dry: SparseIndices;
       ruins: Map<number, Ruin | null>;
     }
@@ -295,7 +296,14 @@ export class Simulation {
   shots = 0;
   physicsMS = 0;
   stepMS = 0;
+  private worstStep?: SimulationSnapshot["stats"]["worstStep"];
   stageMS = {
+    flight: 0,
+    projectiles: 0,
+    destruction: 0,
+    terrainMaintenance: 0,
+    presentationEvents: 0,
+    unclassified: 0,
     monsters: 0,
     residents: 0,
     residency: 0,
@@ -1616,6 +1624,12 @@ export class Simulation {
         (a[2] + b[2]) / 2,
       ];
       const envelope = Math.max(radius, halfLength),
+        loX = Math.min(a[0], b[0]) - envelope,
+        hiX = Math.max(a[0], b[0]) + envelope,
+        loY = Math.min(a[1], b[1]) - envelope,
+        hiY = Math.max(a[1], b[1]) + envelope,
+        loZ = Math.min(a[2], b[2]) - envelope,
+        hiZ = Math.max(a[2], b[2]) + envelope,
         sweepShape =
           halfLength > radius
             ? new RAPIER.Capsule(halfLength - radius, radius)
@@ -1624,8 +1638,12 @@ export class Simulation {
         if (this.removed.has(id)) continue;
         const e = this.world.entities[id];
         if (
-          Math.min(a[1], b[1]) - envelope > e.p[1] + e.s[1] ||
-          Math.max(a[1], b[1]) + envelope < e.p[1] - e.s[1]
+          loX > e.p[0] + e.s[0] ||
+          hiX < e.p[0] - e.s[0] ||
+          loY > e.p[1] + e.s[1] ||
+          hiY < e.p[1] - e.s[1] ||
+          loZ > e.p[2] + e.s[2] ||
+          hiZ < e.p[2] - e.s[2]
         )
           continue;
         let shape = this.staticShapes.get(id);
@@ -1662,8 +1680,12 @@ export class Simulation {
       for (const r of this.nearbyRuinCandidates(middle, len / 2 + envelope)) {
         const extent = this.orientedSize(r.s, r.q);
         if (
-          Math.min(a[1], b[1]) - envelope > r.p[1] + extent[1] ||
-          Math.max(a[1], b[1]) + envelope < r.p[1] - extent[1]
+          loX > r.p[0] + extent[0] ||
+          hiX < r.p[0] - extent[0] ||
+          loY > r.p[1] + extent[1] ||
+          hiY < r.p[1] - extent[1] ||
+          loZ > r.p[2] + extent[2] ||
+          hiZ < r.p[2] - extent[2]
         )
           continue;
         let shape = this.ruinShapes.get(r.id);
@@ -2337,6 +2359,7 @@ export class Simulation {
     this.fly(dt);
     if (!wasCrashed)
       this.civilians.sweep(previousPlanePosition, this.plane.p, [4, 2, 4]);
+    this.stageMS.flight = performance.now() - stepStarted;
     const monstersStarted = performance.now();
     const struck = this.monsters.step(
       dt,
@@ -2392,6 +2415,7 @@ export class Simulation {
         this.explode(hit, 0.65, "crash");
       }
     }
+    const projectilesStarted = performance.now();
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const s = this.projectiles[i];
       let next = s.p.map((v, k) => v + s.v[k] * dt) as Vec3,
@@ -2429,18 +2453,26 @@ export class Simulation {
         s.v[1] -= WEAPONS[s.weapon].gravity * dt;
       }
     }
+    this.stageMS.projectiles = performance.now() - projectilesStarted;
+    const destructionStarted = performance.now();
     const laserMS = this.processLaserWork(1);
     if (this.tick % 60 === 0)
       for (const z of this.burnZones)
         this.damageMonsters(z.p, z.radius, 1, true);
     this.processDestruction(Math.max(0.25, 2 - laserMS));
     this.destructionMS += laserMS;
+    this.stageMS.destruction = performance.now() - destructionStarted;
+    const terrainStarted = performance.now();
     if (this.tick % 20 === 0) this.ensureTerrain();
+    this.stageMS.terrainMaintenance = performance.now() - terrainStarted;
     const residencyStarted = performance.now();
     if (this.tick % 4 === 1 || this.pendingJobs.length)
       this.ensureStaticColliders();
     this.stageMS.residency = performance.now() - residencyStarted;
+    const terrainCollidersStarted = performance.now();
     this.processTerrainColliders(0.5);
+    this.stageMS.terrainMaintenance +=
+      performance.now() - terrainCollidersStarted;
     const start = performance.now();
     this.physics.step();
     this.monsterRagdolls.update(dt);
@@ -2472,6 +2504,7 @@ export class Simulation {
       this.blockedCivilian,
     );
     this.stageMS.residents = performance.now() - residentsStarted;
+    const eventsStarted = performance.now();
     if (this.civilians.changed) {
       this.bump();
       this.civilians.changed = false;
@@ -2481,12 +2514,41 @@ export class Simulation {
     );
     if (this.tick % 12 === 0) this.updateAim();
     this.flush();
+    this.stageMS.presentationEvents = performance.now() - eventsStarted;
     this.stepMS = performance.now() - stepStarted;
+    // Colliders is nested in terrain maintenance; do not count it twice.
+    this.stageMS.unclassified = Math.max(
+      0,
+      this.stepMS -
+        (this.stageMS.flight +
+          this.stageMS.monsters +
+          this.stageMS.lasers +
+          this.stageMS.projectiles +
+          this.stageMS.destruction +
+          this.stageMS.residency +
+          this.stageMS.terrainMaintenance +
+          this.stageMS.physics +
+          this.stageMS.ballistic +
+          this.stageMS.residents +
+          this.stageMS.presentationEvents),
+    );
+    // Keep one bounded record so a short stall survives between snapshots.
+    if (!this.worstStep || this.stepMS > this.worstStep.ms)
+      this.worstStep = {
+        tick: this.tick,
+        time: this.time,
+        ms: this.stepMS,
+        stages: { ...this.stageMS },
+      };
   }
   snapshot(
     packed = false,
     reuse?: { bodies?: ArrayBuffer; actors?: ArrayBuffer },
   ): SimulationSnapshot {
+    let terrainHeightJournalDataBytes =
+      this.terrain.changed.byteLength + this.terrain.dirtySamples.byteLength;
+    for (const journal of this.captures.values())
+      terrainHeightJournalDataBytes += journal.terrain.byteLength;
     return {
       type: "snapshot",
       population: civilianPopulation(this.civilians.states),
@@ -2539,6 +2601,9 @@ export class Simulation {
         : {}),
       stats: {
         stageMS: { ...this.stageMS },
+        worstStep: this.worstStep
+          ? { ...this.worstStep, stages: { ...this.worstStep.stages } }
+          : undefined,
         stepMS: this.stepMS,
         physicsMS: this.physicsMS,
         destructionMS: this.destructionMS,
@@ -2553,6 +2618,7 @@ export class Simulation {
         removed: this.removed.size,
         shots: this.shots,
         revision: this.revision,
+        terrainHeightJournalDataBytes,
       },
     };
   }
@@ -2563,7 +2629,7 @@ export class Simulation {
   /** Rotate journals in O(1); immutable values survive ticks until storage commits. */
   *captureSave(): Generator<void, SaveSnapshot> {
     if (!this.terrain.trackDirty) {
-      this.terrain.dirtySamples = new Map(this.terrain.changed);
+      this.terrain.dirtySamples = new SparseValues(this.terrain.changed);
       for (const i of this.terrain.dryIndices) this.terrain.dirtyDry.add(i);
       this.terrain.trackDirty = true;
     }
@@ -2571,7 +2637,7 @@ export class Simulation {
       terrain = this.terrain.dirtySamples,
       dry = this.terrain.dirtyDry,
       ruins = this.dirtyRuins;
-    this.terrain.dirtySamples = new Map();
+    this.terrain.dirtySamples = new SparseValues();
     this.terrain.dirtyDry = new SparseIndices();
     this.dirtyRuins = new Map();
     this.captures.set(capture, { terrain, dry, ruins });
@@ -2604,8 +2670,12 @@ export class Simulation {
         ...j,
         p: [...j.p],
         profile: { ...j.profile },
-        chunks: j.chunks.slice(),
-        entities: j.entities.slice(),
+        // Sorted target lists are immutable after enqueueing. Only cursors and
+        // mutable support queues advance. Sharing these lists across the
+        // capture boundary avoids copying every queued blast's full footprint
+        // in one atomic slice; postMessage still serializes an independent save.
+        chunks: j.chunks,
+        entities: j.entities,
         assemblies: j.assemblies.slice(),
         supportQueue: j.supportQueue?.map((c) => c.slice()),
       })),
@@ -2656,7 +2726,9 @@ export class Simulation {
       return s;
     };
     let slice = performance.now();
-    const due = () => performance.now() - slice >= 1.5;
+    // Leave room beneath the 2 ms slice limit for the current item and runtime
+    // overhead; metadata still captures atomically at one simulation tick.
+    const due = () => performance.now() - slice >= 1;
     yield;
     slice = performance.now();
     for (const journal of this.captures.values()) {
