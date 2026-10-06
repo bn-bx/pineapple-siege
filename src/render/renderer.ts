@@ -11,7 +11,12 @@ import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
 import { VisualAssets, visualGeometry } from "./visual-assets";
-import { isLoggingCampLog, loggingCampLogGeometry } from "./landmark-geometry";
+import {
+  isLoggingCampLog,
+  loggingCampLogGeometry,
+  windmillRotorBladeIds,
+} from "./landmark-geometry";
+import { WindmillView } from "./windmill-view";
 import { Presentation } from "./presentation";
 import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
 import { sceneResources } from "./resource-budget";
@@ -151,6 +156,7 @@ export class GameRenderer {
   private presentation: Presentation;
   private visualsInstalled = false;
   private scenery?: Scenery;
+  private windmills?: WindmillView;
   private foliageTime = { value: 0 };
   private foliageDay = { value: 1 };
   private treeLODState = {
@@ -913,6 +919,12 @@ export class GameRenderer {
       this.villageLighting.windowSources,
     );
     this.scene.add(this.scenery.group);
+    this.windmills = new WindmillView(
+      this.world,
+      this.materials.wood,
+      this.box,
+    );
+    this.scene.add(this.windmills.group);
     this.islandHorizon = new IslandHorizon(
       this.world,
       this.batches,
@@ -968,7 +980,9 @@ export class GameRenderer {
   }
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
+    const windmillBladeIds = windmillRotorBladeIds(this.world);
     for (const e of this.world.entities) {
+      if (windmillBladeIds.has(e.id)) continue;
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
       // Match construction to the existing forest/rock spatial grid. Fewer
@@ -2683,6 +2697,7 @@ export class GameRenderer {
       snap.time,
       this.rig.mode === "photo" || !active,
     );
+    this.windmills?.update(snap.time, this.removed);
     const { daylight: day, night, lightDirection: ld } = this.lighting;
     this.sky.material.uniforms.day.value = day;
     this.sky.material.uniforms.twilight.value = this.lighting.twilight;

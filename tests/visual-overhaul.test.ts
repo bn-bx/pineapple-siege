@@ -272,6 +272,53 @@ it("renders logging-camp stacks as round, horizontal timber", async () => {
   expect(bounds.max.z - bounds.min.z).toBeCloseTo(2);
   geometry.dispose();
 });
+it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
+  const { windmillRotorBladeIds } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const { WindmillView } = await import("../src/render/windmill-view");
+  const block = (id: number, p: number[], s: number[]) => ({
+    id,
+    kind: "block",
+    p,
+    s,
+    material: "wood",
+    assembly: "windmill-1",
+    foundation: false,
+    supports: [],
+  });
+  const world = {
+    sites: [{ id: "windmill-1", kind: "windmill", p: [100, 10, 100] }],
+    entities: [
+      block(10, [100, 33, 94], [1.8, 2, 2]),
+      block(11, [109, 33, 93], [8, 1.6, 0.5]),
+      block(12, [91, 33, 93], [8, 1.6, 0.5]),
+      block(13, [100, 42, 93], [1.6, 8, 0.5]),
+      block(14, [100, 24, 93], [1.6, 8, 0.5]),
+    ],
+  } as any;
+  expect([...windmillRotorBladeIds(world)].sort()).toEqual([11, 12, 13, 14]);
+  const view = new WindmillView(
+    world,
+    new THREE.MeshStandardMaterial(),
+    new THREE.BoxGeometry(2, 2, 2),
+  );
+  const sails = view.group.children.find(
+    (object) => object.name === "windmill-sails",
+  ) as THREE.InstancedMesh;
+  const before = new THREE.Matrix4();
+  sails.getMatrixAt(0, before);
+  view.update(2, new Set());
+  const moving = new THREE.Matrix4();
+  sails.getMatrixAt(0, moving);
+  expect(moving.equals(before)).toBe(false);
+  view.update(2, new Set());
+  const paused = new THREE.Matrix4();
+  sails.getMatrixAt(0, paused);
+  expect(paused.equals(moving)).toBe(true);
+  view.update(2, new Set([11]));
+  expect(sails.count).toBe(3);
+});
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
   const material = new THREE.MeshStandardMaterial();
