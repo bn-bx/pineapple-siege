@@ -15,6 +15,7 @@ import {
   waterwheelRotors,
   windmillRotors,
 } from "./render/landmark-geometry";
+import { riverBendReviewCamera } from "./render/river-view";
 import type {
   GameCommand,
   Vec3,
@@ -1070,6 +1071,24 @@ function inspect() {
         [x, y, z],
       );
       status.textContent = "Lighthouse Fresnel lens review";
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "river-bend") {
+    const closeView =
+        Number(
+          (document.querySelector("#altitude") as HTMLSelectElement).value,
+        ) === 12,
+      distance = closeView ? 18 : 32,
+      camera = (world.rivers ?? [])
+        .map((river) => riverBendReviewCamera(river.points, distance))
+        .filter((candidate) => candidate !== undefined)
+        .sort((a, b) => b.curvature - a.curvature)[0];
+    if (camera) {
+      inspectionTarget = camera.target;
+      view.inspectCamera(camera.eye, camera.target);
+      status.textContent = "Mitered river-bend join review";
       last = 0;
       return;
     }

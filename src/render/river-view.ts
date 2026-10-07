@@ -5,6 +5,89 @@ import type { TerrainView } from "./terrain-view";
 import { CONFIG } from "../config";
 import { waterPrepass } from "./water-prepass";
 
+/** Shared miters keep adjacent water reaches joined at bends without wider pools. */
+export function riverCrossSections(
+  points: readonly (readonly [number, number, number])[],
+  width: number,
+) {
+  const direction = (from: readonly number[], to: readonly number[]) => {
+    const dx = to[0] - from[0],
+      dz = to[2] - from[2],
+      length = Math.hypot(dx, dz) || 1;
+    return [dx / length, dz / length] as const;
+  };
+  return points.map((point, index) => {
+    const previous =
+        index > 0
+          ? direction(points[index - 1], point)
+          : direction(point, points[Math.min(1, points.length - 1)]),
+      next =
+        index + 1 < points.length
+          ? direction(point, points[index + 1])
+          : previous,
+      previousNormal: readonly [number, number] = [-previous[1], previous[0]],
+      nextNormal: readonly [number, number] = [-next[1], next[0]],
+      mx = previousNormal[0] + nextNormal[0],
+      mz = previousNormal[1] + nextNormal[1],
+      magnitude = Math.hypot(mx, mz);
+    if (magnitude < 1e-5)
+      return [nextNormal[0] * width, nextNormal[1] * width] as const;
+    const normalX = mx / magnitude,
+      normalZ = mz / magnitude,
+      projection = Math.abs(normalX * nextNormal[0] + normalZ * nextNormal[1]),
+      reach = Math.min(width / Math.max(0.25, projection), width * 1.6);
+    return [normalX * reach, normalZ * reach] as const;
+  });
+}
+
+/** Review camera for the sharpest bend in a reach, avoiding straight-only samples. */
+export function riverBendReviewCamera(
+  points: readonly (readonly [number, number, number])[],
+  distance = 18,
+) {
+  if (points.length < 3) return undefined;
+  const direction = (from: readonly number[], to: readonly number[]) => {
+    const dx = to[0] - from[0],
+      dz = to[2] - from[2],
+      length = Math.hypot(dx, dz) || 1;
+    return [dx / length, dz / length] as const;
+  };
+  let bestIndex = -1,
+    bestCurvature = 0,
+    tangent: readonly [number, number] = [1, 0];
+  for (let i = 1; i < points.length - 1; i++) {
+    const before = direction(points[i - 1], points[i]),
+      after = direction(points[i], points[i + 1]),
+      alignment = before[0] * after[0] + before[1] * after[1],
+      curvature = 1 - alignment;
+    if (curvature <= bestCurvature) continue;
+    bestIndex = i;
+    bestCurvature = curvature;
+    const combinedX = before[0] + after[0],
+      combinedZ = before[1] + after[1],
+      length = Math.hypot(combinedX, combinedZ);
+    tangent =
+      length > 1e-5
+        ? [combinedX / length, combinedZ / length]
+        : after;
+  }
+  if (bestIndex < 0 || bestCurvature < 0.005) return undefined;
+  const point = points[bestIndex],
+    target: [number, number, number] = [point[0], point[1] + 0.08, point[2]],
+    sideX = -tangent[1],
+    sideZ = tangent[0];
+  return {
+    eye: [
+      point[0] + sideX * distance,
+      point[1] + Math.max(4, distance * 0.3),
+      point[2] + sideZ * distance,
+    ] as [number, number, number],
+    target,
+    index: bestIndex,
+    curvature: bestCurvature,
+  };
+}
+
 export function makeRivers(world: WorldData, terrain: TerrainView) {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({
@@ -94,6 +177,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
     list.push(geometry);
   };
   for (const river of world.rivers ?? []) {
+    const crossSections = riverCrossSections(river.points, river.width);
     // Separate reaches retain tight culling bounds and meet at shared corner pools.
     for (let i = 1; i < river.points.length; i++) {
       const a = river.points[i - 1],
@@ -102,25 +186,25 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         dz = b[2] - a[2],
         length = Math.hypot(dx, dz);
       if (!length) continue;
-      const nx = (-dz / length) * river.width,
-        nz = (dx / length) * river.width;
+      const [startX, startZ] = crossSections[i - 1],
+        [endX, endZ] = crossSections[i];
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute(
         "position",
         new THREE.Float32BufferAttribute(
           [
-            a[0] + nx,
+            a[0] + startX,
             a[1] + 0.05,
-            a[2] + nz,
-            a[0] - nx,
+            a[2] + startZ,
+            a[0] - startX,
             a[1] + 0.05,
-            a[2] - nz,
-            b[0] + nx,
+            a[2] - startZ,
+            b[0] + endX,
             b[1] + 0.05,
-            b[2] + nz,
-            b[0] - nx,
+            b[2] + endZ,
+            b[0] - endX,
             b[1] + 0.05,
-            b[2] - nz,
+            b[2] - endZ,
           ],
           3,
         ),

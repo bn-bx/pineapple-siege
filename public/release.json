@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-59",
+  "release": "visual-overhaul-2026-10-07-batch-60",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -93,7 +93,9 @@
     "single-flight-photo-export-with-progress",
     "owner-linked-quarry-hoist-and-load-cable",
     "isolated-quarry-hoist-review-camera",
-    "owner-linked-terrain-following-tree-root-flares"
+    "owner-linked-terrain-following-tree-root-flares",
+    "bounded-mitered-river-bend-joins",
+    "isolated-river-bend-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }
