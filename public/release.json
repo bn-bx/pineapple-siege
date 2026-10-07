@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-66",
+  "release": "visual-overhaul-2026-10-07-batch-67",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -104,7 +104,8 @@
     "snapshot-driven-jet-elevator-and-rudder-animation",
     "isolated-aircraft-tail-control-review",
     "sha256-addressed-runtime-assets",
-    "consistent-whole-island-tree-crown-proportions"
+    "consistent-whole-island-tree-crown-proportions",
+    "animated-shallow-ocean-shore-foam"
   ],
   "performanceCertification": "deferred by release instruction"
 }
