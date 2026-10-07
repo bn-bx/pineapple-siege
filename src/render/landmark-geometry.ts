@@ -183,7 +183,7 @@ export function watchtowerBeaconReviewCamera(owner: Entity, distance: number) {
   };
 }
 
-/** Aim the isolated harbor review down a dock so its driven supports stay visible. */
+/** Frame the water-side dock end so its ladder and driven supports stay visible. */
 export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
   if (decks.length < 2) return undefined;
   const rangeX =
@@ -194,18 +194,25 @@ export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
       Math.min(...decks.map((deck) => deck.p[2])),
     axis: 0 | 2 = rangeX >= rangeZ ? 0 : 2,
     direction = Math.sign(decks.at(-1)!.p[axis] - decks[0].p[axis]) || 1,
-    center = decks[Math.floor((decks.length - 1) * 0.68)],
+    terminal = decks.at(-1)!,
     dx = axis === 0 ? direction : 0,
     dz = axis === 2 ? direction : 0,
     sideX = axis === 0 ? 0 : 1,
-    sideZ = axis === 2 ? 0 : 1;
+    sideZ = axis === 2 ? 0 : 1,
+    endX = terminal.p[0] + dx * 2.1,
+    endZ = terminal.p[2] + dz * 2.1,
+    target: Entity["p"] = [
+      endX,
+      Math.max(0.8, terminal.p[1] * 0.5),
+      endZ,
+    ];
   return {
     eye: [
-      center.p[0] + dx * 22 + sideX * 10,
-      center.p[1] + 7,
-      center.p[2] + dz * 22 + sideZ * 10,
+      endX + dx * 4 + sideX,
+      target[1],
+      endZ + dz * 4 + sideZ,
     ] as Entity["p"],
-    target: [center.p[0], center.p[1] - 1.5, center.p[2]] as Entity["p"],
+    target,
   };
 }
 

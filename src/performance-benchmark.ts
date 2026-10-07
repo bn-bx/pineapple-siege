@@ -1744,7 +1744,7 @@ function inspect() {
     if (camera) {
       inspectionTarget = camera.target;
       view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Harbor dock support review";
+      status.textContent = "Harbor dock water-access ladder review";
       last = 0;
       return;
     }

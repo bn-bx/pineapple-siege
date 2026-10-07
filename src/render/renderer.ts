@@ -13,6 +13,7 @@ import { jetSurfacePose } from "./jet-control-surfaces";
 import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
+import { HarborLadders } from "./harbor-ladders";
 import { VisualAssets, visualGeometry } from "./visual-assets";
 import {
   bridgeDeckPresentation,
@@ -168,6 +169,7 @@ export class GameRenderer {
   private presentation: Presentation;
   private visualsInstalled = false;
   private scenery?: Scenery;
+  private harborLadders?: HarborLadders;
   private windmills?: WindmillView;
   private waterwheels?: WaterwheelView;
   private foliageTime = { value: 0 };
@@ -938,6 +940,12 @@ export class GameRenderer {
       this.villageLighting.windowSources,
     );
     this.scene.add(this.scenery.group);
+    this.harborLadders = new HarborLadders(
+      this.world,
+      this.terrain,
+      this.materials.wood,
+    );
+    this.scene.add(this.harborLadders.group);
     this.windmills = new WindmillView(
       this.world,
       this.materials.wood,
@@ -1551,6 +1559,7 @@ export class GameRenderer {
     this.terrain.restore(heights);
     this.terrain.setFlood(flood, true);
     if (waterMask) this.terrain.setWaterMask(waterMask);
+    this.harborLadders?.refresh();
     this.refs.clear();
     for (const batch of this.batches) {
       batch.ids = batch.allIds.slice();
@@ -2769,6 +2778,11 @@ export class GameRenderer {
       snap.time,
       this.rig.mode === "photo" || !active,
     );
+    this.harborLadders?.update(
+      this.camera.position,
+      this.removed,
+      this.renderDistance,
+    );
     this.windmills?.update(snap.time, this.removed);
     this.waterwheels?.update(snap.time, this.removed);
     const { daylight: day, night, lightDirection: ld } = this.lighting;
@@ -3119,6 +3133,7 @@ export class GameRenderer {
     this.nearMonsterView.disposeFaces();
     this.distantMonsterView.disposeFaces();
     this.monsterFragmentView?.disposeFaces();
+    this.harborLadders?.dispose();
     const geometries = new Set<THREE.BufferGeometry>(),
       materials = new Set<THREE.Material>(),
       textures = new Set<THREE.Texture>();

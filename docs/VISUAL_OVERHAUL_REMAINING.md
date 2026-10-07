@@ -1,6 +1,21 @@
 # Pineapple Siege: remaining release work
 
-Status as of October 6, 2026. Existing implementation is a working foundation; the original ten-stage overhaul is not complete. No stage is accepted solely because its code compiles or one reference view renders. Whole-island visibility without scene fog is a required constraint.
+Status as of October 7, 2026. The original overhaul remains open; whole-island visibility without scene fog is still required. This note records the next work from the actual current ledger rather than treating older investigations as completion evidence.
+
+## Current stopping point
+
+Batch 81 is the stopping point: owner-linked timber-and-iron ladders now connect the outer harbor docks to the generated waterline. The production build, 46-asset verifier, three focused ladder tests, and 49 visual-overhaul tests pass. The water-side screenshot is saved as [`PERFORMANCE_SCENE_1791372398131.png`](./PERFORMANCE_SCENE_1791372398131.png). The detail is implemented, but its readability from above-water and side approaches still needs review. It does not close the harbor/architecture area. The batch did not receive its planned 90-second normal-play sample.
+
+The full remaining ledger is in [`VISUAL_OVERHAUL_LEDGER.md`](./VISUAL_OVERHAUL_LEDGER.md). The next work is:
+
+1. **Architecture and landmarks:** replace repeated/generic silhouettes with complete family-specific art; finish castles, hamlets, farms, mills, docks, bridges, warehouses, towers, camps, quarry, lighthouse, and coastal ruins. Inspect owner-bound details and fractured materials in intact, damaged, collapsed, restored, near, and distant states. First follow-up: make harbor access read clearly and verify it survives removal/restoration in the actual renderer.
+2. **Landscape:** refine mountain profiles, rock scale, river and shoreline transitions, roads, excavation walls, forest species variety, ground cover, and LOD handoffs. Inspect multiple seeds and edit states without adding fog or hiding distant landmarks.
+3. **Actors and animation:** finish the jet, pineapple monsters, and residents; complete all movement, attack, stagger, dance, defeat, pause, and photo states; verify grounded feet and near/mid/far detail.
+4. **Combat and sound:** finish each weapon's material/state coverage, destruction aftermath, disco presentation, and locally packaged audio. Review overlaps, underwater hits, reduced effects, mute, and nighttime readability.
+5. **Experience and interfaces:** finish lighting calibration, chase-camera/readability cases, keyboard/touch use, menus, dialogs, HUD, recovery/storage errors, onboarding, preferences, and photo export.
+6. **Combined release checks:** run the agreed 90-second M1 sample for each rendering batch and the temporary normal-play gate on the final combined build; measure the short 400-monster/3,000m/firing cases; verify Chrome and Safari, saves, restoration, preference migration, context recovery, and asset/storage failures. The 15-minute certifications remain deferred by the release instruction and are not passes.
+
+**Release state:** batch 81 is recorded in `public/release.json`; confirm the public release marker after deployment before calling it live. The overhaul and every area in the coverage table remain open. No final release certification has been completed.
 
 **Current completion record:** see [`VISUAL_OVERHAUL_LEDGER.md`](./VISUAL_OVERHAUL_LEDGER.md). The dated investigation and batch results below are retained as history, not as evidence that the remaining families have shipped.
 

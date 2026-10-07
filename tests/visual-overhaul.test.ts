@@ -612,7 +612,7 @@ it("renders harbor supports as tapered driven timber piles", async () => {
   expect(geometry.getAttribute("position").count).toBeLessThan(100);
   geometry.dispose();
 });
-it("aims the harbor review camera down the dock at its outer supports", async () => {
+it("frames the harbor water-side end for its ladder and driven supports", async () => {
   const { harborDockReviewCamera } = await import(
     "../src/render/landmark-geometry"
   );
@@ -621,8 +621,9 @@ it("aims the harbor review camera down the dock at its outer supports", async ()
       p: [20, 6, 40 - i * 4] as [number, number, number],
     })),
   )!;
-  expect(camera.target[2]).toBe(32);
-  expect(camera.target[1]).toBe(4.5);
+  expect(camera.target[2]).toBe(21.9);
+  expect(camera.target[1]).toBe(3);
+  expect(camera.eye[1]).toBe(camera.target[1]);
   expect(camera.eye[2]).toBeLessThan(camera.target[2]);
   expect(harborDockReviewCamera([{ p: [0, 0, 0] }])).toBeUndefined();
 });
