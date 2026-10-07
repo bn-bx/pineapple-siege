@@ -913,6 +913,7 @@ it("animates windmill sails from existing destructible owners and freezes on sna
   const { windmillRotorBladeIds } = await import(
     "../src/render/landmark-geometry"
   );
+  const { windmillRotors } = await import("../src/render/landmark-geometry");
   const { WindmillView } = await import("../src/render/windmill-view");
   const block = (id: number, p: number[], s: number[]) => ({
     id,
@@ -935,6 +936,8 @@ it("animates windmill sails from existing destructible owners and freezes on sna
     ],
   } as any;
   expect([...windmillRotorBladeIds(world)].sort()).toEqual([11, 12, 13, 14]);
+  expect(windmillRotors(world)[0].hubOwner).toBe(10);
+  expect(windmillRotors(world)[0].hubCapCenter[2]).toBeCloseTo(91.725);
   const view = new WindmillView(
     world,
     new THREE.MeshStandardMaterial(),
@@ -943,6 +946,10 @@ it("animates windmill sails from existing destructible owners and freezes on sna
   const sails = view.group.children.find(
     (object) => object.name === "windmill-sails",
   ) as THREE.InstancedMesh;
+  const caps = view.group.children.find(
+    (object) => object.name === "windmill-hub-caps",
+  ) as THREE.InstancedMesh;
+  expect(caps.count).toBe(1);
   const before = new THREE.Matrix4();
   sails.getMatrixAt(0, before);
   view.update(2, new Set());
@@ -955,6 +962,11 @@ it("animates windmill sails from existing destructible owners and freezes on sna
   expect(paused.equals(moving)).toBe(true);
   view.update(2, new Set([11]));
   expect(sails.count).toBe(3);
+  expect(caps.count).toBe(1);
+  view.update(3, new Set([10]));
+  expect(caps.count).toBe(0);
+  view.update(4, new Set());
+  expect(caps.count).toBe(1);
 });
 it("animates waterwheel paddles and spokes through existing owners", async () => {
   const { waterwheelPartIds } = await import("../src/render/landmark-geometry");

@@ -7,6 +7,7 @@ import { SaveStore, compatible } from "./storage";
 import { SaveWriter } from "./save-writer";
 import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
+import { windmillRotors } from "./render/landmark-geometry";
 import type {
   GameCommand,
   Vec3,
@@ -927,6 +928,28 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "windmill") {
+    const site = world.sites.find((entry) => entry.kind === "windmill"),
+      rotor = windmillRotors(world).find(
+        (entry) => entry.center[0] === site?.p[0],
+      );
+    if (site && rotor) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        [x, y, z] = rotor.center,
+        distance = closeView ? 38 : 62;
+      inspectionTarget = rotor.center.slice() as Vec3;
+      view.inspectCamera(
+        [x + distance * 0.5, y + distance * 0.2, z - distance],
+        [x, y, z],
+      );
+      status.textContent = "Windmill rotor and hub review";
+      last = 0;
+      return;
+    }
+  }
   if (kind === "house-door") {
     const firstWall = world.entities.find(
       (entity) =>

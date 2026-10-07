@@ -21,6 +21,8 @@ export function loggingCampLogGeometry() {
 
 export interface WindmillRotor {
   center: Entity["p"];
+  hubOwner: number;
+  hubCapCenter: Entity["p"];
   blades: Entity[];
   phase: number;
   speed: number;
@@ -74,6 +76,12 @@ export function windmillRotors(
     );
     rotors.push({
       center: [hub.p[0], hub.p[1], hub.p[2] - 1],
+      hubOwner: hub.id,
+      hubCapCenter: [
+        hub.p[0],
+        hub.p[1],
+        hub.p[2] - hub.s[2] - 0.275,
+      ],
       blades,
       phase: (hash % 628) / 100,
       speed: 0.2 + (hash % 9) * 0.012,

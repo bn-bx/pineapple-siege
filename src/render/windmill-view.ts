@@ -9,13 +9,21 @@ interface BladeInstance {
   phase: number;
   speed: number;
 }
+interface HubInstance {
+  owner: number;
+  center: THREE.Vector3;
+  phase: number;
+  speed: number;
+}
 
-/** Snapshot-driven sails replace four static bars per windmill in two batches. */
+/** Snapshot-driven sails and hub caps share bounded batches across all mills. */
 export class WindmillView {
   readonly group = new THREE.Group();
   private blades: BladeInstance[] = [];
+  private hubs: HubInstance[] = [];
   private sails: THREE.InstancedMesh;
   private spars: THREE.InstancedMesh;
+  private caps: THREE.InstancedMesh;
   private dummy = new THREE.Object3D();
   private position = new THREE.Vector3();
   private orientation = new THREE.Quaternion();
@@ -42,7 +50,13 @@ export class WindmillView {
       side: THREE.DoubleSide,
     });
     const rotors = windmillRotors(world);
-    for (const rotor of rotors)
+    for (const rotor of rotors) {
+      this.hubs.push({
+        owner: rotor.hubOwner,
+        center: new THREE.Vector3(...rotor.hubCapCenter),
+        phase: rotor.phase,
+        speed: rotor.speed,
+      });
       for (const blade of rotor.blades)
         this.blades.push({
           owner: blade.id,
@@ -54,6 +68,7 @@ export class WindmillView {
           phase: rotor.phase,
           speed: rotor.speed,
         });
+    }
     this.sails = new THREE.InstancedMesh(
       this.sailGeometry,
       this.sailMaterial,
@@ -64,6 +79,19 @@ export class WindmillView {
       wood,
       this.blades.length,
     );
+    const capGeometry = new THREE.CylinderGeometry(1.35, 1.2, 0.55, 10);
+    capGeometry.rotateX(Math.PI / 2);
+    const capMaterial = new THREE.MeshStandardMaterial({
+      color: "#5e5541",
+      metalness: 0.38,
+      roughness: 0.78,
+    });
+    this.caps = new THREE.InstancedMesh(
+      capGeometry,
+      capMaterial,
+      this.hubs.length,
+    );
+    this.caps.name = "windmill-hub-caps";
     for (const mesh of [this.sails, this.spars]) {
       mesh.name = mesh === this.sails ? "windmill-sails" : "windmill-spars";
       mesh.castShadow = mesh.receiveShadow = true;
@@ -71,6 +99,10 @@ export class WindmillView {
       mesh.frustumCulled = false;
       this.group.add(mesh);
     }
+    this.caps.castShadow = this.caps.receiveShadow = true;
+    this.caps.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.caps.frustumCulled = false;
+    this.group.add(this.caps);
     this.update(0, new Set());
   }
 
@@ -108,5 +140,22 @@ export class WindmillView {
       mesh.instanceMatrix.clearUpdateRanges();
       if (count) mesh.instanceMatrix.addUpdateRange(0, count * 16);
     }
+    let hubCount = 0;
+    for (const hub of this.hubs) {
+      if (removed.has(hub.owner)) continue;
+      this.dummy.position.copy(hub.center);
+      this.dummy.quaternion.setFromAxisAngle(
+        this.axis,
+        hub.phase + time * hub.speed,
+      );
+      this.dummy.scale.set(1, 1, 1);
+      this.dummy.updateMatrix();
+      this.caps.setMatrixAt(hubCount++, this.dummy.matrix);
+    }
+    this.caps.count = hubCount;
+    this.caps.visible = hubCount > 0;
+    this.caps.instanceMatrix.needsUpdate = true;
+    this.caps.instanceMatrix.clearUpdateRanges();
+    if (hubCount) this.caps.instanceMatrix.addUpdateRange(0, hubCount * 16);
   }
 }
