@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`pause-menu-fix-2026-10-07` restores visible pause settings and preserves world version 8 and save compatibility 9, with preference revision 4. See [verification](SIMPLIFICATION_QA.md) for functional checks and the remaining performance gates.
+`crt-filter-2026-10-07` adds saved Off / Subtle / Retro TV presets with visible raster scanlines, phosphor glow, and rounded screen curvature. World version 8 and save compatibility 9 remain unchanged; preference revision is 5. See [CRT verification](CRT_QA.md) for visual, browser, and local timing checks, and [simplification verification](SIMPLIFICATION_QA.md) for remaining performance gates.

@@ -4,11 +4,14 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { SMAAPass } from "three/addons/postprocessing/SMAAPass.js";
+import type { CRTMode } from "../types";
+import { CRTPass } from "./crt-pass";
 import { matchPrepass, withOpaquePresentation } from "./alpha-prepass";
 import type { RenderQualityProfile } from "./quality-profile";
 
-/** Scene + antialiasing; depth of field is allocated only for photographs. */
+/** Scene, antialiasing, and CRT; depth of field is allocated only for photographs. */
 export class Presentation {
+  readonly crt = new CRTPass();
   readonly composer: EffectComposer;
   readonly focus: BokehPass;
   readonly smaa = new SMAAPass();
@@ -46,6 +49,7 @@ export class Presentation {
       this.focus,
       this.smaa,
       new OutputPass(),
+      this.crt,
     ];
     for (const [i, pass] of passes.entries()) {
       this.composer.addPass(pass);
@@ -54,7 +58,7 @@ export class Presentation {
         const started = performance.now();
         render(...args);
         this.onPass?.(
-          ["scene", "photo", "antialias", "output"][i],
+          ["scene", "photo", "antialias", "output", "crt"][i],
           performance.now() - started,
         );
       };
@@ -80,6 +84,9 @@ export class Presentation {
     this.targetBytes =
       this.width * this.height * (28 + (this.focus.enabled ? 8 : 0));
     this.allocationKey = key;
+  }
+  setCRTMode(mode: CRTMode) {
+    this.crt.setMode(mode);
   }
   setFocus(distance: number) {
     this.focusDistance = Math.max(0, distance);

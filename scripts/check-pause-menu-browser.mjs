@@ -19,6 +19,7 @@ const ids = [
   "reduceShake",
   "noCooldown",
   "quality",
+  "crtMode",
   "renderDistance",
   "reduceEffects",
   "volume",

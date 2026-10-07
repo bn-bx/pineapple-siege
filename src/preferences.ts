@@ -1,7 +1,7 @@
 import { normalizeMonsterCount, normalizeRenderDistance } from "./config";
 import { fixedDestruction } from "./destruction-settings";
 import type { Preferences } from "./types";
-export const PREFERENCE_REVISION = 4;
+export const PREFERENCE_REVISION = 5;
 export function normalizePreferences(
   value: Partial<Preferences> = {},
 ): Preferences {
@@ -11,6 +11,10 @@ export function normalizePreferences(
       : fallback;
   return {
     revision: PREFERENCE_REVISION,
+    crtMode:
+      value.crtMode === "off" || value.crtMode === "retro"
+        ? value.crtMode
+        : "subtle",
     reverseX: value.reverseX === true,
     reverseY: value.reverseY === true,
     sensitivity: finite(value.sensitivity, 1, 0.3, 2.5),

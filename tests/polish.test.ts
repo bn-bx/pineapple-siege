@@ -293,7 +293,8 @@ it("ignores retired decoration choices while retaining supported revision-3 pref
   } as any);
   expect(preferences).not.toHaveProperty("googlyEyes");
   expect(preferences).toMatchObject({
-    revision: 4,
+    revision: 5,
+    crtMode: "subtle",
     quality: "720",
     volume: 0.7,
     monsterCount: 8,

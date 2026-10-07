@@ -8,7 +8,7 @@ import { COSMETIC_LIMITS, fixedDestruction } from "../destruction-settings";
 import { normalizePreferences } from "../preferences";
 import { GameRenderer } from "../render/renderer";
 import { SaveStore } from "../storage";
-import type { GameCommand, NukeYield, Preferences } from "../types";
+import type { CRTMode, GameCommand, NukeYield, Preferences } from "../types";
 export interface SettingsContext {
   extras: Preferences;
   reversedX: boolean;
@@ -69,6 +69,8 @@ export function applyPreferences(ctx: SettingsContext, p: Preferences): void {
   ctx.monsterCount = ctx.extras.monsterCount ?? DEFAULT_MONSTER_COUNT;
   ctx.view?.setRenderDistance(ctx.extras.renderDistance!);
   ctx.updateRenderDistanceUI();
+  ctx.view?.setCRTMode(ctx.extras.crtMode!);
+  ctx.$<HTMLSelectElement>("crtMode").value = ctx.extras.crtMode!;
   ctx.destruction = fixedDestruction(p.destruction);
   ctx.updateDestructionUI();
   ctx.$<HTMLInputElement>("reverseX").checked = ctx.reversedX;
@@ -146,6 +148,12 @@ export function bind(ctx: SettingsContext): void {
     ctx.extras.monsterCount = ctx.monsterCount;
     ctx.updateMonsterCountUI();
     ctx.send({ type: "monsterCount", value: ctx.monsterCount });
+    ctx.savePreferences();
+  };
+  ctx.$<HTMLSelectElement>("crtMode").onchange = (e) => {
+    ctx.extras.crtMode = (e.target as HTMLSelectElement).value as CRTMode;
+    ctx.view?.setCRTMode(ctx.extras.crtMode);
+    ctx.resetFrameStats();
     ctx.savePreferences();
   };
   ctx.$<HTMLSelectElement>("quality").onchange = (e) => {

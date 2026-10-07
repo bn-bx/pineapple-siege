@@ -117,6 +117,7 @@ export function initializeWorld(
     },
   );
   ctx.view.setQuality(ctx.extras.quality!);
+  ctx.view.setCRTMode(ctx.extras.crtMode!);
   ctx.view.setRenderDistance(ctx.extras.renderDistance!);
   ctx.view.setReducedEffects(!!ctx.extras.reduceEffects);
   ctx.view.setShake(!ctx.extras.reduceShake);

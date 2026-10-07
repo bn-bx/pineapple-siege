@@ -42,7 +42,10 @@ export interface BlastProfile {
   ejecta: number;
 }
 export type CameraMode = "chase" | "cinematic" | "photo";
+export type CRTMode = "off" | "subtle" | "retro";
+
 export interface Preferences {
+  crtMode?: CRTMode;
   revision?: number;
   quality?: string;
   renderDistance?: number;

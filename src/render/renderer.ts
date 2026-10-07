@@ -19,6 +19,7 @@ import { bindMotion, motionFrame } from "../sim/motion-buffer";
 import { SimulationCadence } from "../simulation-cadence";
 import type {
   BodyView,
+  CRTMode,
   Entity,
   Explosion,
   FragmentEffect,
@@ -582,6 +583,9 @@ export class GameRenderer {
       }
       terrainWarmGeometry?.dispose();
     }
+  }
+  setCRTMode(mode: CRTMode) {
+    this.presentation.setCRTMode(mode);
   }
   setReducedEffects(value: boolean) {
     this.reducedEffects = value;

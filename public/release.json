@@ -1,12 +1,13 @@
 {
-  "release": "pause-menu-fix-2026-10-07",
+  "release": "crt-filter-2026-10-07",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
-  "preferenceRevision": 4,
+  "preferenceRevision": 5,
   "includes": [
     "flight-combat-destruction",
     "procedural-islands-local-saves",
     "shared-materials-simple-water",
-    "session-renderer-simulation-modules"
+    "session-renderer-simulation-modules",
+    "crt-presets-photo-export"
   ]
 }
