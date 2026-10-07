@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-73",
+  "release": "visual-overhaul-2026-10-07-batch-74",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -113,7 +113,9 @@
     "isolated-logging-stack-review-camera",
     "owner-linked-quarry-ore-cradle",
     "owner-linked-warehouse-freight-staging",
-    "isolated-warehouse-cargo-review-camera"
+    "isolated-warehouse-cargo-review-camera",
+    "owner-linked-watchtower-signal-brazier",
+    "isolated-watchtower-beacon-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }

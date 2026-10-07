@@ -166,6 +166,23 @@ export function warehouseStagingSpot(
     : undefined;
 }
 
+/** Frame the owner-bound signal brazier on a watchtower roof. */
+export function watchtowerBeaconReviewCamera(owner: Entity, distance: number) {
+  const target: Entity["p"] = [
+    owner.p[0],
+    owner.p[1] + owner.s[1] + 1.5,
+    owner.p[2],
+  ];
+  return {
+    eye: [
+      target[0] + distance * 0.72,
+      target[1] + distance * 0.55,
+      target[2] + distance * 0.72,
+    ] as Entity["p"],
+    target,
+  };
+}
+
 /** Aim the isolated harbor review down a dock so its driven supports stay visible. */
 export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
   if (decks.length < 2) return undefined;

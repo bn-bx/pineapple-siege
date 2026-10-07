@@ -103,6 +103,23 @@ export class Scenery {
       metalness: 0.65,
       roughness: 0.75,
     });
+    const beaconIron = new THREE.MeshStandardMaterial({
+      color: "#3e3a32",
+      metalness: 0.72,
+      roughness: 0.55,
+    });
+    const beaconFire = new THREE.MeshStandardMaterial({
+      color: "#a65325",
+      emissive: "#f05b18",
+      emissiveIntensity: 0.9,
+      roughness: 0.48,
+    });
+    const beaconCore = new THREE.MeshStandardMaterial({
+      color: "#ffc26a",
+      emissive: "#ff9e32",
+      emissiveIntensity: 1.2,
+      roughness: 0.4,
+    });
     const lighthouseBrass = new THREE.MeshStandardMaterial({
       color: "#78643d",
       metalness: 0.72,
@@ -210,6 +227,18 @@ export class Scenery {
     const quarryLoadRing = visualGeometry(
       "quarry-winch-load-ring_lod0",
       () => new THREE.TorusGeometry(1, 0.12, 6, 12),
+    );
+    const beaconBowl = visualGeometry(
+      "watchtower-beacon-bowl_lod0",
+      () => new THREE.CylinderGeometry(0.72, 1, 0.55, 8),
+    );
+    const beaconRim = visualGeometry(
+      "watchtower-beacon-rim_lod0",
+      () => new THREE.TorusGeometry(0.78, 0.08, 6, 12).rotateX(Math.PI / 2),
+    );
+    const beaconFlame = visualGeometry(
+      "watchtower-beacon-flame_lod0",
+      () => new THREE.ConeGeometry(1, 2, 7),
     );
     const quarryWinchHandle = visualGeometry(
       "quarry-winch-handle_lod0",
@@ -1850,6 +1879,69 @@ export class Scenery {
         }
       }
       if (watchtower) {
+        const roofOwner = parts
+          .filter(
+            (part) =>
+              part.kind === "block" &&
+              (part.material === "roof" || part.material === "slate"),
+          )
+          .sort((a, b) => b.p[1] - a.p[1])[0];
+        if (roofOwner) {
+          const [x, , z] = roofOwner.p,
+            roofTop = roofOwner.p[1] + roofOwner.s[1];
+          for (const dx of [-0.48, 0.48])
+            for (const dz of [-0.48, 0.48])
+              add(
+                "watchtower-beacon-legs",
+                roofOwner,
+                [x + dx, roofTop + 0.36, z + dz],
+                [0.055, 0.36, 0.055],
+                beaconIron,
+              );
+          add(
+            "watchtower-beacon-bowls",
+            roofOwner,
+            [x, roofTop + 0.67, z],
+            [0.72, 1, 0.72],
+            beaconIron,
+            beaconBowl,
+          );
+          add(
+            "watchtower-beacon-rims",
+            roofOwner,
+            [x, roofTop + 0.96, z],
+            [1, 1, 1],
+            beaconIron,
+            beaconRim,
+          );
+          add(
+            "watchtower-beacon-flames",
+            roofOwner,
+            [x, roofTop + 1.48, z],
+            [0.34, 0.76, 0.34],
+            beaconFire,
+            beaconFlame,
+          );
+          add(
+            "watchtower-beacon-flames",
+            roofOwner,
+            [x + 0.18, roofTop + 1.37, z + 0.1],
+            [0.18, 0.46, 0.18],
+            beaconFire,
+            beaconFlame,
+            false,
+            0,
+            -0.28,
+          );
+          add(
+            "watchtower-beacon-cores",
+            roofOwner,
+            [x - 0.08, roofTop + 1.46, z - 0.04],
+            [0.15, 0.42, 0.15],
+            beaconCore,
+            beaconFlame,
+          );
+        }
         const supports = parts.filter(
           (part) =>
             part.kind === "block" &&

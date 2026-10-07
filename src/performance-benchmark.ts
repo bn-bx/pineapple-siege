@@ -16,6 +16,7 @@ import {
   quarryHoistReviewCamera,
   warehouseCargoReviewCamera,
   warehouseStagingSpot,
+  watchtowerBeaconReviewCamera,
   waterwheelRotors,
   windmillRotors,
 } from "./render/landmark-geometry";
@@ -1314,6 +1315,29 @@ function inspect() {
         [x + across * 0.6 + 7, y + 14, z - 23],
         [x, y + 1.2, z],
       );
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "watchtower-beacon") {
+    const site = world.sites.find((entry) => entry.kind === "watchtower"),
+      roof = site
+        ? world.entities
+            .filter(
+              (entity) =>
+                entity.assembly === site.id && entity.material === "roof",
+            )
+            .sort((a, b) => b.p[1] - a.p[1])[0]
+        : undefined;
+    if (roof) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        camera = watchtowerBeaconReviewCamera(roof, closeView ? 5.5 : 12);
+      inspectionTarget = camera.target;
+      view.inspectCamera(camera.eye, camera.target);
+      status.textContent = "Watchtower signal beacon review";
       last = 0;
       return;
     }

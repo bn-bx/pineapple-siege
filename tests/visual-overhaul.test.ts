@@ -10,6 +10,7 @@ import {
   quarryHoistReviewCamera,
   warehouseCargoReviewCamera,
   warehouseStagingSpot,
+  watchtowerBeaconReviewCamera,
 } from "../src/render/landmark-geometry";
 import { CONFIG } from "../src/config";
 it("estimates shared and detached resident resources once, including shader textures", () => {
@@ -938,6 +939,52 @@ it("adds an owner-bound watchtower gallery with deck and guardrails", async () =
   scenery.update(new THREE.Vector3(100, 40, 100), new Set(), 1200, 120, 2, true);
   expect(count("watchtower-gallery-deck")).toBe(1);
   expect(count("watchtower-gallery-rails")).toBe(8);
+});
+it("adds a roof-owner signal brazier with a close inspection camera", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const roof = {
+      id: 231,
+      kind: "block",
+      p: [100, 50, 100],
+      s: [8, 2, 8],
+      material: "roof",
+      assembly: "site-watchtower-beacon",
+      foundation: false,
+      supports: [],
+    } as any,
+    scenery = new Scenery(
+      { paths: [], sites: [], entities: [roof] } as any,
+      { sample: () => 10 } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = watchtowerBeaconReviewCamera(roof, 12),
+    count = (name: string) =>
+      (scenery.group.children.find(
+        (object) => object.name === `scenery:${name}`,
+      ) as THREE.InstancedMesh | undefined)?.count ?? 0;
+  expect(camera.target).toEqual([100, 53.5, 100]);
+  expect(camera.eye[0]).toBeGreaterThan(camera.target[0]);
+  scenery.update(new THREE.Vector3(100, 54, 100), new Set(), 1200, 120, 0, true);
+  expect(count("watchtower-beacon-legs")).toBe(4);
+  expect(count("watchtower-beacon-bowls")).toBe(1);
+  expect(count("watchtower-beacon-rims")).toBe(1);
+  expect(count("watchtower-beacon-flames")).toBe(2);
+  expect(count("watchtower-beacon-cores")).toBe(1);
+  scenery.update(
+    new THREE.Vector3(100, 54, 100),
+    new Set([roof.id]),
+    1200,
+    120,
+    1,
+    true,
+  );
+  expect(count("watchtower-beacon-bowls")).toBe(0);
+  scenery.update(new THREE.Vector3(100, 54, 100), new Set(), 1200, 120, 2, true);
+  expect(count("watchtower-beacon-bowls")).toBe(1);
 });
 it("adds sparse arrow slits to castle keep courses with their original owners", async () => {
   const { Scenery } = await import("../src/render/scenery");
