@@ -4,6 +4,8 @@ This ledger is the completion source of truth. A working implementation remains 
 
 ## Shipped batch history
 
+The jet now has distinct left/right elevators and twin rudders with hinge details. Their deflection follows pitch and wrapped yaw changes from the existing interpolated flight snapshot, alongside the roll-driven ailerons. Flight forces, hit volumes, and pause/photo snapshot timing are unchanged. Seed 41729's rear-quarter tail view is shown in [the aircraft-controls review](PERFORMANCE_SCENE_1791359665230.png). Focused tests verify model parts, pose response, and yaw wrap handling; build and asset verification pass. Batch 64 ships animated tail controls.
+
 Mountain cliff shading now combines broad strata with a restrained second, finer world-space relief field. It roughens peak faces without moving canonical terrain vertices, adding textures, changing streamed seams, or altering excavation. Seed 41729's high-altitude, no-fog mountain view is shown in [the terrain review](PERFORMANCE_SCENE_1791359267032.png). The existing terrain shader test checks the relief path; the production build and asset verifier pass. Batch 63 ships the finer mountain rock relief.
 
 Monster hit, throw, and defeat sounds now layer a descending sawtooth growl into the existing spatialized noise voice; swipes keep a brighter airy sweep. The sound layer shares each event's current panner, envelope, voice slot, and priority accounting, so crowded combat stays within the existing cap. Focused audio tests check event tones, cutoffs, and defeat priority; this is synthesized locally and adds no runtime download. Batch 62 ships distinct spatial monster action sounds.

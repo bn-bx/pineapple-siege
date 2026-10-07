@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-63",
+  "release": "visual-overhaul-2026-10-07-batch-64",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -100,7 +100,9 @@
     "isolated-crash-and-collapse-effect-review",
     "event-scaled-impact-flashes",
     "spatial-monster-growl-and-action-signatures",
-    "multi-scale-world-space-mountain-rock-relief"
+    "multi-scale-world-space-mountain-rock-relief",
+    "snapshot-driven-jet-elevator-and-rudder-animation",
+    "isolated-aircraft-tail-control-review"
   ],
   "performanceCertification": "deferred by release instruction"
 }

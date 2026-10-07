@@ -388,6 +388,27 @@ export function makeJet() {
   wing(-1, -5, 3.2);
   wing(1, -5, 3.2);
   for (const side of [-1, 1]) {
+    const elevator = add(
+      new THREE.BoxGeometry(2.25, 0.07, 0.62),
+      body,
+      new THREE.Vector3(side * 1.2, 0.06, -6.02),
+    );
+    elevator.name = side < 0 ? "elevator-left" : "elevator-right";
+    const hinge = add(
+      new THREE.CylinderGeometry(0.035, 0.035, 2.1, 8),
+      dark,
+      new THREE.Vector3(side * 1.2, 0.1, -5.68),
+    );
+    hinge.rotation.z = Math.PI / 2;
+    hinge.name = side < 0 ? "elevator-hinge-left" : "elevator-hinge-right";
+    const rudder = add(
+      new THREE.BoxGeometry(0.08, 1.2, 0.58),
+      body,
+      new THREE.Vector3(side * 0.88, 1.55, -4.62),
+    );
+    rudder.name = side < 0 ? "rudder-left" : "rudder-right";
+  }
+  for (const side of [-1, 1]) {
     let fin = add(
       new THREE.BoxGeometry(0.15, 2.6, 2.6),
       dark,

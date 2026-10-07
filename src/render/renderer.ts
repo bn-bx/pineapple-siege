@@ -9,6 +9,7 @@ import { treeLOD } from "./tree-lod";
 import { treeImpostor } from "./tree-impostor";
 import { treeCanopyScale } from "./tree-appearance";
 import { jetExhaustProfile } from "./jet-exhaust";
+import { jetSurfacePose } from "./jet-control-surfaces";
 import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
@@ -2367,14 +2368,18 @@ export class GameRenderer {
         material.opacity = exhaust.coreOpacity;
       }
     }
-    for (const name of ["aileron-left", "aileron-right"]) {
+    const surfacePose = jetSurfacePose(p, this.previous?.plane.yaw, dt);
+    for (const [name, angle] of [
+      ["aileron-left", surfacePose.aileronLeft],
+      ["aileron-right", surfacePose.aileronRight],
+      ["elevator-left", surfacePose.elevator],
+      ["elevator-right", surfacePose.elevator],
+      ["rudder-left", surfacePose.rudder],
+      ["rudder-right", surfacePose.rudder],
+    ] as const) {
       const surface = this.jet.getObjectByName(name);
       if (surface)
-        surface.rotation.x = THREE.MathUtils.clamp(
-          p.roll * (name.endsWith("left") ? 1 : -1) * 0.2,
-          -0.22,
-          0.22,
-        );
+        surface.rotation[name.startsWith("rudder") ? "y" : "x"] = angle;
     }
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(rotation);
     let target = position.clone().addScaledVector(f, 40);

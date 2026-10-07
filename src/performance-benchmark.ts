@@ -1376,6 +1376,30 @@ function inspect() {
     last = 0;
     return;
   }
+  if (kind === "aircraft-controls" && snapshot) {
+    const p = snapshot.plane.p,
+      yaw = snapshot.plane.yaw,
+      closeView =
+        Number(
+          (document.querySelector("#altitude") as HTMLSelectElement).value,
+        ) === 12,
+      distance = closeView ? 16 : 28,
+      eye: Vec3 = [
+        p[0] - Math.sin(yaw) * distance + Math.cos(yaw) * 3.2,
+        p[1] + 3.5,
+        p[2] - Math.cos(yaw) * distance - Math.sin(yaw) * 3.2,
+      ],
+      target: Vec3 = [
+        p[0] - Math.sin(yaw) * 4.5,
+        p[1] + 1.1,
+        p[2] - Math.cos(yaw) * 4.5,
+      ];
+    inspectionTarget = target;
+    view.inspectCamera(eye, target);
+    status.textContent = "Aircraft tail-control review";
+    last = 0;
+    return;
+  }
   if (kind === "aircraft" && snapshot) {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];
