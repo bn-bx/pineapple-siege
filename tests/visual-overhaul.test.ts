@@ -606,10 +606,21 @@ it("bands castle towers with string courses owned by existing masonry", async ()
   courseMesh.getMatrixAt(0, matrix);
   matrix.decompose(position, rotation, scale);
   expect(scale.x * 2).toBeLessThanOrEqual(20.5);
+  const merlons = () =>
+    (
+      scenery.group.children.find(
+        (object) => object.name === "scenery:castle-tower-merlons",
+      ) as THREE.InstancedMesh | undefined
+    )?.count ?? 0;
+  const merlonCount = merlons();
+  expect(merlonCount).toBe(16);
   scenery.update(camera, new Set([walls[9].id]), 1200, 120, 1, true);
   expect(courses()).toBeLessThan(complete);
+  scenery.update(camera, new Set([walls.at(-1)!.id]), 1200, 120, 2, true);
+  expect(merlons()).toBeLessThan(merlonCount);
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(courses()).toBe(complete);
+  expect(merlons()).toBe(merlonCount);
 });
 it("frames the castle gate with stone voussoirs owned by its existing wall blocks", async () => {
   const { Scenery } = await import("../src/render/scenery");

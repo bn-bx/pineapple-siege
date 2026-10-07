@@ -1243,6 +1243,32 @@ export class Scenery {
             box,
           );
       }
+      // Open-topped towers receive a destructible crenellation ring. Roofed
+      // towers keep their existing slate silhouette clear.
+      const hasRoof = parts.some(
+        (part) => part.kind === "block" && part.material === "slate",
+      );
+      if (!hasRoof) {
+        const addMerlons = (start: number, end: number, z: number, alongX: boolean) => {
+          for (let along = start + 2.5; along < end - 2.5; along += 4.8) {
+            const x = alongX ? along : z,
+              faceZ = alongX ? z : along,
+              owner = ownerNear(x, topY, faceZ);
+            add(
+              "castle-tower-merlons",
+              owner,
+              [x, topY + 1.15, faceZ],
+              [0.95, 1.15, 0.95],
+              materials.sandstone ?? materials.stone ?? materials.rock,
+              box,
+            );
+          }
+        };
+        addMerlons(minX, maxX, minZ, true);
+        addMerlons(minX, maxX, maxZ, true);
+        addMerlons(minZ, maxZ, minX, false);
+        addMerlons(minZ, maxZ, maxX, false);
+      }
     }
     for (const [name, parts] of assemblies) {
       if (!/lighthouse/.test(name)) continue;

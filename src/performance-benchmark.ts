@@ -944,6 +944,27 @@ function inspect() {
   if (kind === "castle-tower" && world.castles?.[0]?.landmarks.towers.length) {
     const castle = world.castles[0],
       [x, y, z] = castle.landmarks.towers[0],
+      towerParts = world.entities.filter((entity) =>
+        /:tower-/.test(entity.assembly),
+      ),
+      towerAssembly = towerParts
+        .reduce(
+          (best, entity) => {
+            const distance =
+              (entity.p[0] - x) ** 2 + (entity.p[2] - z) ** 2;
+            return distance < best.distance
+              ? { assembly: entity.assembly, distance }
+              : best;
+          },
+          { assembly: "", distance: Infinity },
+        ).assembly,
+      topY = Math.max(
+        y,
+        ...towerParts
+          .filter((entity) => entity.assembly === towerAssembly)
+          .map((entity) => entity.p[1] + entity.s[1]),
+      ),
+      topOffset = topY - y,
       dx = x - castle.p[0],
       dz = z - castle.p[2],
       length = Math.hypot(dx, dz) || 1,
@@ -951,9 +972,9 @@ function inspect() {
         Number(
           (document.querySelector("#altitude") as HTMLSelectElement).value,
         ) === 12,
-      distance = closeView ? 34 : 78,
-      eyeHeight = closeView ? 28 : 62,
-      aimHeight = closeView ? 26 : 35;
+      distance = closeView ? 44 : 88,
+      eyeHeight = closeView ? topOffset + 12 : 62,
+      aimHeight = closeView ? Math.max(12, topOffset - 2) : 35;
     inspectionTarget = [x, y, z];
     view.inspectCamera(
       [

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-27",
+  "release": "visual-overhaul-2026-10-06-batch-28",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -38,7 +38,8 @@
     "deterministic-mountain-scree-breakup",
     "owner-linked-castle-tower-string-courses",
     "snapshot-driven-resident-run-and-mourning-poses",
-    "snapshot-driven-monster-windup-and-stagger-poses"
+    "snapshot-driven-monster-windup-and-stagger-poses",
+    "owner-linked-open-tower-crenellations"
   ],
   "performanceCertification": "deferred by release instruction"
 }
