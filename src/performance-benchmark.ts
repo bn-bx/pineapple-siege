@@ -1053,16 +1053,21 @@ function inspect() {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];
     // Review from behind the current heading so both nozzles and their
-    // exhaust remain visible alongside the wing and tail profile.
+    // exhaust remain visible. Ground altitude closes in on the canopy and
+    // panel breaks; overview keeps more of the island around the aircraft.
     const yaw = snapshot.plane.yaw,
-      distance = 22;
+      closeView =
+        Number(
+          (document.querySelector("#altitude") as HTMLSelectElement).value,
+        ) === 12,
+      distance = closeView ? 14 : 22;
     view.inspectCamera(
       [
         p[0] - Math.sin(yaw) * distance,
-        p[1] + 7,
+        p[1] + (closeView ? 5 : 7),
         p[2] - Math.cos(yaw) * distance,
       ],
-      p,
+      [p[0], p[1] + (closeView ? 1.5 : 0), p[2]],
     );
     last = 0;
     return;

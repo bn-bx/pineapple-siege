@@ -200,11 +200,51 @@ export function makeJet() {
   );
   nose.rotation.x = Math.PI / 2;
   let glass = add(
-    new THREE.SphereGeometry(1, 16, 10),
+    new THREE.SphereGeometry(1, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
     canopy,
     new THREE.Vector3(0, 0.75, 2),
   );
   glass.scale.set(0.67, 0.63, 1.7);
+  glass.name = "canopy-glass";
+  const canopyFrame = add(
+    new THREE.TorusGeometry(0.67, 0.045, 8, 32)
+      .rotateX(Math.PI / 2)
+      .scale(1, 1, 1.7 / 0.67),
+    dark,
+    new THREE.Vector3(0, 0.77, 2),
+  );
+  canopyFrame.name = "canopy-frame";
+  const panelPoints: THREE.Vector3[] = [],
+    segment = (a: [number, number, number], b: [number, number, number]) =>
+      panelPoints.push(new THREE.Vector3(...a), new THREE.Vector3(...b));
+  for (const side of [-1, 1]) {
+    for (const u of [0.27, 0.5, 0.73])
+      segment(
+        [side * 7 * u, 0.025, 2 - 3.8 * u],
+        [side * 6.5 * u, 0.025, -2.5 - 0.8 * u],
+      );
+    segment(
+      [side * 2.35, 0.025, -2.5 - (0.8 * 2.35) / 6.5 + 0.48],
+      [side * 5.9, 0.025, -2.5 - (0.8 * 5.9) / 6.5 + 0.48],
+    );
+    const aileron = add(
+      new THREE.BoxGeometry(2.15, 0.06, 0.46),
+      body,
+      new THREE.Vector3(side * 4.1, 0.045, -2.85),
+    );
+    aileron.name = side < 0 ? "aileron-left" : "aileron-right";
+  }
+  const panelSeams = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(panelPoints),
+    new THREE.LineBasicMaterial({
+      color: "#536166",
+      transparent: true,
+      opacity: 0.48,
+      depthWrite: false,
+    }),
+  );
+  panelSeams.name = "wing-panel-seams";
+  g.add(panelSeams);
   function wing(side: number, z: number, size: number) {
     const shape = new THREE.Shape();
     shape.moveTo(0, 2);

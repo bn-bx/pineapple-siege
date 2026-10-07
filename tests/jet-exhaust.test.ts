@@ -53,4 +53,28 @@ describe("jet exhaust", () => {
       }
     });
   });
+
+  it("builds a half-dome canopy, readable panel seams, and named moving ailerons", () => {
+    const jet = makeJet(),
+      canopy = jet.getObjectByName("canopy-glass") as THREE.Mesh,
+      seams = jet.getObjectByName("wing-panel-seams") as THREE.LineSegments,
+      left = jet.getObjectByName("aileron-left") as THREE.Mesh,
+      right = jet.getObjectByName("aileron-right") as THREE.Mesh;
+    expect(canopy.geometry.parameters.thetaLength).toBeCloseTo(Math.PI / 2);
+    expect(jet.getObjectByName("canopy-frame")).toBeDefined();
+    expect(seams.geometry.getAttribute("position").count).toBeGreaterThan(8);
+    expect(left).toBeInstanceOf(THREE.Mesh);
+    expect(right).toBeInstanceOf(THREE.Mesh);
+    expect(left.position.x).toBeLessThan(0);
+    expect(right.position.x).toBeGreaterThan(0);
+    jet.traverse((object) => {
+      if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
+        object.geometry.dispose();
+        const { material } = object;
+        if (Array.isArray(material))
+          material.forEach((entry) => entry.dispose());
+        else material.dispose();
+      }
+    });
+  });
 });
