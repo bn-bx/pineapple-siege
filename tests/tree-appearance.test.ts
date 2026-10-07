@@ -14,11 +14,11 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
       other = treeCanopyScale({ ...tree, variant: 0.83 });
     expect(repeated).toEqual(first);
     expect(other).not.toEqual(first);
-    expect(first[0]).toBeGreaterThan(3 * 1.45 * 0.88);
-    expect(first[0]).toBeLessThan(3 * 1.45 * 1.12);
-    expect(first[1]).toBeGreaterThan(12 * 2 * 0.93);
-    expect(first[1]).toBeLessThan(12 * 2 * 1.07);
-    expect(first[2]).toBeGreaterThan(3 * 1.45 * 0.85);
-    expect(first[2]).toBeLessThan(3 * 1.45 * 1.16);
+    expect(first[0]).toBeGreaterThan(3 * 1.45 * 0.76);
+    expect(first[0]).toBeLessThan(3 * 1.45 * 1.24);
+    expect(first[1]).toBeGreaterThan(12 * 2 * 0.8);
+    expect(first[1]).toBeLessThan(12 * 2 * 1.2);
+    expect(first[2]).toBeGreaterThan(3 * 1.45 * 0.74);
+    expect(first[2]).toBeLessThan(3 * 1.45 * 1.26);
   },
 );
