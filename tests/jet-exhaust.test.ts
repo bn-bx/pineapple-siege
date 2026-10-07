@@ -77,4 +77,35 @@ describe("jet exhaust", () => {
       }
     });
   });
+
+  it("keeps a shared, readable cockpit set under either aircraft asset", () => {
+    const jet = makeJet(),
+      cockpit = jet.getObjectByName("cockpit-details"),
+      display = cockpit?.getObjectByName("multifunction-display") as
+        | THREE.Mesh
+        | undefined,
+      hud = cockpit?.getObjectByName("hud-combiner") as
+        | THREE.Mesh
+        | undefined,
+      bezels = cockpit?.getObjectByName("flight-instrument-bezels") as
+        | THREE.Mesh
+        | undefined;
+    expect(cockpit).toBeInstanceOf(THREE.Group);
+    expect(cockpit?.getObjectByName("pilot-torso")).toBeDefined();
+    expect(cockpit?.getObjectByName("pilot-harness")).toBeDefined();
+    expect(cockpit?.getObjectByName("side-consoles")).toBeDefined();
+    expect(display?.material).toMatchObject({ transparent: true });
+    expect(hud?.material).toMatchObject({ transparent: true, depthWrite: false });
+    expect(display?.position.y).toBeGreaterThan(0.8);
+    expect(hud?.position.y).toBeGreaterThan(display?.position.y ?? 0);
+    expect(bezels?.geometry.getAttribute("position").count).toBeGreaterThan(80);
+    jet.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry.dispose();
+        if (Array.isArray(object.material))
+          object.material.forEach((material) => material.dispose());
+        else object.material.dispose();
+      }
+    });
+  });
 });

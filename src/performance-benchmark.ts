@@ -1076,23 +1076,31 @@ function inspect() {
   if (kind === "aircraft" && snapshot) {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];
-    // Review from behind the current heading so both nozzles and their
-    // exhaust remain visible. Ground altitude closes in on the canopy and
-    // panel breaks; overview keeps more of the island around the aircraft.
+    // The ground preset approaches from the nose quarter and aims into the
+    // canopy so cockpit detail is inspectable. Overview stays aft for the
+    // twin-nozzle exhaust and full island context.
     const yaw = snapshot.plane.yaw,
       closeView =
         Number(
           (document.querySelector("#altitude") as HTMLSelectElement).value,
         ) === 12,
-      distance = closeView ? 14 : 22;
-    view.inspectCamera(
-      [
-        p[0] - Math.sin(yaw) * distance,
-        p[1] + (closeView ? 5 : 7),
-        p[2] - Math.cos(yaw) * distance,
+      distance = closeView ? 10 : 22;
+    const side = closeView ? 3.2 : 0,
+      front = closeView ? 1 : -1,
+      eye: Vec3 = [
+        p[0] + front * Math.sin(yaw) * distance + Math.cos(yaw) * side,
+        p[1] + (closeView ? 3.8 : 7),
+        p[2] + front * Math.cos(yaw) * distance - Math.sin(yaw) * side,
       ],
-      [p[0], p[1] + (closeView ? 1.5 : 0), p[2]],
-    );
+      target: Vec3 = [
+        p[0],
+        p[1] + (closeView ? 0.95 : 0),
+        p[2] + (closeView ? 2 : 0),
+      ];
+    view.inspectCamera(eye, target);
+    status.textContent = closeView
+      ? "Aircraft cockpit review"
+      : "Aircraft exhaust review";
     last = 0;
     return;
   }

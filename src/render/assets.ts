@@ -214,6 +214,129 @@ export function makeJet() {
     new THREE.Vector3(0, 0.77, 2),
   );
   canopyFrame.name = "canopy-frame";
+  const cockpit = new THREE.Group();
+  cockpit.name = "cockpit-details";
+  const instrumentPanel = new THREE.MeshStandardMaterial({
+    color: "#203238",
+    metalness: 0.38,
+    roughness: 0.48,
+  });
+  const instrumentFace = new THREE.MeshBasicMaterial({ color: "#7bc7b2" });
+  const displayFace = new THREE.MeshBasicMaterial({
+    color: "#75cfc3",
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false,
+  });
+  const pilotSuit = new THREE.MeshStandardMaterial({
+    color: "#40514c",
+    metalness: 0.08,
+    roughness: 0.86,
+  });
+  const pilotTrim = new THREE.MeshStandardMaterial({
+    color: "#c99b55",
+    metalness: 0.44,
+    roughness: 0.48,
+  });
+  const detail = (
+    name: string,
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    position: [number, number, number],
+  ) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(...position);
+    mesh.castShadow = true;
+    cockpit.add(mesh);
+    return mesh;
+  };
+  const console = detail(
+    "instrument-coaming",
+    new THREE.BoxGeometry(1.02, 0.23, 0.18),
+    instrumentPanel,
+    [0, 0.78, 2.41],
+  );
+  console.rotation.x = -0.16;
+  const bezels: THREE.BufferGeometry[] = [],
+    faces: THREE.BufferGeometry[] = [],
+    needles: THREE.BufferGeometry[] = [];
+  for (const x of [-0.36, -0.18, 0.18, 0.36]) {
+    const bezel = new THREE.CylinderGeometry(0.072, 0.072, 0.018, 14);
+    bezel.rotateX(Math.PI / 2).translate(x, 0.84, 2.51);
+    bezels.push(bezel);
+    const face = new THREE.CircleGeometry(0.058, 14);
+    face.translate(x, 0.84, 2.522);
+    faces.push(face);
+    const needle = new THREE.BoxGeometry(0.008, 0.038, 0.004);
+    needle.rotateZ(x * 1.4).translate(x, 0.84, 2.53);
+    needles.push(needle);
+  }
+  detail(
+    "flight-instrument-bezels",
+    mergeGeometries(bezels)!,
+    dark,
+    [0, 0, 0],
+  );
+  detail(
+    "flight-instrument-faces",
+    mergeGeometries(faces)!,
+    instrumentFace,
+    [0, 0, 0],
+  );
+  detail(
+    "flight-instrument-needles",
+    mergeGeometries(needles)!,
+    gold,
+    [0, 0, 0],
+  );
+  const display = detail(
+    "multifunction-display",
+    new THREE.BoxGeometry(0.16, 0.115, 0.012),
+    displayFace,
+    [0, 0.84, 2.516],
+  );
+  display.rotation.x = -0.16;
+  const sideConsoleGeometries = [-1, 1].map((side) =>
+    new THREE.BoxGeometry(0.16, 0.17, 0.72)
+      .translate(side * 0.48, 0.67, 1.86),
+  );
+  detail(
+    "side-consoles",
+    mergeGeometries(sideConsoleGeometries)!,
+    instrumentPanel,
+    [0, 0, 0],
+  );
+  detail(
+    "pilot-torso",
+    new THREE.SphereGeometry(1, 14, 10).scale(0.27, 0.39, 0.18),
+    pilotSuit,
+    [0, 0.82, 1.52],
+  );
+  const harnessGeometries = [-1, 1].map((side) =>
+    new THREE.BoxGeometry(0.055, 0.43, 0.035)
+      .rotateZ(side * -0.22)
+      .translate(side * 0.12, 0.85, 1.69),
+  );
+  detail(
+    "pilot-harness",
+    mergeGeometries(harnessGeometries)!,
+    pilotTrim,
+    [0, 0, 0],
+  );
+  detail(
+    "hud-combiner",
+    new THREE.BoxGeometry(0.3, 0.19, 0.014),
+    new THREE.MeshBasicMaterial({
+      color: "#8de0dd",
+      transparent: true,
+      opacity: 0.27,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+    [0, 1.17, 2.87],
+  );
+  g.add(cockpit);
   const panelPoints: THREE.Vector3[] = [],
     segment = (a: [number, number, number], b: [number, number, number]) =>
       panelPoints.push(new THREE.Vector3(...a), new THREE.Vector3(...b));

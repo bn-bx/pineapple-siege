@@ -955,9 +955,13 @@ export class GameRenderer {
     });
     if (this.visualAssets.jet) {
       for (const mesh of [...this.jet.children])
-        if (!mesh.name.startsWith("flame")) {
+        if (
+          !mesh.name.startsWith("flame") &&
+          mesh.name !== "cockpit-details"
+        ) {
           this.jet.remove(mesh);
-          this.retiredGeometry.add((mesh as THREE.Mesh).geometry);
+          if (mesh instanceof THREE.Mesh)
+            this.retiredGeometry.add(mesh.geometry);
         }
       this.jet.add(this.visualAssets.jet);
     }

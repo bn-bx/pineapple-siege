@@ -174,7 +174,10 @@ export class VisualAssets {
               mesh.material as THREE.MeshStandardMaterial
             ).clone();
             canopy.transparent = true;
-            canopy.opacity = 0.48;
+            canopy.color.set("#a5d0d7");
+            canopy.metalness = 0.2;
+            canopy.roughness = 0.2;
+            canopy.opacity = 0.34;
             canopy.depthWrite = false;
             mesh.material = canopy;
             mesh.castShadow = false;
