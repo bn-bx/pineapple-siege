@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-78",
+  "release": "visual-overhaul-2026-10-07-batch-79",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -123,7 +123,8 @@
     "flow-driven-shallow-bank-foam",
     "decorrelated-seed-stable-tree-crown-silhouettes",
     "snapshot-driven-resident-defeat-eye-closure",
-    "isolated-resident-defeat-review-preset"
+    "isolated-resident-defeat-review-preset",
+    "material-specific-impact-dust-profiles"
   ],
   "performanceCertification": "deferred by release instruction"
 }

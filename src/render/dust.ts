@@ -2,21 +2,62 @@ import * as THREE from "three";
 import type { Explosion, FragmentEffect, Material } from "../types";
 
 export function impactTint(material: Material | "water"): string {
-  return material === "water"
-    ? "#bad7d4"
-    : material === "wood"
-      ? "#9d7953"
-      : material === "foliage"
-        ? "#7b8453"
-        : material === "earth"
-          ? "#a18a68"
-          : material === "roof"
-            ? "#a87965"
-            : material === "slate"
-              ? "#8a9193"
-              : material === "sandstone"
-                ? "#c4b495"
-                : "#adb0aa";
+  switch (material) {
+    case "water":
+      return "#bad7d4";
+    case "wood":
+      return "#9d7953";
+    case "foliage":
+      return "#7b8453";
+    case "window":
+      return "#d5e1dc";
+    case "plaster":
+      return "#d3c8b3";
+    case "earth":
+      return "#a18a68";
+    case "roof":
+      return "#a87965";
+    case "slate":
+      return "#8a9193";
+    case "sandstone":
+      return "#c4b495";
+    case "rock":
+      return "#898f91";
+    case "stone":
+      return "#adb0aa";
+  }
+}
+
+export interface ImpactDustProfile {
+  size: number;
+  duration: number;
+  maxPuffs: number;
+}
+
+/** Material-aware clouds distinguish brittle chips from heavy masonry dust. */
+export function impactDustProfile(material: Material): ImpactDustProfile {
+  switch (material) {
+    case "wood":
+      return { size: 0.72, duration: 0.85, maxPuffs: 5 };
+    case "foliage":
+      return { size: 0.58, duration: 0.72, maxPuffs: 4 };
+    case "roof":
+      return { size: 0.62, duration: 0.9, maxPuffs: 4 };
+    case "slate":
+      return { size: 0.78, duration: 1.1, maxPuffs: 6 };
+    case "window":
+      return { size: 0.38, duration: 0.55, maxPuffs: 3 };
+    case "earth":
+      return { size: 1.12, duration: 1.28, maxPuffs: 6 };
+    case "sandstone":
+      return { size: 0.98, duration: 1.16, maxPuffs: 6 };
+    case "plaster":
+      return { size: 0.84, duration: 0.98, maxPuffs: 5 };
+    case "rock":
+      return { size: 0.92, duration: 1.18, maxPuffs: 6 };
+    case "stone":
+      return { size: 0.86, duration: 1.08, maxPuffs: 5 };
+  }
 }
 
 /** Fixed, shared pool. These plumes never change damage or saved world data. */
@@ -162,8 +203,9 @@ export class GroundDust {
     this.mesh.instanceColor!.needsUpdate = true;
   }
   impact(e: FragmentEffect, reduced: boolean, scale: number) {
+    const profile = impactDustProfile(e.material);
     const count = Math.min(
-      reduced ? 2 : 6,
+      reduced ? Math.min(2, profile.maxPuffs) : profile.maxPuffs,
       Math.max(1, Math.ceil((e.count * scale) / 8)),
     );
     for (let i = 0; i < count; i++) {
@@ -172,8 +214,8 @@ export class GroundDust {
         [e.p[0] + Math.sin(a) * 0.4, e.p[1], e.p[2] + Math.cos(a) * 0.4],
         e.material,
         e.seed + i,
-        1.8 + Math.min(4, e.speed * 0.12),
-        1.4 + i * 0.15,
+        (1.8 + Math.min(4, e.speed * 0.12)) * profile.size,
+        profile.duration + i * 0.12,
         1,
       );
     }
