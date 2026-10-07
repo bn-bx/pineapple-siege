@@ -549,6 +549,68 @@ it("adds sparse arrow slits to castle keep courses with their original owners", 
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(slits()).toBe(8);
 });
+it("bands castle towers with string courses owned by existing masonry", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const walls = [] as any[];
+  let id = 700;
+  for (const y of [5, 15, 25, 35, 45, 55])
+    for (const [x, z] of [
+      [-6, -6],
+      [0, -6],
+      [6, -6],
+      [-6, 0],
+      [6, 0],
+      [-6, 6],
+      [0, 6],
+      [6, 6],
+    ])
+      walls.push({
+        id: id++,
+        kind: "block",
+        p: [x, y, z],
+        s: [4, 2.5, 4],
+        material: "sandstone",
+        assembly: "castle-0:tower-1-1",
+        foundation: false,
+        supports: [],
+      });
+  const scenery = new Scenery(
+      { paths: [], entities: walls } as any,
+      { sample: () => 0 } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+        sandstone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(0, 28, 0),
+    courses = () =>
+      (
+        scenery.group.children.find(
+          (object) =>
+            object.name === "scenery:castle-tower-string-courses",
+        ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  const complete = courses();
+  expect(complete).toBe(12);
+  const courseMesh = scenery.group.children.find(
+    (object) =>
+      object.name === "scenery:castle-tower-string-courses",
+  ) as THREE.InstancedMesh;
+  const matrix = new THREE.Matrix4(),
+    position = new THREE.Vector3(),
+    rotation = new THREE.Quaternion(),
+    scale = new THREE.Vector3();
+  courseMesh.getMatrixAt(0, matrix);
+  matrix.decompose(position, rotation, scale);
+  expect(scale.x * 2).toBeLessThanOrEqual(20.5);
+  scenery.update(camera, new Set([walls[9].id]), 1200, 120, 1, true);
+  expect(courses()).toBeLessThan(complete);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(courses()).toBe(complete);
+});
 it("frames the castle gate with stone voussoirs owned by its existing wall blocks", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const walls = [-1, 1].map((side, index) => ({

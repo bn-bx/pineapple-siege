@@ -941,6 +941,31 @@ function inspect() {
     last = 0;
     return;
   }
+  if (kind === "castle-tower" && world.castles?.[0]?.landmarks.towers.length) {
+    const castle = world.castles[0],
+      [x, y, z] = castle.landmarks.towers[0],
+      dx = x - castle.p[0],
+      dz = z - castle.p[2],
+      length = Math.hypot(dx, dz) || 1,
+      closeView =
+        Number(
+          (document.querySelector("#altitude") as HTMLSelectElement).value,
+        ) === 12,
+      distance = closeView ? 34 : 78,
+      eyeHeight = closeView ? 28 : 62,
+      aimHeight = closeView ? 26 : 35;
+    inspectionTarget = [x, y, z];
+    view.inspectCamera(
+      [
+        x + (dx / length) * distance,
+        y + eyeHeight,
+        z + (dz / length) * distance,
+      ],
+      [x, y + aimHeight, z],
+    );
+    last = 0;
+    return;
+  }
   if (kind === "aircraft" && snapshot) {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];

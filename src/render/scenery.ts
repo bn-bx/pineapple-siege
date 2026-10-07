@@ -1195,6 +1195,56 @@ export class Scenery {
       }
     }
     for (const [name, parts] of assemblies) {
+      if (!/:(?:tower|gate|flank|rear)-/.test(name)) continue;
+      const masonry = parts.filter(
+        (part) =>
+          part.kind === "block" &&
+          part.material === "sandstone" &&
+          !part.foundation &&
+          part.s[0] >= 2 &&
+          part.s[1] >= 2.5 &&
+          part.s[2] >= 2,
+      );
+      if (masonry.length < 8) continue;
+      const minX = Math.min(...masonry.map((part) => part.p[0] - part.s[0])),
+        maxX = Math.max(...masonry.map((part) => part.p[0] + part.s[0])),
+        minZ = Math.min(...masonry.map((part) => part.p[2] - part.s[2])),
+        maxZ = Math.max(...masonry.map((part) => part.p[2] + part.s[2])),
+        baseY = Math.min(...masonry.map((part) => part.p[1] - part.s[1])),
+        topY = Math.max(...masonry.map((part) => part.p[1] + part.s[1])),
+        centerX = (minX + maxX) * 0.5,
+        centerZ = (minZ + maxZ) * 0.5;
+      const ownerNear = (x: number, y: number, z: number) =>
+        masonry.reduce((best, part) => {
+          const score =
+            (part.p[0] - x) ** 2 +
+            (part.p[2] - z) ** 2 +
+            (part.p[1] - y) ** 2 * 2;
+          const prior =
+            (best.p[0] - x) ** 2 +
+            (best.p[2] - z) ** 2 +
+            (best.p[1] - y) ** 2 * 2;
+          return score < prior ? part : best;
+        });
+      for (let y = baseY + 12; y < topY - 8; y += 16) {
+        const faces: [number, number, number, [number, number, number]][] = [
+          [centerX, y, minZ - 0.08, [(maxX - minX) / 2 + 0.14, 0.12, 0.11]],
+          [centerX, y, maxZ + 0.08, [(maxX - minX) / 2 + 0.14, 0.12, 0.11]],
+          [minX - 0.08, y, centerZ, [0.11, 0.12, (maxZ - minZ) / 2 + 0.14]],
+          [maxX + 0.08, y, centerZ, [0.11, 0.12, (maxZ - minZ) / 2 + 0.14]],
+        ];
+        for (const [x, courseY, z, size] of faces)
+          add(
+            "castle-tower-string-courses",
+            ownerNear(x, courseY, z),
+            [x, courseY, z],
+            size,
+            materials.sandstone ?? materials.stone ?? materials.rock,
+            box,
+          );
+      }
+    }
+    for (const [name, parts] of assemblies) {
       if (!/lighthouse/.test(name)) continue;
       const lanterns = parts.filter(
         (part) =>
