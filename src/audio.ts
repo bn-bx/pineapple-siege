@@ -13,6 +13,13 @@ import {
   createBlastNoise,
   playNukeBlast,
 } from "./blast-audio";
+
+interface NoiseTone {
+  startHz: number;
+  endHz: number;
+  level: number;
+}
+
 export class GameAudio {
   private laserVoices = new Map<
     number,
@@ -203,6 +210,7 @@ export class GameAudio {
     gain: number,
     cutoff: number,
     priority = 1,
+    tone?: NoiseTone,
   ) {
     if (!this.ctx || !this.master) return;
     const c = this.ctx;
@@ -216,6 +224,22 @@ export class GameAudio {
     const volume = c.createGain();
     volume.gain.setValueAtTime(gain, c.currentTime);
     volume.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + duration);
+    const tonalSource = tone ? c.createOscillator() : undefined;
+    const tonalGain = tone ? c.createGain() : undefined;
+    if (tone && tonalSource && tonalGain) {
+      tonalSource.type = "sawtooth";
+      tonalSource.frequency.setValueAtTime(tone.startHz, c.currentTime);
+      tonalSource.frequency.exponentialRampToValueAtTime(
+        tone.endHz,
+        c.currentTime + duration,
+      );
+      tonalGain.gain.setValueAtTime(tone.level, c.currentTime);
+      tonalGain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        c.currentTime + duration,
+      );
+      tonalSource.connect(tonalGain).connect(filter);
+    }
     const pan = c.createPanner();
     pan.distanceModel = "inverse";
     pan.refDistance = 100;
@@ -231,19 +255,30 @@ export class GameAudio {
       if (finished) return;
       finished = true;
       source.disconnect();
+      tonalSource?.disconnect();
+      tonalGain?.disconnect();
       filter.disconnect();
       volume.disconnect();
       pan.disconnect();
       this.voices = this.voices.filter((v) => v.stop !== stop);
     };
     const stop = () => {
-      source.stop();
+      try {
+        source.stop();
+      } catch {}
+      try {
+        tonalSource?.stop();
+      } catch {}
       finish();
     };
     this.voices.push({ stop, p: [...p], gain, priority });
     source.onended = finish;
     source.start();
     source.stop(c.currentTime + duration);
+    if (tonalSource) {
+      tonalSource.start();
+      tonalSource.stop(c.currentTime + duration);
+    }
   }
   private recording(
     name: Recording,
@@ -356,11 +391,42 @@ export class GameAudio {
     this.noise(e.p, duration, gain * 0.65, cutoff, settle ? 0.45 : 1);
   }
   monster(p: Vec3, kind: "hit" | "defeat" | "throw" | "swipe") {
+    const profile = {
+      hit: {
+        duration: 0.38,
+        gain: 0.13,
+        cutoff: 1300,
+        priority: 1.8,
+        tone: { startHz: 92, endHz: 46, level: 0.2 },
+      },
+      defeat: {
+        duration: 1.8,
+        gain: 0.34,
+        cutoff: 420,
+        priority: 2.8,
+        tone: { startHz: 96, endHz: 28, level: 0.42 },
+      },
+      throw: {
+        duration: 0.6,
+        gain: 0.18,
+        cutoff: 760,
+        priority: 2.1,
+        tone: { startHz: 130, endHz: 42, level: 0.28 },
+      },
+      swipe: {
+        duration: 0.35,
+        gain: 0.12,
+        cutoff: 2600,
+        priority: 1.2,
+      },
+    }[kind];
     this.noise(
       p,
-      kind === "defeat" ? 1.8 : kind === "throw" ? 0.6 : 0.35,
-      kind === "defeat" ? 0.42 : kind === "swipe" ? 0.24 : 0.13,
-      kind === "defeat" ? 300 : kind === "throw" ? 520 : 900,
+      profile.duration,
+      profile.gain,
+      profile.cutoff,
+      profile.priority,
+      "tone" in profile ? profile.tone : undefined,
     );
   }
   settlement(p: Vec3, kind: "cheer" | "sad") {

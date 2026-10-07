@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-61",
+  "release": "visual-overhaul-2026-10-07-batch-62",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -98,7 +98,8 @@
     "isolated-river-bend-review-camera",
     "event-specific-explosion-plume-colors",
     "isolated-crash-and-collapse-effect-review",
-    "event-scaled-impact-flashes"
+    "event-scaled-impact-flashes",
+    "spatial-monster-growl-and-action-signatures"
   ],
   "performanceCertification": "deferred by release instruction"
 }
