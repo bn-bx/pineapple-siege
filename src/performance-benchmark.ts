@@ -927,6 +927,30 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "watchtower") {
+    const site = world.sites.find((entry) => entry.kind === "watchtower");
+    if (site) {
+      const [x, y, z] = site.p,
+        parts = world.entities.filter((entity) => entity.assembly === site.id),
+        topY = Math.max(
+          y,
+          ...parts.map((entity) => entity.p[1] + entity.s[1]),
+        ),
+        topOffset = topY - y,
+        closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        distance = closeView ? 42 : 72;
+      inspectionTarget = [x, topY - 6, z];
+      view.inspectCamera(
+        [x + distance, y + topOffset + 8, z + distance],
+        [x, y + topOffset - 6, z],
+      );
+      last = 0;
+      return;
+    }
+  }
   if (kind === "castle-gate" && world.castles?.[0]) {
     const castle = world.castles[0],
       [x, y, z] = castle.landmarks.gate,

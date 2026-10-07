@@ -1193,6 +1193,71 @@ export class Scenery {
           );
         }
       }
+      if (watchtower) {
+        const supports = parts.filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "wood" &&
+            part.s[1] >= 3 &&
+            part.s[0] <= 1.5 &&
+            part.s[2] >= 5,
+        );
+        if (supports.length >= 2) {
+          const centerX =
+              supports.reduce((sum, part) => sum + part.p[0], 0) /
+              supports.length,
+            centerZ =
+              supports.reduce((sum, part) => sum + part.p[2], 0) /
+              supports.length,
+            supportTop = Math.max(
+              ...supports.map((part) => part.p[1] + part.s[1]),
+            ),
+            deckLevel = supportTop - 1.5,
+            ownerNear = (x: number, y: number, z: number) =>
+              supports.reduce((best, part) => {
+                const score =
+                    (part.p[0] - x) ** 2 +
+                    (part.p[2] - z) ** 2 +
+                    (part.p[1] - y) ** 2 * 2,
+                  prior =
+                    (best.p[0] - x) ** 2 +
+                    (best.p[2] - z) ** 2 +
+                    (best.p[1] - y) ** 2 * 2;
+                return score < prior ? part : best;
+              });
+          add(
+            "watchtower-gallery-deck",
+            ownerNear(centerX, deckLevel, centerZ),
+            [centerX, deckLevel + 0.22, centerZ],
+            [11, 0.22, 9.5],
+            structuralTimber,
+          );
+          const rails = [
+            [centerX, centerZ - 9.2, 10.5, 0.12, 0.12],
+            [centerX, centerZ + 9.2, 10.5, 0.12, 0.12],
+            [centerX - 10.7, centerZ, 0.12, 0.12, 9],
+            [centerX + 10.7, centerZ, 0.12, 0.12, 9],
+          ] as const;
+          for (const [x, z, sx, sy, sz] of rails)
+            for (const lift of [0.65, 1.55])
+              add(
+                "watchtower-gallery-rails",
+                ownerNear(x, deckLevel + lift, z),
+                [x, deckLevel + lift, z],
+                [sx, sy, sz],
+                structuralTimber,
+              );
+          for (const x of [centerX - 10.7, centerX + 10.7])
+            for (const z of [centerZ - 9.2, centerZ + 9.2])
+              add(
+                "watchtower-gallery-posts",
+                ownerNear(x, deckLevel + 0.78, z),
+                [x, deckLevel + 0.78, z],
+                [0.16, 0.78, 0.16],
+                structuralTimber,
+              );
+        }
+      }
     }
     for (const [name, parts] of assemblies) {
       if (!/:(?:tower|gate|flank|rear)-/.test(name)) continue;
