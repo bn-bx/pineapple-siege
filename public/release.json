@@ -85,7 +85,8 @@
     "isolated-road-surface-review-camera",
     "snapshot-driven-resident-smile-frown-fear-expressions",
     "isolated-resident-pose-review-selector",
-    "lowered-shared-scarf-collar-for-resident-face-readability"
+    "lowered-shared-scarf-collar-for-resident-face-readability",
+    "snapshot-driven-resident-eye-whites-and-headwear-alignment"
   ],
   "performanceCertification": "deferred by release instruction"
 }

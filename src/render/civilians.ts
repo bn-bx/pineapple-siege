@@ -21,6 +21,7 @@ export class CivilianView {
   private hair: THREE.InstancedMesh;
   private mouths: THREE.InstancedMesh;
   private fearMouths: THREE.InstancedMesh;
+  private eyeWhites: THREE.InstancedMesh;
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
@@ -141,7 +142,7 @@ export class CivilianView {
     this.scarves.castShadow = true;
     this.scarves.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.hair = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(0.92, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.SphereGeometry(0.78, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
       new THREE.MeshStandardMaterial({ roughness: 0.98 }),
       count,
     );
@@ -187,6 +188,17 @@ export class CivilianView {
     this.fearMouths.castShadow = false;
     this.fearMouths.receiveShadow = false;
     this.fearMouths.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.eyeWhites = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 10, 8),
+      new THREE.MeshStandardMaterial({ color: "#f1e8d8", roughness: 0.92 }),
+      count * 2,
+    );
+    this.eyeWhites.name = "resident-eye-whites";
+    this.eyeWhites.count = 0;
+    this.eyeWhites.frustumCulled = false;
+    this.eyeWhites.castShadow = false;
+    this.eyeWhites.receiveShadow = false;
+    this.eyeWhites.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.distant = new THREE.InstancedMesh(box, cloth, count);
     this.distant.count = 0;
     this.distant.frustumCulled = false;
@@ -209,6 +221,7 @@ export class CivilianView {
     this.group.add(this.distant);
     this.group.add(this.mouths);
     this.group.add(this.fearMouths);
+    this.group.add(this.eyeWhites);
   }
   installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
     if (cloth) {
@@ -459,11 +472,13 @@ export class CivilianView {
         this.root.scale.set(shrink * 0.5, shrink * 0.5, shrink * 0.7);
       }
       this.root.updateMatrix();
-      const hatStyle = c.id % 4;
+      const hatStyle = c.id % 4,
+        headY = sad ? 3.75 : 4.05,
+        headZ = sad ? 0.3 : 0;
       if (hatStyle < 2) {
         const hatIndex = hatCounts[hatStyle]++,
           palette = this.hatColors[hatStyle];
-        this.dummy.position.set(0, 4.52, 0);
+        this.dummy.position.set(0, sad ? 4.22 : 4.52, headZ);
         this.dummy.rotation.set(0, 0, 0);
         this.dummy.scale.set(1, 1, 1);
         this.dummy.updateMatrix();
@@ -476,9 +491,9 @@ export class CivilianView {
       }
       if (hatStyle >= 2) {
         const hairIndex = hairCount++;
-        this.dummy.position.set(0, 4.05, 0);
+        this.dummy.position.set(0, headY + 0.05, headZ - 0.34);
         this.dummy.rotation.set(0, 0, 0);
-        this.dummy.scale.set(1.04, 1, 0.92);
+        this.dummy.scale.set(0.7, 0.8, 0.75);
         this.dummy.updateMatrix();
         this.dummy.matrix.premultiply(this.root.matrix);
         this.hair.setMatrixAt(hairIndex, this.dummy.matrix);
@@ -609,21 +624,39 @@ export class CivilianView {
         n * 2,
         -0.14,
         sad ? 3.774 : 4.19,
-        sad ? 0.695 : 0.37,
-        0.045,
-        0.05,
-        0.035,
+        sad ? 0.735 : flee ? 0.42 : 0.405,
+        0.025,
+        0.032,
+        0.022,
       );
       place(
         6,
         n * 2 + 1,
         0.14,
         sad ? 3.774 : 4.19,
-        sad ? 0.695 : 0.37,
-        0.045,
-        0.05,
-        0.035,
+        sad ? 0.735 : flee ? 0.42 : 0.405,
+        0.025,
+        0.032,
+        0.022,
       );
+      for (let side = 0; side < 2; side++) {
+        this.dummy.position.set(
+          side === 0 ? -0.14 : 0.14,
+          sad ? 3.774 : 4.19,
+          sad ? 0.695 : 0.37,
+        );
+        this.dummy.rotation.set(sad ? 0.3 : 0, 0, 0);
+        this.dummy.scale.set(
+          flee ? 0.082 : 0.065,
+          flee ? 0.09 : 0.07,
+          0.04,
+        );
+        this.dummy.updateMatrix();
+        this.eyeWhites.setMatrixAt(
+          n * 2 + side,
+          this.dummy.matrix.premultiply(this.root.matrix),
+        );
+      }
       this.dummy.position.set(
         0,
         flee ? 4.08 : sad ? 3.82 : 3.96,
@@ -682,6 +715,10 @@ export class CivilianView {
     this.fearMouths.instanceMatrix.clearUpdateRanges();
     if (fearMouthCount)
       this.fearMouths.instanceMatrix.addUpdateRange(0, fearMouthCount * 16);
+    this.eyeWhites.count = n * 2;
+    this.eyeWhites.instanceMatrix.needsUpdate = true;
+    this.eyeWhites.instanceMatrix.clearUpdateRanges();
+    if (n) this.eyeWhites.instanceMatrix.addUpdateRange(0, n * 2 * 16);
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k >= 6 ? n * 2 : n;
@@ -701,5 +738,6 @@ export class CivilianView {
     this.hair.count = 0;
     this.mouths.count = 0;
     this.fearMouths.count = 0;
+    this.eyeWhites.count = 0;
   }
 }

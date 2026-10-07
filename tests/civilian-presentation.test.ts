@@ -156,7 +156,7 @@ it("shares readable smile, frown, and fear expressions on near residents", () =>
   (view.group.children[6] as THREE.InstancedMesh).getMatrixAt(0, eye);
   expect(smile.elements[0]).toBeGreaterThan(0);
   expect(frown.elements[0]).toBeLessThan(0);
-  expect(smile.elements[14]).toBeCloseTo(eye.elements[14], 5);
+  expect(eye.elements[14]).toBeGreaterThan(smile.elements[14]);
 
   state.civilians[0].mood = "flee";
   view.update(state, undefined, 1, camera);
@@ -171,6 +171,42 @@ it("shares readable smile, frown, and fear expressions on near residents", () =>
   view.reset();
   expect(expressions.count).toBe(0);
   expect(fearExpressions.count).toBe(0);
+});
+it("uses shared eye whites, widens fearful eyes and aligns headwear with bowed heads", () => {
+  const view = new CivilianView(2),
+    state = snapshot(1, true);
+  state.civilians[0].id = 2;
+  view.update(state, undefined, 1, camera);
+  const eyes = view.group.children[16] as THREE.InstancedMesh,
+    hair = view.group.children[12] as THREE.InstancedMesh,
+    normalEye = new THREE.Matrix4(),
+    normalHair = new THREE.Matrix4(),
+    fearfulEye = new THREE.Matrix4(),
+    bowedEye = new THREE.Matrix4(),
+    bowedHair = new THREE.Matrix4(),
+    normalScale = new THREE.Vector3(),
+    fearScale = new THREE.Vector3();
+  expect(eyes.name).toBe("resident-eye-whites");
+  expect(eyes.count).toBe(2);
+  eyes.getMatrixAt(0, normalEye);
+  hair.getMatrixAt(0, normalHair);
+
+  state.civilians[0].mood = "flee";
+  view.update(state, undefined, 1, camera);
+  eyes.getMatrixAt(0, fearfulEye);
+  normalScale.setFromMatrixScale(normalEye);
+  fearScale.setFromMatrixScale(fearfulEye);
+  expect(fearScale.x).toBeGreaterThan(normalScale.x);
+
+  state.civilians[0].mood = "sad";
+  view.update(state, undefined, 1, camera);
+  eyes.getMatrixAt(0, bowedEye);
+  hair.getMatrixAt(0, bowedHair);
+  expect(bowedEye.elements[13]).toBeLessThan(normalEye.elements[13]);
+  expect(bowedHair.elements[13]).toBeLessThan(normalHair.elements[13]);
+  expect(bowedHair.elements[14]).toBeGreaterThan(normalHair.elements[14]);
+  view.reset();
+  expect(eyes.count).toBe(0);
 });
 it("adds deterministic shared headwear variants without per-person meshes", () => {
   const view = new CivilianView(8),
@@ -199,7 +235,7 @@ it("adds deterministic shared headwear variants without per-person meshes", () =
   wideHat.getColorAt(0, colorA);
   wideHat.getColorAt(1, colorB);
   expect(colorA.equals(colorB)).toBe(false);
-  expect(view.group.children).toHaveLength(16);
+  expect(view.group.children).toHaveLength(17);
 });
 it("adds deterministic shared scarves to a subset of near residents", () => {
   const view = new CivilianView(8),
@@ -279,5 +315,5 @@ it("limits distant clothing tint to garments and retains hands and boots", () =>
   ).toBe(true);
   hands.geometry.computeBoundingSphere();
   expect(hands.geometry.boundingSphere?.radius).toBeCloseTo(0.38, 2);
-  expect(view.group.children).toHaveLength(16);
+  expect(view.group.children).toHaveLength(17);
 });
