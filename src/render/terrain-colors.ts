@@ -1,6 +1,15 @@
 import type { Color } from "three";
 import { clamp } from "../config";
 
+/** Smooth center and shoulder masks for the existing canonical road distance. */
+export function terrainRoadWeights(distance: number): [number, number] {
+  const smoothstep = (low: number, high: number) => {
+    const t = clamp((distance - low) / (high - low), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  return [1 - smoothstep(2.2, 3.2), 0.34 * (1 - smoothstep(3.2, 6.2))];
+}
+
 /** World-space shading shared by streamed meshes and immediate damage refresh. */
 export function terrainSurfaceColor(
   color: Color,

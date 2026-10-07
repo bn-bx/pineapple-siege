@@ -1,4 +1,8 @@
-import { terrainScarColor, terrainSurfaceColor } from "./terrain-colors";
+import {
+  terrainRoadWeights,
+  terrainScarColor,
+  terrainSurfaceColor,
+} from "./terrain-colors";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
 import { CONFIG, CHUNKS, clamp } from "../config";
@@ -64,6 +68,8 @@ export class TerrainMesher {
     const cache = new Map<number, number>(),
       c = new THREE.Color(),
       sand = new THREE.Color("#a69c73"),
+      road = new THREE.Color("#817052"),
+      verge = new THREE.Color("#938664"),
       earth = new THREE.Color("#705139");
     const vertex = (x: number, z: number) => {
       const key = z * 65 + x,
@@ -89,8 +95,10 @@ export class TerrainMesher {
       normals.push(dx / length, 4 / length, dz / length);
       uv.push(wx * 0.07, wz * 0.07);
       terrainSurfaceColor(c, wx, wz, baseHeight, slope);
+      const [roadCore, roadVerge] = terrainRoadWeights(this.pathDistance(wx, wz));
+      c.lerp(verge, roadVerge);
+      c.lerp(road, roadCore);
       if (
-        this.pathDistance(wx, wz) < 3.2 ||
         this.castleBounds.some(
           (b) =>
             wx > b.min[0] && wx < b.max[0] && wz > b.min[1] && wz < b.max[1],

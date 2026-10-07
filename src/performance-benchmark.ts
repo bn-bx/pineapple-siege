@@ -1470,6 +1470,37 @@ function inspect() {
       }
     }
   }
+  if (kind === "road" && world.paths.length) {
+    const route = world.paths.find((path) => path.length >= 12) ?? world.paths[0],
+      middle = Math.floor(route.length / 2);
+    let point = route[middle],
+      height = view.terrain.sample(point[0], point[1]);
+    for (let offset = 1; height < 8 && offset < route.length / 2; offset++) {
+      const candidate = route[middle + (offset % 2 ? 1 : -1) * Math.ceil(offset / 2)];
+      if (!candidate) continue;
+      const candidateHeight = view.terrain.sample(candidate[0], candidate[1]);
+      if (candidateHeight > height) {
+        point = candidate;
+        height = candidateHeight;
+      }
+    }
+    const before = route[Math.max(0, route.indexOf(point) - 1)],
+      after = route[Math.min(route.length - 1, route.indexOf(point) + 1)],
+      tangentLength = Math.hypot(after[0] - before[0], after[1] - before[1]) || 1,
+      tangentX = (after[0] - before[0]) / tangentLength,
+      tangentZ = (after[1] - before[1]) / tangentLength,
+      eye: Vec3 = [
+        point[0] - tangentX * 18 - tangentZ * 18,
+        height + 22,
+        point[1] - tangentZ * 18 + tangentX * 18,
+      ],
+      target: Vec3 = [point[0], height + 1, point[1]];
+    inspectionTarget = target;
+    view.inspectCamera(eye, target);
+    status.textContent = "Packed-earth road and feathered verge review";
+    last = 0;
+    return;
+  }
   if (kind === "castle-gate") {
     p = (world.castles?.[0]?.landmarks.gate ?? world.landmarks.gate).slice();
   } else if (kind === "castle-keep") {

@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { CONFIG, CHUNKS } from "../src/config";
 import { TerrainView } from "../src/render/terrain-view";
+import { terrainRoadWeights } from "../src/render/terrain-colors";
 import type { WorldData } from "../src/types";
 import type {
   TerrainJob,
@@ -13,6 +14,16 @@ const world = {
   castleBounds: { min: [-10, -10], max: [-5, -5] },
   spawn: [-10000, 0, -10000],
 } as unknown as WorldData;
+it("blends packed earth through a feathered road verge without a hard edge", () => {
+  expect(terrainRoadWeights(0)[0]).toBe(1);
+  expect(terrainRoadWeights(2.7)[0]).toBeGreaterThan(0);
+  expect(terrainRoadWeights(3.3)[0]).toBe(0);
+  expect(terrainRoadWeights(3.3)[1]).toBeGreaterThan(0);
+  expect(terrainRoadWeights(6.2)[1]).toBe(0);
+  expect(
+    Math.abs(terrainRoadWeights(3.19)[1] - terrainRoadWeights(3.21)[1]),
+  ).toBeLessThan(0.01);
+});
 function create() {
   return new TerrainView(
     world,
