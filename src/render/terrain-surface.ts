@@ -104,9 +104,9 @@ export function installTerrainSurface(
         float surfaceWet=(1.-smoothstep(-.5,2.,vSurfaceWorld.y))*(1.-cliff);
         // Broad, imperfect mineral beds break up smooth heightfield slopes.
         // Keep the bands in world space so streamed LODs agree at their seams.
-        float strata=.5+.5*sin(vSurfaceWorld.y*.075+vSurfaceWorld.x*.012+vSurfaceWorld.z*.008+(landscapePatch-.5)*1.3+(screePatch-.5)*.65);
+        float strata=.5+.5*sin(vSurfaceWorld.y*.095+vSurfaceWorld.x*.012+vSurfaceWorld.z*.008+(landscapePatch-.5)*1.8+(screePatch-.5)*1.05);
         vec3 grassVariation=mix(vec3(.83,.88,.76),vec3(1.06,1.04,.94),landscapePatch);
-        vec3 rockVariation=mix(vec3(.72,.75,.8),vec3(1.04,1.02,.97),landscapePatch)*(.86+.28*screePatch)*(.88+.24*strata);
+        vec3 rockVariation=mix(vec3(.72,.75,.8),vec3(1.04,1.02,.97),landscapePatch)*(.86+.28*screePatch)*(.82+.36*strata);
         baseSurface*=mix(grassVariation,rockVariation,cliff)*(1.-surfaceWet*.22);
         diffuseColor.rgb=baseSurface*mix(vec3(mix(1.65,1.05,cliff)),vec3(.3),charred);
       `,
@@ -149,7 +149,7 @@ export function installTerrainSurface(
         // Broad mineral relief remains readable from flight altitude without
         // changing canonical heights or sampling another texture. Derivatives
         // are evaluated before the mask, including across cliff transitions.
-        float cliffRelief=landscapePatch*4.2+strata*.2;
+        float cliffRelief=landscapePatch*4.8+strata*.28;
         vec3 cliffSigmaX=dFdx(-vViewPosition),cliffSigmaY=dFdy(-vViewPosition);
         vec3 cliffR1=cross(cliffSigmaY,normal),cliffR2=cross(normal,cliffSigmaX);
         float cliffDet=dot(cliffSigmaX,cliffR1);

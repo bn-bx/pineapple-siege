@@ -31,5 +31,6 @@ it("keeps the scanned shoreline sand free of the grass tint", () => {
   expect(shader.fragmentShader).toContain("cliff=max(cliff,outcrop*.58)");
   expect(shader.fragmentShader).toContain("float screePatch=terrainVariation");
   expect(shader.fragmentShader).toContain("cliff=max(cliff,scree*.78)");
-  expect(shader.fragmentShader).toContain("cliffRelief=landscapePatch*4.2");
+  expect(shader.fragmentShader).toContain("cliffRelief=landscapePatch*4.8");
+  expect(shader.fragmentShader).toContain("vSurfaceWorld.y*.095");
 });
