@@ -8,6 +8,7 @@ import { budgetSurfaceNormals } from "./surface-normal-budget";
 import { treeLOD } from "./tree-lod";
 import { treeImpostor } from "./tree-impostor";
 import { treeCanopyScale } from "./tree-appearance";
+import { jetExhaustProfile } from "./jet-exhaust";
 import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
@@ -953,7 +954,7 @@ export class GameRenderer {
     });
     if (this.visualAssets.jet) {
       for (const mesh of [...this.jet.children])
-        if (mesh.name !== "flame") {
+        if (!mesh.name.startsWith("flame")) {
           this.jet.remove(mesh);
           this.retiredGeometry.add((mesh as THREE.Mesh).geometry);
         }
@@ -2301,9 +2302,20 @@ export class GameRenderer {
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);
     this.jet.visible = p.crashed <= 0;
-    for (const flame of this.jet.children.filter((c) => c.name === "flame"))
-      flame.scale.y =
-        0.8 + Math.sin(this.elapsed * 42) * 0.13 + (p.speed > 95 ? 0.7 : 0);
+    const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);
+    for (const flame of this.jet.children) {
+      if (flame.name === "flame") {
+        flame.scale.y = exhaust.outerLength;
+        const material = (flame as THREE.Mesh)
+          .material as THREE.MeshBasicMaterial;
+        material.opacity = exhaust.outerOpacity;
+      } else if (flame.name === "flame-core") {
+        flame.scale.y = exhaust.coreLength;
+        const material = (flame as THREE.Mesh)
+          .material as THREE.MeshBasicMaterial;
+        material.opacity = exhaust.coreOpacity;
+      }
+    }
     for (const name of ["aileron-left", "aileron-right"]) {
       const surface = this.jet.getObjectByName(name);
       if (surface)

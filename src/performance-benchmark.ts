@@ -944,7 +944,18 @@ function inspect() {
   if (kind === "aircraft" && snapshot) {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];
-    view.inspectCamera([p[0] + 18, p[1] + 9, p[2] + 22], p);
+    // Review from behind the current heading so both nozzles and their
+    // exhaust remain visible alongside the wing and tail profile.
+    const yaw = snapshot.plane.yaw,
+      distance = 22;
+    view.inspectCamera(
+      [
+        p[0] - Math.sin(yaw) * distance,
+        p[1] + 7,
+        p[2] - Math.cos(yaw) * distance,
+      ],
+      p,
+    );
     last = 0;
     return;
   }

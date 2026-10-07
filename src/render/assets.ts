@@ -250,11 +250,26 @@ export function makeJet() {
         color: "#86d7ff",
         transparent: true,
         opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
       }),
       new THREE.Vector3(side * 0.85, -0.3, -6.6),
     );
     flame.rotation.x = -Math.PI / 2;
     flame.name = "flame";
+    const core = add(
+      new THREE.ConeGeometry(0.23, 2.4, 8),
+      new THREE.MeshBasicMaterial({
+        color: "#e7f5ff",
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+      new THREE.Vector3(side * 0.85, -0.3, -6.85),
+    );
+    core.rotation.x = -Math.PI / 2;
+    core.name = "flame-core";
   }
   g.userData.googlyBounds = [0, 1, 1.5, 1.4, 0.9, 3];
   return g;
