@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-70",
+  "release": "visual-overhaul-2026-10-07-batch-71",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -108,7 +108,9 @@
     "animated-shallow-ocean-shore-foam",
     "irregular-world-space-shoreline-sediment",
     "owner-stable-castle-heraldry-banners",
-    "seed-stable-species-tree-color-variation"
+    "seed-stable-species-tree-color-variation",
+    "owner-linked-logging-camp-chocks-and-end-grain",
+    "isolated-logging-stack-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }

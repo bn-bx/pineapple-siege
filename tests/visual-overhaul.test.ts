@@ -5,6 +5,7 @@ import { qualityProfile, VISUAL_BUDGET } from "../src/render/quality-profile";
 import { SimulationCadence } from "../src/simulation-cadence";
 import { installFractureSurface } from "../src/render/fracture-surface";
 import {
+  loggingCampReviewCamera,
   quarryHoistOwner,
   quarryHoistReviewCamera,
 } from "../src/render/landmark-geometry";
@@ -437,6 +438,56 @@ it("renders logging-camp stacks as round, horizontal timber", async () => {
   expect(bounds.max.y - bounds.min.y).toBeCloseTo(2);
   expect(bounds.max.z - bounds.min.z).toBeCloseTo(2);
   geometry.dispose();
+});
+it("details logging-camp log ends and restores owner-bound stack braces", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const stack = [0, 1, 2].map((layer) => ({
+      id: 20 + layer,
+      kind: "block",
+      p: [100, 11 + layer * 2, 100],
+      s: [12, 1, 1],
+      material: "wood",
+      assembly: "logging-1-stack-0",
+      foundation: layer === 0,
+      supports: [],
+    })) as any,
+    scenery = new Scenery(
+      { paths: [], sites: [], entities: stack } as any,
+      { sample: () => 10, flood: new Uint8Array(CONFIG.grid ** 2) } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(100, 12, 100),
+    count = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:logging-log-chocks",
+        ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0,
+    endGrainCount = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:logging-log-end-grain",
+        ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0,
+    review = loggingCampReviewCamera(stack[0], 9),
+    removed = new Set<number>();
+  scenery.update(camera, removed, 1200, 120, 0, true);
+  expect(count()).toBe(4);
+  expect(endGrainCount()).toBe(6);
+  expect(review.target[1]).toBeCloseTo(10.72);
+  expect(review.eye[0]).toBeLessThan(review.target[0]);
+  removed.add(stack[0].id);
+  scenery.update(camera, removed, 1200, 120, 1, true);
+  expect(count()).toBe(0);
+  expect(endGrainCount()).toBe(4);
+  removed.clear();
+  scenery.update(camera, removed, 1200, 120, 2, true);
+  expect(count()).toBe(4);
+  expect(endGrainCount()).toBe(6);
 });
 it("renders harbor supports as tapered driven timber piles", async () => {
   const { harborDockPileGeometry, isHarborDockPile } = await import(

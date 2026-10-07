@@ -11,6 +11,21 @@ export function isLoggingCampLog(
   );
 }
 
+/** Frame a logging-camp stack so its round timbers and side chocks read together. */
+export function loggingCampReviewCamera(owner: Entity, distance: number) {
+  const target: Entity["p"] = [owner.p[0], owner.p[1] - 0.28, owner.p[2]];
+  return {
+    eye: [
+      // The generated shed is on the +X side of the stack; look out into the
+      // clearing so its wall cannot occlude this close review.
+      target[0] - distance * 0.72,
+      target[1] + distance * 0.2,
+      target[2] + distance * 0.68,
+    ] as Entity["p"],
+    target,
+  };
+}
+
 /** Narrow vertical members in generated harbor docks are driven timber piles. */
 export function isHarborDockPile(
   entity: Pick<Entity, "kind" | "material" | "assembly" | "s">,

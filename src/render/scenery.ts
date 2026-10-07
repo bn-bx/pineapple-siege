@@ -214,6 +214,14 @@ export class Scenery {
       "quarry-winch-handle_lod0",
       () => new THREE.CylinderGeometry(0.09, 0.09, 1.15, 8).rotateX(Math.PI / 2),
     );
+    const loggingEndGrain = visualGeometry("logging-end-grain_lod0", () =>
+      new THREE.RingGeometry(0.82, 0.97, 16).rotateY(Math.PI / 2),
+    );
+    const loggingEndGrainMaterial = new THREE.MeshStandardMaterial({
+      color: "#5f4830",
+      roughness: 0.96,
+      side: THREE.DoubleSide,
+    });
     const addBeam = (
       key: string,
       owner: Entity,
@@ -679,6 +687,17 @@ export class Scenery {
         continue;
       }
       if (e.kind !== "block") continue;
+      if (e.material === "wood" && /-stack-\d+$/.test(e.assembly)) {
+        for (const side of [-1, 1])
+          add(
+            "logging-log-end-grain",
+            e,
+            [x + side * (sx + 0.025), y, z],
+            [1, 1, 1],
+            loggingEndGrainMaterial,
+            loggingEndGrain,
+          );
+      }
       if (
         e.material === "wood" &&
         /dock|bridge|logging|watchtower|windmill|watermill/.test(e.assembly)
@@ -890,6 +909,38 @@ export class Scenery {
       const parts = assemblies.get(e.assembly);
       if (parts) parts.push(e);
       else assemblies.set(e.assembly, [e]);
+    }
+    // Side chocks brace ground-level logging-camp piles. The lowest log
+    // remains the owner, so its supports disappear and return with the pile.
+    for (const [name, parts] of assemblies) {
+      if (!/-stack-\d+$/.test(name)) continue;
+      const owner = parts
+        .filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "wood" &&
+            part.s[0] >= 10 &&
+            part.s[1] <= 1.1 &&
+            part.s[2] <= 1.2,
+        )
+        .sort((a, b) => a.p[1] - b.p[1])[0];
+      if (!owner) continue;
+      const ground = terrain.sample(owner.p[0], owner.p[2]),
+        footY = ground + 0.08,
+        contactY = ground + 0.35;
+      for (const along of [-4.1, 4.1]) {
+        const supportX = owner.p[0] + along;
+        for (const side of [-1, 1])
+          addBeam(
+            "logging-log-chocks",
+            owner,
+            new THREE.Vector3(supportX, footY, owner.p[2] + side * 1.8),
+            new THREE.Vector3(supportX, contactY, owner.p[2] + side * 0.78),
+            0.24,
+            structuralTimber,
+            true,
+          );
+      }
     }
     for (const castle of world.castles ?? []) {
       const gate = castle.landmarks?.gate,

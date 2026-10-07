@@ -2,6 +2,8 @@
 
 This ledger is the completion source of truth. A working implementation remains open until its representative views and failure states have been inspected; an item remains open until deployed. The October 6 notes in `VISUAL_OVERHAUL_REMAINING.md` are historical evidence and are not acceptance claims.
 
+Logging-camp stacks now have dark, faceted end-grain rims and broad side chocks that meet the lowest round log without changing its position or collision. The details share instanced batches, follow the existing bottom-log owner, and disappear and restore with it. The isolated logging preset frames the stack from the clearing, away from the shed. Seed 41729 is shown in [the logging-camp review](PERFORMANCE_SCENE_1791362920075.png). Focused tests cover placement, review framing, owner removal/restoration, and end-grain restoration; the production build passes. Batch 71 ships the logging-stack finish.
+
 ## Shipped batch history
 
 Tree color now varies subtly by species and seed-stable entity variant. Close, middle, and whole-island representations share one muted palette calculation, preserving existing meshes, wind, and instance counts. Seed 41729's complete high island view is shown in [the forest palette review](PERFORMANCE_SCENE_1791361485144.png). The focused tree appearance and island horizon tests plus the production build pass. Batch 70 ships more varied forest color across detail levels.

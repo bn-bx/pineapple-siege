@@ -10,6 +10,7 @@ import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
 import {
   harborDockReviewCamera,
+  loggingCampReviewCamera,
   quarryHoistOwner,
   quarryHoistReviewCamera,
   waterwheelRotors,
@@ -1111,6 +1112,28 @@ function inspect() {
       inspectionTarget = camera.target;
       view.inspectCamera(camera.eye, camera.target);
       status.textContent = "Quarry winch, cable, and load-ring review";
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "logging") {
+    const site = world.sites.find((entry) => entry.kind === "logging"),
+      stack = site
+        ? world.entities
+            .filter((entity) =>
+              entity.assembly.startsWith(`${site.id}-stack-`),
+            )
+            .sort((a, b) => a.p[1] - b.p[1])[0]
+        : undefined;
+    if (stack) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        camera = loggingCampReviewCamera(stack, closeView ? 24 : 38);
+      inspectionTarget = camera.target;
+      view.inspectCamera(camera.eye, camera.target);
+      status.textContent = "Logging-camp log stack and chock review";
       last = 0;
       return;
     }
