@@ -15,6 +15,8 @@ import { Scenery } from "./scenery";
 import { VisualAssets, visualGeometry } from "./visual-assets";
 import {
   bridgeDeckPresentation,
+  harborDockPileGeometry,
+  isHarborDockPile,
   isBridgeRailingPart,
   isLoggingCampLog,
   isLighthouseLanternGlazing,
@@ -1025,7 +1027,11 @@ export class GameRenderer {
       const size = 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
       let key =
-        (isLoggingCampLog(e) ? "log-" : "") +
+        (isHarborDockPile(e)
+          ? "dock-pile-"
+          : isLoggingCampLog(e)
+            ? "log-"
+            : "") +
         e.kind +
         e.material +
         (e.treeSpecies ?? "pine") +
@@ -1045,6 +1051,7 @@ export class GameRenderer {
     low.translate(0, 0.5, 0);
     const roof = this.roof;
     const log = loggingCampLogGeometry();
+    const dockPile = harborDockPileGeometry();
     const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
       rock = new THREE.DodecahedronGeometry(1, 0);
     for (const [groupKey, list] of grouped) {
@@ -1134,6 +1141,10 @@ export class GameRenderer {
       }
       if (groupKey.startsWith("log-")) {
         add(log, this.materials.wood, "log");
+        continue;
+      }
+      if (groupKey.startsWith("dock-pile-")) {
+        add(dockPile, this.materials.wood, "dock-pile");
         continue;
       }
       if (e.kind === "tree") {

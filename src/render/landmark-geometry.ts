@@ -11,6 +11,53 @@ export function isLoggingCampLog(
   );
 }
 
+/** Narrow vertical members in generated harbor docks are driven timber piles. */
+export function isHarborDockPile(
+  entity: Pick<Entity, "kind" | "material" | "assembly" | "s">,
+) {
+  return (
+    entity.kind === "block" &&
+    entity.material === "wood" &&
+    /harbor-\d+-dock$/.test(entity.assembly) &&
+    entity.s[0] <= 0.8 &&
+    entity.s[2] <= 0.8 &&
+    entity.s[1] >= 0.7
+  );
+}
+
+/** Slightly tapered, driven piles replace square dock supports in presentation. */
+export function harborDockPileGeometry() {
+  const geometry = new THREE.CylinderGeometry(0.92, 0.62, 2, 10, 1, false);
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
+/** Aim the isolated harbor review down a dock so its driven supports stay visible. */
+export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
+  if (decks.length < 2) return undefined;
+  const rangeX =
+      Math.max(...decks.map((deck) => deck.p[0])) -
+      Math.min(...decks.map((deck) => deck.p[0])),
+    rangeZ =
+      Math.max(...decks.map((deck) => deck.p[2])) -
+      Math.min(...decks.map((deck) => deck.p[2])),
+    axis: 0 | 2 = rangeX >= rangeZ ? 0 : 2,
+    direction = Math.sign(decks.at(-1)!.p[axis] - decks[0].p[axis]) || 1,
+    center = decks[Math.floor((decks.length - 1) * 0.68)],
+    dx = axis === 0 ? direction : 0,
+    dz = axis === 2 ? direction : 0,
+    sideX = axis === 0 ? 0 : 1,
+    sideZ = axis === 2 ? 0 : 1;
+  return {
+    eye: [
+      center.p[0] + dx * 22 + sideX * 10,
+      center.p[1] + 7,
+      center.p[2] + dz * 22 + sideZ * 10,
+    ] as Entity["p"],
+    target: [center.p[0], center.p[1] - 1.5, center.p[2]] as Entity["p"],
+  };
+}
+
 /** Raise and reduce the lighthouse cap in presentation only, uncovering the lantern room. */
 export function lighthouseRoofPresentation(
   entity: Pick<Entity, "assembly" | "material" | "p" | "s">,

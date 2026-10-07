@@ -8,7 +8,11 @@ import { SaveStore, compatible } from "./storage";
 import { SaveWriter } from "./save-writer";
 import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
-import { waterwheelRotors, windmillRotors } from "./render/landmark-geometry";
+import {
+  harborDockReviewCamera,
+  waterwheelRotors,
+  windmillRotors,
+} from "./render/landmark-geometry";
 import type {
   GameCommand,
   Vec3,
@@ -1428,8 +1432,25 @@ function inspect() {
         )
       : undefined;
     p = (wall?.p ?? castle?.landmarks.keep ?? world.landmarks.keep).slice();
-  }
-  else if (kind === "coast")
+  } else if (kind === "harbor" && selectedSite) {
+    const decks = world.entities.filter(
+      (entity) =>
+        entity.kind === "block" &&
+        entity.material === "wood" &&
+        entity.assembly === `${selectedSite.id}-dock` &&
+        entity.s[1] <= 0.8 &&
+        Math.min(entity.s[0], entity.s[2]) >= 1.8 &&
+        Math.max(entity.s[0], entity.s[2]) >= 4.5,
+    );
+    const camera = harborDockReviewCamera(decks);
+    if (camera) {
+      inspectionTarget = camera.target;
+      view.inspectCamera(camera.eye, camera.target);
+      status.textContent = "Harbor dock support review";
+      last = 0;
+      return;
+    }
+  } else if (kind === "coast")
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
     ).slice();

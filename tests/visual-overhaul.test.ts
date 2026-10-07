@@ -367,6 +367,42 @@ it("renders logging-camp stacks as round, horizontal timber", async () => {
   expect(bounds.max.z - bounds.min.z).toBeCloseTo(2);
   geometry.dispose();
 });
+it("renders harbor supports as tapered driven timber piles", async () => {
+  const { harborDockPileGeometry, isHarborDockPile } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const pile = {
+    kind: "block",
+    material: "wood",
+    assembly: "harbor-1-dock",
+    s: [0.5, 2.4, 0.5],
+  } as const;
+  expect(isHarborDockPile(pile)).toBe(true);
+  expect(isHarborDockPile({ ...pile, s: [5, 0.6, 2.1] })).toBe(false);
+  expect(isHarborDockPile({ ...pile, assembly: "bridge-1-crossing" })).toBe(
+    false,
+  );
+  const geometry = harborDockPileGeometry();
+  expect(
+    geometry.boundingBox!.max.y - geometry.boundingBox!.min.y,
+  ).toBeCloseTo(2);
+  expect(geometry.getAttribute("position").count).toBeLessThan(100);
+  geometry.dispose();
+});
+it("aims the harbor review camera down the dock at its outer supports", async () => {
+  const { harborDockReviewCamera } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const camera = harborDockReviewCamera(
+    [0, 1, 2, 3, 4].map((i) => ({
+      p: [20, 6, 40 - i * 4] as [number, number, number],
+    })),
+  )!;
+  expect(camera.target[2]).toBe(32);
+  expect(camera.target[1]).toBe(4.5);
+  expect(camera.eye[2]).toBeLessThan(camera.target[2]);
+  expect(harborDockReviewCamera([{ p: [0, 0, 0] }])).toBeUndefined();
+});
 it("adds owner-linked mooring details only to the ends of harbor docks", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const decks = Array.from({ length: 7 }, (_, i) => ({
