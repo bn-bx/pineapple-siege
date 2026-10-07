@@ -11,6 +11,33 @@ export function isLoggingCampLog(
   );
 }
 
+/** Raise and reduce the lighthouse cap in presentation only, uncovering the lantern room. */
+export function lighthouseRoofPresentation(
+  entity: Pick<Entity, "assembly" | "material" | "p" | "s">,
+) {
+  if (!entity.assembly.startsWith("lighthouse-") || entity.material !== "roof")
+    return undefined;
+  return {
+    p: [entity.p[0], entity.p[1] + 3.5, entity.p[2]] as Entity["p"],
+    s: [5.2, 1.5, 5.2] as Entity["s"],
+  };
+}
+
+/** Large square window block used as the lighthouse's lantern-room glazing. */
+export function isLighthouseLanternGlazing(
+  entity: Pick<Entity, "assembly" | "kind" | "material" | "s">,
+) {
+  return (
+    entity.assembly.startsWith("lighthouse-") &&
+    entity.kind === "block" &&
+    entity.material === "window" &&
+    entity.s[0] >= 3.5 &&
+    entity.s[2] >= 3.5 &&
+    entity.s[0] > entity.s[1] &&
+    entity.s[2] > entity.s[1]
+  );
+}
+
 /** Horizontal sawn timber; entity scale and destruction ownership are unchanged. */
 export function loggingCampLogGeometry() {
   const geometry = new THREE.CylinderGeometry(1, 1, 2, 12, 1, false);

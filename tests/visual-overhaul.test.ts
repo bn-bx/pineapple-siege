@@ -874,7 +874,7 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(handrail()).toBe(1);
 });
-it("frames lighthouse lantern glazing with owner-linked iron members", async () => {
+it("frames lighthouse lantern glass with owner-linked iron and Fresnel optics", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const lantern = {
     id: 401,
@@ -896,18 +896,73 @@ it("frames lighthouse lantern glazing with owner-linked iron members", async () 
     },
   );
   const camera = new THREE.Vector3(100, 62, 100),
-    frames = () =>
+    count = (name: string) =>
       (
         scenery.group.children.find(
-          (object) => object.name === "scenery:lighthouse-lantern-frames",
+          (object) => object.name === `scenery:${name}`,
         ) as THREE.InstancedMesh
       )?.count ?? 0;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
-  expect(frames()).toBe(12);
+  expect(count("lighthouse-lantern-frames")).toBe(12);
+  expect(count("lighthouse-lantern-glazing")).toBe(4);
+  expect(count("lighthouse-fresnel-glass")).toBe(1);
+  expect(count("lighthouse-fresnel-hoops")).toBe(3);
+  expect(count("lighthouse-fresnel-cage")).toBe(8);
   scenery.update(camera, new Set([lantern.id]), 1200, 120, 1, true);
-  expect(frames()).toBe(0);
+  expect(count("lighthouse-lantern-frames")).toBe(0);
+  expect(count("lighthouse-lantern-glazing")).toBe(0);
+  expect(count("lighthouse-fresnel-glass")).toBe(0);
+  expect(count("lighthouse-fresnel-hoops")).toBe(0);
+  expect(count("lighthouse-fresnel-cage")).toBe(0);
   scenery.update(camera, new Set(), 1200, 120, 2, true);
-  expect(frames()).toBe(12);
+  expect(count("lighthouse-lantern-frames")).toBe(12);
+  expect(count("lighthouse-lantern-glazing")).toBe(4);
+  expect(count("lighthouse-fresnel-glass")).toBe(1);
+  expect(count("lighthouse-fresnel-hoops")).toBe(3);
+  expect(count("lighthouse-fresnel-cage")).toBe(8);
+});
+it("raises and narrows lighthouse roof caps without changing saved entities", async () => {
+  const { lighthouseRoofPresentation } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const { isLighthouseLanternGlazing } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const roof = {
+    id: 402,
+    kind: "block",
+    p: [100, 70, 100],
+    s: [9.6, 4, 9.6],
+    material: "roof",
+    assembly: "lighthouse-1",
+    foundation: false,
+    supports: [],
+  } as const;
+  expect(lighthouseRoofPresentation(roof)).toEqual({
+    p: [100, 73.5, 100],
+    s: [5.2, 1.5, 5.2],
+  });
+  expect(roof.p).toEqual([100, 70, 100]);
+  expect(roof.s).toEqual([9.6, 4, 9.6]);
+  expect(
+    isLighthouseLanternGlazing({
+      assembly: "lighthouse-1",
+      kind: "block",
+      material: "window",
+      s: [4, 2, 4],
+    }),
+  ).toBe(true);
+  expect(
+    isLighthouseLanternGlazing({
+      assembly: "hamlet-house-1",
+      kind: "block",
+      material: "window",
+      s: [4, 2, 4],
+    }),
+  ).toBe(false);
+  expect(
+    lighthouseRoofPresentation({ ...roof, assembly: "hamlet-house-1" }),
+  ).toBeUndefined();
 });
 it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
   const { windmillRotorBladeIds } = await import(

@@ -4,6 +4,10 @@ import * as THREE from "three";
 import type { WorldData, Entity } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { pathIndex } from "../world/generator.mjs";
+import {
+  isLighthouseLanternGlazing,
+  lighthouseRoofPresentation,
+} from "./landmark-geometry";
 import { visualGeometry } from "./visual-assets";
 
 interface Piece {
@@ -87,6 +91,31 @@ export class Scenery {
       metalness: 0.65,
       roughness: 0.75,
     });
+    const lighthouseBrass = new THREE.MeshStandardMaterial({
+      color: "#78643d",
+      metalness: 0.72,
+      roughness: 0.42,
+    });
+    const lighthouseLens = new THREE.MeshPhysicalMaterial({
+      color: "#e4c88d",
+      emissive: "#b87926",
+      emissiveIntensity: 0.16,
+      metalness: 0.08,
+      roughness: 0.18,
+      transparent: true,
+      opacity: 0.32,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const lighthouseGlass = new THREE.MeshPhysicalMaterial({
+      color: "#94acb0",
+      metalness: 0.04,
+      roughness: 0.12,
+      transparent: true,
+      opacity: 0.18,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
     foliage.onBeforeCompile = (shader) => {
       shader.uniforms.grassWind = this.wind;
       shader.vertexShader = shader.vertexShader
@@ -146,6 +175,18 @@ export class Scenery {
       color: "#182022",
       roughness: 0.96,
     });
+    const lighthouseLensGlass = visualGeometry(
+      "lighthouse-fresnel-drum_lod0",
+      () => new THREE.CylinderGeometry(1, 1, 2, 20, 1, true),
+    );
+    const lighthouseLensHoop = visualGeometry(
+      "lighthouse-fresnel-hoop_lod0",
+      () => new THREE.TorusGeometry(1, 0.055, 6, 20).rotateX(Math.PI / 2),
+    );
+    const lighthouseGlassPane = visualGeometry(
+      "lighthouse-lantern-glass_lod0",
+      () => new THREE.PlaneGeometry(2, 2),
+    );
     const addBeam = (
       key: string,
       owner: Entity,
@@ -596,24 +637,31 @@ export class Scenery {
         }
       }
       if (e.foundation && e.material !== "plaster") continue;
-      if (e.material === "window") {
+      if (e.material === "window" && !isLighthouseLanternGlazing(e)) {
         addWindow(e);
       } else if (e.material === "roof" || e.material === "slate") {
+        const cap = lighthouseRoofPresentation(e),
+          roofX = cap?.p[0] ?? x,
+          roofY = cap?.p[1] ?? y,
+          roofZ = cap?.p[2] ?? z,
+          roofSX = cap?.s[0] ?? sx,
+          roofSY = cap?.s[1] ?? sy,
+          roofSZ = cap?.s[2] ?? sz;
         // Eaves and fascia follow every roof owner, from farms to warehouses.
         for (const sign of [-1, 1])
           add(
             "roof-fascia",
             e,
-            [x, y - sy + 0.12, z + sign * sz],
-            [sx, 0.18, 0.14],
+            [roofX, roofY - roofSY + 0.12, roofZ + sign * roofSZ],
+            [roofSX, 0.18, 0.14],
             materials.wood,
           );
         for (const sign of [-1, 1])
           add(
             "roof-fascia",
             e,
-            [x + sign * sx, y - sy + 0.12, z],
-            [0.14, 0.18, sz],
+            [roofX + sign * roofSX, roofY - roofSY + 0.12, roofZ],
+            [0.14, 0.18, roofSZ],
             materials.wood,
           );
         // Hip caps follow the authored roof's four sloping edges. Their
@@ -623,8 +671,12 @@ export class Scenery {
             addBeam(
               "roof-hip-caps",
               e,
-              new THREE.Vector3(x + a * sx, y - sy + 0.18, z + b * sz),
-              new THREE.Vector3(x, y + sy + 0.12, z),
+              new THREE.Vector3(
+                roofX + a * roofSX,
+                roofY - roofSY + 0.18,
+                roofZ + b * roofSZ,
+              ),
+              new THREE.Vector3(roofX, roofY + roofSY + 0.12, roofZ),
               0.16,
               materials[e.material] ?? materials.stone ?? materials.wood,
             );
@@ -1530,19 +1582,13 @@ export class Scenery {
     }
     for (const [name, parts] of assemblies) {
       if (!/lighthouse/.test(name)) continue;
-      const lanterns = parts.filter(
-        (part) =>
-          part.kind === "block" &&
-          part.material === "window" &&
-          part.s[0] >= 3.5 &&
-          part.s[2] >= 3.5 &&
-          part.s[0] > part.s[1] &&
-          part.s[2] > part.s[1],
-      );
+      const lanterns = parts.filter(isLighthouseLanternGlazing);
       for (const owner of lanterns) {
         const [x, y, z] = owner.p,
           [sx, sy, sz] = owner.s,
-          inset = 0.035;
+          inset = 0.035,
+          lensRadius = Math.min(sx, sz) * 0.29,
+          lensHeight = sy * 0.68;
         for (const sideX of [-1, 1])
           for (const sideZ of [-1, 1])
             add(
@@ -1552,6 +1598,26 @@ export class Scenery {
               [0.12, sy, 0.12],
               iron,
             );
+        for (const side of [-1, 1]) {
+          add(
+            "lighthouse-lantern-glazing",
+            owner,
+            [x, y, z + side * (sz + 0.018)],
+            [sx, sy, 1],
+            lighthouseGlass,
+            lighthouseGlassPane,
+          );
+          add(
+            "lighthouse-lantern-glazing",
+            owner,
+            [x + side * (sx + 0.018), y, z],
+            [sz, sy, 1],
+            lighthouseGlass,
+            lighthouseGlassPane,
+            false,
+            Math.PI / 2,
+          );
+        }
         for (const lift of [-1, 1]) {
           const railY = y + lift * (sy - 0.08);
           for (const side of [-1, 1]) {
@@ -1570,6 +1636,43 @@ export class Scenery {
               iron,
             );
           }
+        }
+        // A compact Fresnel drum gives the lantern room a readable focal
+        // element. Its glass and brass fittings belong to the existing
+        // glazing block, so damage and restoration remain authoritative.
+        add(
+          "lighthouse-fresnel-glass",
+          owner,
+          [x, y, z],
+          [lensRadius, lensHeight * 0.5, lensRadius],
+          lighthouseLens,
+          lighthouseLensGlass,
+        );
+        for (const lift of [-0.38, 0, 0.38])
+          add(
+            "lighthouse-fresnel-hoops",
+            owner,
+            [x, y + lensHeight * lift, z],
+            [lensRadius * 1.08, 1, lensRadius * 1.08],
+            lighthouseBrass,
+            lighthouseLensHoop,
+          );
+        for (let rib = 0; rib < 8; rib++) {
+          const angle = (rib * Math.PI) / 4;
+          add(
+            "lighthouse-fresnel-cage",
+            owner,
+            [
+              x + Math.sin(angle) * lensRadius * 1.05,
+              y,
+              z + Math.cos(angle) * lensRadius * 1.05,
+            ],
+            [0.045, lensHeight * 0.46, 0.045],
+            lighthouseBrass,
+            box,
+            false,
+            angle,
+          );
         }
       }
     }

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-46",
+  "release": "visual-overhaul-2026-10-06-batch-47",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -66,7 +66,11 @@
     "owner-linked-rotating-windmill-hub-caps",
     "isolated-windmill-rotor-review-camera",
     "owner-linked-rotating-waterwheel-hub-caps",
-    "isolated-waterwheel-review-camera"
+    "isolated-waterwheel-review-camera",
+    "owner-linked-lighthouse-fresnel-optics",
+    "derived-owner-linked-lighthouse-glazing",
+    "isolated-lighthouse-lens-review-camera",
+    "presentation-fitted-lighthouse-lantern-cap"
   ],
   "performanceCertification": "deferred by release instruction"
 }

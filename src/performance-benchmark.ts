@@ -1,6 +1,7 @@
 import { GameAudio } from "./audio";
 import { discoActive } from "./disco";
 import { checkStorage } from "./storage-checks";
+import { CONFIG } from "./config";
 import { GameRenderer } from "./render/renderer";
 import { loadTerrain } from "./world-loader";
 import { SaveStore, compatible } from "./storage";
@@ -969,6 +970,42 @@ function inspect() {
         [x, y, z],
       );
       status.textContent = "Waterwheel, paddles, and axle review";
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "lighthouse") {
+    const site = world.sites.find((entry) => entry.kind === "lighthouse"),
+      lantern = world.entities.find(
+        (entity) =>
+          entity.assembly === site?.id &&
+          entity.kind === "block" &&
+          entity.material === "window" &&
+          entity.s[0] >= 3.5 &&
+          entity.s[2] >= 3.5 &&
+          entity.s[0] > entity.s[1] &&
+          entity.s[2] > entity.s[1],
+      );
+    if (site && lantern) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        [x, y, z] = lantern.p,
+        offsetX = x - CONFIG.worldSize * 0.5,
+        offsetZ = z - CONFIG.worldSize * 0.5,
+        offsetLength = Math.hypot(offsetX, offsetZ) || 1,
+        distance = closeView ? 17 : 30;
+      inspectionTarget = [x, y, z];
+      view.inspectCamera(
+        [
+          x + (offsetX / offsetLength) * distance,
+          y + (closeView ? -8 : distance * 0.08),
+          z + (offsetZ / offsetLength) * distance,
+        ],
+        [x, y, z],
+      );
+      status.textContent = "Lighthouse Fresnel lens review";
       last = 0;
       return;
     }

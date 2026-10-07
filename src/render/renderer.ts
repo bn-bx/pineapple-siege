@@ -15,6 +15,8 @@ import { Scenery } from "./scenery";
 import { VisualAssets, visualGeometry } from "./visual-assets";
 import {
   isLoggingCampLog,
+  isLighthouseLanternGlazing,
+  lighthouseRoofPresentation,
   loggingCampLogGeometry,
   windmillRotorBladeIds,
   waterwheelPartIds,
@@ -1000,8 +1002,12 @@ export class GameRenderer {
       ...windmillRotorBladeIds(this.world),
       ...waterwheelPartIds(this.world),
     ]);
-    for (const e of this.world.entities) {
-      if (animatedLandmarkPartIds.has(e.id)) continue;
+  for (const e of this.world.entities) {
+      if (
+        animatedLandmarkPartIds.has(e.id) ||
+        isLighthouseLanternGlazing(e)
+      )
+        continue;
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
       // Match construction to the existing forest/rock spatial grid. Fewer
@@ -1068,6 +1074,11 @@ export class GameRenderer {
           if (kind === "trunk") {
             dummy.position.y -= e.s[1] * 0.4;
             dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
+          }
+          const lighthouseRoof = lighthouseRoofPresentation(e);
+          if (lighthouseRoof) {
+            dummy.position.fromArray(lighthouseRoof.p);
+            dummy.scale.fromArray(lighthouseRoof.s);
           }
           dummy.updateMatrix();
           mesh.setMatrixAt(i, dummy.matrix);
@@ -1541,6 +1552,11 @@ export class GameRenderer {
         if (batch.kind === "trunk") {
           dummy.position.y -= e.s[1] * 0.4;
           dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
+        }
+        const lighthouseRoof = lighthouseRoofPresentation(e);
+        if (lighthouseRoof) {
+          dummy.position.fromArray(lighthouseRoof.p);
+          dummy.scale.fromArray(lighthouseRoof.s);
         }
         dummy.updateMatrix();
         batch.mesh.setMatrixAt(i, dummy.matrix);
