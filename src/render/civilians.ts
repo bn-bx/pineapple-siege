@@ -17,6 +17,7 @@ export class CivilianView {
   private parts: THREE.InstancedMesh[];
   private distant: THREE.InstancedMesh;
   private hats: THREE.InstancedMesh[];
+  private scarves: THREE.InstancedMesh;
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
@@ -43,6 +44,9 @@ export class CivilianView {
     [0x917346, 0x746044, 0xa37f48],
     [0x4a6065, 0x784f42, 0x65734c],
   ].map((colors) => colors.map((color) => new THREE.Color(color)));
+  private scarfColors = [0x9b5140, 0x456e79, 0x7d664a, 0x6a7748].map(
+    (color) => new THREE.Color(color),
+  );
   private defeated = new Map<number, number>();
   private observedDead = new Set<number>();
   constructor(count: number) {
@@ -103,6 +107,33 @@ export class CivilianView {
       hat.castShadow = true;
       hat.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
+    const scarfCollar = new THREE.TorusGeometry(0.48, 0.12, 6, 12).rotateX(
+        Math.PI / 2,
+      ),
+      scarfShape = new THREE.Shape();
+    scarfShape.moveTo(-0.32, -0.08);
+    scarfShape.lineTo(0.32, -0.08);
+    scarfShape.lineTo(0.26, -0.58);
+    scarfShape.lineTo(0, -0.82);
+    scarfShape.lineTo(-0.26, -0.58);
+    scarfShape.closePath();
+    const scarfDrape = new THREE.ShapeGeometry(scarfShape).translate(
+        0,
+        0,
+        0.48,
+      ),
+      scarfGeometry = mergeGeometries([scarfCollar, scarfDrape])!;
+    scarfCollar.dispose();
+    scarfDrape.dispose();
+    this.scarves = new THREE.InstancedMesh(
+      scarfGeometry,
+      new THREE.MeshStandardMaterial({ roughness: 0.96, side: THREE.DoubleSide }),
+      count,
+    );
+    this.scarves.count = 0;
+    this.scarves.frustumCulled = false;
+    this.scarves.castShadow = true;
+    this.scarves.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.distant = new THREE.InstancedMesh(box, cloth, count);
     this.distant.count = 0;
     this.distant.frustumCulled = false;
@@ -120,6 +151,7 @@ export class CivilianView {
       this.group.add(mesh);
     }
     for (const hat of this.hats) this.group.add(hat);
+    this.group.add(this.scarves);
     this.group.add(this.distant);
   }
   installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
@@ -230,7 +262,8 @@ export class CivilianView {
     ground?: (x: number, z: number) => number,
   ) {
     let n = 0,
-      far = 0;
+      far = 0,
+      scarfCount = 0;
     const hatCounts = [0, 0];
     if (viewCamera)
       this.frustum.setFromProjectionMatrix(
@@ -372,6 +405,21 @@ export class CivilianView {
           palette[(Math.floor(c.id / 4) + c.id) % palette.length],
         );
       }
+      if (c.id % 3 === 0) {
+        const scarfIndex = scarfCount++;
+        // Float the shared neck ring clear of the upper torso so it remains
+        // readable with every body tint and camera angle.
+        this.dummy.position.set(0, 3.65, 0);
+        this.dummy.rotation.set(0, 0, 0);
+        this.dummy.scale.set(1.35, 1.4, 1.15);
+        this.dummy.updateMatrix();
+        this.dummy.matrix.premultiply(this.root.matrix);
+        this.scarves.setMatrixAt(scarfIndex, this.dummy.matrix);
+        this.scarves.setColorAt(
+          scarfIndex,
+          this.scarfColors[c.id % this.scarfColors.length],
+        );
+      }
       const place = (
         part: number,
         index: number,
@@ -509,6 +557,13 @@ export class CivilianView {
       hat.instanceMatrix.needsUpdate = true;
       if (hat.instanceColor) hat.instanceColor.needsUpdate = hat.count > 0;
     }
+    this.scarves.count = scarfCount;
+    this.scarves.instanceMatrix.clearUpdateRanges();
+    if (scarfCount)
+      this.scarves.instanceMatrix.addUpdateRange(0, scarfCount * 16);
+    this.scarves.instanceMatrix.needsUpdate = true;
+    if (this.scarves.instanceColor)
+      this.scarves.instanceColor.needsUpdate = scarfCount > 0;
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k >= 6 ? n * 2 : n;
@@ -524,5 +579,6 @@ export class CivilianView {
     this.distant.count = 0;
     for (const mesh of this.parts) mesh.count = 0;
     for (const hat of this.hats) hat.count = 0;
+    this.scarves.count = 0;
   }
 }

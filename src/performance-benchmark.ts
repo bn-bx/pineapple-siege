@@ -1067,6 +1067,97 @@ function inspect() {
     last = 0;
     return;
   }
+  if (kind === "resident") {
+    const livingResidents = snapshot?.civilians.filter(
+      (civilian) => civilian.alive,
+    ) ?? [];
+    let scarvedResident: (typeof livingResidents)[number] | undefined,
+      bestSeparation = -1;
+    // Prefer a scarved resident with a clear silhouette so another actor does
+    // not crowd the isolated close-up.
+    for (const candidate of livingResidents) {
+      if (candidate.id % 3 !== 0) continue;
+      let separation = Infinity;
+      for (const other of livingResidents)
+        if (other.id !== candidate.id)
+          separation = Math.min(
+            separation,
+            Math.hypot(candidate.p[0] - other.p[0], candidate.p[2] - other.p[2]),
+          );
+      if (separation > bestSeparation) {
+        scarvedResident = candidate;
+        bestSeparation = separation;
+      }
+    }
+    const resident =
+      scarvedResident ??
+      livingResidents.find(() => true) ??
+      world.civilians?.find((civilian) => civilian.id % 3 === 0) ??
+      world.civilians?.[0];
+    if (resident) {
+      // Hold the sampled pose still so a walking resident cannot leave the
+      // close-up between choosing the preset and capturing its evidence.
+      touring = false;
+      send({ type: "pause", paused: true });
+      const [x, y, z] = resident.p,
+        facing = "yaw" in resident ? resident.yaw : resident.id * 2.399963,
+        target: Vec3 = [x, y + 1.1, z],
+        cameraDistance = 5.2,
+        angleOffsets = [
+          0,
+          -Math.PI / 4,
+          Math.PI / 4,
+          -Math.PI / 2,
+          Math.PI / 2,
+          -Math.PI * 0.7,
+          Math.PI * 0.7,
+          Math.PI,
+        ];
+      let cameraAngle = facing,
+        bestViewScore = -Infinity;
+      for (const offset of angleOffsets) {
+        const angle = facing + offset,
+          eyeX = x + Math.sin(angle) * cameraDistance,
+          eyeZ = z + Math.cos(angle) * cameraDistance,
+          dx = x - eyeX,
+          dz = z - eyeZ,
+          lengthSquared = dx * dx + dz * dz;
+        let clearance = 20;
+        for (const other of livingResidents) {
+          if (other.id === resident.id) continue;
+          const along = Math.max(
+              0.08,
+              Math.min(
+                0.95,
+                ((other.p[0] - eyeX) * dx + (other.p[2] - eyeZ) * dz) /
+                  lengthSquared,
+              ),
+            ),
+            nearestX = eyeX + dx * along,
+            nearestZ = eyeZ + dz * along;
+          clearance = Math.min(
+            clearance,
+            Math.hypot(other.p[0] - nearestX, other.p[2] - nearestZ),
+          );
+        }
+        const score = clearance - Math.abs(offset) * 0.12;
+        if (score > bestViewScore) {
+          cameraAngle = angle;
+          bestViewScore = score;
+        }
+      }
+      const eye: Vec3 = [
+        x + Math.sin(cameraAngle) * cameraDistance,
+        y + 2.35,
+        z + Math.cos(cameraAngle) * cameraDistance,
+      ];
+      inspectionTarget = [x, y, z];
+      view.inspectCamera(eye, target);
+      status.textContent = `Resident close-up · ${resident.id}`;
+      last = 0;
+      return;
+    }
+  }
   let p = world.castle.slice();
   if (kind === "monster" && snapshot.monsters.length) {
     const position = snapshot.monsters[0].p;
