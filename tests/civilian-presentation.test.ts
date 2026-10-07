@@ -84,6 +84,50 @@ it("keeps cheering hands above the head and clothing identity after culling", ()
   (view.group.children[1] as THREE.InstancedMesh).getColorAt(0, color);
   expect(color.getHex()).toBe(0xc99770);
 });
+it("animates residents' arms with walking and gives fleeing a stronger run", () => {
+  const view = new CivilianView(1),
+    armPose = (mood: "walk" | "flee", phase: number, arm: 2 | 3) => {
+      const state = snapshot(1, true);
+      state.civilians[0].mood = mood;
+      state.civilians[0].phase = phase;
+      view.update(state, undefined, 1, camera);
+      const mesh = view.group.children[arm] as THREE.InstancedMesh,
+        matrix = new THREE.Matrix4(),
+        rotation = new THREE.Quaternion();
+      mesh.getMatrixAt(0, matrix);
+      matrix.decompose(new THREE.Vector3(), rotation, new THREE.Vector3());
+      return rotation;
+    };
+  const walkLeft = armPose("walk", Math.PI / 4, 2),
+    walkRight = armPose("walk", Math.PI / 4, 3),
+    fleeLeft = armPose("flee", Math.PI / 4, 2),
+    fleeRight = armPose("flee", Math.PI / 4, 3),
+    walkMotion = walkLeft.angleTo(new THREE.Quaternion()),
+    fleeMotion = fleeLeft.angleTo(new THREE.Quaternion());
+  expect(walkMotion).toBeGreaterThan(0.1);
+  expect(walkLeft.angleTo(walkRight)).toBeGreaterThan(0.1);
+  expect(fleeMotion).toBeGreaterThan(walkMotion);
+  expect(fleeLeft.angleTo(fleeRight)).toBeGreaterThan(walkLeft.angleTo(walkRight));
+});
+it("gives mourning residents a lowered head and bowed arms", () => {
+  const view = new CivilianView(1),
+    walking = snapshot(1, true),
+    mourning = snapshot(1, true);
+  mourning.civilians[0].mood = "sad";
+  view.update(walking, undefined, 1, camera);
+  const normalHead = new THREE.Matrix4();
+  (view.group.children[1] as THREE.InstancedMesh).getMatrixAt(0, normalHead);
+  view.update(mourning, undefined, 1, camera);
+  const sadHead = new THREE.Matrix4(),
+    leftArm = new THREE.Matrix4(),
+    rightArm = new THREE.Matrix4();
+  (view.group.children[1] as THREE.InstancedMesh).getMatrixAt(0, sadHead);
+  (view.group.children[2] as THREE.InstancedMesh).getMatrixAt(0, leftArm);
+  (view.group.children[3] as THREE.InstancedMesh).getMatrixAt(0, rightArm);
+  expect(sadHead.elements[13]).toBeLessThan(normalHead.elements[13]);
+  expect(Math.abs(leftArm.elements[1])).toBeGreaterThan(0.1);
+  expect(Math.sign(leftArm.elements[1])).toBe(-Math.sign(rightArm.elements[1]));
+});
 it("uses human-scale proportions while keeping resident feet at ground level", () => {
   const view = new CivilianView(1);
   view.update(snapshot(1, true), undefined, 1, camera);

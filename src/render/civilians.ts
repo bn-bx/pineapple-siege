@@ -283,14 +283,20 @@ export class CivilianView {
         sad = c.mood === "sad",
         flee = c.mood === "flee";
       const walk = c.alive && (c.mood === "walk" || flee);
-      const stride = walk ? Math.sin(phase * 2) * (flee ? 0.65 : 0.35) : 0;
+      const strideWave = Math.sin(phase * 2),
+        stride = walk
+          ? strideWave * (flee ? 0.65 : 0.35)
+          : dance
+            ? Math.sin(dancePhase) * 0.26
+            : 0,
+        armSwing = walk ? strideWave * (flee ? 0.78 : 0.3) : 0;
       this.root.position.set(
         px,
         py + (cheer ? Math.max(0, Math.sin(phase * 3 + c.id * 0.4)) * 0.8 : 0),
         pz,
       );
       this.root.rotation.set(
-        sad ? 0.15 : 0,
+        sad ? 0.2 : flee ? 0.12 : 0,
         c.yaw,
         dance ? Math.sin(dancePhase) * 0.08 : 0,
       );
@@ -351,8 +357,8 @@ export class CivilianView {
         0.5,
         1.7,
         0.6,
-        sad ? -0.2 : stride,
-        cheer ? -0.65 : 0,
+        sad ? -0.2 : armSwing,
+        sad ? 0.42 : cheer ? -0.65 : 0,
       );
       place(
         3,
@@ -363,8 +369,8 @@ export class CivilianView {
         0.5,
         1.7,
         0.6,
-        sad ? -0.2 : -stride,
-        cheer ? 0.65 : 0,
+        sad ? 0.2 : -armSwing,
+        sad ? -0.42 : cheer ? 0.65 : 0,
       );
       // Raised forearms make the cheering silhouette readable from flight height.
       if (cheer) {
