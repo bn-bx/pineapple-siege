@@ -65,7 +65,7 @@ it("keeps cheering hands above the head and clothing identity after culling", ()
   const matrix = new THREE.Matrix4();
   const hands = view.group.children[7] as THREE.InstancedMesh;
   hands.getMatrixAt(0, matrix);
-  expect(matrix.elements[13]).toBeGreaterThan(14.5);
+  expect(matrix.elements[13]).toBeGreaterThan(12.2);
   expect(hands.count).toBe(2);
   const boots = view.group.children[8] as THREE.InstancedMesh;
   expect(boots.count).toBe(2);
@@ -83,6 +83,17 @@ it("keeps cheering hands above the head and clothing identity after culling", ()
   expect(color.getHex()).toBe(0x607e86);
   (view.group.children[1] as THREE.InstancedMesh).getColorAt(0, color);
   expect(color.getHex()).toBe(0xc99770);
+});
+it("uses human-scale proportions while keeping resident feet at ground level", () => {
+  const view = new CivilianView(1);
+  view.update(snapshot(1, true), undefined, 1, camera);
+  const torsoMatrix = new THREE.Matrix4(),
+    bootMatrix = new THREE.Matrix4();
+  (view.group.children[0] as THREE.InstancedMesh).getMatrixAt(0, torsoMatrix);
+  (view.group.children[8] as THREE.InstancedMesh).getMatrixAt(0, bootMatrix);
+  expect(torsoMatrix.elements[13]).toBeCloseTo(11.275, 3);
+  expect(bootMatrix.elements[13]).toBeCloseTo(10.09, 3);
+  expect(torsoMatrix.elements[0]).toBeCloseTo(0.825, 3);
 });
 it("limits distant clothing tint to garments and retains hands and boots", () => {
   const view = new CivilianView(1);

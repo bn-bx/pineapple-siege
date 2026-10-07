@@ -244,9 +244,9 @@ export class CivilianView {
         viewCamera &&
         (px - camera.x) ** 2 + (pz - camera.z) ** 2 > 350 * 350
       ) {
-        this.dummy.position.set(px, py + 2, pz);
+        this.dummy.position.set(px, py + 1, pz);
         this.dummy.rotation.set(0, c.yaw, 0);
-        this.dummy.scale.set(1.7, 4, 0.9);
+        this.dummy.scale.set(0.7, 2, 0.63);
         if (!c.alive) {
           const collapse = THREE.MathUtils.smoothstep(age, 0, 0.7);
           this.root.position.set(px, py + 0.9 * collapse, pz);
@@ -294,7 +294,9 @@ export class CivilianView {
         c.yaw,
         dance ? Math.sin(dancePhase) * 0.08 : 0,
       );
-      this.root.scale.setScalar(1);
+      // The authored near parts use a 4.5m presentation rig. Scale it to a
+      // grounded 2.25m person and keep shoulder width in human proportion.
+      this.root.scale.set(0.5, 0.5, 0.7);
       if (!c.alive) {
         const collapse = THREE.MathUtils.smoothstep(age, 0, 0.7);
         this.root.position.y = py + 0.9 * collapse;
@@ -303,7 +305,8 @@ export class CivilianView {
           c.yaw,
           (((c.id % 2 ? 1 : -1) * Math.PI) / 2) * collapse,
         );
-        this.root.scale.setScalar(1 - THREE.MathUtils.smoothstep(age, 5.5, 6));
+        const shrink = 1 - THREE.MathUtils.smoothstep(age, 5.5, 6);
+        this.root.scale.set(shrink * 0.5, shrink * 0.5, shrink * 0.7);
       }
       this.root.updateMatrix();
       const place = (
