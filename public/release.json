@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-79",
+  "release": "visual-overhaul-2026-10-07-batch-80",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -124,7 +124,10 @@
     "decorrelated-seed-stable-tree-crown-silhouettes",
     "snapshot-driven-resident-defeat-eye-closure",
     "isolated-resident-defeat-review-preset",
-    "material-specific-impact-dust-profiles"
+    "material-specific-impact-dust-profiles",
+    "spatial-indexed-river-waterline-for-effects",
+    "laser-impact-rings-and-aftermath-on-water",
+    "isolated-river-laser-review-preset"
   ],
   "performanceCertification": "deferred by release instruction"
 }

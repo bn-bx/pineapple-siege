@@ -1,6 +1,7 @@
 import { terrainSurfaceColor, terrainScarColor } from "./terrain-colors";
 import { TerrainMesher, type SectionData } from "./terrain-mesher";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
+import { WaterSurfaceLookup } from "./waterline-lookup";
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
@@ -65,6 +66,7 @@ export class TerrainView {
   private castleBounds: WorldData["castleBounds"][];
   private pathBounds: number[];
   private roadDistance: (x: number, z: number) => number;
+  private waterSurfaceLookup: WaterSurfaceLookup;
   private fullHeightUpload = true;
   private fullFloodUpload = true;
   private tiles = new Map<
@@ -81,6 +83,10 @@ export class TerrainView {
     grass: THREE.Texture,
   ) {
     this.mesher = new TerrainMesher(world);
+    this.waterSurfaceLookup = new WaterSurfaceLookup(
+      world.rivers ?? [],
+      world.size,
+    );
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
       world.castleBounds,
     ];
@@ -249,6 +255,12 @@ export class TerrainView {
     return u + v <= 1
       ? a + (b - a) * u + (c - a) * v
       : d + (c - d) * (1 - u) + (b - d) * (1 - v);
+  }
+  waterSurface(x: number, z: number) {
+    const ix = clamp(Math.round(x / CONFIG.spacing), 0, CONFIG.grid - 1),
+      iz = clamp(Math.round(z / CONFIG.spacing), 0, CONFIG.grid - 1),
+      wet = this.flood[iz * CONFIG.grid + ix] > 0;
+    return this.waterSurfaceLookup.sample(x, z, this.sample(x, z), wet);
   }
   private pathDistance(x: number, z: number) {
     let result = 1e9;

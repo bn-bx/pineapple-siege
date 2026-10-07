@@ -30,3 +30,32 @@ it("bounds reduced laser embellishments while representing every distinct shaft"
         a.dispose();
   });
 });
+
+it("places active laser shafts and impact glow on water instead of the submerged terrain bed", () => {
+  const view = new SpaceLaser(),
+    matrix = new THREE.Matrix4(),
+    strike: LaserStrike = {
+      id: 4,
+      p: [20, 30, 20],
+      age: 5,
+      phase: "burning",
+    },
+    internals = view as any;
+  view.update(
+    [strike],
+    0,
+    5,
+    new THREE.Vector3(),
+    () => -120,
+    () => 0,
+  );
+  internals.core.getMatrixAt(0, matrix);
+  expect(matrix.elements[13] - matrix.elements[5] / 2).toBeCloseTo(0);
+  internals.impacts.getMatrixAt(0, matrix);
+  expect(matrix.elements[13]).toBeCloseTo(0.18);
+
+  view.reset();
+  view.update([strike], 0, 5, new THREE.Vector3(), () => -120);
+  internals.impacts.getMatrixAt(0, matrix);
+  expect(matrix.elements[13]).toBeCloseTo(-119);
+});

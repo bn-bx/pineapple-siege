@@ -2947,6 +2947,7 @@ export class GameRenderer {
       snap.time,
       this.camera.position,
       (x, z) => this.terrain.sample(x, z),
+      (x, z) => this.terrain.waterSurface(x, z),
     );
     this.effects.dust.update(active ? dt : 0, this.camera, this.effects.ground);
     this.effects.nukeFlash.update(

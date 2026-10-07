@@ -134,6 +134,7 @@ export class SpaceLaser {
     time: number,
     camera: THREE.Vector3,
     ground: (x: number, z: number) => number,
+    waterSurface?: (x: number, z: number) => number | undefined,
   ) {
     const visible = strikes.filter((l) => l.phase !== "finishing");
     const live = new Set(visible.map((l) => l.id));
@@ -183,7 +184,11 @@ export class SpaceLaser {
     distant.forEach((l, i) => {
       const profile = resolvedLaserProfile(l.profile),
         scale = profile.radius / LASER.radius;
-      const bottom = l.phase === "charging" ? l.p[1] : ground(l.p[0], l.p[2]),
+      const waterline = waterSurface?.(l.p[0], l.p[2]),
+        bottom =
+          l.phase === "charging"
+            ? l.p[1]
+            : (waterline ?? ground(l.p[0], l.p[2])),
         height = LASER.top - bottom;
       const radius =
         l.phase === "charging"
@@ -227,7 +232,8 @@ export class SpaceLaser {
       const charge = l.phase === "charging",
         progress = clamp(l.age / LASER.charge, 0, 1);
       const [x, targetY, z] = l.p;
-      const bottom = charge ? targetY : ground(x, z);
+      const waterline = waterSurface?.(x, z),
+        bottom = charge ? targetY : (waterline ?? ground(x, z));
       const top = LASER.top,
         height = top - bottom;
       const pulse = 1 + 0.06 * Math.sin(time * 37 + l.id);
@@ -274,10 +280,11 @@ export class SpaceLaser {
       beamCount++;
       const rimY = charge
         ? targetY + 2
-        : Math.max(
-            ground(x + profile.radius, z),
-            ground(x - profile.radius, z),
-          ) + 2;
+        : (waterline ??
+            Math.max(
+              ground(x + profile.radius, z),
+              ground(x - profile.radius, z),
+            )) + 2;
       for (let r = 0; r < (this.reduced ? 1 : 3); r++) {
         const rr =
           profile.radius *
@@ -318,7 +325,7 @@ export class SpaceLaser {
         this.impacts,
         impactCount,
         x,
-        bottom + 1,
+        bottom + (waterline === undefined ? 1 : 0.18),
         z,
         (charge ? 8 + progress * 35 : 90 * pulse) * scale,
         (charge ? 8 + progress * 35 : 90 * pulse) * scale,
@@ -358,11 +365,13 @@ export class SpaceLaser {
       0,
       embellishmentLimit - impactCount,
     )) {
+      const waterline = waterSurface?.(glow.p[0], glow.p[2]);
       this.place(
         this.impacts,
         impactCount,
         glow.p[0],
-        ground(glow.p[0], glow.p[2]) + 1,
+        (waterline ?? ground(glow.p[0], glow.p[2])) +
+          (waterline === undefined ? 1 : 0.18),
         glow.p[2],
         110 * glow.scale,
         110 * glow.scale,

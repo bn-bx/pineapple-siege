@@ -1,7 +1,7 @@
 import { GameAudio } from "./audio";
 import { discoActive } from "./disco";
 import { checkStorage } from "./storage-checks";
-import { CONFIG } from "./config";
+import { CONFIG, LASER } from "./config";
 import { pathIndex } from "./world/generator.mjs";
 import { GameRenderer } from "./render/renderer";
 import { loadTerrain } from "./world-loader";
@@ -25,6 +25,7 @@ import type {
   GameCommand,
   Vec3,
   Explosion,
+  LaserStrike,
   WorkerMessage,
   SimulationSnapshot,
   WorldData,
@@ -1919,6 +1920,42 @@ document.querySelector("#inspect-water")!.addEventListener("click", () => {
   touring = true;
   send({ type: "pause", paused: false });
   status.textContent = "Water splash inspection running";
+});
+document.querySelector("#inspect-water-laser")!.addEventListener("click", () => {
+  if (active || !ready || !snapshot) return;
+  let point: Vec3 | undefined,
+    closest = Infinity;
+  for (const river of world.rivers ?? [])
+    for (const candidate of river.points) {
+      const distance =
+        (candidate[0] - inspectionTarget[0]) ** 2 +
+        (candidate[2] - inspectionTarget[2]) ** 2;
+      if (distance < closest) {
+        closest = distance;
+        point = candidate;
+      }
+    }
+  if (!point) {
+    status.textContent = "No river reaches are available for the laser review";
+    return;
+  }
+  touring = false;
+  send({ type: "pause", paused: true });
+  inspectionTarget = point.slice() as Vec3;
+  const strike: LaserStrike = {
+    id: -1,
+    p: inspectionTarget.slice() as Vec3,
+    age: LASER.charge + 0.35,
+    phase: "burning",
+  };
+  snapshot = { ...snapshot, lasers: [strike] };
+  view.receive(snapshot);
+  view.inspectCamera(
+    [point[0] + 65, point[1] + 45, point[2] + 65],
+    [point[0], point[1] + 80, point[2]],
+  );
+  status.textContent = "River laser waterline review";
+  last = 0;
 });
 document.querySelector("#inspect-nuke")!.addEventListener("click", () => {
   if (active || !ready) return;
