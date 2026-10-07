@@ -140,20 +140,22 @@ it("adds deterministic shared headwear variants without per-person meshes", () =
   const wideHat = view.group.children[9] as THREE.InstancedMesh,
     cap = view.group.children[10] as THREE.InstancedMesh,
     scarves = view.group.children[11] as THREE.InstancedMesh,
-    distant = view.group.children[12] as THREE.InstancedMesh,
+    hair = view.group.children[12] as THREE.InstancedMesh,
+    distant = view.group.children[13] as THREE.InstancedMesh,
     matrix = new THREE.Matrix4(),
     colorA = new THREE.Color(),
     colorB = new THREE.Color();
   expect(wideHat.count).toBe(2);
   expect(cap.count).toBe(2);
   expect(scarves.count).toBe(3);
+  expect(hair.count).toBe(4);
   expect(distant.count).toBe(0);
   wideHat.getMatrixAt(0, matrix);
   expect(matrix.elements[13]).toBeGreaterThan(12);
   wideHat.getColorAt(0, colorA);
   wideHat.getColorAt(1, colorB);
   expect(colorA.equals(colorB)).toBe(false);
-  expect(view.group.children).toHaveLength(13);
+  expect(view.group.children).toHaveLength(14);
 });
 it("adds deterministic shared scarves to a subset of near residents", () => {
   const view = new CivilianView(8),
@@ -177,6 +179,28 @@ it("adds deterministic shared scarves to a subset of near residents", () => {
   view.reset();
   expect(scarves.count).toBe(0);
 });
+it("adds shared natural hair silhouettes to residents without headwear", () => {
+  const view = new CivilianView(8),
+    state = snapshot(1, true) as any;
+  state.civilians = Array.from({ length: 8 }, (_, id) => ({
+    ...state.civilians[0],
+    id,
+    p: [id * 3, 10, 0],
+  }));
+  view.update(state, undefined, 1, camera);
+  const hair = view.group.children[12] as THREE.InstancedMesh,
+    matrix = new THREE.Matrix4(),
+    first = new THREE.Color(),
+    second = new THREE.Color();
+  expect(hair.count).toBe(4);
+  hair.getMatrixAt(0, matrix);
+  expect(matrix.elements[13]).toBeGreaterThan(12);
+  hair.getColorAt(0, first);
+  hair.getColorAt(1, second);
+  expect(first.equals(second)).toBe(false);
+  view.reset();
+  expect(hair.count).toBe(0);
+});
 it("uses human-scale proportions while keeping resident feet at ground level", () => {
   const view = new CivilianView(1);
   view.update(snapshot(1, true), undefined, 1, camera);
@@ -198,5 +222,5 @@ it("limits distant clothing tint to garments and retains hands and boots", () =>
   const shader = { uniforms: {}, vertexShader: "#include <common>\n#include <color_vertex>", fragmentShader: "" } as any;
   (far.material as THREE.Material).onBeforeCompile(shader, {} as any);
   expect(shader.vertexShader).toContain("mix(color.rgb,vColor.rgb,clothMask)");
-  expect(view.group.children).toHaveLength(13);
+  expect(view.group.children).toHaveLength(14);
 });

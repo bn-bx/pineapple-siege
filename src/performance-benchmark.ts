@@ -1101,9 +1101,9 @@ function inspect() {
       (civilian) => civilian.alive,
     ) ?? [];
     let scarvedResident: (typeof livingResidents)[number] | undefined,
-      bestSeparation = -1;
-    // Prefer a scarved resident with a clear silhouette so another actor does
-    // not crowd the isolated close-up.
+      bestReviewScore = -Infinity;
+    // Prefer a scarved, uncovered resident with a clear silhouette so both
+    // the hairstyle and neckerchief read without another actor crowding them.
     for (const candidate of livingResidents) {
       if (candidate.id % 3 !== 0) continue;
       let separation = Infinity;
@@ -1113,9 +1113,10 @@ function inspect() {
             separation,
             Math.hypot(candidate.p[0] - other.p[0], candidate.p[2] - other.p[2]),
           );
-      if (separation > bestSeparation) {
+      const score = separation + (candidate.id % 4 >= 2 ? 1000 : 0);
+      if (score > bestReviewScore) {
         scarvedResident = candidate;
-        bestSeparation = separation;
+        bestReviewScore = score;
       }
     }
     const resident =

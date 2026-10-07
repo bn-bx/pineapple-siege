@@ -18,6 +18,7 @@ export class CivilianView {
   private distant: THREE.InstancedMesh;
   private hats: THREE.InstancedMesh[];
   private scarves: THREE.InstancedMesh;
+  private hair: THREE.InstancedMesh;
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
@@ -45,6 +46,9 @@ export class CivilianView {
     [0x4a6065, 0x784f42, 0x65734c],
   ].map((colors) => colors.map((color) => new THREE.Color(color)));
   private scarfColors = [0x9b5140, 0x456e79, 0x7d664a, 0x6a7748].map(
+    (color) => new THREE.Color(color),
+  );
+  private hairColors = [0x433029, 0x5b4034, 0x73583d, 0x624331].map(
     (color) => new THREE.Color(color),
   );
   private defeated = new Map<number, number>();
@@ -134,6 +138,15 @@ export class CivilianView {
     this.scarves.frustumCulled = false;
     this.scarves.castShadow = true;
     this.scarves.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.hair = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.92, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ roughness: 0.98 }),
+      count,
+    );
+    this.hair.count = 0;
+    this.hair.frustumCulled = false;
+    this.hair.castShadow = true;
+    this.hair.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.distant = new THREE.InstancedMesh(box, cloth, count);
     this.distant.count = 0;
     this.distant.frustumCulled = false;
@@ -152,6 +165,7 @@ export class CivilianView {
     }
     for (const hat of this.hats) this.group.add(hat);
     this.group.add(this.scarves);
+    this.group.add(this.hair);
     this.group.add(this.distant);
   }
   installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
@@ -263,7 +277,8 @@ export class CivilianView {
   ) {
     let n = 0,
       far = 0,
-      scarfCount = 0;
+      scarfCount = 0,
+      hairCount = 0;
     const hatCounts = [0, 0];
     if (viewCamera)
       this.frustum.setFromProjectionMatrix(
@@ -403,6 +418,19 @@ export class CivilianView {
         this.hats[hatStyle].setColorAt(
           hatIndex,
           palette[(Math.floor(c.id / 4) + c.id) % palette.length],
+        );
+      }
+      if (hatStyle >= 2) {
+        const hairIndex = hairCount++;
+        this.dummy.position.set(0, 4.05, 0);
+        this.dummy.rotation.set(0, 0, 0);
+        this.dummy.scale.set(1.04, 1, 0.92);
+        this.dummy.updateMatrix();
+        this.dummy.matrix.premultiply(this.root.matrix);
+        this.hair.setMatrixAt(hairIndex, this.dummy.matrix);
+        this.hair.setColorAt(
+          hairIndex,
+          this.hairColors[(Math.floor(c.id / 4) + c.id) % this.hairColors.length],
         );
       }
       if (c.id % 3 === 0) {
@@ -564,6 +592,11 @@ export class CivilianView {
     this.scarves.instanceMatrix.needsUpdate = true;
     if (this.scarves.instanceColor)
       this.scarves.instanceColor.needsUpdate = scarfCount > 0;
+    this.hair.count = hairCount;
+    this.hair.instanceMatrix.clearUpdateRanges();
+    if (hairCount) this.hair.instanceMatrix.addUpdateRange(0, hairCount * 16);
+    this.hair.instanceMatrix.needsUpdate = true;
+    if (this.hair.instanceColor) this.hair.instanceColor.needsUpdate = hairCount > 0;
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k >= 6 ? n * 2 : n;
@@ -580,5 +613,6 @@ export class CivilianView {
     for (const mesh of this.parts) mesh.count = 0;
     for (const hat of this.hats) hat.count = 0;
     this.scarves.count = 0;
+    this.hair.count = 0;
   }
 }

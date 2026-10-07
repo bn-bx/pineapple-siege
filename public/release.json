@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-36",
+  "release": "visual-overhaul-2026-10-06-batch-37",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -52,7 +52,8 @@
     "wing-panel-seams-and-animated-ailerons",
     "close-aircraft-review-preset",
     "owner-linked-farm-split-rail-fence",
-    "ground-level-farm-field-review-preset"
+    "ground-level-farm-field-review-preset",
+    "deterministic-instanced-resident-hairstyles"
   ],
   "performanceCertification": "deferred by release instruction"
 }
