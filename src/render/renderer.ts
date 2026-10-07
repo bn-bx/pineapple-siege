@@ -7,6 +7,7 @@ import { skipEmptyPointLights } from "./local-light-cost";
 import { budgetSurfaceNormals } from "./surface-normal-budget";
 import { treeLOD } from "./tree-lod";
 import { treeImpostor } from "./tree-impostor";
+import { treeCanopyScale } from "./tree-appearance";
 import { waterPrepass } from "./water-prepass";
 import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
@@ -1056,7 +1057,7 @@ export class GameRenderer {
           dummy.scale.fromArray(e.s);
           if (kind === "pine") {
             dummy.position.y -= e.s[1];
-            dummy.scale.set(e.s[0] * 1.45, e.s[1] * 2, e.s[0] * 1.45);
+            dummy.scale.fromArray(treeCanopyScale(e));
           }
           if (kind === "trunk") {
             dummy.position.y -= e.s[1] * 0.4;
@@ -1529,7 +1530,7 @@ export class GameRenderer {
         dummy.scale.fromArray(e.s);
         if (batch.kind === "pine") {
           dummy.position.y -= e.s[1];
-          dummy.scale.set(e.s[0] * 1.45, e.s[1] * 2, e.s[0] * 1.45);
+          dummy.scale.fromArray(treeCanopyScale(e));
         }
         if (batch.kind === "trunk") {
           dummy.position.y -= e.s[1] * 0.4;
