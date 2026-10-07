@@ -235,9 +235,56 @@ export class Scenery {
       }
     };
     const roads = pathIndex(world.paths);
+    const dockDecks = new Map<string, Entity[]>();
+    for (const entity of world.entities) {
+      if (
+        entity.kind !== "block" ||
+        !/-dock$/.test(entity.assembly) ||
+        entity.s[1] > 0.8 ||
+        Math.min(entity.s[0], entity.s[2]) < 1.8 ||
+        Math.max(entity.s[0], entity.s[2]) < 4.5
+      )
+        continue;
+      const parts = dockDecks.get(entity.assembly);
+      if (parts) parts.push(entity);
+      else dockDecks.set(entity.assembly, [entity]);
+    }
+    const mooringOwners = new Set<number>();
+    for (const decks of dockDecks.values()) {
+      const runsAlongX = decks[0].s[0] < decks[0].s[2];
+      decks.sort((a, b) => a.p[runsAlongX ? 0 : 2] - b.p[runsAlongX ? 0 : 2]);
+      for (let i = 0; i < decks.length; i += 6) mooringOwners.add(decks[i].id);
+      if (decks.length > 1) mooringOwners.add(decks.at(-1)!.id);
+    }
+    const mooringRing = visualGeometry(
+      "mooring-ring_lod0",
+      () => new THREE.TorusGeometry(0.34, 0.07, 6, 12),
+    );
     for (const e of world.entities) {
       const [x, y, z] = e.p,
         [sx, sy, sz] = e.s;
+      if (mooringOwners.has(e.id)) {
+        const runsAlongX = sx < sz;
+        for (const side of [-1, 1]) {
+          const p: number[] = runsAlongX
+            ? [x, y + sy + 0.55, z + side * (sz - 0.48)]
+            : [x + side * (sx - 0.48), y + sy + 0.55, z];
+          add("dock-bollards", e, p, [0.22, 0.55, 0.22], structuralTimber);
+          if (runsAlongX) p[2] += side * 0.23;
+          else p[0] += side * 0.23;
+          p[1] -= 0.06;
+          add(
+            "dock-mooring-rings",
+            e,
+            p,
+            [1, 1, 1],
+            iron,
+            mooringRing,
+            false,
+            runsAlongX ? 0 : Math.PI / 2,
+          );
+        }
+      }
       if (e.kind === "tree") {
         // Ground dressing is attached to its authoritative tree and resampled
         // after excavation. No plants appear on roads, steep faces or water.

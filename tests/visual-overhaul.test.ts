@@ -272,6 +272,42 @@ it("renders logging-camp stacks as round, horizontal timber", async () => {
   expect(bounds.max.z - bounds.min.z).toBeCloseTo(2);
   geometry.dispose();
 });
+it("adds owner-linked mooring details only to the ends of harbor docks", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const decks = Array.from({ length: 7 }, (_, i) => ({
+    id: 100 + i,
+    kind: "block",
+    p: [100 + i * 4, 11, 100],
+    s: [2.1, 0.6, 5],
+    material: "wood",
+    assembly: "harbor-1-dock",
+    foundation: i === 0,
+    supports: [],
+  }));
+  const scenery = new Scenery(
+    { paths: [], entities: decks } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(112, 18, 100),
+    batchCount = (name: string) =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === `scenery:${name}`,
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(batchCount("dock-bollards")).toBe(4);
+  expect(batchCount("dock-mooring-rings")).toBe(4);
+  scenery.update(camera, new Set([100]), 1200, 120, 1, true);
+  expect(batchCount("dock-bollards")).toBe(2);
+  expect(batchCount("dock-mooring-rings")).toBe(2);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(batchCount("dock-bollards")).toBe(4);
+});
 it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
   const { windmillRotorBladeIds } = await import(
     "../src/render/landmark-geometry"
