@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Entity, Material, WorldData } from "../types";
 import { constructionScale } from "./material-scale";
-import { treeCanopyScale } from "./tree-appearance";
+import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
 import { treeImpostor } from "./tree-impostor";
 import type { VisualAssets } from "./visual-assets";
 
@@ -48,6 +48,7 @@ export class IslandHorizon {
       lists.set(key, list);
     }
     const dummy = new THREE.Object3D();
+    const canopyColor = new THREE.Color();
     for (const [key, entities] of lists) {
       const forest = key.startsWith("tree:");
       const species = key.slice(5);
@@ -125,17 +126,9 @@ export class IslandHorizon {
         mesh.setMatrixAt(index, dummy.matrix);
         mesh.setColorAt(
           index,
-          new THREE.Color().setHSL(
-            forest
-              ? species === "broadleaf"
-                ? 0.2
-                : species === "riverside"
-                  ? 0.27
-                  : 0.24
-              : 0.12,
-            forest ? 0.18 : 0.06,
-            0.77 + entity.variant * 0.16,
-          ),
+          forest
+            ? setTreeCanopyColor(canopyColor, entity)
+            : canopyColor.setHSL(0.12, 0.06, 0.77 + entity.variant * 0.16),
         );
         this.refs.set(entity.id, { mesh, index });
       });

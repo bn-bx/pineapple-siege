@@ -7,7 +7,7 @@ import { skipEmptyPointLights } from "./local-light-cost";
 import { budgetSurfaceNormals } from "./surface-normal-budget";
 import { treeLOD } from "./tree-lod";
 import { treeImpostor } from "./tree-impostor";
-import { treeCanopyScale } from "./tree-appearance";
+import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
 import { jetExhaustProfile } from "./jet-exhaust";
 import { jetSurfacePose } from "./jet-control-surfaces";
 import { waterPrepass } from "./water-prepass";
@@ -1105,17 +1105,10 @@ export class GameRenderer {
           dummy.updateMatrix();
           mesh.setMatrixAt(i, dummy.matrix);
           batch.low?.setMatrixAt(i, dummy.matrix);
-          const color = new THREE.Color().setHSL(
+          const color =
             kind === "pine"
-              ? e.treeSpecies === "broadleaf"
-                ? 0.2
-                : e.treeSpecies === "riverside"
-                  ? 0.27
-                  : 0.24
-              : 0.12,
-            kind === "pine" ? 0.18 : 0.06,
-            0.77 + e.variant * 0.16,
-          );
+              ? setTreeCanopyColor(new THREE.Color(), e)
+              : new THREE.Color().setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
           mesh.setColorAt(i, color);
           batch.low?.setColorAt(i, color);
           let refs = this.refs.get(e.id);
@@ -1593,17 +1586,10 @@ export class GameRenderer {
         dummy.updateMatrix();
         batch.mesh.setMatrixAt(i, dummy.matrix);
         batch.low?.setMatrixAt(i, dummy.matrix);
-        const color = this.fragmentColor.setHSL(
+        const color =
           batch.kind === "pine"
-            ? e.treeSpecies === "broadleaf"
-              ? 0.2
-              : e.treeSpecies === "riverside"
-                ? 0.27
-                : 0.24
-            : 0.12,
-          batch.kind === "pine" ? 0.18 : 0.06,
-          0.77 + e.variant * 0.16,
-        );
+            ? setTreeCanopyColor(this.fragmentColor, e)
+            : this.fragmentColor.setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
         batch.mesh.setColorAt(i, color);
         batch.low?.setColorAt(i, color);
         if (batch.mesh.instanceColor)

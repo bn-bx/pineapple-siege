@@ -1,4 +1,5 @@
 import type { Entity } from "../types";
+import * as THREE from "three";
 
 /** Seed-locked canopy proportions vary silhouettes without changing tree owners. */
 export function treeCanopyScale(
@@ -29,4 +30,20 @@ export function treeCanopyScale(
     entity.s[1] * 2 * height,
     entity.s[0] * 1.45 * depth,
   ];
+}
+
+/** Muted species palettes keep seed variation visible through every tree LOD. */
+export function setTreeCanopyColor(
+  color: THREE.Color,
+  entity: Pick<Entity, "variant" | "treeSpecies">,
+) {
+  const variant = Math.max(0, Math.min(1, entity.variant ?? 0.5)),
+    species = entity.treeSpecies ?? "pine",
+    hue =
+      (species === "riverside" ? 0.29 : species === "broadleaf" ? 0.225 : 0.255) +
+      (variant - 0.5) * 0.045,
+    saturation =
+      (species === "broadleaf" ? 0.31 : species === "riverside" ? 0.23 : 0.26) +
+      (variant - 0.5) * 0.08;
+  return color.setHSL(hue, saturation, 0.77 + variant * 0.16);
 }

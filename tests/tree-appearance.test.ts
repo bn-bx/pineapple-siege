@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
-import { treeCanopyScale } from "../src/render/tree-appearance";
+import * as THREE from "three";
+import { setTreeCanopyColor, treeCanopyScale } from "../src/render/tree-appearance";
 
 it.each(["pine", "broadleaf", "riverside"] as const)(
   "varies %s crown proportions deterministically within a restrained range",
@@ -22,3 +23,22 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
     expect(first[2]).toBeLessThan(3 * 1.45 * 1.26);
   },
 );
+
+it("keeps tree color variation deterministic and distinct across species and seeds", () => {
+  const color = new THREE.Color(),
+    pineA = setTreeCanopyColor(color.clone(), {
+      treeSpecies: "pine",
+      variant: 0.22,
+    }),
+    pineB = setTreeCanopyColor(color.clone(), {
+      treeSpecies: "pine",
+      variant: 0.82,
+    }),
+    broadleaf = setTreeCanopyColor(color.clone(), {
+      treeSpecies: "broadleaf",
+      variant: 0.22,
+    });
+  expect(pineA.equals(pineB)).toBe(false);
+  expect(pineA.equals(broadleaf)).toBe(false);
+  expect(pineA.getHSL({ h: 0, s: 0, l: 0 }).s).toBeGreaterThan(0.2);
+});

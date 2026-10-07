@@ -4,6 +4,8 @@ This ledger is the completion source of truth. A working implementation remains 
 
 ## Shipped batch history
 
+Tree color now varies subtly by species and seed-stable entity variant. Close, middle, and whole-island representations share one muted palette calculation, preserving existing meshes, wind, and instance counts. Seed 41729's complete high island view is shown in [the forest palette review](PERFORMANCE_SCENE_1791361485144.png). The focused tree appearance and island horizon tests plus the production build pass. Batch 70 ships more varied forest color across detail levels.
+
 Castle banners now carry muted owner-stable heraldic shields and woven gold hems, using vertex colors over the existing local cloth material. Their existing wind motion, shadow motion, and structural owner remain unchanged, with no new texture or draw call. Seed 41729's tower view is shown in [the heraldry review](PERFORMANCE_SCENE_1791361243098.png). The focused banner geometry test and production build pass. Batch 69 ships finished castle heraldry.
 
 The sand-to-ground shoreline now follows low-frequency world-space sediment variation rather than a single exact elevation contour. It keeps the same scanned sand, normal, and roughness maps and shares one mask across color and surface response; terrain heights and water levels are unchanged. Seed 41729's high coast view is shown in [the shore transition review](PERFORMANCE_SCENE_1791360816087.png). The focused terrain shader tests and production build pass. Batch 68 ships a more natural shoreline transition.
