@@ -1223,20 +1223,73 @@ export class Scenery {
       if (halfWidth < 0.6 || halfWidth > 4 || halfHeight < 1) continue;
       const face = front - Math.max(left.s[2], right.s[2]) - 0.14;
       const angle = Math.PI * 0.59;
+      const doorCenter = [
+        hinge + Math.cos(angle) * halfWidth,
+        base + halfHeight,
+        face - Math.sin(angle) * halfWidth,
+      ];
       add(
         "open-plank-doors",
         left,
-        [
-          hinge + Math.cos(angle) * halfWidth,
-          base + halfHeight,
-          face - Math.sin(angle) * halfWidth,
-        ],
+        doorCenter,
         [halfWidth * 0.97, halfHeight * 0.97, 1],
         materials.wood,
         door,
         false,
         angle,
       );
+      const doorPoint = (localX: number, localY: number, localZ: number) =>
+        new THREE.Vector3(
+          doorCenter[0] + Math.cos(angle) * localX + Math.sin(angle) * localZ,
+          doorCenter[1] + localY,
+          doorCenter[2] - Math.sin(angle) * localX + Math.cos(angle) * localZ,
+        );
+      // The open leaf has the same timber cross rails and diagonal brace on
+      // both faces. A small iron ring latch sits near its free edge; every
+      // fitting inherits the original hinge-wall owner for damage and restore.
+      for (const outward of [-1, 1]) {
+        const z = outward * 0.075;
+        for (const lift of [-0.62, 0.62])
+          addBeam(
+            "door-cross-rails",
+            left,
+            doorPoint(-halfWidth * 0.82, halfHeight * lift, z),
+            doorPoint(halfWidth * 0.82, halfHeight * lift, z),
+            0.11,
+            structuralTimber,
+          );
+        addBeam(
+          "door-diagonal-braces",
+          left,
+          doorPoint(-halfWidth * 0.76, -halfHeight * 0.72, z),
+          doorPoint(halfWidth * 0.76, halfHeight * 0.72, z),
+          0.12,
+          materials.wood,
+        );
+        const latch = doorPoint(halfWidth * 0.7, 0, z + outward * 0.025);
+        add(
+          "door-latch-plates",
+          left,
+          latch.toArray(),
+          [0.09, 0.13, 0.025],
+          iron,
+          box,
+          false,
+          angle,
+        );
+        add(
+          "door-ring-handles",
+          left,
+          doorPoint(halfWidth * 0.7, -0.13, z + outward * 0.06).toArray(),
+          [1, 1, 1],
+          iron,
+          visualGeometry("door-ring-handle_lod0", () =>
+            new THREE.TorusGeometry(0.12, 0.025, 6, 12),
+          ),
+          false,
+          angle,
+        );
+      }
       for (const [owner, px] of [
         [left, hinge - 0.13],
         [right, end + 0.13],

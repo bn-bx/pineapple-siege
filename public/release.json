@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-42",
+  "release": "visual-overhaul-2026-10-06-batch-43",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -58,7 +58,9 @@
     "visible-cockpit-instruments-pilot-and-hud",
     "restrained-world-space-mountain-bedding",
     "deterministic-species-canopy-silhouette-variation",
-    "owner-linked-braced-house-shutters-and-iron-hinges"
+    "owner-linked-braced-house-shutters-and-iron-hinges",
+    "owner-linked-braced-entrance-doors-and-ring-latches",
+    "isolated-house-door-review-preset"
   ],
   "performanceCertification": "deferred by release instruction"
 }

@@ -1245,7 +1245,23 @@ it("keeps open entrance doors outside the passage and follows the hinge wall's s
   const door = scenery.group.getObjectByName(
     "scenery:open-plank-doors",
   ) as THREE.InstancedMesh;
+  const crossRails = scenery.group.getObjectByName(
+    "scenery:door-cross-rails",
+  ) as THREE.InstancedMesh;
+  const diagonalBraces = scenery.group.getObjectByName(
+    "scenery:door-diagonal-braces",
+  ) as THREE.InstancedMesh;
+  const latchPlates = scenery.group.getObjectByName(
+    "scenery:door-latch-plates",
+  ) as THREE.InstancedMesh;
+  const ringHandles = scenery.group.getObjectByName(
+    "scenery:door-ring-handles",
+  ) as THREE.InstancedMesh;
   expect(door.count).toBe(1);
+  expect(crossRails.count).toBe(4);
+  expect(diagonalBraces.count).toBe(2);
+  expect(latchPlates.count).toBe(2);
+  expect(ringHandles.count).toBe(2);
   const matrix = new THREE.Matrix4(),
     corner = new THREE.Vector3();
   door.getMatrixAt(0, matrix);
@@ -1257,12 +1273,21 @@ it("keeps open entrance doors outside the passage and follows the hinge wall's s
   removed.add(82); // Removing the opposite wall leaves the hinged leaf intact.
   scenery.update(camera, removed, 1200, 120, 1, true);
   expect(door.count).toBe(1);
+  expect(crossRails.count).toBe(4);
   removed.add(81);
   scenery.update(camera, removed, 1200, 120, 2, true);
   expect(door.count).toBe(0);
+  expect(crossRails.count).toBe(0);
+  expect(diagonalBraces.count).toBe(0);
+  expect(latchPlates.count).toBe(0);
+  expect(ringHandles.count).toBe(0);
   removed.clear();
   scenery.update(camera, removed, 1200, 120, 3, true);
   expect(door.count).toBe(1);
+  expect(crossRails.count).toBe(4);
+  expect(diagonalBraces.count).toBe(2);
+  expect(latchPlates.count).toBe(2);
+  expect(ringHandles.count).toBe(2);
 });
 it.each([
   ["stone", "castle:parapet", [4, 2, 1]],

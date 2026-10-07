@@ -927,6 +927,55 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "house-door") {
+    const firstWall = world.entities.find(
+      (entity) =>
+        entity.kind === "block" &&
+        entity.assembly.includes("-house") &&
+        entity.material === "plaster" &&
+        entity.foundation &&
+        entity.s[2] <= 1.05 &&
+        entity.s[0] > 1.2,
+    );
+    const walls = world.entities
+      .filter(
+        (entity) =>
+          entity.kind === "block" &&
+          entity.assembly === firstWall?.assembly &&
+          entity.foundation &&
+          entity.s[2] <= 1.05 &&
+          entity.s[0] > 1.2 &&
+          entity.material !== "window",
+      )
+      .sort((a, b) => a.p[0] - b.p[0]);
+    const front = Math.min(...walls.map((wall) => wall.p[2]));
+    const pair = walls
+      .filter((wall) => Math.abs(wall.p[2] - front) < 0.05)
+      .sort((a, b) => a.p[0] - b.p[0]);
+    if (pair.length === 2) {
+      const [left, right] = pair,
+        hinge = left.p[0] + left.s[0],
+        end = right.p[0] - right.s[0],
+        halfWidth = (end - hinge) / 2,
+        base = Math.max(left.p[1] - left.s[1], right.p[1] - right.s[1]),
+        halfHeight = Math.min(left.s[1], right.s[1]),
+        face = front - Math.max(left.s[2], right.s[2]) - 0.14,
+        angle = Math.PI * 0.59,
+        target: Vec3 = [
+          hinge + Math.cos(angle) * halfWidth,
+          base + halfHeight,
+          face - Math.sin(angle) * halfWidth,
+        ];
+      inspectionTarget = target;
+      view.inspectCamera(
+        [target[0] + 6, target[1] + 1.4, target[2] - 4],
+        target,
+      );
+      status.textContent = "House entrance joinery review";
+      last = 0;
+      return;
+    }
+  }
   if (kind === "house-window") {
     const houseWalls = world.entities.filter(
       (entity) =>
