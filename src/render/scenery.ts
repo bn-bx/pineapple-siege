@@ -1069,36 +1069,47 @@ export class Scenery {
         );
     }
     for (const [name, parts] of assemblies) {
-      if (!/watchtower/.test(name)) continue;
+      const watchtower = /watchtower/.test(name),
+        castleKeep = /:keep$/.test(name);
+      if (!watchtower && !castleKeep) continue;
       const masonry = parts
         .filter(
           (part) =>
             part.kind === "block" &&
-            part.material === "stone" &&
+            (watchtower
+              ? part.material === "stone"
+              : part.material === "sandstone" &&
+                !part.foundation &&
+                part.id % 4 === 0) &&
             part.s[0] >= 4 &&
             part.s[2] >= 4 &&
-            part.s[1] >= 3,
+            part.s[1] >= (watchtower ? 3 : 2.5) &&
+            (watchtower || part.s[1] <= 6),
         )
         .sort((a, b) => a.p[1] - b.p[1]);
       for (const owner of masonry) {
         const [x, y, z] = owner.p,
           [sx, , sz] = owner.s;
+        const key = watchtower
+          ? "watchtower-arrow-slits"
+          : "castle-keep-arrow-slits";
+        const slitScale = watchtower ? [1, 1, 1] : [0.72, 1.12, 1];
         for (const side of [-1, 1]) {
           add(
-            "watchtower-arrow-slits",
+            key,
             owner,
             [x + side * (sx + 0.035), y, z],
-            [1, 1, 1],
+            slitScale,
             slitMaterial,
             arrowSlit,
             false,
             side * Math.PI * 0.5,
           );
           add(
-            "watchtower-arrow-slits",
+            key,
             owner,
             [x, y, z + side * (sz + 0.035)],
-            [1, 1, 1],
+            slitScale,
             slitMaterial,
             arrowSlit,
             false,

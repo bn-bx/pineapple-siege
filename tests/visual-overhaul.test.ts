@@ -438,6 +438,41 @@ it("cuts dark arrow-slit windows into each destructible watchtower course", asyn
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(slits()).toBe(8);
 });
+it("adds sparse arrow slits to castle keep courses with their original owners", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const masonry = [304, 308].map((id, index) => ({
+    id,
+    kind: "block",
+    p: [100, 30 + index * 4, 100],
+    s: [4.8, 3.2, 4.8],
+    material: "sandstone",
+    assembly: "castle-0:keep",
+    foundation: false,
+    supports: [],
+  }));
+  const scenery = new Scenery(
+    { paths: [], entities: masonry } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 32, 100),
+    slits = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:castle-keep-arrow-slits",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(slits()).toBe(8);
+  scenery.update(camera, new Set([304]), 1200, 120, 1, true);
+  expect(slits()).toBe(4);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(slits()).toBe(8);
+});
 it("caps bridge rail spans with rounded timber tied to each rail owner", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const rail = {

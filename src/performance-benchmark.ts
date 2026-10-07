@@ -950,7 +950,23 @@ function inspect() {
     (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
   );
   if (selectedSite) p = selectedSite.p.slice();
-  if (kind === "coast")
+  if (kind === "castle-keep") {
+    const castle = world.castles?.[0];
+    const wall = castle
+      ? world.entities.find(
+          (entity) =>
+            entity.assembly === `${castle.id}:keep` &&
+            entity.kind === "block" &&
+            entity.material === "sandstone" &&
+            !entity.foundation &&
+            entity.s[0] >= 4 &&
+            entity.s[1] >= 2.5 &&
+            entity.s[2] >= 4,
+        )
+      : undefined;
+    p = (wall?.p ?? castle?.landmarks.keep ?? world.landmarks.keep).slice();
+  }
+  else if (kind === "coast")
     p = (
       world.sites.find((s) => s.kind === "harbor")?.p ?? world.castle
     ).slice();
@@ -986,7 +1002,8 @@ function inspect() {
   const altitude = Number(
     (document.querySelector("#altitude") as HTMLSelectElement).value,
   );
-  const offset = altitude === 12 ? 90 : altitude === 1200 ? 1200 : 180;
+  // Detail views need to be close enough to inspect owner-bound artwork.
+  const offset = altitude === 12 ? 32 : altitude === 1200 ? 1200 : 180;
   const hour = Number(
     (document.querySelector("#hour") as HTMLSelectElement).value,
   );
