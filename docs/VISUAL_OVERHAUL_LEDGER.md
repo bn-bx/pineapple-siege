@@ -4,6 +4,8 @@ This ledger is the completion source of truth. A working implementation remains 
 
 ## Shipped batch history
 
+Castle banners now carry muted owner-stable heraldic shields and woven gold hems, using vertex colors over the existing local cloth material. Their existing wind motion, shadow motion, and structural owner remain unchanged, with no new texture or draw call. Seed 41729's tower view is shown in [the heraldry review](PERFORMANCE_SCENE_1791361243098.png). The focused banner geometry test and production build pass. Batch 69 ships finished castle heraldry.
+
 The sand-to-ground shoreline now follows low-frequency world-space sediment variation rather than a single exact elevation contour. It keeps the same scanned sand, normal, and roughness maps and shares one mask across color and surface response; terrain heights and water levels are unchanged. Seed 41729's high coast view is shown in [the shore transition review](PERFORMANCE_SCENE_1791360816087.png). The focused terrain shader tests and production build pass. Batch 68 ships a more natural shoreline transition.
 
 The ocean now adds a restrained, wind-drifted foam pattern inside its existing shallow-water edge mask, alongside the existing wave crest glints. It reuses world position, time, and depth already available to the shader, with no texture reads or reflection passes. Seed 41729's no-fog high coast view is shown in [the shoreline review](PERFORMANCE_SCENE_1791360661689.png). The focused water shader test and production build pass. Batch 67 ships animated nearshore foam.

@@ -1,7 +1,7 @@
 import { crownSurface } from "./fruit-surface";
 import { IslandHorizon } from "./island-horizon";
 import { constructionScale } from "./material-scale";
-import { bannerWind } from "./banner-wind";
+import { bannerWind, heraldicBannerGeometry } from "./banner-wind";
 import { foliageWind } from "./foliage-wind";
 import { skipEmptyPointLights } from "./local-light-cost";
 import { budgetSurfaceNormals } from "./surface-normal-budget";
@@ -1166,7 +1166,8 @@ export class GameRenderer {
   }
   private addBanners() {
     const mat = new THREE.MeshStandardMaterial({
-      color: "#a9373d",
+      color: "#ffffff",
+      vertexColors: true,
       side: THREE.DoubleSide,
       roughness: 0.9,
     });
@@ -1178,7 +1179,7 @@ export class GameRenderer {
     bannerWind(depth, this.foliageTime);
     for (const banner of this.world.banners) {
       const mesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(banner.s[0], banner.s[1], 3, 8),
+        heraldicBannerGeometry(banner.s[0], banner.s[1], banner.owner),
         mat,
       );
       mesh.position.fromArray(banner.p);

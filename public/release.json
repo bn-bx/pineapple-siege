@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-68",
+  "release": "visual-overhaul-2026-10-07-batch-69",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -106,7 +106,8 @@
     "sha256-addressed-runtime-assets",
     "consistent-whole-island-tree-crown-proportions",
     "animated-shallow-ocean-shore-foam",
-    "irregular-world-space-shoreline-sediment"
+    "irregular-world-space-shoreline-sediment",
+    "owner-stable-castle-heraldry-banners"
   ],
   "performanceCertification": "deferred by release instruction"
 }
