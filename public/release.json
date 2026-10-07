@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-58",
+  "release": "visual-overhaul-2026-10-07-batch-59",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -92,7 +92,8 @@
     "human-scale-resident-scarf-collars",
     "single-flight-photo-export-with-progress",
     "owner-linked-quarry-hoist-and-load-cable",
-    "isolated-quarry-hoist-review-camera"
+    "isolated-quarry-hoist-review-camera",
+    "owner-linked-terrain-following-tree-root-flares"
   ],
   "performanceCertification": "deferred by release instruction"
 }

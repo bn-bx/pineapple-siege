@@ -77,6 +77,14 @@ export class Scenery {
     const understoryMaterial = foliage.clone();
     understoryMaterial.vertexColors = false;
     understoryMaterial.color.set("#607b49");
+    const rootBark = new THREE.MeshStandardMaterial({
+      color: "#594634",
+      roughness: 0.96,
+    });
+    const rootFlare = visualGeometry(
+      "tree-root-flare_lod0",
+      () => new THREE.CylinderGeometry(0.58, 1.08, 0.55, 8),
+    );
     const broadleafShrub = visualGeometry(
       "broadleaf_lod1",
       () => new THREE.IcosahedronGeometry(0.7, 1),
@@ -530,6 +538,27 @@ export class Scenery {
       }
       if (e.kind === "tree") {
         const riverside = e.treeSpecies === "riverside";
+        const rootHeight = terrain.sample(x, z),
+          rootSize = 0.9 + (e.variant ?? 0.5) * 0.4;
+        if (
+          rootHeight >= 2 &&
+          !this.wet(x, z) &&
+          roads(x, z) >= 6 &&
+          Math.abs(rootHeight - terrain.sample(x + 2, z)) <= 1.4 &&
+          Math.abs(rootHeight - terrain.sample(x - 2, z)) <= 1.4 &&
+          Math.abs(rootHeight - terrain.sample(x, z + 2)) <= 1.4 &&
+          Math.abs(rootHeight - terrain.sample(x, z - 2)) <= 1.4
+        )
+          add(
+            "tree-root-flares",
+            e,
+            [x, rootHeight + 0.2, z],
+            [rootSize, 1, rootSize],
+            rootBark,
+            rootFlare,
+            true,
+            e.variant * Math.PI * 2,
+          );
         // Ground dressing is attached to its authoritative tree and resampled
         // after excavation. No plants appear on roads, steep faces or water.
         for (let i = 0; i < 4; i++) {

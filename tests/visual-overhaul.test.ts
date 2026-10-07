@@ -175,6 +175,12 @@ it.each(["tree", "rock"])(
             (o as THREE.InstancedMesh).count > 0,
         ),
       ).toBe(true);
+    if (kind === "tree")
+      expect(
+        scenery.group.children.find(
+          (object) => object.name === "scenery:tree-root-flares",
+        )?.visible,
+      ).toBe(true);
     removed.add(3);
     scenery.update(camera, removed, 1200, 120, 1, true);
     expect(
