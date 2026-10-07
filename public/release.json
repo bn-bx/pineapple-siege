@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-9",
+  "release": "visual-overhaul-2026-10-06-batch-10",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -17,7 +17,8 @@
     "snapshot-driven-waterwheels",
     "owner-linked-harbor-mooring-details",
     "layered-world-space-mountain-geology",
-    "owner-linked-watchtower-arrow-slits"
+    "owner-linked-watchtower-arrow-slits",
+    "owner-linked-rounded-bridge-handrails"
   ],
   "performanceCertification": "deferred by release instruction"
 }

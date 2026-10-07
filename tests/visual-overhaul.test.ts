@@ -355,6 +355,50 @@ it("cuts dark arrow-slit windows into each destructible watchtower course", asyn
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(slits()).toBe(8);
 });
+it("caps bridge rail spans with rounded timber tied to each rail owner", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const rail = {
+      id: 301,
+      kind: "block",
+      p: [100, 22, 104.5],
+      s: [6, 1, 0.4],
+      material: "wood",
+      assembly: "bridge-1",
+      foundation: false,
+      supports: [],
+    },
+    deck = {
+      ...rail,
+      id: 302,
+      p: [100, 20, 100],
+      s: [6, 1, 5],
+    };
+  const scenery = new Scenery(
+    {
+      paths: [],
+      entities: [rail, deck],
+      sites: [{ id: "bridge-1", kind: "bridge", p: [100, 10, 100] }],
+    } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 25, 100),
+    handrail = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:bridge-handrails",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(handrail()).toBe(1);
+  scenery.update(camera, new Set([301]), 1200, 120, 1, true);
+  expect(handrail()).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(handrail()).toBe(1);
+});
 it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
   const { windmillRotorBladeIds } = await import(
     "../src/render/landmark-geometry"

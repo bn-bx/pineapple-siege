@@ -250,6 +250,14 @@ export class Scenery {
       }
     };
     const roads = pathIndex(world.paths);
+    const bridgeAssemblies = new Set(
+      (world.sites ?? [])
+        .filter((site) => site.kind === "bridge" || site.kind === "crossing")
+        .map((site) => site.id),
+    );
+    const bridgeRail = visualGeometry("bridge-handrail_lod0", () =>
+      new THREE.CylinderGeometry(0.22, 0.22, 2, 8).rotateZ(Math.PI / 2),
+    );
     const dockDecks = new Map<string, Entity[]>();
     for (const entity of world.entities) {
       if (
@@ -278,6 +286,26 @@ export class Scenery {
     for (const e of world.entities) {
       const [x, y, z] = e.p,
         [sx, sy, sz] = e.s;
+      const bridgeAxis = sz < 0.8 ? 0 : sx < 0.8 ? 1 : undefined;
+      if (
+        e.kind === "block" &&
+        e.material === "wood" &&
+        bridgeAssemblies.has(e.assembly) &&
+        bridgeAxis !== undefined &&
+        Math.abs(sy - 1) < 0.05 &&
+        (bridgeAxis === 0 ? sz < 0.8 : sx < 0.8)
+      ) {
+        add(
+          "bridge-handrails",
+          e,
+          [x, y + sy + 0.22, z],
+          bridgeAxis === 0 ? [sx, 1, 1] : [sz, 1, 1],
+          structuralTimber,
+          bridgeRail,
+          false,
+          bridgeAxis === 0 ? 0 : Math.PI / 2,
+        );
+      }
       if (mooringOwners.has(e.id)) {
         const runsAlongX = sx < sz;
         for (const side of [-1, 1]) {
