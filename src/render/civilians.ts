@@ -56,6 +56,7 @@ export class CivilianView {
   );
   private defeated = new Map<number, number>();
   private observedDead = new Set<number>();
+  private reviewDefeated = new Set<number>();
   constructor(count: number) {
     const cloth = new THREE.MeshStandardMaterial({ roughness: 0.9 });
     const skin = new THREE.MeshStandardMaterial({
@@ -331,6 +332,19 @@ export class CivilianView {
       )
         g.dispose();
   }
+  /** Isolated inspector override; it never edits worker or saved civilian data. */
+  setReviewDefeat(id: number, defeated: boolean, time = 0) {
+    if (defeated) {
+      this.reviewDefeated.add(id);
+      this.observedDead.add(id);
+      // Hold the actor at the settled defeat pose while the inspector is paused.
+      this.defeated.set(id, time - 0.7);
+    } else {
+      this.reviewDefeated.delete(id);
+      this.observedDead.delete(id);
+      this.defeated.delete(id);
+    }
+  }
   update(
     snap: SimulationSnapshot,
     previous: SimulationSnapshot | undefined,
@@ -355,7 +369,10 @@ export class CivilianView {
         ),
       );
     const dancing = discoActive(snap.lasers ?? []);
-    for (const c of snap.civilians ?? []) {
+    for (const source of snap.civilians ?? []) {
+      const c = this.reviewDefeated.has(source.id)
+        ? { ...source, alive: false }
+        : source;
       const old = previous?.civilians?.[c.id];
       if (c.alive) {
         this.observedDead.delete(c.id);
@@ -368,6 +385,11 @@ export class CivilianView {
       const deathTime = this.defeated.get(c.id);
       const age =
         deathTime === undefined ? Infinity : Math.max(0, snap.time - deathTime);
+      // Let the face settle with the body so defeat reads as a completed
+      // animation, rather than a blank-eyed version of the standing pose.
+      const defeatedEyeOpen = c.alive
+        ? 1
+        : 1 - THREE.MathUtils.smoothstep(age, 0.18, 0.55);
       if (!c.alive && age >= 6) this.defeated.delete(c.id);
       if (
         (!c.alive && age >= 6) ||
@@ -626,7 +648,7 @@ export class CivilianView {
         sad ? 3.774 : 4.19,
         sad ? 0.735 : flee ? 0.42 : 0.405,
         0.025,
-        0.032,
+        0.032 * defeatedEyeOpen,
         0.022,
       );
       place(
@@ -648,7 +670,7 @@ export class CivilianView {
         this.dummy.rotation.set(sad ? 0.3 : 0, 0, 0);
         this.dummy.scale.set(
           flee ? 0.082 : 0.065,
-          flee ? 0.09 : 0.07,
+          (flee ? 0.09 : 0.07) * defeatedEyeOpen,
           0.04,
         );
         this.dummy.updateMatrix();
@@ -731,6 +753,7 @@ export class CivilianView {
   reset() {
     this.defeated.clear();
     this.observedDead.clear();
+    this.reviewDefeated.clear();
     this.distant.count = 0;
     for (const mesh of this.parts) mesh.count = 0;
     for (const hat of this.hats) hat.count = 0;

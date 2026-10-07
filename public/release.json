@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-77",
+  "release": "visual-overhaul-2026-10-07-batch-78",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -121,7 +121,9 @@
     "junction-only-river-join-pools",
     "continuous-river-surface-normals-and-depth-shading",
     "flow-driven-shallow-bank-foam",
-    "decorrelated-seed-stable-tree-crown-silhouettes"
+    "decorrelated-seed-stable-tree-crown-silhouettes",
+    "snapshot-driven-resident-defeat-eye-closure",
+    "isolated-resident-defeat-review-preset"
   ],
   "performanceCertification": "deferred by release instruction"
 }

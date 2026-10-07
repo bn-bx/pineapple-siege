@@ -216,7 +216,15 @@ function applyResidentReviewPose(state: SimulationSnapshot) {
     return;
   const resident = state.civilians.find((candidate) => candidate.id === reviewedResidentId);
   if (resident) {
-    resident.mood = residentPose.value as typeof resident.mood;
+    view.civilians.setReviewDefeat(
+      resident.id,
+      residentPose.value === "defeat",
+      state.time,
+    );
+    resident.mood =
+      residentPose.value === "defeat"
+        ? "walk"
+        : (residentPose.value as typeof resident.mood);
     // Keep the sampled heading stable while the worker acknowledges pause.
     if (reviewedResidentYaw !== undefined)
       resident.yaw = reviewedResidentYaw;

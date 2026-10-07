@@ -57,6 +57,54 @@ it("does not replay saved casualties and clears defeat presentation on reset or 
   view.update(snapshot(10, false), alive, 1, camera);
   expect(torso(view).count).toBe(1);
 });
+it("closes shared resident eyes as a newly observed defeat settles", () => {
+  const view = new CivilianView(1),
+    alive = snapshot(1, true),
+    dead = snapshot(1.1, false),
+    eyes = view.group.children[16] as THREE.InstancedMesh,
+    openMatrix = new THREE.Matrix4(),
+    closedMatrix = new THREE.Matrix4(),
+    openScale = new THREE.Vector3(),
+    closedScale = new THREE.Vector3();
+
+  view.update(alive, undefined, 1, camera);
+  eyes.getMatrixAt(0, openMatrix);
+  openScale.setFromMatrixScale(openMatrix);
+
+  view.update(dead, alive, 1, camera);
+  const settled = snapshot(1.7, false);
+  view.update(settled, dead, 1, camera);
+  eyes.getMatrixAt(0, closedMatrix);
+  closedScale.setFromMatrixScale(closedMatrix);
+
+  expect(openScale.y).toBeGreaterThan(0.03);
+  expect(closedScale.y).toBeLessThan(openScale.y * 0.01);
+  expect(eyes.count).toBe(2);
+});
+it("holds a settled defeat pose in the isolated review without changing worker state", () => {
+  const view = new CivilianView(1),
+    state = snapshot(4, true),
+    eyes = view.group.children[16] as THREE.InstancedMesh,
+    body = view.group.children[0] as THREE.InstancedMesh,
+    eyeMatrix = new THREE.Matrix4(),
+    bodyMatrix = new THREE.Matrix4(),
+    eyeScale = new THREE.Vector3(),
+    bodyRotation = new THREE.Quaternion();
+  view.setReviewDefeat(0, true, state.time);
+  view.update(state, undefined, 1, camera);
+  eyes.getMatrixAt(0, eyeMatrix);
+  body.getMatrixAt(0, bodyMatrix);
+  eyeScale.setFromMatrixScale(eyeMatrix);
+  bodyMatrix.decompose(new THREE.Vector3(), bodyRotation, new THREE.Vector3());
+  expect(state.civilians[0].alive).toBe(true);
+  expect(eyeScale.y).toBeLessThan(0.001);
+  expect(bodyRotation.angleTo(new THREE.Quaternion())).toBeGreaterThan(1);
+  view.setReviewDefeat(0, false);
+  view.update(snapshot(5, true), undefined, 1, camera);
+  eyes.getMatrixAt(0, eyeMatrix);
+  eyeScale.setFromMatrixScale(eyeMatrix);
+  expect(eyeScale.y).toBeGreaterThan(0.03);
+});
 it("keeps cheering hands above the head and clothing identity after culling", () => {
   const view = new CivilianView(2);
   const cheering = snapshot(1, true);
