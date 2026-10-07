@@ -10,6 +10,7 @@ import {
   isLighthouseLanternGlazing,
   lighthouseRoofPresentation,
   quarryHoistOwner,
+  warehouseStagingSpot,
 } from "./landmark-geometry";
 import { visualGeometry } from "./visual-assets";
 
@@ -2100,17 +2101,116 @@ export class Scenery {
       );
       if (!roofs.length) continue;
       dressed.add(e.assembly);
-      const x =
-        Math.max(...siblings.map((part) => part.p[0] + part.s[0])) + 2.5;
-      const z = roofs.reduce((sum, part) => sum + part.p[2], 0) / roofs.length;
-      const h = terrain.sample(x, z);
-      if (
+      const baseX =
+          Math.max(...siblings.map((part) => part.p[0] + part.s[0])) + 2.5,
+        baseZ = roofs.reduce((sum, part) => sum + part.p[2], 0) / roofs.length,
+        warehouse = /-warehouse(?:-|$)/.test(e.assembly);
+      let x = baseX,
+        z = baseZ,
+        h = terrain.sample(baseX, baseZ);
+      if (warehouse) {
+        // Harbor fronts can be wet, cross a road, or sit tight against a
+        // neighboring building. Share the deterministic clear-spot resolver
+        // with the isolated review camera so freight stays visible and safe.
+        const staging = warehouseStagingSpot(
+          [baseX, 0, baseZ],
+          e.assembly,
+          world.entities,
+          (px, pz) => terrain.sample(px, pz),
+          (px, pz) => this.wet(px, pz),
+          roads,
+        );
+        if (!staging) continue;
+        [x, h, z] = staging;
+      } else if (
         h < 2 ||
         this.wet(x, z) ||
         roads(x, z) < 6 ||
         Math.abs(h - terrain.sample(x + 2, z)) > 0.8
       )
         continue;
+      if (warehouse) {
+        // Warehouses stage freight on a low timber pallet instead of the
+        // loose, ground-level crates used beside homes. Every piece remains
+        // owned by the original foundation block for damage and restoration.
+        const palletZ = z,
+          palletX = x + 0.35;
+        add(
+          "warehouse-pallet-decks",
+          e,
+          [palletX, h + 0.24, palletZ],
+          [2.7, 0.16, 2.7],
+          materials.wood,
+          box,
+          true,
+        );
+        for (const offset of [-0.85, 0, 0.85])
+          add(
+            "warehouse-pallet-slats",
+            e,
+            [palletX + offset, h + 0.12, palletZ],
+            [0.16, 0.12, 2.52],
+            structuralTimber,
+            box,
+            true,
+          );
+        const cargo = [
+          {
+            x: palletX - 0.68,
+            z: palletZ - 0.56,
+            y: h + 0.76,
+            sx: 0.5,
+            sy: 0.48,
+            sz: 0.48,
+          },
+          {
+            x: palletX + 0.48,
+            z: palletZ - 0.5,
+            y: h + 0.76,
+            sx: 0.58,
+            sy: 0.48,
+            sz: 0.52,
+          },
+          {
+            x: palletX - 0.56,
+            z: palletZ + 0.58,
+            y: h + 0.76,
+            sx: 0.56,
+            sy: 0.48,
+            sz: 0.5,
+          },
+          {
+            x: palletX + 0.42,
+            z: palletZ + 0.38,
+            y: h + 1.7,
+            sx: 0.48,
+            sy: 0.44,
+            sz: 0.46,
+          },
+        ];
+        for (const crate of cargo) {
+          add(
+            "warehouse-freight-crates",
+            e,
+            [crate.x, crate.y, crate.z],
+            [crate.sx * 2, crate.sy * 2, crate.sz * 2],
+            materials.wood,
+            box,
+            true,
+          );
+          for (const side of [-1, 1])
+            add(
+              "warehouse-crate-bands",
+              e,
+              [crate.x + side * (crate.sx + 0.025), crate.y, crate.z],
+              [0.045, crate.sy * 2 + 0.04, crate.sz * 2 + 0.04],
+              iron,
+              box,
+              true,
+            );
+        }
+        continue;
+      }
       for (let i = 0; i < 3; i++) {
         const px = x + (i === 2 ? 0 : i * 1.65),
           py = h + (i === 2 ? 2.1 : 0.7),

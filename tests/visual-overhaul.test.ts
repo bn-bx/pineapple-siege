@@ -8,6 +8,8 @@ import {
   loggingCampReviewCamera,
   quarryHoistOwner,
   quarryHoistReviewCamera,
+  warehouseCargoReviewCamera,
+  warehouseStagingSpot,
 } from "../src/render/landmark-geometry";
 import { CONFIG } from "../src/config";
 it("estimates shared and detached resident resources once, including shader textures", () => {
@@ -142,6 +144,94 @@ it("removes and restores the quarry winch with its existing crossbeam owner", as
   expect(count("quarry-winch-load-cradle")).toBe(8);
   expect(count("quarry-winch-load-straps")).toBe(4);
   expect(count("quarry-winch-load-rock")).toBe(3);
+});
+it("stages warehouse freight on an owner-bound pallet and restores the cargo", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const owner = {
+      id: 21,
+      kind: "block",
+      p: [100, 10, 100],
+      s: [2, 1, 6],
+      material: "wood",
+      assembly: "harbor-1-warehouse",
+      foundation: true,
+      supports: [],
+    } as any,
+    roof = {
+      id: 22,
+      kind: "block",
+      p: [100, 20, 100],
+      s: [8, 2, 6],
+      material: "roof",
+      assembly: "harbor-1-warehouse",
+      foundation: false,
+      supports: [],
+    } as any,
+    scenery = new Scenery(
+      { paths: [], sites: [], entities: [owner, roof] } as any,
+      { sample: () => 10, flood: new Uint8Array(CONFIG.grid ** 2) } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(108, 14, 100),
+    count = (key: string) =>
+      (scenery.group.children.find(
+        (object) => object.name === `scenery:${key}`,
+      ) as THREE.InstancedMesh | undefined)?.count ?? 0;
+  const review = warehouseCargoReviewCamera([108, 11, 100], [100, 10, 100], 9);
+  expect(review.target).toEqual([108, 11.35, 100]);
+  expect(review.eye[0]).toBeGreaterThan(review.target[0]);
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(count("warehouse-pallet-decks")).toBe(1);
+  expect(count("warehouse-pallet-slats")).toBe(3);
+  expect(count("warehouse-freight-crates")).toBe(4);
+  expect(count("warehouse-crate-bands")).toBe(8);
+  scenery.update(camera, new Set([owner.id]), 1200, 120, 1, true);
+  expect(count("warehouse-freight-crates")).toBe(0);
+  expect(count("warehouse-pallet-decks")).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(count("warehouse-freight-crates")).toBe(4);
+});
+it("moves warehouse freight away from neighboring structures", () => {
+  const warehouse = {
+      id: 4,
+      kind: "block",
+      p: [10, 10, 10],
+      s: [2, 3, 3],
+      material: "wood",
+      assembly: "harbor-1-warehouse",
+      foundation: true,
+      supports: [],
+    } as any,
+    obstacle = {
+      id: 3,
+      kind: "block",
+      p: [15.25, 10, 10],
+      s: [2, 3, 2],
+      material: "wood",
+      assembly: "harbor-1-house",
+      foundation: true,
+      supports: [],
+    } as any;
+  const spot = warehouseStagingSpot(
+    [14.5, 0, 10],
+    "harbor-1-warehouse",
+    [warehouse, obstacle],
+    () => 10,
+    () => false,
+    () => 12,
+  );
+  expect(spot).toBeDefined();
+  expect(
+    Math.abs(spot![0] - obstacle.p[0]) < obstacle.s[0] + 2.9 &&
+      Math.abs(spot![2] - obstacle.p[2]) < obstacle.s[2] + 2.9,
+  ).toBe(false);
+  expect(spot![0] > 12 || spot![0] < 8 || spot![2] < 7 || spot![2] > 13).toBe(
+    true,
+  );
 });
 it.each(["tree", "rock"])(
   "removes %s-owned ground dressing and suppresses it after excavation",

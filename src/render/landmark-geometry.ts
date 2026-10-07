@@ -82,6 +82,90 @@ export function quarryHoistReviewCamera(owner: Entity, distance: number) {
   };
 }
 
+/** Frame the isolated freight staging beside a generated warehouse. */
+export function warehouseCargoReviewCamera(
+  center: Entity["p"],
+  buildingCenter: Entity["p"],
+  distance: number,
+) {
+  const target: Entity["p"] = [center[0], center[1] + 0.35, center[2]],
+    dx = target[0] - buildingCenter[0],
+    dz = target[2] - buildingCenter[2],
+    length = Math.hypot(dx, dz) || 1;
+  return {
+    eye: [
+      target[0] + (dx / length) * distance * 1.25,
+      target[1] + distance * 0.85,
+      target[2] + (dz / length) * distance * 1.25,
+    ] as Entity["p"],
+    target,
+  };
+}
+
+/** Pick dry, level, unobstructed room beside the warehouse for freight. */
+export function warehouseStagingSpot(
+  base: Entity["p"],
+  assembly: string,
+  entities: readonly Entity[],
+  sample: (x: number, z: number) => number,
+  isWet: (x: number, z: number) => boolean,
+  roadDistance: (x: number, z: number) => number,
+) {
+  const members = entities.filter((entity) => entity.assembly === assembly);
+  if (!members.length) return undefined;
+  const minX = Math.min(...members.map((entity) => entity.p[0] - entity.s[0])),
+    maxX = Math.max(...members.map((entity) => entity.p[0] + entity.s[0])),
+    minZ = Math.min(...members.map((entity) => entity.p[2] - entity.s[2])),
+    maxZ = Math.max(...members.map((entity) => entity.p[2] + entity.s[2])),
+    centerX = (minX + maxX) / 2,
+    outside = 3.25,
+    endOffsets = [-8, 0, 8],
+    offsets: [number, number][] = [
+      [maxX - base[0] + outside, 0],
+      [maxX - base[0] + outside, 8],
+      [maxX - base[0] + outside, -8],
+      [centerX - base[0] - 8, minZ - base[2] - outside],
+      [centerX - base[0], minZ - base[2] - outside],
+      [centerX - base[0] + 8, minZ - base[2] - outside],
+      [centerX - base[0] - 8, maxZ - base[2] + outside],
+      [centerX - base[0], maxZ - base[2] + outside],
+      [centerX - base[0] + 8, maxZ - base[2] + outside],
+      ...endOffsets.flatMap((dz) => [
+        [minX - base[0] - outside, dz],
+        [maxX - base[0] + outside, dz],
+      ] as [number, number][]),
+    ],
+    candidates = offsets
+      .map(([dx, dz]) => {
+        const x = base[0] + dx,
+          z = base[2] + dz,
+          y = sample(x, z),
+          obstructed = entities.some(
+            (entity) =>
+              entity.kind === "block" &&
+              entity.assembly !== assembly &&
+              Math.abs(x - entity.p[0]) < entity.s[0] + 2.9 &&
+              Math.abs(z - entity.p[2]) < entity.s[2] + 2.9,
+          );
+        return { x, y, z, obstructed };
+      })
+      .filter(
+        (candidate) =>
+          candidate.y >= 2 &&
+          !candidate.obstructed &&
+          !isWet(candidate.x, candidate.z) &&
+          Math.abs(candidate.y - sample(candidate.x + 2, candidate.z)) <= 0.8,
+      );
+  const spot =
+    candidates.find(
+      (candidate) => roadDistance(candidate.x, candidate.z) >= 6,
+    ) ??
+    candidates[0];
+  return spot
+    ? ([spot.x, spot.y, spot.z] as Entity["p"])
+    : undefined;
+}
+
 /** Aim the isolated harbor review down a dock so its driven supports stay visible. */
 export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
   if (decks.length < 2) return undefined;

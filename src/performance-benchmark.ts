@@ -2,6 +2,7 @@ import { GameAudio } from "./audio";
 import { discoActive } from "./disco";
 import { checkStorage } from "./storage-checks";
 import { CONFIG } from "./config";
+import { pathIndex } from "./world/generator.mjs";
 import { GameRenderer } from "./render/renderer";
 import { loadTerrain } from "./world-loader";
 import { SaveStore, compatible } from "./storage";
@@ -13,6 +14,8 @@ import {
   loggingCampReviewCamera,
   quarryHoistOwner,
   quarryHoistReviewCamera,
+  warehouseCargoReviewCamera,
+  warehouseStagingSpot,
   waterwheelRotors,
   windmillRotors,
 } from "./render/landmark-geometry";
@@ -1514,6 +1517,63 @@ function inspect() {
     status.textContent = `Monster close-up · ${monster.id} · ${monsterPose.selectedOptions[0].textContent}`;
     last = 0;
     return;
+  }
+  if (kind === "warehouse") {
+    const site = world.sites.find(
+        (entry) =>
+          (entry.kind === "harbor" || entry.kind === "watermill") &&
+          world.entities.some(
+            (entity) => entity.assembly === `${entry.id}-warehouse`,
+          ),
+      ),
+      parts = site
+        ? world.entities.filter(
+            (entity) => entity.assembly === `${site.id}-warehouse`,
+          )
+        : [],
+      roofs = parts.filter(
+        (entity) => entity.material === "roof" || entity.material === "slate",
+      );
+    if (site && roofs.length) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        maxX = Math.max(...parts.map((part) => part.p[0] + part.s[0])),
+        minX = Math.min(...parts.map((part) => part.p[0] - part.s[0])),
+        x = maxX + 2.5,
+        z = roofs.reduce((sum, part) => sum + part.p[2], 0) / roofs.length,
+        staging = warehouseStagingSpot(
+          [x, 0, z],
+          `${site.id}-warehouse`,
+          world.entities,
+          (px, pz) => view.terrain.sample(px, pz),
+          (px, pz) => {
+            const gx = Math.round(px / CONFIG.spacing),
+              gz = Math.round(pz / CONFIG.spacing);
+            return (
+              gx >= 0 &&
+              gz >= 0 &&
+              gx < CONFIG.grid &&
+              gz < CONFIG.grid &&
+              !!view.terrain.flood[gz * CONFIG.grid + gx]
+            );
+          },
+          pathIndex(world.paths),
+        );
+      if (staging) {
+        const camera = warehouseCargoReviewCamera(
+          [staging[0] + 0.35, staging[1] + 0.9, staging[2]],
+          [(minX + maxX) / 2, 0, z],
+          closeView ? 9 : 17,
+        );
+        inspectionTarget = camera.target;
+        view.inspectCamera(camera.eye, camera.target);
+        status.textContent = "Warehouse freight staging and owner review";
+        last = 0;
+        return;
+      }
+    }
   }
   const selectedSite = world.sites.find(
     (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
