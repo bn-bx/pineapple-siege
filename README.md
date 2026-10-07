@@ -38,7 +38,7 @@ The production application in `dist/` needs no backend or external asset service
 
 Without mouse capture, drag to steer and use Space to fire. Touch controls provide a left steering pad and simultaneous Fire, Boost, throttle, weapon, respawn, and menu buttons.
 
-The menu puts Play/Resume first, followed by Controls, Graphics, Audio, and World disclosures. Rapid fire sits beside weapon help. Graphics includes resolution, detail distance (600–3,000 m), reduced effects/shake, time of day, and Advanced performance diagnostics. Audio includes volume and mute. World includes the 0–400 monster slider, island preview/reroll, seed sharing, and reset.
+The menu puts Play/Resume first, followed by Controls, Graphics, Audio, and World disclosures, all expanded by default with visible collapse controls. Rapid fire sits beside weapon help. Graphics includes resolution, detail distance (600–3,000 m), reduced effects/shake, time of day, and Advanced performance diagnostics. Audio includes volume and mute. World includes the 0–400 monster slider, island preview/reroll, seed sharing, and reset.
 
 All weapons have unlimited ammunition. Cannon cooldown is 0.75 seconds; nuke cooldown is 10 seconds. Rapid fire replaces weapon cooldowns with 0.1 seconds and preserves the laser's charge/beam sequence. Nukes use fixed Valley strength; lasers use fixed 380 m diameter and 500 m excavation depth. Already-launched strikes retain saved parameters. Pause and photo mode freeze simulation, cooldowns, effects, and audio. Photo mode supports camera movement, focus, and PNG export.
 

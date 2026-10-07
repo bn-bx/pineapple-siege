@@ -27,14 +27,14 @@ Measurements use isolated Chrome sessions, the same seed 41729, requested Auto q
 
 The matrix completed with no JavaScript errors and 100% measured foreground time. Entries below are baseline → simplified. Adaptive quality ended at 720p before and 900p after; both runs requested Auto.
 
-| Scenario | Main mean ms | Frame p99 ms | Worker p95 ms | Draw calls | Geometries | Textures |
-| --- | --- | --- | --- | --- | --- | --- |
-| Flight, 120 | 4.25 → 2.87 | 17.8 → 17.7 | 2.8 → 2.8 | 191 → 183 | 627 → 524 | 52 → 17 |
-| Rapid nuke, 120 | 3.59 → 3.08 | 17.7 → 17.7 | 3.2 → 3.9 | 181 → 187 | 600 → 497 | 52 → 17 |
-| Rapid laser, 120 | 3.47 → 2.78 | 17.7 → 18.7 | 4.6 → 5.8 | 163 → 150 | 600 → 498 | 52 → 17 |
-| Flight, 400 | 3.41 → 2.97 | 17.7 → 18.7 | 3.8 → 5.4 | 208 → 212 | 625 → 524 | 63 → 17 |
-| Rapid nuke, 400 | 3.55 → 2.89 | 17.7 → 18.7 | 3.8 → 4.0 | 202 → 208 | 600 → 498 | 52 → 17 |
-| Rapid laser, 400 | 3.46 → 2.83 | 17.7 → 18.7 | 6.0 → 6.6 | 175 → 172 | 600 → 498 | 52 → 17 |
+| Scenario         | Main mean ms | Frame p99 ms | Worker p95 ms | Draw calls | Geometries | Textures |
+| ---------------- | ------------ | ------------ | ------------- | ---------- | ---------- | -------- |
+| Flight, 120      | 4.25 → 2.87  | 17.8 → 17.7  | 2.8 → 2.8     | 191 → 183  | 627 → 524  | 52 → 17  |
+| Rapid nuke, 120  | 3.59 → 3.08  | 17.7 → 17.7  | 3.2 → 3.9     | 181 → 187  | 600 → 497  | 52 → 17  |
+| Rapid laser, 120 | 3.47 → 2.78  | 17.7 → 18.7  | 4.6 → 5.8     | 163 → 150  | 600 → 498  | 52 → 17  |
+| Flight, 400      | 3.41 → 2.97  | 17.7 → 18.7  | 3.8 → 5.4     | 208 → 212  | 625 → 524  | 63 → 17  |
+| Rapid nuke, 400  | 3.55 → 2.89  | 17.7 → 18.7  | 3.8 → 4.0     | 202 → 208  | 600 → 498  | 52 → 17  |
+| Rapid laser, 400 | 3.46 → 2.83  | 17.7 → 18.7  | 6.0 → 6.6     | 175 → 172  | 600 → 498  | 52 → 17  |
 
 Main-thread means improved 13–33% across the matrix. Presentation resources and asset residency decreased. Frame tails and worker time did not uniformly improve; higher effective resolution, machine load, and a single before/after run limit causal claims. Only simplified flight at 120 monsters passed every harness gate; all baseline cases and the other simplified cases failed at least one gate. The larger scenarios therefore remain uncertified.
 
@@ -42,25 +42,24 @@ Production output, including the unchanged world tiles, decreased from 127,153,9
 
 Both 15-minute stress soaks plus recovery completed with no JavaScript errors and 100% measured foreground time. Both settled at 720p and failed the full performance gate.
 
-| Stress soak metric | Baseline | Simplified |
-| --- | --- | --- |
-| Mean FPS | 59.96 | 60.00 |
-| 1% low FPS | 50.39 | 53.01 |
-| Frame p95 / p99 ms | 18.6 / 18.7 | 18.6 / 18.7 |
-| Worst frame ms | 68.3 | 34.6 |
-| Main mean / p95 / p99 ms | 4.44 / 6.4 / 8.9 | 3.61 / 5.0 / 6.5 |
-| Worker mean / p95 / p99 ms | 3.04 / 5.8 / 9.8 | 3.06 / 5.8 / 9.0 |
-| Final draw calls / geometries / textures | 267 / 773 / 52 | 276 / 673 / 17 |
-| Final shader programs | 489 | 167 |
-| Estimated final texture residency MiB | 89.71 | 47.07 |
-| Final geometry storage MiB | 55.76 | 46.16 |
-| Final render targets MiB | 31.93 | 30.15 |
-| Recovery main mean / p99 ms | 3.79 / 7.0 | 3.30 / 5.7 |
+| Stress soak metric                       | Baseline         | Simplified       |
+| ---------------------------------------- | ---------------- | ---------------- |
+| Mean FPS                                 | 59.96            | 60.00            |
+| 1% low FPS                               | 50.39            | 53.01            |
+| Frame p95 / p99 ms                       | 18.6 / 18.7      | 18.6 / 18.7      |
+| Worst frame ms                           | 68.3             | 34.6             |
+| Main mean / p95 / p99 ms                 | 4.44 / 6.4 / 8.9 | 3.61 / 5.0 / 6.5 |
+| Worker mean / p95 / p99 ms               | 3.04 / 5.8 / 9.8 | 3.06 / 5.8 / 9.0 |
+| Final draw calls / geometries / textures | 267 / 773 / 52   | 276 / 673 / 17   |
+| Final shader programs                    | 489              | 167              |
+| Estimated final texture residency MiB    | 89.71            | 47.07            |
+| Final geometry storage MiB               | 55.76            | 46.16            |
+| Final render targets MiB                 | 31.93            | 30.15            |
+| Recovery main mean / p99 ms              | 3.79 / 7.0       | 3.30 / 5.7       |
 
 The soak reduced main-thread mean by 18.5% and p99 by 27.0%; worst frame roughly halved. Worker cost remained similar, and the 1% low plus worker/main tail gates still fail. Draw calls and triangle counts did not decrease uniformly. At the final sample, both runs had zero pending destruction jobs, moving bodies, ballistic bodies, permanent ruins, and cosmetic fragments; simulation ratio was approximately 1.0. Wall-clock input scheduling produced different shot totals, so the soak's final damage counts are not a deterministic equivalence comparison.
 
 Resource-accounting correction: the captured simplified reports omitted the authoritative height and wet textures because standard-material uniforms are not enumerable material properties. Their fixed 47,216,645 bytes are now included explicitly in runtime accounting. The JSON retains the captured `reportedResidentTextureBytes` alongside corrected estimates. This affects memory estimates, not timings or the failed gate outcome; both corrected estimates remain below the 192 MiB budget. Full measurements are in [SIMPLIFICATION_BENCHMARKS.json](SIMPLIFICATION_BENCHMARKS.json). Performance certification is a separate measured outcome; simplification alone does not certify the existing release gates.
-
 
 ## Reproduce
 
@@ -74,3 +73,7 @@ node scripts/benchmark-simplification-browser.mjs after soak
 ```
 
 For a separately served baseline build, set `SIEGE_BENCHMARK_URL` and use label `baseline`. Outputs are under `/tmp/siege-simplification/<label>`. Keep native runs in the foreground, one at a time. Functional browser checks use isolated, disposable browser contexts. Production release details are recorded in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Pause-menu correction
+
+Graphics, Audio, and World previously started collapsed without visible disclosure indicators. All four groups now start expanded, with explicit plus/minus indicators and a responsive two-column/one-column layout. Obsolete section grid areas and unused menu CSS are removed. `scripts/check-pause-menu-browser.mjs` verifies every retained setting is visible and enabled after pausing at desktop and mobile sizes, along with keyboard disclosures, Advanced diagnostics, resume/pause, and retained mute/rapid-fire values. This closes a visibility gap in the earlier browser checks.
