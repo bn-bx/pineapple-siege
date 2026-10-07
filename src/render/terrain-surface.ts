@@ -113,7 +113,9 @@ export function installTerrainSurface(
         `// Retain canonical grass/road tint; exposed bedrock uses its scanned
         // mineral color instead of inheriting the grass's altitude tint.
         #ifdef USE_COLOR
-          diffuseColor.rgb*=mix(vColor,vec3(1.),cliff);
+        // Keep authored ground tint on grass, but let the scanned sand retain
+        // its neutral color instead of turning the beach back into grass.
+        diffuseColor.rgb*=mix(vColor,vec3(1.),max(cliff,shore));
         #endif`,
       )
       .replace(

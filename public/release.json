@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-18",
+  "release": "visual-overhaul-2026-10-06-batch-19",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -28,7 +28,8 @@
     "human-scale-residents-near-and-distant",
     "bounded-water-impact-rings",
     "isolated-water-splash-preview",
-    "owner-linked-riverside-bank-reeds"
+    "owner-linked-riverside-bank-reeds",
+    "neutral-coast-sediment-color"
   ],
   "performanceCertification": "deferred by release instruction"
 }
