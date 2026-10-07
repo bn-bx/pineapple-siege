@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-67",
+  "release": "visual-overhaul-2026-10-07-batch-68",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -105,7 +105,8 @@
     "isolated-aircraft-tail-control-review",
     "sha256-addressed-runtime-assets",
     "consistent-whole-island-tree-crown-proportions",
-    "animated-shallow-ocean-shore-foam"
+    "animated-shallow-ocean-shore-foam",
+    "irregular-world-space-shoreline-sediment"
   ],
   "performanceCertification": "deferred by release instruction"
 }

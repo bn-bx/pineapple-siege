@@ -85,7 +85,11 @@ export function installTerrainSurface(
         cliff=max(cliff,scree*.78);
         float bare=smoothstep(.82,1.14,vColor.r/max(vColor.g,.001));
         float charred=1.-smoothstep(.04,.24,max(vColor.r,max(vColor.g,vColor.b)));
-        float shore=(1.-smoothstep(.5,6.,vSurfaceWorld.y))*(1.-cliff)*(1.-charred);
+        // Let local sediment and slope variation break the otherwise exact
+        // elevation contour into a natural, streamed world-space shoreline.
+        float shorelineGrain=terrainVariation(vSurfaceWorld.xz*.052);
+        float shorelineTop=mix(4.8,7.2,shorelineGrain);
+        float shore=(1.-smoothstep(.35,shorelineTop,vSurfaceWorld.y))*(1.-cliff)*(1.-charred);
         vec3 baseSurface=vec3(0.);
         if(shore<1.){
           if(cliff<1.){

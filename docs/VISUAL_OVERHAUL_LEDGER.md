@@ -4,6 +4,8 @@ This ledger is the completion source of truth. A working implementation remains 
 
 ## Shipped batch history
 
+The sand-to-ground shoreline now follows low-frequency world-space sediment variation rather than a single exact elevation contour. It keeps the same scanned sand, normal, and roughness maps and shares one mask across color and surface response; terrain heights and water levels are unchanged. Seed 41729's high coast view is shown in [the shore transition review](PERFORMANCE_SCENE_1791360816087.png). The focused terrain shader tests and production build pass. Batch 68 ships a more natural shoreline transition.
+
 The ocean now adds a restrained, wind-drifted foam pattern inside its existing shallow-water edge mask, alongside the existing wave crest glints. It reuses world position, time, and depth already available to the shader, with no texture reads or reflection passes. Seed 41729's no-fog high coast view is shown in [the shoreline review](PERFORMANCE_SCENE_1791360661689.png). The focused water shader test and production build pass. Batch 67 ships animated nearshore foam.
 
 Whole-island forest billboards now use the same species- and seed-specific crown proportions as the nearby and middle-distance tree batches. This removes the size jump at the detail boundary while retaining the existing impostor meshes, draw calls, owner mapping, and horizon visibility. Seed 41729's pine review is shown in [the tree transition capture](PERFORMANCE_SCENE_1791360410115.png). Focused horizon and tree-appearance tests pass, and the production build passes. Batch 66 ships consistent tree silhouettes across distance levels.
