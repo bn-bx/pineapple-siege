@@ -927,6 +927,36 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "house-window") {
+    const walls = world.entities.filter(
+      (entity) =>
+        entity.kind === "block" &&
+        entity.material === "plaster" &&
+        /-house-\d+$/.test(entity.assembly) &&
+        entity.s[1] >= 1.5 &&
+        entity.s[1] <= 2.5 &&
+        Math.min(entity.s[0], entity.s[2]) <= 1.05 &&
+        Math.max(entity.s[0], entity.s[2]) > 2.4,
+    );
+    const groundCourse = Math.min(...walls.map((wall) => wall.p[1]));
+    const wall = walls.find(
+      (candidate) => Math.abs(candidate.p[1] - groundCourse) < 0.05,
+    );
+    if (wall) {
+      const normalAxis = wall.s[0] < wall.s[2] ? 0 : 2,
+        side = wall.id % 2 ? 1 : -1,
+        target = wall.p.slice() as Vec3,
+        eye = wall.p.slice() as Vec3;
+      target[normalAxis] += side * (wall.s[normalAxis] + 0.08);
+      target[1] += 0.35;
+      eye[normalAxis] = target[normalAxis] + side * 5;
+      eye[1] += 1.8;
+      inspectionTarget = target;
+      view.inspectCamera(eye, target);
+      last = 0;
+      return;
+    }
+  }
   if (kind === "watchtower") {
     const site = world.sites.find((entry) => entry.kind === "watchtower");
     if (site) {

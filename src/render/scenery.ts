@@ -87,6 +87,13 @@ export class Scenery {
       metalness: 0.65,
       roughness: 0.75,
     });
+    const windowGlass = new THREE.MeshStandardMaterial({
+      color: "#405052",
+      metalness: 0.08,
+      roughness: 0.38,
+      emissive: "#11191a",
+      emissiveIntensity: 0.08,
+    });
     foliage.onBeforeCompile = (shader) => {
       shader.uniforms.grassWind = this.wind;
       shader.vertexShader = shader.vertexShader
@@ -251,6 +258,19 @@ export class Scenery {
           horizontal ? [width, 0.07, 0.12] : [0.12, 0.07, width],
           materials.wood,
         );
+        // A central muntin turns the otherwise open slot into readable panes.
+        // Keep it on both faces and with the window owner so damage and repair
+        // follow the same saved structure as the surrounding frame.
+        if (width > 0.55 && sy > 0.7)
+          add(
+            "window-muntins",
+            e,
+            face,
+            horizontal
+              ? [0.09, sy * 0.82, 0.12]
+              : [0.12, sy * 0.82, 0.09],
+            frameMaterial,
+          );
       }
     };
     const roads = pathIndex(world.paths);
@@ -654,6 +674,88 @@ export class Scenery {
       const parts = assemblies.get(e.assembly);
       if (parts) parts.push(e);
       else assemblies.set(e.assembly, [e]);
+    }
+    // Hamlet houses are built from plaster wall blocks rather than separate
+    // window entities. Add divided dark panes to the lowest wall course and
+    // bind every piece to that wall's existing structural owner.
+    for (const [name, parts] of assemblies) {
+      if (!/-house-\d+$/.test(name)) continue;
+      const walls = parts.filter(
+        (part) =>
+          part.kind === "block" &&
+          part.material === "plaster" &&
+          part.s[1] >= 1.5 &&
+          part.s[1] <= 2.5 &&
+          Math.min(part.s[0], part.s[2]) <= 1.05 &&
+          Math.max(part.s[0], part.s[2]) > 2.4,
+      );
+      if (!walls.length) continue;
+      const groundCourse = Math.min(...walls.map((wall) => wall.p[1]));
+      for (const owner of walls) {
+        if (Math.abs(owner.p[1] - groundCourse) > 0.05) continue;
+        const normalAxis = owner.s[0] < owner.s[2] ? 0 : 2,
+          alongAxis = normalAxis === 0 ? 2 : 0,
+          halfWidth = Math.min(1.25, owner.s[alongAxis] * 0.34),
+          height = 1.2,
+          centerY = owner.p[1] + 0.35;
+        for (const side of [-1, 1]) {
+          const face = owner.p.slice();
+          face[normalAxis] += side * (owner.s[normalAxis] + 0.07);
+          face[1] = centerY;
+          add(
+            "hamlet-window-panes",
+            owner,
+            face,
+            normalAxis === 0
+              ? [0.08, height, halfWidth * 2]
+              : [halfWidth * 2, height, 0.08],
+            windowGlass,
+          );
+          for (const sign of [-1, 1]) {
+            const post = face.slice();
+            post[alongAxis] += sign * halfWidth;
+            add(
+              "window-frame",
+              owner,
+              post,
+              [0.13, height + 0.16, 0.13],
+              materials.wood,
+            );
+          }
+          for (const lift of [-height / 2, height / 2]) {
+            const rail = face.slice();
+            rail[1] += lift;
+            add(
+              "window-frame",
+              owner,
+              rail,
+              normalAxis === 0
+                ? [0.13, 0.13, halfWidth * 2 + 0.16]
+                : [halfWidth * 2 + 0.16, 0.13, 0.13],
+              materials.wood,
+            );
+          }
+          const muntin = face.slice();
+          add(
+            "window-muntins",
+            owner,
+            muntin,
+            [0.1, height, 0.1],
+            structuralTimber,
+          );
+          const crossbar = face.slice();
+          crossbar[1] += 0.08;
+          add(
+            "window-muntins",
+            owner,
+            crossbar,
+            normalAxis === 0
+              ? [0.1, 0.1, halfWidth * 2]
+              : [halfWidth * 2, 0.1, 0.1],
+            structuralTimber,
+          );
+        }
+      }
     }
     for (const castle of world.castles ?? []) {
       const gate = castle.landmarks?.gate,

@@ -384,6 +384,82 @@ it("adds owner-linked mooring details only to the ends of harbor docks", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(batchCount("dock-bollards")).toBe(4);
 });
+it("divides settlement windows with owner-linked muntins on both faces", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const window = {
+    id: 731,
+    kind: "block",
+    p: [100, 8, 100],
+    s: [0.16, 1.2, 0.9],
+    material: "window",
+    assembly: "hamlet-1-house",
+    foundation: false,
+    supports: [],
+  };
+  const scenery = new Scenery(
+    { paths: [], entities: [window] } as any,
+    { sample: () => 0 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 12, 100),
+    muntins = () =>
+      scenery.group.children.find(
+        (object) => object.name === "scenery:window-muntins",
+      ) as THREE.InstancedMesh;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(muntins().count).toBe(2);
+  const nearFace = new THREE.Matrix4(),
+    farFace = new THREE.Matrix4();
+  muntins().getMatrixAt(0, nearFace);
+  muntins().getMatrixAt(1, farFace);
+  expect(nearFace.elements[13]).toBeCloseTo(farFace.elements[13]);
+  expect(Math.abs(nearFace.elements[12] - farFace.elements[12])).toBeGreaterThan(0.2);
+  scenery.update(camera, new Set([window.id]), 1200, 120, 1, true);
+  expect(muntins().count).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(muntins().count).toBe(2);
+});
+it("adds divided panes to destructible hamlet wall courses", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const wall = {
+    id: 732,
+    kind: "block",
+    p: [100, 8, 100],
+    s: [2.66, 2, 1],
+    material: "plaster",
+    assembly: "hamlet-1-house-0",
+    foundation: false,
+    supports: [],
+  };
+  const scenery = new Scenery(
+    { paths: [], entities: [wall] } as any,
+    { sample: () => 0 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 12, 100),
+    batchCount = (name: string) =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === `scenery:${name}`,
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(batchCount("hamlet-window-panes")).toBe(2);
+  expect(batchCount("window-muntins")).toBe(4);
+  scenery.update(camera, new Set([wall.id]), 1200, 120, 1, true);
+  expect(batchCount("hamlet-window-panes")).toBe(0);
+  expect(batchCount("window-muntins")).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(batchCount("hamlet-window-panes")).toBe(2);
+});
 it("dresses coastal ruins with ground-following rubble that clears on flood or owner damage", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const { CONFIG } = await import("../src/config");
