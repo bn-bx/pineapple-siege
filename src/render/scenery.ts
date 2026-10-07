@@ -5,6 +5,7 @@ import type { WorldData, Entity } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { pathIndex } from "../world/generator.mjs";
 import {
+  bridgeAbutmentPlacements,
   bridgeDeckPresentation,
   isBridgeRailingPart,
   isLighthouseLanternGlazing,
@@ -462,6 +463,60 @@ export class Scenery {
           materials.wood,
         );
       }
+      const site = world.sites.find((entry) => entry.id === decks[0].assembly),
+        waterLevel = site
+          ? ((site as (typeof site) & { waterLevel?: number }).waterLevel ??
+            site.p[1] - 4)
+          : -Infinity;
+      for (const placement of bridgeAbutmentPlacements(
+        decks,
+        (x, z) => terrain.sample(x, z),
+        waterLevel,
+      ))
+        add(
+          "bridge-stone-abutments",
+          placement.owner,
+          placement.p,
+          placement.s,
+          materials.sandstone ?? materials.stone ?? materials.rock,
+        );
+    }
+    const bridgeStoneCourse = (materials.sandstone ?? materials.stone ?? materials.rock).clone();
+    bridgeStoneCourse.color.multiplyScalar(0.78);
+    for (const pier of world.entities) {
+      if (
+        pier.kind !== "block" ||
+        !pier.foundation ||
+        pier.material !== "stone" ||
+        !bridgeAssemblies.has(pier.assembly) ||
+        pier.s[0] > 1.2 ||
+        pier.s[2] > 1.2 ||
+        pier.s[1] < 1
+      )
+        continue;
+      const [x, y, z] = pier.p,
+        [sx, sy, sz] = pier.s;
+      add(
+        "bridge-pier-capstones",
+        pier,
+        [x, y + sy + 0.12, z],
+        [sx + 0.35, 0.16, sz + 0.35],
+        materials.sandstone ?? materials.stone ?? materials.rock,
+      );
+      add(
+        "bridge-pier-courses",
+        pier,
+        [x, y, z],
+        [sx + 0.12, 0.08, sz + 0.12],
+        bridgeStoneCourse,
+      );
+      add(
+        "bridge-pier-footings",
+        pier,
+        [x, y - sy + 0.14, z],
+        [sx + 0.45, 0.18, sz + 0.45],
+        materials.sandstone ?? materials.stone ?? materials.rock,
+      );
     }
     const dockDecks = new Map<string, Entity[]>();
     for (const entity of world.entities) {

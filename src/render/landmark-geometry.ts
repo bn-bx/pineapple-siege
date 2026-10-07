@@ -272,6 +272,53 @@ export function bridgeDeckPresentation(
   };
 }
 
+/** Find level, dry bank anchors for presentation-only stone bridge abutments. */
+export function bridgeAbutmentPlacements(
+  decks: readonly Entity[],
+  sample: (x: number, z: number) => number,
+  waterLevel: number,
+) {
+  if (!decks.length) return [];
+  const ordered = decks.slice(),
+    runsAlongX = ordered[0].s[0] < ordered[0].s[2],
+    alongAxis = runsAlongX ? 0 : 2,
+    crossAxis = runsAlongX ? 2 : 0;
+  ordered.sort((a, b) => a.p[alongAxis] - b.p[alongAxis]);
+  const ends = [ordered[0], ordered.at(-1)!],
+    placements: { owner: Entity; p: Entity["p"]; s: Entity["s"] }[] = [];
+  for (const [endIndex, deck] of ends.entries()) {
+    const side = endIndex === 0 ? -1 : 1,
+      top = deck.p[1] + deck.s[1] - 0.76,
+      crossHalf = deck.s[crossAxis] * 0.82;
+    for (let offset = 0.8; offset <= 9.2; offset += 1.4) {
+      const p: Entity["p"] = [...deck.p];
+      p[alongAxis] += side * (deck.s[alongAxis] + offset);
+      const ground = sample(p[0], p[2]),
+        crossLow: Entity["p"] = [...p],
+        crossHigh: Entity["p"] = [...p];
+      crossLow[crossAxis] -= crossHalf;
+      crossHigh[crossAxis] += crossHalf;
+      const crossSlope =
+        Math.max(ground, sample(crossLow[0], crossLow[2]), sample(crossHigh[0], crossHigh[2])) -
+        Math.min(ground, sample(crossLow[0], crossLow[2]), sample(crossHigh[0], crossHigh[2])),
+        height = top - ground;
+      if (
+        ground < waterLevel + 0.25 ||
+        height < 1.5 ||
+        height > 8.5 ||
+        crossSlope > 2.5
+      )
+        continue;
+      p[1] = (ground + top) / 2;
+      const s: Entity["s"] = [1.2, height / 2, 1.2];
+      s[crossAxis] = deck.s[crossAxis] + 0.7;
+      placements.push({ owner: deck, p, s });
+      break;
+    }
+  }
+  return placements;
+}
+
 /** Horizontal sawn timber; entity scale and destruction ownership are unchanged. */
 export function loggingCampLogGeometry() {
   const geometry = new THREE.CylinderGeometry(1, 1, 2, 12, 1, false);

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-74",
+  "release": "visual-overhaul-2026-10-07-batch-75",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -115,7 +115,9 @@
     "owner-linked-warehouse-freight-staging",
     "isolated-warehouse-cargo-review-camera",
     "owner-linked-watchtower-signal-brazier",
-    "isolated-watchtower-beacon-review-camera"
+    "isolated-watchtower-beacon-review-camera",
+    "owner-linked-bridge-pier-capstones-and-footings",
+    "dry-bank-bridge-abutment-placement"
   ],
   "performanceCertification": "deferred by release instruction"
 }

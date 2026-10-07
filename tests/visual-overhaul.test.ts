@@ -5,6 +5,7 @@ import { qualityProfile, VISUAL_BUDGET } from "../src/render/quality-profile";
 import { SimulationCadence } from "../src/simulation-cadence";
 import { installFractureSurface } from "../src/render/fracture-surface";
 import {
+  bridgeAbutmentPlacements,
   loggingCampReviewCamera,
   quarryHoistOwner,
   quarryHoistReviewCamera,
@@ -1245,6 +1246,14 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
       id: 302,
       p: [100, 20, 100],
       s: [6, 1, 5],
+    },
+    pier = {
+      ...deck,
+      id: 303,
+      p: [100, 10, 100],
+      s: [1, 5, 1],
+      material: "stone",
+      foundation: true,
     };
   expect(isBridgeRailingPart(rail, new Set(["bridge-1"]))).toBe(true);
   expect(isBridgeRailingPart(deck, new Set(["bridge-1"]))).toBe(false);
@@ -1254,7 +1263,7 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   const scenery = new Scenery(
     {
       paths: [],
-      entities: [rail, deck],
+      entities: [rail, deck, pier],
       sites: [{ id: "bridge-1", kind: "bridge", p: [100, 10, 100] }],
     } as any,
     { sample: () => 10 } as any,
@@ -1282,6 +1291,12 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
         (object) => object.name === `scenery:${name}`,
       ) as THREE.InstancedMesh | undefined
     )?.count ?? 0;
+  const pierCount = (name: string) =>
+    (
+      scenery.group.children.find(
+        (object) => object.name === `scenery:${name}`,
+      ) as THREE.InstancedMesh | undefined
+    )?.count ?? 0;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
   expect(handrail()).toBe(1);
   expect(railingCount("bridge-lower-handrails")).toBe(1);
@@ -1289,6 +1304,9 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   expect(railingCount("bridge-railing-braces")).toBe(2);
   expect(girderCount("bridge-main-girders")).toBe(2);
   expect(girderCount("bridge-cross-joists")).toBe(1);
+  expect(pierCount("bridge-pier-capstones")).toBe(1);
+  expect(pierCount("bridge-pier-courses")).toBe(1);
+  expect(pierCount("bridge-pier-footings")).toBe(1);
   scenery.update(camera, new Set([301]), 1200, 120, 1, true);
   expect(handrail()).toBe(0);
   expect(railingCount("bridge-lower-handrails")).toBe(0);
@@ -1305,6 +1323,70 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   expect(railingCount("bridge-railing-braces")).toBe(2);
   expect(girderCount("bridge-main-girders")).toBe(2);
   expect(girderCount("bridge-cross-joists")).toBe(1);
+  scenery.update(camera, new Set([303]), 1200, 120, 3, true);
+  expect(pierCount("bridge-pier-capstones")).toBe(0);
+  expect(pierCount("bridge-pier-courses")).toBe(0);
+  expect(pierCount("bridge-pier-footings")).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 4, true);
+  expect(pierCount("bridge-pier-capstones")).toBe(1);
+  expect(pierCount("bridge-pier-courses")).toBe(1);
+  expect(pierCount("bridge-pier-footings")).toBe(1);
+});
+it("adds dry-bank bridge abutments under the endpoint deck owners", async () => {
+  const { Scenery } = await import("../src/render/scenery"),
+    decks = [100, 110].map((z, index) =>
+      ({
+        id: 331 + index,
+        kind: "block",
+        p: [100, 17, z],
+        s: [4, 1, 5],
+        material: "wood",
+        assembly: "bridge-abutment-test",
+        foundation: false,
+        supports: [],
+      }) as any,
+    ),
+    placements = bridgeAbutmentPlacements(decks, () => 10, 9);
+  expect(placements.map(({ owner }) => owner.id)).toEqual([331, 332]);
+  expect(bridgeAbutmentPlacements(decks, () => 10, 10.3)).toHaveLength(0);
+  const scenery = new Scenery(
+    {
+      paths: [],
+      entities: decks,
+      sites: [
+        {
+          id: "bridge-abutment-test",
+          kind: "bridge",
+          p: [100, 13, 105],
+        },
+      ],
+    } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const count = () =>
+    (
+      scenery.group.children.find(
+        (object) => object.name === "scenery:bridge-stone-abutments",
+      ) as THREE.InstancedMesh | undefined
+    )?.count ?? 0;
+  scenery.update(new THREE.Vector3(100, 18, 105), new Set(), 1200, 120, 0, true);
+  expect(count()).toBe(2);
+  scenery.update(
+    new THREE.Vector3(100, 18, 105),
+    new Set([331]),
+    1200,
+    120,
+    1,
+    true,
+  );
+  expect(count()).toBe(1);
+  scenery.update(new THREE.Vector3(100, 18, 105), new Set(), 1200, 120, 2, true);
+  expect(count()).toBe(2);
 });
 it("frames lighthouse lantern glass with owner-linked iron and Fresnel optics", async () => {
   const { Scenery } = await import("../src/render/scenery");
