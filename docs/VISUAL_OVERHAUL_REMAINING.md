@@ -15,7 +15,7 @@ The full remaining ledger is in [`VISUAL_OVERHAUL_LEDGER.md`](./VISUAL_OVERHAUL_
 5. **Experience and interfaces:** finish lighting calibration, chase-camera/readability cases, keyboard/touch use, menus, dialogs, HUD, recovery/storage errors, onboarding, preferences, and photo export.
 6. **Combined release checks:** run the agreed 90-second M1 sample for each rendering batch and the temporary normal-play gate on the final combined build; measure the short 400-monster/3,000m/firing cases; verify Chrome and Safari, saves, restoration, preference migration, context recovery, and asset/storage failures. The 15-minute certifications remain deferred by the release instruction and are not passes.
 
-**Release state:** batch 81 is recorded in `public/release.json`; confirm the public release marker after deployment before calling it live. The overhaul and every area in the coverage table remain open. No final release certification has been completed.
+**Release state:** batch 81 is live; the public `release.json` marker confirms `visual-overhaul-2026-10-07-batch-81` after the push. The overhaul and every area in the coverage table remain open. No final release certification has been completed.
 
 **Current completion record:** see [`VISUAL_OVERHAUL_LEDGER.md`](./VISUAL_OVERHAUL_LEDGER.md). The dated investigation and batch results below are retained as history, not as evidence that the remaining families have shipped.
 
