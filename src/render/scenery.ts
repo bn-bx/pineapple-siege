@@ -1149,6 +1149,56 @@ export class Scenery {
           iron,
           quarryLoadRing,
         );
+        const loadY = cableBottom.y - 0.38,
+          topY = loadY - 0.32,
+          bottomY = loadY - 1.52,
+          topHalf = 0.58,
+          bottomHalf = 0.42,
+          corners = (half: number, lift: number) =>
+            [
+              [-half, -half],
+              [half, -half],
+              [half, half],
+              [-half, half],
+            ].map(([dx, dz]) => new THREE.Vector3(x + dx, lift, drumZ + dz));
+        const topCorners = corners(topHalf, topY),
+          bottomCorners = corners(bottomHalf, bottomY);
+        for (let i = 0; i < 4; i++) {
+          const next = (i + 1) % 4;
+          addBeam(
+            "quarry-winch-load-cradle",
+            hoistOwner,
+            topCorners[i],
+            topCorners[next],
+            0.1,
+            structuralTimber,
+          );
+          addBeam(
+            "quarry-winch-load-cradle",
+            hoistOwner,
+            bottomCorners[i],
+            bottomCorners[next],
+            0.1,
+            structuralTimber,
+          );
+          addBeam(
+            "quarry-winch-load-straps",
+            hoistOwner,
+            topCorners[i],
+            bottomCorners[i],
+            0.055,
+            iron,
+          );
+        }
+        for (const [i, offset] of [-0.22, 0.22, 0].entries())
+          add(
+            "quarry-winch-load-rock",
+            hoistOwner,
+            [x + offset, loadY - 1.13, drumZ + (i === 1 ? 0.16 : -0.12)],
+            [0.28, 0.34, 0.28],
+            materials.rock,
+            rock,
+          );
       }
       for (let i = 0; i < posts.length - 1; i++) {
         const left = posts[i],

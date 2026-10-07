@@ -1108,10 +1108,10 @@ function inspect() {
           Number(
             (document.querySelector("#altitude") as HTMLSelectElement).value,
           ) === 12,
-        camera = quarryHoistReviewCamera(owner, closeView ? 15 : 28);
+        camera = quarryHoistReviewCamera(owner, closeView ? 8 : 16);
       inspectionTarget = camera.target;
       view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Quarry winch, cable, and load-ring review";
+      status.textContent = "Quarry winch, cable, and ore-load review";
       last = 0;
       return;
     }

@@ -85,7 +85,7 @@ it("binds the quarry hoist to the middle scaffold crossbeam deterministically", 
   expect(owner?.id).toBe(2);
   expect(quarryHoistOwner([])).toBeUndefined();
   const camera = quarryHoistReviewCamera(owner, 15);
-  expect(camera.target).toEqual([0, 20.12, 41.14]);
+  expect(camera.target).toEqual([0, 12.7, 41.14]);
   expect(camera.eye[2]).toBeGreaterThan(camera.target[2]);
 });
 it("removes and restores the quarry winch with its existing crossbeam owner", async () => {
@@ -124,15 +124,24 @@ it("removes and restores the quarry winch with its existing crossbeam owner", as
   expect(count("quarry-winch-crank")).toBe(1);
   expect(count("quarry-winch-handle")).toBe(1);
   expect(count("quarry-winch-load-ring")).toBe(1);
+  expect(count("quarry-winch-load-cradle")).toBe(8);
+  expect(count("quarry-winch-load-straps")).toBe(4);
+  expect(count("quarry-winch-load-rock")).toBe(3);
   removed.add(owner.id);
   scenery.update(camera, removed, 1200, 120, 1, true);
   expect(count("quarry-winch-drum")).toBe(0);
   expect(count("quarry-winch-cable")).toBe(0);
   expect(count("quarry-winch-crank")).toBe(0);
+  expect(count("quarry-winch-load-cradle")).toBe(0);
+  expect(count("quarry-winch-load-straps")).toBe(0);
+  expect(count("quarry-winch-load-rock")).toBe(0);
   removed.clear();
   scenery.update(camera, removed, 1200, 120, 2, true);
   expect(count("quarry-winch-drum")).toBe(1);
   expect(count("quarry-winch-cable")).toBe(1);
+  expect(count("quarry-winch-load-cradle")).toBe(8);
+  expect(count("quarry-winch-load-straps")).toBe(4);
+  expect(count("quarry-winch-load-rock")).toBe(3);
 });
 it.each(["tree", "rock"])(
   "removes %s-owned ground dressing and suppresses it after excavation",

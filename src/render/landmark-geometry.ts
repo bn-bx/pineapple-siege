@@ -67,14 +67,16 @@ export function quarryHoistOwner(parts: readonly Entity[]) {
 export function quarryHoistReviewCamera(owner: Entity, distance: number) {
   const target: Entity["p"] = [
     owner.p[0],
-    owner.p[1] + owner.s[1] / 2 + 0.62,
+    owner.p[1] - 6.3,
     owner.p[2] + owner.s[2] * 0.38,
   ];
   return {
     eye: [
-      target[0] + distance * 0.62,
-      target[1] + distance * 0.3,
-      target[2] + distance,
+      // Stand high and beyond the scaffold's front edge, aiming beneath its
+      // outer rail so the frame does not cover the hanging payload.
+      target[0] + distance * 0.1,
+      target[1] + distance,
+      target[2] + distance * 1.4,
     ] as Entity["p"],
     target,
   };

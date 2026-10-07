@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-71",
+  "release": "visual-overhaul-2026-10-07-batch-72",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -110,7 +110,8 @@
     "owner-stable-castle-heraldry-banners",
     "seed-stable-species-tree-color-variation",
     "owner-linked-logging-camp-chocks-and-end-grain",
-    "isolated-logging-stack-review-camera"
+    "isolated-logging-stack-review-camera",
+    "owner-linked-quarry-ore-cradle"
   ],
   "performanceCertification": "deferred by release instruction"
 }
