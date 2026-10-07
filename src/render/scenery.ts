@@ -694,6 +694,70 @@ export class Scenery {
         }
       }
     }
+    for (const [name, parts] of assemblies) {
+      if (!/-scaffold$/.test(name)) continue;
+      const posts = parts
+        .filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "wood" &&
+            part.s[1] >= 8 &&
+            part.s[0] <= 0.8 &&
+            part.s[2] <= 0.8,
+        )
+        .sort((a, b) => a.p[0] - b.p[0]);
+      const beams = parts.filter(
+        (part) =>
+          part.kind === "block" &&
+          part.material === "wood" &&
+          part.s[0] >= 5 &&
+          part.s[1] <= 1.2 &&
+          part.s[2] >= 2,
+      );
+      for (let i = 0; i < posts.length - 1; i++) {
+        const left = posts[i],
+          right = posts[i + 1],
+          span = right.p[0] - left.p[0];
+        if (span < 5 || span > 16) continue;
+        const owner = beams.reduce<Entity | undefined>(
+          (nearest, beam) =>
+            !nearest ||
+            Math.abs(beam.p[0] - (left.p[0] + right.p[0]) * 0.5) <
+              Math.abs(nearest.p[0] - (left.p[0] + right.p[0]) * 0.5)
+              ? beam
+              : nearest,
+          undefined,
+        );
+        if (!owner) continue;
+        const low = Math.max(
+            left.p[1] - left.s[1] + 1.1,
+            right.p[1] - right.s[1] + 1.1,
+          ),
+          high = Math.min(
+            left.p[1] + left.s[1] - 1.1,
+            right.p[1] + right.s[1] - 1.1,
+          );
+        for (const side of [-1, 1]) {
+          const face = owner.p[2] + side * (owner.s[2] + 0.06);
+          addBeam(
+            "quarry-scaffold-braces",
+            owner,
+            new THREE.Vector3(left.p[0] + 0.8, low, face),
+            new THREE.Vector3(right.p[0] - 0.8, high, face),
+            0.16,
+            structuralTimber,
+          );
+          addBeam(
+            "quarry-scaffold-braces",
+            owner,
+            new THREE.Vector3(left.p[0] + 0.8, high, face),
+            new THREE.Vector3(right.p[0] - 0.8, low, face),
+            0.16,
+            structuralTimber,
+          );
+        }
+      }
+    }
     const door = visualGeometry(
       "door_lod0",
       () => new THREE.BoxGeometry(2, 2, 0.1),

@@ -350,6 +350,47 @@ it("dresses coastal ruins with ground-following rubble that clears on flood or o
   scenery.update(camera, new Set(), 1200, 120, 3, true);
   expect(rubble()).toBe(dryCount);
 });
+it("braces quarry scaffold bays with their existing crossbeam owners", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const part = (id: number, x: number, s: number[], y: number) => ({
+    id,
+    kind: "block",
+    p: [x, y, 100],
+    s,
+    material: "wood",
+    assembly: "quarry-1-scaffold",
+    foundation: false,
+    supports: [],
+  });
+  const parts = [
+    part(501, 100, [0.6, 10, 0.6], 20),
+    part(502, 112, [0.6, 10, 0.6], 20),
+    part(503, 124, [0.6, 10, 0.6], 20),
+    part(511, 106, [6.5, 1, 3], 29),
+    part(512, 118, [6.5, 1, 3], 29),
+  ];
+  const scenery = new Scenery(
+    { paths: [], entities: parts, sites: [] } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(112, 20, 100),
+    braces = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:quarry-scaffold-braces",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(braces()).toBe(8);
+  scenery.update(camera, new Set([511]), 1200, 120, 1, true);
+  expect(braces()).toBe(4);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(braces()).toBe(8);
+});
 it("cuts dark arrow-slit windows into each destructible watchtower course", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const tower = [
