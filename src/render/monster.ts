@@ -24,8 +24,13 @@ export function monsterCombatPose(
     lean: -charge * 0.14 + shake * 0.09,
     crown: Math.sin(phase * 0.09) * 0.08 - charge * 0.12 + shake * 0.05,
     brow: recoil * 0.16 - charge * 0.12,
+    jaw: Math.max(charge, recoil * 0.72),
     active: charge > 0.01 || recoil > 0.01,
   };
+}
+export function monsterJawScale(openness: number): [number, number] {
+  const jaw = THREE.MathUtils.clamp(openness, 0, 1);
+  return [1 + jaw * 0.24, 1 + jaw * 0.7];
 }
 
 let template: THREE.Group | undefined;
@@ -223,19 +228,22 @@ function build() {
     }
     g.add(arm);
   }
+  const mouthGroup = new THREE.Group();
+  mouthGroup.name = "mouth";
+  mouthGroup.position.set(0, 13.5, 8);
   const mouth = new THREE.Mesh(
     new THREE.TorusGeometry(2.7, 0.6, 6, 12, Math.PI),
     dark,
   );
-  mouth.position.set(0, 13.5, 8);
   mouth.rotation.z = Math.PI;
-  g.add(mouth);
+  mouthGroup.add(mouth);
   for (const x of [-1.6, 0, 1.6]) {
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.52, 2.2, 5), ivory);
-    tooth.position.set(x, 12.5, 8.4);
+    tooth.position.set(x, -1, 0.4);
     tooth.rotation.z = Math.PI;
-    g.add(tooth);
+    mouthGroup.add(tooth);
   }
+  g.add(mouthGroup);
   g.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
   return g;
 }
@@ -535,11 +543,22 @@ export class NearMonsterView {
     right: number,
     crown: number,
     brow = 0,
+    jaw = 0,
   ) {
     root.updateMatrix();
     for (const part of this.parts) {
       this.pivot.matrix.copy(part.local);
-      if (
+      if (part.limb === "mouth") {
+        part.local.decompose(
+          this.pivot.position,
+          this.pivot.quaternion,
+          this.pivot.scale,
+        );
+        const [scaleX, scaleY] = monsterJawScale(jaw);
+        this.pivot.scale.x *= scaleX;
+        this.pivot.scale.y *= scaleY;
+        this.pivot.updateMatrix();
+      } else if (
         part.limb === "leftArm" ||
         part.limb === "rightArm" ||
         part.limb === "crown" ||

@@ -65,6 +65,7 @@ const { world, heights } = await baseline();
 );
 const viewpoints = document.querySelector<HTMLSelectElement>("#viewpoint")!;
 const residentPose = document.querySelector<HTMLSelectElement>("#resident-pose")!;
+const monsterPose = document.querySelector<HTMLSelectElement>("#monster-pose")!;
 for (const kind of new Set(world.sites.map((s) => s.kind)))
   if (!Array.from(viewpoints.options).some((o) => o.value === kind)) {
     const option = document.createElement("option");
@@ -111,6 +112,7 @@ const view = new GameRenderer(
 let snapshot: SimulationSnapshot,
   reviewedResidentId: number | undefined,
   reviewedResidentYaw: number | undefined,
+  reviewedMonsterId: number | undefined,
   residentCameraPending = false,
   ready = false,
   active = false,
@@ -212,6 +214,21 @@ function applyResidentReviewPose(state: SimulationSnapshot) {
       resident.yaw = reviewedResidentYaw;
   }
 }
+function applyMonsterReviewPose(state: SimulationSnapshot) {
+  if (
+    active ||
+    benchmarkRunning ||
+    viewpoints.value !== "monster" ||
+    reviewedMonsterId === undefined
+  )
+    return;
+  const monster = state.monsters.find(
+    (candidate) => candidate.id === reviewedMonsterId,
+  );
+  if (!monster) return;
+  monster.windup = monsterPose.value === "attack" ? 0.75 : 0;
+  monster.stagger = monsterPose.value === "stagger" ? 0.45 : 0;
+}
 function frameReviewedResident(state: SimulationSnapshot) {
   if (viewpoints.value !== "resident" || reviewedResidentId === undefined)
     return;
@@ -242,6 +259,7 @@ worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   if (m.type === "snapshot") {
     snapshot = m;
     applyResidentReviewPose(m);
+    applyMonsterReviewPose(m);
     view.receive(m);
     if (active)
       ticks.push(
@@ -292,6 +310,7 @@ worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   if (m.type === "paused") {
     snapshot = m.snapshot;
     applyResidentReviewPose(m.snapshot);
+    applyMonsterReviewPose(m.snapshot);
     view.receive(m.snapshot);
     if (residentCameraPending) {
       residentCameraPending = false;
@@ -1389,7 +1408,12 @@ function inspect() {
   }
   let p = world.castle.slice();
   if (kind === "monster" && snapshot.monsters.length) {
-    const position = snapshot.monsters[0].p;
+    const monster = snapshot.monsters[0];
+    touring = false;
+    reviewedMonsterId = monster.id;
+    applyMonsterReviewPose(snapshot);
+    send({ type: "pause", paused: true });
+    const position = monster.p;
     p = [position[0], position[1], position[2]];
     inspectionTarget = p as Vec3;
     const yaw = snapshot.monsters[0].yaw + 0.3;
@@ -1397,6 +1421,7 @@ function inspect() {
       [p[0] + Math.sin(yaw) * 120, p[1] + 45, p[2] + Math.cos(yaw) * 120],
       [p[0], p[1] + 32, p[2]],
     );
+    status.textContent = `Monster close-up · ${monster.id} · ${monsterPose.selectedOptions[0].textContent}`;
     last = 0;
     return;
   }
@@ -1715,6 +1740,12 @@ residentPose.addEventListener("change", () => {
   if (active || viewpoints.value !== "resident" || !snapshot) return;
   applyResidentReviewPose(snapshot);
   status.textContent = `Resident close-up · ${reviewedResidentId} · ${residentPose.selectedOptions[0].textContent}`;
+  last = 0;
+});
+monsterPose.addEventListener("change", () => {
+  if (active || viewpoints.value !== "monster" || !snapshot) return;
+  applyMonsterReviewPose(snapshot);
+  status.textContent = `Monster close-up · ${reviewedMonsterId} · ${monsterPose.selectedOptions[0].textContent}`;
   last = 0;
 });
 document.querySelector("#altitude")!.addEventListener("change", inspect);

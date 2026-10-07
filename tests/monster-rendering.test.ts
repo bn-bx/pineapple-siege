@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
   DistantMonsterView,
   monsterCombatPose,
+  monsterJawScale,
 } from "../src/render/monster";
 
 it("renders 400 distant monsters in five shared batches, including grounding roots", () => {
@@ -48,4 +49,9 @@ it("raises a readable attack windup and adds a short stagger recoil", () => {
   expect(staggered.left).not.toBeCloseTo(idle.left, 2);
   expect(charging.brow).toBeLessThan(idle.brow);
   expect(staggered.brow).toBeGreaterThan(idle.brow);
+  expect(idle.jaw).toBe(0);
+  expect(charging.jaw).toBe(1);
+  expect(staggered.jaw).toBeGreaterThan(0.6);
+  expect(monsterJawScale(0)).toEqual([1, 1]);
+  expect(monsterJawScale(1)[1]).toBeGreaterThan(monsterJawScale(0.72)[1]);
 });
