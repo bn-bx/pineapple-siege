@@ -12,20 +12,32 @@ interface WaterwheelPart {
   phase: number;
   speed: number;
 }
+interface WaterwheelHub {
+  owner: number;
+  center: THREE.Vector3;
+  axis: THREE.Vector3;
+  phase: number;
+  speed: number;
+}
 
 /** Snapshot-driven paddle wheels reuse existing mill entities and ownership. */
 export class WaterwheelView {
   readonly group = new THREE.Group();
   private paddles: WaterwheelPart[] = [];
   private spokes: WaterwheelPart[] = [];
+  private hubs: WaterwheelHub[] = [];
   private readonly paddleMesh: THREE.InstancedMesh;
   private readonly spokeMesh: THREE.InstancedMesh;
+  private readonly capMesh: THREE.InstancedMesh;
   private readonly dummy = new THREE.Object3D();
   private readonly radial = new THREE.Vector3();
   private readonly tangent = new THREE.Vector3();
   private readonly normal = new THREE.Vector3();
   private readonly matrix = new THREE.Matrix4();
   private readonly orientation = new THREE.Quaternion();
+  private readonly hubAlignment = new THREE.Quaternion();
+  private readonly hubSpin = new THREE.Quaternion();
+  private readonly hubLocalAxis = new THREE.Vector3(0, 1, 0);
 
   constructor(
     world: Pick<WorldData, "entities" | "sites">,
@@ -35,6 +47,13 @@ export class WaterwheelView {
     for (const rotor of waterwheelRotors(world)) {
       const center = new THREE.Vector3(...rotor.center);
       const axis = new THREE.Vector3(...rotor.axis).normalize();
+      this.hubs.push({
+        owner: rotor.hubOwner,
+        center: new THREE.Vector3(...rotor.hubCapCenter),
+        axis: axis.clone(),
+        phase: rotor.phase,
+        speed: rotor.speed,
+      });
       const u = new THREE.Vector3(0, 1, 0);
       const v =
         Math.abs(axis.x) > 0.5
@@ -83,18 +102,51 @@ export class WaterwheelView {
       this.spokes.length,
     );
     this.spokeMesh.name = "waterwheel-spokes";
+    this.capMesh = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(1.35, 1.2, 0.55, 10),
+      new THREE.MeshStandardMaterial({
+        color: "#5e5541",
+        metalness: 0.38,
+        roughness: 0.78,
+      }),
+      this.hubs.length,
+    );
+    this.capMesh.name = "waterwheel-hub-caps";
     for (const mesh of [this.paddleMesh, this.spokeMesh]) {
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false;
       this.group.add(mesh);
     }
+    this.capMesh.castShadow = this.capMesh.receiveShadow = true;
+    this.capMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.capMesh.frustumCulled = false;
+    this.group.add(this.capMesh);
     this.update(0, new Set());
   }
 
   update(time: number, removed: ReadonlySet<number>) {
     this.updateMesh(this.paddleMesh, this.paddles, removed, time, false);
     this.updateMesh(this.spokeMesh, this.spokes, removed, time, true);
+    let count = 0;
+    for (const hub of this.hubs) {
+      if (removed.has(hub.owner)) continue;
+      this.hubAlignment.setFromUnitVectors(
+        this.hubLocalAxis,
+        hub.axis,
+      );
+      this.hubSpin.setFromAxisAngle(hub.axis, hub.phase + time * hub.speed);
+      this.dummy.position.copy(hub.center);
+      this.dummy.quaternion.copy(this.hubSpin).multiply(this.hubAlignment);
+      this.dummy.scale.set(1, 1, 1);
+      this.dummy.updateMatrix();
+      this.capMesh.setMatrixAt(count++, this.dummy.matrix);
+    }
+    this.capMesh.count = count;
+    this.capMesh.visible = count > 0;
+    this.capMesh.instanceMatrix.needsUpdate = true;
+    this.capMesh.instanceMatrix.clearUpdateRanges();
+    if (count) this.capMesh.instanceMatrix.addUpdateRange(0, count * 16);
   }
 
   private updateMesh(

@@ -101,8 +101,11 @@ export function windmillRotorBladeIds(
 }
 
 export interface WaterwheelRotor {
+  siteId: string;
   center: Entity["p"];
   axis: Entity["p"];
+  hubOwner: number;
+  hubCapCenter: Entity["p"];
   paddles: Entity[];
   spokes: Entity[];
   phase: number;
@@ -182,8 +185,15 @@ export function waterwheelRotors(
       0,
     );
     rotors.push({
+      siteId: site.id,
       center,
       axis,
+      hubOwner: hub.id,
+      hubCapCenter: [
+        hub.p[0] + axis[0] * (hub.s[0] + 0.275),
+        hub.p[1] + axis[1] * (hub.s[1] + 0.275),
+        hub.p[2] + axis[2] * (hub.s[2] + 0.275),
+      ],
       paddles,
       spokes,
       phase: (hash % 628) / 100,

@@ -7,7 +7,7 @@ import { SaveStore, compatible } from "./storage";
 import { SaveWriter } from "./save-writer";
 import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
-import { windmillRotors } from "./render/landmark-geometry";
+import { waterwheelRotors, windmillRotors } from "./render/landmark-geometry";
 import type {
   GameCommand,
   Vec3,
@@ -946,6 +946,29 @@ function inspect() {
         [x, y, z],
       );
       status.textContent = "Windmill rotor and hub review";
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "watermill") {
+    const site = world.sites.find((entry) => entry.kind === "watermill"),
+      rotor = waterwheelRotors(world).find(
+        (entry) => entry.siteId === site?.id,
+      );
+    if (site && rotor) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        [x, y, z] = rotor.center,
+        distance = closeView ? 30 : 48,
+        [sideX, , sideZ] = rotor.axis;
+      inspectionTarget = rotor.center.slice() as Vec3;
+      view.inspectCamera(
+        [x + sideX * distance, y + distance * 0.16, z + sideZ * distance],
+        [x, y, z],
+      );
+      status.textContent = "Waterwheel, paddles, and axle review";
       last = 0;
       return;
     }

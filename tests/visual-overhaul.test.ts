@@ -969,7 +969,9 @@ it("animates windmill sails from existing destructible owners and freezes on sna
   expect(caps.count).toBe(1);
 });
 it("animates waterwheel paddles and spokes through existing owners", async () => {
-  const { waterwheelPartIds } = await import("../src/render/landmark-geometry");
+  const { waterwheelPartIds, waterwheelRotors } = await import(
+    "../src/render/landmark-geometry"
+  );
   const { WaterwheelView } = await import("../src/render/waterwheel-view");
   const block = (id: number, p: number[], s: number[]) => ({
     id,
@@ -1003,6 +1005,8 @@ it("animates waterwheel paddles and spokes through existing owners", async () =>
     22,
     ...Array.from({ length: 16 }, (_, i) => 30 + i),
   ]);
+  expect(waterwheelRotors(world)[0].hubOwner).toBe(20);
+  expect(waterwheelRotors(world)[0].hubCapCenter[0]).toBeCloseTo(83.725);
   const view = new WaterwheelView(
     world,
     new THREE.MeshStandardMaterial(),
@@ -1014,6 +1018,10 @@ it("animates waterwheel paddles and spokes through existing owners", async () =>
   const spokes = view.group.children.find(
     (object) => object.name === "waterwheel-spokes",
   ) as THREE.InstancedMesh;
+  const caps = view.group.children.find(
+    (object) => object.name === "waterwheel-hub-caps",
+  ) as THREE.InstancedMesh;
+  expect(caps.count).toBe(1);
   const before = new THREE.Matrix4();
   paddles.getMatrixAt(0, before);
   view.update(3, new Set());
@@ -1027,9 +1035,13 @@ it("animates waterwheel paddles and spokes through existing owners", async () =>
   view.update(3, new Set([30, 21]));
   expect(paddles.count).toBe(15);
   expect(spokes.count).toBe(1);
+  expect(caps.count).toBe(1);
+  view.update(3, new Set([20]));
+  expect(caps.count).toBe(0);
   view.update(3, new Set());
   expect(paddles.count).toBe(16);
   expect(spokes.count).toBe(2);
+  expect(caps.count).toBe(1);
 });
 it("keeps shared fruit shader upgrades idempotent", async () => {
   const { fruitSurface } = await import("../src/render/fruit-surface");
