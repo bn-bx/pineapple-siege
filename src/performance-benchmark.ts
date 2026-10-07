@@ -965,6 +965,30 @@ function inspect() {
       return;
     }
   }
+  if (kind === "farm") {
+    const closeView =
+        Number(
+          (document.querySelector("#altitude") as HTMLSelectElement).value,
+        ) === 12,
+      barn = world.entities.find(
+        (entity) =>
+          entity.kind === "block" &&
+          /(?:^|-)farm-\d+-barn$/.test(entity.assembly),
+      );
+    if (barn && closeView) {
+      const [x, , barnZ] = barn.p,
+        z = barnZ - 37,
+        y = view.terrain.sample(x, z),
+        across = Math.max(8, Math.min(15, barn.s[0] * 0.58));
+      inspectionTarget = [x, y, z];
+      view.inspectCamera(
+        [x + across * 0.6 + 7, y + 14, z - 23],
+        [x, y + 1.2, z],
+      );
+      last = 0;
+      return;
+    }
+  }
   if (kind === "watchtower") {
     const site = world.sites.find((entry) => entry.kind === "watchtower");
     if (site) {

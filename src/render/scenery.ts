@@ -153,6 +153,7 @@ export class Scenery {
       to: THREE.Vector3,
       thickness: number,
       material: THREE.Material,
+      ground = false,
     ) => {
       const direction = to.clone().sub(from);
       add(
@@ -161,6 +162,8 @@ export class Scenery {
         from.clone().add(to).multiplyScalar(0.5).toArray(),
         [thickness, direction.length() / 2, thickness],
         material,
+        box,
+        ground,
       );
       const piece = lists.get(key)!.pieces.at(-1)!;
       piece.matrix.compose(
@@ -1041,6 +1044,95 @@ export class Scenery {
               }
             }
           }
+          // Three-sided split rails frame the crop rows while leaving the
+          // barn-side entrance open. Each piece follows the existing barn
+          // foundation owner and remains presentation-only scenery.
+          const fieldLeft = bx - across - 2,
+            fieldRight = bx + across + 2,
+            fieldBack = bz - 29,
+            fieldFront = bz - 45,
+            fencePoint = (x: number, z: number) => {
+              const h = terrain.sample(x, z);
+              return {
+                x,
+                z,
+                h,
+                clear: h >= 2 && !this.wet(x, z) && roads(x, z) >= 5,
+              };
+            },
+            fenceLine = (points: { x: number; z: number }[]) => {
+              const sampled = points.map((point) =>
+                  fencePoint(point.x, point.z),
+                ),
+                connected = sampled.slice(0, -1).map((point, index) => {
+                  const next = sampled[index + 1];
+                  if (
+                    !point.clear ||
+                    !next.clear ||
+                    Math.abs(point.h - next.h) > 1.2
+                  )
+                    return false;
+                  for (const t of [0.25, 0.5, 0.75]) {
+                    const x = THREE.MathUtils.lerp(point.x, next.x, t),
+                      z = THREE.MathUtils.lerp(point.z, next.z, t),
+                      h = terrain.sample(x, z);
+                    if (
+                      h < 2 ||
+                      this.wet(x, z) ||
+                      roads(x, z) < 5 ||
+                      Math.abs(h - THREE.MathUtils.lerp(point.h, next.h, t)) >
+                        0.8
+                    )
+                      return false;
+                  }
+                  return true;
+                });
+              for (let i = 0; i < sampled.length; i++) {
+                if (
+                  !sampled[i].clear ||
+                  (!connected[i - 1] && !connected[i])
+                )
+                  continue;
+                add(
+                  "farm-fence-posts",
+                  owner,
+                  [sampled[i].x, sampled[i].h + 0.68, sampled[i].z],
+                  [0.16, 0.68, 0.16],
+                  materials.wood,
+                  box,
+                  true,
+                );
+              }
+              for (let i = 0; i < connected.length; i++) {
+                if (!connected[i]) continue;
+                const from = sampled[i],
+                  to = sampled[i + 1];
+                for (const height of [0.52, 1.02])
+                  addBeam(
+                    "farm-fence-rails",
+                    owner,
+                    new THREE.Vector3(from.x, from.h + height, from.z),
+                    new THREE.Vector3(to.x, to.h + height, to.z),
+                    0.065,
+                    materials.wood,
+                    true,
+                  );
+              }
+            };
+          const sidePoints = (x: number) => {
+            const points: { x: number; z: number }[] = [];
+            for (let z = fieldBack; z > fieldFront; z -= 5)
+              points.push({ x, z });
+            points.push({ x, z: fieldFront });
+            return points;
+          };
+          fenceLine(sidePoints(fieldLeft));
+          fenceLine(sidePoints(fieldRight));
+          const frontPoints: { x: number; z: number }[] = [];
+          for (let x = fieldLeft; x < fieldRight; x += 5)
+            frontPoints.push({ x, z: fieldFront });
+          frontPoints.push({ x: fieldRight, z: fieldFront });
+          fenceLine(frontPoints);
         }
       }
       if (

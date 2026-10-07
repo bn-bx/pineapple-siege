@@ -234,9 +234,21 @@ it("keeps farm crop beds clear of wet ground and tied to a building owner", asyn
     cropBatch = () =>
       scenery.group.children.find(
         (object) => object.name === "scenery:farm-crops",
+      ) as THREE.InstancedMesh | undefined,
+    fencePosts = () =>
+      scenery.group.children.find(
+        (object) => object.name === "scenery:farm-fence-posts",
+      ) as THREE.InstancedMesh | undefined,
+    fenceRails = () =>
+      scenery.group.children.find(
+        (object) => object.name === "scenery:farm-fence-rails",
       ) as THREE.InstancedMesh | undefined;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
   expect(cropBatch()?.count).toBeGreaterThan(0);
+  expect(fencePosts()?.count).toBeGreaterThan(0);
+  expect(fenceRails()?.count).toBeGreaterThan(0);
+  const initialFencePosts = fencePosts()!.count,
+    initialFenceRails = fenceRails()!.count;
   const beds = scenery.group.children.find(
     (object) => object.name === "scenery:farm-beds",
   ) as THREE.InstancedMesh | undefined;
@@ -251,11 +263,18 @@ it("keeps farm crop beds clear of wet ground and tied to a building owner", asyn
   scenery.update(camera, new Set(), 1200, 120, 1, true);
   expect(cropBatch()?.count).toBe(0);
   expect(beds?.count).toBe(0);
+  expect(fencePosts()!.count).toBeLessThan(initialFencePosts);
+  expect(fenceRails()!.count).toBeLessThan(initialFenceRails);
   terrain.flood.fill(0);
   const removed = new Set([owner.id]);
   scenery.update(camera, removed, 1200, 120, 2, true);
   expect(cropBatch()?.count).toBe(0);
   expect(beds?.count).toBe(0);
+  expect(fencePosts()?.count).toBe(0);
+  expect(fenceRails()?.count).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 3, true);
+  expect(fencePosts()?.count).toBeGreaterThan(0);
+  expect(fenceRails()?.count).toBeGreaterThan(0);
   expect(ownedCropCount).toBeGreaterThan(10);
 });
 it.each([
