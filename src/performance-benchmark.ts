@@ -927,6 +927,20 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
+  if (kind === "castle-gate" && world.castles?.[0]) {
+    const castle = world.castles[0],
+      [x, y, z] = castle.landmarks.gate,
+      dx = x - castle.p[0],
+      dz = z - castle.p[2],
+      length = Math.hypot(dx, dz) || 1;
+    inspectionTarget = [x, y, z];
+    view.inspectCamera(
+      [x + (dx / length) * 36, y + 14, z + (dz / length) * 36],
+      [x, y + 8, z],
+    );
+    last = 0;
+    return;
+  }
   if (kind === "aircraft" && snapshot) {
     const p = snapshot.plane.p;
     inspectionTarget = [p[0], p[1], p[2]];
@@ -951,7 +965,9 @@ function inspect() {
     (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
   );
   if (selectedSite) p = selectedSite.p.slice();
-  if (kind === "castle-keep") {
+  if (kind === "castle-gate") {
+    p = (world.castles?.[0]?.landmarks.gate ?? world.landmarks.gate).slice();
+  } else if (kind === "castle-keep") {
     const castle = world.castles?.[0];
     const wall = castle
       ? world.entities.find(

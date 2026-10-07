@@ -655,6 +655,78 @@ export class Scenery {
       if (parts) parts.push(e);
       else assemblies.set(e.assembly, [e]);
     }
+    for (const castle of world.castles ?? []) {
+      const gate = castle.landmarks?.gate,
+        walls = assemblies
+          .get(`${castle.id}:front`)
+          ?.filter(
+            (part) =>
+              part.kind === "block" && part.material === "sandstone",
+          );
+      if (!gate || !walls?.length) continue;
+      const xExtent = Math.max(...walls.map((part) => part.p[0])) -
+          Math.min(...walls.map((part) => part.p[0])),
+        zExtent = Math.max(...walls.map((part) => part.p[2])) -
+          Math.min(...walls.map((part) => part.p[2])),
+        alongAxis = xExtent >= zExtent ? 0 : 2,
+        normalAxis = alongAxis === 0 ? 2 : 0,
+        along = (part: Entity) => part.p[alongAxis],
+        candidates = walls
+          .filter(
+            (part) =>
+              along(part) !== gate[alongAxis] &&
+              Math.abs(part.p[1] - (gate[1] + 2.4)) < 2,
+          )
+          .sort(
+            (a, b) =>
+              Math.abs(along(a) - gate[alongAxis]) -
+              Math.abs(along(b) - gate[alongAxis]),
+          ),
+        left = candidates.find((part) => along(part) < gate[alongAxis]),
+        right = candidates.find((part) => along(part) > gate[alongAxis]);
+      if (!left || !right) continue;
+      const radius = THREE.MathUtils.clamp(
+          (Math.abs(along(left) - gate[alongAxis]) - left.s[alongAxis] +
+            Math.abs(along(right) - gate[alongAxis]) - right.s[alongAxis]) /
+            2,
+          6,
+          12,
+        ),
+        wallNormal = (left.p[normalAxis] + right.p[normalAxis]) / 2,
+        wallDepth = Math.max(left.s[normalAxis], right.s[normalAxis]);
+      for (const outward of [-1, 1]) {
+        const face = wallNormal + outward * (wallDepth + 0.08),
+          point = (t: number) => {
+            const angle = Math.PI - t * Math.PI,
+              result = new THREE.Vector3();
+            result.setComponent(
+              alongAxis,
+              gate[alongAxis] + Math.cos(angle) * radius,
+            );
+            result.y = gate[1] + radius + Math.sin(angle) * radius;
+            result.setComponent(normalAxis, face);
+            return result;
+          };
+        for (let i = 0; i < 16; i++) {
+          const from = point(i / 16),
+            to = point((i + 1) / 16),
+            owner = (from.getComponent(alongAxis) +
+              to.getComponent(alongAxis)) /
+              2 <
+            gate[alongAxis]
+              ? left
+              : right;
+          addBeam(
+            "castle-gate-voussoirs",
+            owner,
+            from,
+            to,
+            0.34,
+            materials.sandstone ?? materials.stone ?? materials.rock,
+          );
+        }
+      }
+    }
     for (const [name, parts] of assemblies) {
       if (!/coastal-ruin/.test(name)) continue;
       for (const owner of parts) {

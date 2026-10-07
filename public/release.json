@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-19",
+  "release": "visual-overhaul-2026-10-06-batch-20",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -29,7 +29,9 @@
     "bounded-water-impact-rings",
     "isolated-water-splash-preview",
     "owner-linked-riverside-bank-reeds",
-    "neutral-coast-sediment-color"
+    "neutral-coast-sediment-color",
+    "owner-linked-castle-gate-arch",
+    "isolated-castle-gate-review-preset"
   ],
   "performanceCertification": "deferred by release instruction"
 }

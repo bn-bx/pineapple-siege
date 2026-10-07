@@ -549,6 +549,46 @@ it("adds sparse arrow slits to castle keep courses with their original owners", 
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(slits()).toBe(8);
 });
+it("frames the castle gate with stone voussoirs owned by its existing wall blocks", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const walls = [-1, 1].map((side, index) => ({
+    id: 400 + index,
+    kind: "block",
+    p: [100 + side * 12, 12.4, 100],
+    s: [4, 2.4, 1.2],
+    material: "sandstone",
+    assembly: "castle-0:front",
+    foundation: false,
+    supports: [],
+  }));
+  const scenery = new Scenery(
+    {
+      paths: [],
+      entities: walls,
+      castles: [{ id: "castle-0", landmarks: { gate: [100, 10, 100] } }],
+    } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+      sandstone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 24, 100),
+    voussoirs = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:castle-gate-voussoirs",
+        ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(voussoirs()).toBe(32);
+  scenery.update(camera, new Set([walls[0].id]), 1200, 120, 1, true);
+  expect(voussoirs()).toBe(16);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(voussoirs()).toBe(32);
+});
 it("caps bridge rail spans with rounded timber tied to each rail owner", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const rail = {
