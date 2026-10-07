@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-17",
+  "release": "visual-overhaul-2026-10-06-batch-18",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -27,7 +27,8 @@
     "isolated-castle-keep-review-preset",
     "human-scale-residents-near-and-distant",
     "bounded-water-impact-rings",
-    "isolated-water-splash-preview"
+    "isolated-water-splash-preview",
+    "owner-linked-riverside-bank-reeds"
   ],
   "performanceCertification": "deferred by release instruction"
 }

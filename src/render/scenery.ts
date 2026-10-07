@@ -58,6 +58,8 @@ export class Scenery {
       roughness: 1,
       color: "#6d7849",
     });
+    const reedMaterial = foliage.clone();
+    reedMaterial.color.set("#93885d");
     const cropMaterial = foliage.clone();
     // The authored leaf mesh has no vertex-color attribute. Keep the forest
     // grass's vertex-color variant for clumps and give crops their own tint.
@@ -98,6 +100,8 @@ export class Scenery {
         );
     };
     foliage.customProgramCacheKey = () => "grass-wind-v1";
+    reedMaterial.onBeforeCompile = foliage.onBeforeCompile;
+    reedMaterial.customProgramCacheKey = () => "grass-wind-v1";
     const add = (
       key: string,
       owner: Entity,
@@ -329,6 +333,7 @@ export class Scenery {
         }
       }
       if (e.kind === "tree") {
+        const riverside = e.treeSpecies === "riverside";
         // Ground dressing is attached to its authoritative tree and resampled
         // after excavation. No plants appear on roads, steep faces or water.
         for (let i = 0; i < 4; i++) {
@@ -345,13 +350,12 @@ export class Scenery {
             Math.abs(h - terrain.sample(px, pz + 2)) > 1.4
           )
             continue;
-          const wet = e.treeSpecies === "riverside";
           add(
-            "grass",
+            riverside ? "riverside-reeds" : "grass",
             e,
             [px, h, pz],
-            [wet ? 1.1 : 0.8, wet ? 1.6 : 0.75, 1],
-            foliage,
+            riverside ? [3.4, 3.2, 3.4] : [0.8, 0.75, 1],
+            riverside ? reedMaterial : foliage,
             clump,
             true,
             angle,

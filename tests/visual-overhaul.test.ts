@@ -127,6 +127,82 @@ it.each(["tree", "rock"])(
     ).toBe(true);
   },
 );
+it("dresses riverside trees with taller bank reeds that follow flood and owner changes", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  let height = 10;
+  const tree = {
+      id: 42,
+      kind: "tree",
+      p: [100, 10, 100],
+      s: [3, 8, 3],
+      material: "foliage",
+      treeSpecies: "riverside",
+      variant: 0.5,
+      assembly: "riverside-grove",
+      foundation: false,
+      supports: [],
+    },
+    terrain = {
+      flood: new Uint8Array(CONFIG.grid * CONFIG.grid),
+      sample: () => height,
+    };
+  const scenery = new Scenery(
+      { paths: [], entities: [tree] } as any,
+      terrain as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(100, 15, 100),
+    reeds = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:riverside-reeds",
+        ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(reeds()).toBe(4);
+  const reedMesh = scenery.group.children.find(
+    (object) => object.name === "scenery:riverside-reeds",
+  ) as THREE.InstancedMesh;
+  expect(
+    (reedMesh.material as THREE.MeshStandardMaterial).color.getHex(),
+  ).toBe(0x93885d);
+  const reedScale = new THREE.Vector3();
+  const reedMatrix = new THREE.Matrix4();
+  reedMesh.getMatrixAt(0, reedMatrix);
+  reedMatrix.decompose(new THREE.Vector3(), new THREE.Quaternion(), reedScale);
+  expect(reedScale.x).toBeGreaterThan(3);
+  expect(reedScale.y).toBeGreaterThan(3);
+  expect(
+    (reedMesh.material as THREE.MeshStandardMaterial).customProgramCacheKey(),
+  ).toBe("grass-wind-v1");
+  const removed = new Set([tree.id]);
+  scenery.update(camera, removed, 1200, 120, 1, true);
+  expect(reeds()).toBe(0);
+  removed.clear();
+  height = 1;
+  scenery.update(camera, removed, 1200, 120, 2, true);
+  expect(reeds()).toBe(0);
+  height = 10;
+  for (let i = 0; i < 4; i++) {
+    const angle = (tree.variant * 17 + i) * 2.399963,
+      radius = 3 + (i * 7 + (tree.id % 13)),
+      x = tree.p[0] + Math.cos(angle) * radius,
+      z = tree.p[2] + Math.sin(angle) * radius;
+    terrain.flood[
+      Math.round(z / CONFIG.spacing) * CONFIG.grid +
+        Math.round(x / CONFIG.spacing)
+    ] = 1;
+  }
+  scenery.update(camera, removed, 1200, 120, 3, true);
+  expect(reeds()).toBe(0);
+  terrain.flood.fill(0);
+  scenery.update(camera, removed, 1200, 120, 4, true);
+  expect(reeds()).toBe(4);
+});
 it("keeps farm crop beds clear of wet ground and tied to a building owner", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const owner = {
