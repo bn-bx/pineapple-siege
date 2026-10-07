@@ -69,6 +69,7 @@ it("retains batched river geometry and continuous flow attributes through bends"
   const mesh = group.children[0] as THREE.Mesh;
   const flow = mesh.geometry.getAttribute("flow");
   expect(flow.count).toBe(mesh.geometry.getAttribute("position").count);
+  expect(mesh.geometry.getAttribute("position").count).toBe(8);
   for (let i = 0; i < flow.count; i++)
     expect(Math.hypot(flow.getX(i), flow.getY(i))).toBeCloseTo(1);
   expect(points).toEqual([
@@ -78,5 +79,37 @@ it("retains batched river geometry and continuous flow attributes through bends"
   ]);
   expect((mesh.material as THREE.Material).transparent).toBe(false);
   mesh.geometry.dispose();
+  (mesh.material as THREE.Material).dispose();
+});
+it("adds one surface pool only where two rivers share a real junction", () => {
+  const group = makeRivers(
+    {
+      rivers: [
+        {
+          id: "upper",
+          width: 8,
+          points: [
+            [0, 12, 0],
+            [40, 10, 0],
+          ],
+        },
+        {
+          id: "lower",
+          width: 10,
+          points: [
+            [40, 10, 0],
+            [40, 8, 40],
+          ],
+        },
+      ],
+    } as any,
+    {
+      heightTexture: new THREE.Texture(),
+      floodTexture: new THREE.Texture(),
+    } as any,
+  );
+  const mesh = group.children[0] as THREE.Mesh;
+  expect(mesh.geometry.getAttribute("position").count).toBe(22);
+  for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
   (mesh.material as THREE.Material).dispose();
 });

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-75",
+  "release": "visual-overhaul-2026-10-07-batch-76",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -117,7 +117,10 @@
     "owner-linked-watchtower-signal-brazier",
     "isolated-watchtower-beacon-review-camera",
     "owner-linked-bridge-pier-courses-and-footings",
-    "dry-bank-bridge-abutment-placement"
+    "dry-bank-bridge-abutment-placement",
+    "junction-only-river-join-pools",
+    "continuous-river-surface-normals-and-depth-shading",
+    "flow-driven-shallow-bank-foam"
   ],
   "performanceCertification": "deferred by release instruction"
 }

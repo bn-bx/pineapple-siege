@@ -5,6 +5,14 @@ import type { TerrainView } from "./terrain-view";
 import { CONFIG } from "../config";
 import { waterPrepass } from "./water-prepass";
 
+/** Water remains a continuous surface; procedural ripples provide its normals. */
+function flattenWaterNormals(geometry: THREE.BufferGeometry) {
+  const positions = geometry.getAttribute("position"),
+    normals = new Float32Array(positions.count * 3);
+  for (let i = 0; i < positions.count; i++) normals[i * 3 + 1] = 1;
+  geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+}
+
 /** Shared miters keep adjacent water reaches joined at bends without wider pools. */
 export function riverCrossSections(
   points: readonly (readonly [number, number, number])[],
@@ -134,7 +142,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         "#include <clipping_planes_fragment>",
         `#include <clipping_planes_fragment>\nvec2 riverUV=(riverPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.;float riverDepth=riverPosition.y-texture2D(uTerrain,riverUV).r;
         if(texture2D(uWet,riverUV).r<.5 || riverDepth<=0.)discard;
-        diffuseColor.rgb=mix(diffuseColor.rgb*1.5,diffuseColor.rgb*.65,smoothstep(.3,5.,riverDepth));
+        diffuseColor.rgb*=1.05-.13*smoothstep(.35,7.,riverDepth);
         // Advect continuous world-space waves along the local flow. Dotting
         // absolute coordinates with a changing tangent creates striped bends.
         vec2 flowDirection=normalize(riverFlow);
@@ -148,9 +156,10 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         diffuseColor.rgb*=.97+.025*current+.035*broad;
         // A narrow, moving pale-water edge makes shallow reaches readable
         // without a second texture sample, mesh, or reflection pass.
-        float shoal=(1.-smoothstep(.35,1.8,riverDepth))*smoothstep(.05,.28,riverDepth);
-        float riverFoam=shoal*smoothstep(.36,.82,.55+current*.32+broad*.12);
-        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.58,.66,.62),riverFoam*.34);
+        float shoal=(1.-smoothstep(.45,3.8,riverDepth))*smoothstep(.035,.42,riverDepth);
+        float foamCrest=smoothstep(.24,.74,.46+current*.42+broad*.18);
+        float riverFoam=shoal*(.22+.78*foamCrest);
+        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.82,.87,.80),riverFoam*.58);
         vec2 ripple=(vec2(.71,.43)*cos(phaseA)*rippleA+vec2(-.31,1.1)*sin(phaseB)*rippleB)*.018;
         vec3 riverNormal=normalize(vec3(ripple.x,1.,ripple.y));`,
       )
@@ -169,6 +178,39 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         totalEmissiveRadiance+=uRiverSun*riverFoam*.08;`,
       );
   };
+  const riverList = world.rivers ?? [],
+    junctions = new Map<
+      string,
+      {
+        p: readonly [number, number, number];
+        ids: Set<string>;
+        width: number;
+        flow: readonly [number, number];
+      }
+    >();
+  for (const [riverIndex, river] of riverList.entries())
+    for (let i = 0; i < river.points.length; i++) {
+      const point = river.points[i],
+        key = `${point[0]}:${point[1]}:${point[2]}`,
+        before = river.points[Math.max(0, i - 1)],
+        after = river.points[Math.min(river.points.length - 1, i + 1)],
+        dx = after[0] - before[0],
+        dz = after[2] - before[2],
+        length = Math.hypot(dx, dz) || 1;
+      let join = junctions.get(key);
+      if (!join)
+        junctions.set(
+          key,
+          (join = {
+            p: point,
+            ids: new Set(),
+            width: river.width,
+            flow: [dx / length, dz / length],
+          }),
+        );
+      join.ids.add(river.id ?? `river-${riverIndex}`);
+      join.width = Math.max(join.width, river.width);
+    }
   const tiles = new Map<number, THREE.BufferGeometry[]>();
   const append = (geometry: THREE.BufferGeometry, x: number, z: number) => {
     const key = Math.floor(z / 256) * 24 + Math.floor(x / 256);
@@ -176,7 +218,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
     if (!list) tiles.set(key, (list = []));
     list.push(geometry);
   };
-  for (const river of world.rivers ?? []) {
+  for (const river of riverList) {
     const crossSections = riverCrossSections(river.points, river.width);
     // Separate reaches retain tight culling bounds and meet at shared corner pools.
     for (let i = 1; i < river.points.length; i++) {
@@ -228,19 +270,26 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       );
       geometry.setIndex([0, 2, 1, 1, 2, 3]);
       geometry.computeVertexNormals();
+      flattenWaterNormals(geometry);
       append(geometry, (a[0] + b[0]) / 2, (a[2] + b[2]) / 2);
-      const pool = new THREE.CircleGeometry(river.width, 12);
-      pool.deleteAttribute("uv");
-      const flow = new Float32Array(pool.attributes.position.count * 2);
-      for (let j = 0; j < flow.length; j += 2) {
-        flow[j] = startFlow[0];
-        flow[j + 1] = startFlow[1];
-      }
-      pool.setAttribute("flow", new THREE.BufferAttribute(flow, 2));
-      pool.rotateX(-Math.PI / 2);
-      pool.translate(a[0], a[1] + 0.04, a[2]);
-      append(pool, a[0], a[2]);
     }
+  }
+  // A pool is needed only where separate river reaches actually meet. Adding
+  // one at every sample overlaps the strips and causes broad polygon patches.
+  for (const join of junctions.values()) {
+    if (join.ids.size < 2) continue;
+    const pool = new THREE.CircleGeometry(join.width, 12);
+    pool.deleteAttribute("uv");
+    const flow = new Float32Array(pool.attributes.position.count * 2);
+    for (let i = 0; i < flow.length; i += 2) {
+      flow[i] = join.flow[0];
+      flow[i + 1] = join.flow[1];
+    }
+    pool.setAttribute("flow", new THREE.BufferAttribute(flow, 2));
+    pool.rotateX(-Math.PI / 2);
+    flattenWaterNormals(pool);
+    pool.translate(join.p[0], join.p[1] + 0.07, join.p[2]);
+    append(pool, join.p[0], join.p[2]);
   }
   for (const list of tiles.values()) {
     const geometry = mergeGeometries(list)!;

@@ -17,8 +17,14 @@ it("merges river reaches into spatial batches while retaining original elevation
   const heights: number[] = [];
   for (const child of group.children) {
     const mesh = child as THREE.Mesh;
-    const p = mesh.geometry.getAttribute("position");
-    for (let i = 0; i < p.count; i++) heights.push(p.getY(i));
+    const p = mesh.geometry.getAttribute("position"),
+      normal = mesh.geometry.getAttribute("normal");
+    for (let i = 0; i < p.count; i++) {
+      heights.push(p.getY(i));
+      expect(normal.getX(i)).toBeCloseTo(0);
+      expect(normal.getY(i)).toBeCloseTo(1);
+      expect(normal.getZ(i)).toBeCloseTo(0);
+    }
     expect(mesh.matrixAutoUpdate).toBe(false);
   }
   expect(Math.max(...heights)).toBeCloseTo(80.05, 4);
@@ -32,7 +38,8 @@ it("merges river reaches into spatial batches while retaining original elevation
     (group.children[0] as THREE.Mesh).material as THREE.Material
   ).onBeforeCompile(shader, {} as any);
   expect(shader.fragmentShader).toContain("texture2D(uWet,riverUV).r<.5");
+  expect(shader.fragmentShader).toContain("1.05-.13*smoothstep(.35,7.,riverDepth)");
   expect(shader.fragmentShader).toContain("float riverFoam=shoal*");
-  expect(shader.fragmentShader).toContain("vec3(.58,.66,.62),riverFoam*.34");
+  expect(shader.fragmentShader).toContain("vec3(.82,.87,.80),riverFoam*.58");
   for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
 });
