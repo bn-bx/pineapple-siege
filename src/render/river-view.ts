@@ -63,6 +63,11 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         float current=sin(phaseA*.3)*sin(phaseB*.25);
         float broad=sin(dot(advected,vec2(.045,.07)));
         diffuseColor.rgb*=.97+.025*current+.035*broad;
+        // A narrow, moving pale-water edge makes shallow reaches readable
+        // without a second texture sample, mesh, or reflection pass.
+        float shoal=(1.-smoothstep(.35,1.8,riverDepth))*smoothstep(.05,.28,riverDepth);
+        float riverFoam=shoal*smoothstep(.36,.82,.55+current*.32+broad*.12);
+        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.58,.66,.62),riverFoam*.34);
         vec2 ripple=(vec2(.71,.43)*cos(phaseA)*rippleA+vec2(-.31,1.1)*sin(phaseB)*rippleB)*.018;
         vec3 riverNormal=normalize(vec3(ripple.x,1.,ripple.y));`,
       )
@@ -78,9 +83,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         float fresnel=.025+.65*pow(1.-max(dot(toEye,riverNormal),0.),5.);
         float glint=pow(max(dot(toEye,reflect(-uRiverSunDirection,riverNormal)),0.),100.);
         totalEmissiveRadiance+=uRiverSky*fresnel*.55+uRiverSun*glint*.65;
-        float bank=(1.-smoothstep(.1,.8,riverDepth))*smoothstep(0.,.12,riverDepth);
-        float foam=smoothstep(.35,.85,current)*(.65+.35*broad);
-        totalEmissiveRadiance+=uRiverSun*bank*foam*.12;`,
+        totalEmissiveRadiance+=uRiverSun*riverFoam*.08;`,
       );
   };
   const tiles = new Map<number, THREE.BufferGeometry[]>();

@@ -32,5 +32,7 @@ it("merges river reaches into spatial batches while retaining original elevation
     (group.children[0] as THREE.Mesh).material as THREE.Material
   ).onBeforeCompile(shader, {} as any);
   expect(shader.fragmentShader).toContain("texture2D(uWet,riverUV).r<.5");
+  expect(shader.fragmentShader).toContain("float riverFoam=shoal*");
+  expect(shader.fragmentShader).toContain("vec3(.58,.66,.62),riverFoam*.34");
   for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
 });
