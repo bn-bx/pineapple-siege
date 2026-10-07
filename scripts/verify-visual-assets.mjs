@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {readFile,stat} from 'node:fs/promises';
+import path from 'node:path';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
 import {createHash} from 'node:crypto';
@@ -42,3 +43,34 @@ for (const [path, hash] of [['art/materials/pineapple-skin-v1.png', fruitRecord.
  if (createHash('sha256').update(bytes).digest('hex') !== hash) throw Error(`Fruit texture provenance mismatch: ${path}`);
 }
 console.log('Verified generated fruit source and locally compressed runtime texture.');
+
+const runtimeManifest = JSON.parse(await readFile('src/runtime-assets.json', 'utf8'));
+if (runtimeManifest.version !== 1 || runtimeManifest.cachePolicy !== 'sha256-filename') {
+ throw Error('Runtime asset manifest has an unsupported cache identity policy');
+}
+const runtimeAssets = [
+ runtimeManifest.modelLibrary,
+ runtimeManifest.fruitSkin,
+ runtimeManifest.puffAtlas,
+ ...Object.values(runtimeManifest.surfaces).flatMap((channels) => Object.values(channels)),
+ ...Object.values(runtimeManifest.foliage),
+ ...Object.values(runtimeManifest.audio),
+];
+let hashedAssetCount = 0;
+for (const asset of runtimeAssets) {
+ const bytes = await readFile(`public${asset.path}`);
+ const actualHash = createHash('sha256').update(bytes).digest('hex');
+ if (actualHash !== asset.sha256) throw Error(`Hashed runtime asset changed: ${asset.path}`);
+ if (!path.basename(asset.path).includes(`.${actualHash}.`)) throw Error(`Runtime filename does not carry its content hash: ${asset.path}`);
+ await stat(`public${asset.source}`); // Keep legacy immutable URLs available to already released clients.
+ hashedAssetCount++;
+}
+const decoderSetHash = runtimeManifest.decoders.sha256;
+if (!runtimeManifest.decoders.path.endsWith(`/${decoderSetHash}/`)) throw Error('Decoder directory is not content-addressed');
+for (const [name, record] of Object.entries(runtimeManifest.decoders.files)) {
+ const bytes = await readFile(`public${runtimeManifest.decoders.path}${name}`);
+ if (createHash('sha256').update(bytes).digest('hex') !== record.sha256) throw Error(`Decoder hash mismatch: ${name}`);
+ await stat(`public${record.source}`);
+ hashedAssetCount++;
+}
+console.log(`Verified ${hashedAssetCount} content-hashed runtime files; legacy immutable URLs remain available.`);

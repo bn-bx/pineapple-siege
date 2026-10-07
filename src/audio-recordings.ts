@@ -1,12 +1,14 @@
+import RUNTIME_ASSETS from "./runtime-assets.json";
+
 export const AUDIO_RECORDINGS = {
-  turbine: "/assets/audio/turbine.wav",
-  wind: "/assets/audio/wind.wav",
-  forest: "/assets/audio/forest.wav",
-  river: "/assets/audio/river.wav",
-  explosion: "/assets/audio/explosion.wav",
-  wood: "/assets/audio/wood.ogg",
-  stone: "/assets/audio/stone.ogg",
-  cheer: "/assets/audio/cheer.ogg",
+  turbine: RUNTIME_ASSETS.audio.turbine.path,
+  wind: RUNTIME_ASSETS.audio.wind.path,
+  forest: RUNTIME_ASSETS.audio.forest.path,
+  river: RUNTIME_ASSETS.audio.river.path,
+  explosion: RUNTIME_ASSETS.audio.explosion.path,
+  wood: RUNTIME_ASSETS.audio.wood.path,
+  stone: RUNTIME_ASSETS.audio.stone.path,
+  cheer: RUNTIME_ASSETS.audio.cheer.path,
 } as const;
 export type Recording = keyof typeof AUDIO_RECORDINGS;
 /** Decode outside the simulation; unavailable recordings retain audible fallbacks. */

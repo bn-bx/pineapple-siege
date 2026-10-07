@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "world": "node scripts/generate-world.mjs",
-    "dev": "node scripts/generate-world.mjs && vite --host 127.0.0.1",
-    "build": "node scripts/generate-world.mjs && tsc --noEmit && vite build",
+    "dev": "node scripts/generate-world.mjs && node scripts/hash-runtime-assets.mjs && vite --host 127.0.0.1",
+    "build": "node scripts/generate-world.mjs && node scripts/hash-runtime-assets.mjs && tsc --noEmit && vite build && node scripts/verify-built-runtime-assets.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node scripts/generate-world.mjs && node scripts/generate-legacy-world.mjs && vitest run --maxWorkers=1",
     "benchmark:performance": "node scripts/benchmark-performance.mjs",
@@ -14,7 +14,8 @@
     "benchmark:debris": "node scripts/generate-world.mjs && node scripts/benchmark-simple-debris.mjs",
     "benchmark:destruction": "node scripts/generate-world.mjs && node scripts/benchmark-destruction.mjs",
     "assets:compress": "node scripts/compress-visual-assets.mjs",
-    "assets:verify": "node scripts/verify-visual-assets.mjs"
+    "assets:hash": "node scripts/hash-runtime-assets.mjs",
+    "assets:verify": "node scripts/hash-runtime-assets.mjs && node scripts/verify-visual-assets.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.3",

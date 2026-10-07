@@ -3,6 +3,7 @@ dist/
 public/world.bin
 public/world-*.bin
 public/world.json
+public/assets/runtime/
 *.tsbuildinfo
 .DS_Store
 

@@ -1,0 +1,262 @@
+{
+  "version": 1,
+  "cachePolicy": "sha256-filename",
+  "modelLibrary": {
+    "path": "/assets/runtime/models/siege-library.bd7c44d27d7cb84250830ac323dbf7ece676041cb765e3c78b51a1f208be9216.glb",
+    "sha256": "bd7c44d27d7cb84250830ac323dbf7ece676041cb765e3c78b51a1f208be9216",
+    "source": "/assets/models/siege-library.glb"
+  },
+  "fruitSkin": {
+    "path": "/assets/runtime/materials/pineapple-skin-v1.5b3c1e3caacd5cf4cb64479967744cb86516302dbd1ef6e6850b858bf3dd0a97.ktx2",
+    "sha256": "5b3c1e3caacd5cf4cb64479967744cb86516302dbd1ef6e6850b858bf3dd0a97",
+    "source": "/assets/materials/pineapple-skin-v1.ktx2"
+  },
+  "surfaces": {
+    "stone": {
+      "color": {
+        "path": "/assets/runtime/materials/stone-color.060e4c4d07bf33034d1c7779cb649994461b6f8b0ae3bab0e15fb39855665873.ktx2",
+        "sha256": "060e4c4d07bf33034d1c7779cb649994461b6f8b0ae3bab0e15fb39855665873",
+        "source": "/assets/materials/stone-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/stone-normal.2f6c03737aaac82c688ee92f0d28942f70583fa6ddab9c7f6b1d27bd02bdbf4e.ktx2",
+        "sha256": "2f6c03737aaac82c688ee92f0d28942f70583fa6ddab9c7f6b1d27bd02bdbf4e",
+        "source": "/assets/materials/stone-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/stone-orm.d36a5b106a41334b56cfee9a408d763b2a6da45722f1fbf1b7b0d77d4da97190.ktx2",
+        "sha256": "d36a5b106a41334b56cfee9a408d763b2a6da45722f1fbf1b7b0d77d4da97190",
+        "source": "/assets/materials/stone-orm.ktx2"
+      }
+    },
+    "wood": {
+      "color": {
+        "path": "/assets/runtime/materials/wood-color.ee7ac6471dc2eec0870d6bf20c4ae23ec2effea5c6dc2d695d03969d83dafda5.ktx2",
+        "sha256": "ee7ac6471dc2eec0870d6bf20c4ae23ec2effea5c6dc2d695d03969d83dafda5",
+        "source": "/assets/materials/wood-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/wood-normal.7e29e680cb7248d6a7eaebff44a7272a3c9d61359473fa3222dd17c4987faabe.ktx2",
+        "sha256": "7e29e680cb7248d6a7eaebff44a7272a3c9d61359473fa3222dd17c4987faabe",
+        "source": "/assets/materials/wood-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/wood-orm.b353cae2c6537c6b10ac1ec9c85a613edefe4d69a848d621035f0cdd17ebef43.ktx2",
+        "sha256": "b353cae2c6537c6b10ac1ec9c85a613edefe4d69a848d621035f0cdd17ebef43",
+        "source": "/assets/materials/wood-orm.ktx2"
+      }
+    },
+    "grass": {
+      "color": {
+        "path": "/assets/runtime/materials/grass-color.b9efb405616940d897df94c1aad00de10d579669c14cd4031ca1737b580eb6e4.ktx2",
+        "sha256": "b9efb405616940d897df94c1aad00de10d579669c14cd4031ca1737b580eb6e4",
+        "source": "/assets/materials/grass-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/grass-normal.34d9e600a035fd9d80c4b46ca32a3a4ae1e155fbddd06985e618cdaa7f412f01.ktx2",
+        "sha256": "34d9e600a035fd9d80c4b46ca32a3a4ae1e155fbddd06985e618cdaa7f412f01",
+        "source": "/assets/materials/grass-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/grass-orm.a4314cbe57f8a883bfb293b593ed2f765d38497dcb0d7be038dcefe74a0a9a7a.ktx2",
+        "sha256": "a4314cbe57f8a883bfb293b593ed2f765d38497dcb0d7be038dcefe74a0a9a7a",
+        "source": "/assets/materials/grass-orm.ktx2"
+      }
+    },
+    "rock": {
+      "color": {
+        "path": "/assets/runtime/materials/rock-color.0febf4be355d449d4d3c8b676522c0d8cbe7d91b5b855b43ea9100e88044e670.ktx2",
+        "sha256": "0febf4be355d449d4d3c8b676522c0d8cbe7d91b5b855b43ea9100e88044e670",
+        "source": "/assets/materials/rock-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/rock-normal.0feffdaf7de07dee8e55f51088610823c7b19cf2b8db6839e55f63ae414ac1ae.ktx2",
+        "sha256": "0feffdaf7de07dee8e55f51088610823c7b19cf2b8db6839e55f63ae414ac1ae",
+        "source": "/assets/materials/rock-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/rock-orm.c03ae10c6cfa6119d5eecddac4f98e9a4006c36bf874a040f281e1d840760d80.ktx2",
+        "sha256": "c03ae10c6cfa6119d5eecddac4f98e9a4006c36bf874a040f281e1d840760d80",
+        "source": "/assets/materials/rock-orm.ktx2"
+      }
+    },
+    "soil": {
+      "color": {
+        "path": "/assets/runtime/materials/soil-color.8e89d54ae075443b8bb2e2787b7813cc921474133e14765345b70c222571d33b.ktx2",
+        "sha256": "8e89d54ae075443b8bb2e2787b7813cc921474133e14765345b70c222571d33b",
+        "source": "/assets/materials/soil-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/soil-normal.a7fbf71f83e0a7424e0786f0f25f5f732ac2162ecf02d26a9d958c964ac347b2.ktx2",
+        "sha256": "a7fbf71f83e0a7424e0786f0f25f5f732ac2162ecf02d26a9d958c964ac347b2",
+        "source": "/assets/materials/soil-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/soil-orm.a5939fa544bcc17797e62087ea17785ec4bc4ab739aacf12ee4280808df02380.ktx2",
+        "sha256": "a5939fa544bcc17797e62087ea17785ec4bc4ab739aacf12ee4280808df02380",
+        "source": "/assets/materials/soil-orm.ktx2"
+      }
+    },
+    "sand": {
+      "color": {
+        "path": "/assets/runtime/materials/sand-color.adb310ecc4956c6524e6110635d5829459c23cf9eeffb90c99d23c86720dbf46.ktx2",
+        "sha256": "adb310ecc4956c6524e6110635d5829459c23cf9eeffb90c99d23c86720dbf46",
+        "source": "/assets/materials/sand-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/sand-normal.a8bff31349b0395b67f2abc8acf1fbc9a2963d3b808289859669f756a6dc7b63.ktx2",
+        "sha256": "a8bff31349b0395b67f2abc8acf1fbc9a2963d3b808289859669f756a6dc7b63",
+        "source": "/assets/materials/sand-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/sand-orm.8a64fe5271499694909d6d744546bc0818e60c69ec766d2da18f6374955f23bd.ktx2",
+        "sha256": "8a64fe5271499694909d6d744546bc0818e60c69ec766d2da18f6374955f23bd",
+        "source": "/assets/materials/sand-orm.ktx2"
+      }
+    },
+    "roof": {
+      "color": {
+        "path": "/assets/runtime/materials/roof-color.ed49c09308f1d6a7afaba6f34e0311d1731f8ad2e2900546be0b0673deffaad2.ktx2",
+        "sha256": "ed49c09308f1d6a7afaba6f34e0311d1731f8ad2e2900546be0b0673deffaad2",
+        "source": "/assets/materials/roof-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/roof-normal.d6832157a6b3fd7e4bf2c07e2413aeb0aec01bdd37285ba32ae86bbfbbbae0cf.ktx2",
+        "sha256": "d6832157a6b3fd7e4bf2c07e2413aeb0aec01bdd37285ba32ae86bbfbbbae0cf",
+        "source": "/assets/materials/roof-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/roof-orm.ab46223172fa81bfc7ef02e80bf542f173c7e87f62b7f94925649359a23fbccd.ktx2",
+        "sha256": "ab46223172fa81bfc7ef02e80bf542f173c7e87f62b7f94925649359a23fbccd",
+        "source": "/assets/materials/roof-orm.ktx2"
+      }
+    },
+    "bark": {
+      "color": {
+        "path": "/assets/runtime/materials/bark-color.18057c1f5ba1ddf677842650a61f8df4daf2509bed2b6df297a332b05707bcaa.ktx2",
+        "sha256": "18057c1f5ba1ddf677842650a61f8df4daf2509bed2b6df297a332b05707bcaa",
+        "source": "/assets/materials/bark-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/bark-normal.ded887c8eb696d929f2676e0ef0c0b7924e8ccf032dd7cd633dd8d7039aeef59.ktx2",
+        "sha256": "ded887c8eb696d929f2676e0ef0c0b7924e8ccf032dd7cd633dd8d7039aeef59",
+        "source": "/assets/materials/bark-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/bark-orm.191c795293a679fd5dd39c1cdd4692fd922c6ca4df83fd80da1e9c36f807f3bb.ktx2",
+        "sha256": "191c795293a679fd5dd39c1cdd4692fd922c6ca4df83fd80da1e9c36f807f3bb",
+        "source": "/assets/materials/bark-orm.ktx2"
+      }
+    },
+    "cloth": {
+      "color": {
+        "path": "/assets/runtime/materials/cloth-color.2c74806c6c1cf368ec5ea6ee637f5f77ffa3addcfbe7940b735afb719f0f2e93.ktx2",
+        "sha256": "2c74806c6c1cf368ec5ea6ee637f5f77ffa3addcfbe7940b735afb719f0f2e93",
+        "source": "/assets/materials/cloth-color.ktx2"
+      },
+      "normal": {
+        "path": "/assets/runtime/materials/cloth-normal.4d663e8f0a02d2d3ecdf8965057c5c680cdf4944827fbae0333bb40f1da4e4e6.ktx2",
+        "sha256": "4d663e8f0a02d2d3ecdf8965057c5c680cdf4944827fbae0333bb40f1da4e4e6",
+        "source": "/assets/materials/cloth-normal.ktx2"
+      },
+      "orm": {
+        "path": "/assets/runtime/materials/cloth-orm.577edd0851ecc0367a9450e5b1436a22e97d091012e47bb0546ab59d1e77b39e.ktx2",
+        "sha256": "577edd0851ecc0367a9450e5b1436a22e97d091012e47bb0546ab59d1e77b39e",
+        "source": "/assets/materials/cloth-orm.ktx2"
+      }
+    }
+  },
+  "foliage": {
+    "pine": {
+      "path": "/assets/runtime/foliage/pine.22f264451d520878b1f88c484ef77bd291f5dd3672f795aa37941e454222b170.ktx2",
+      "sha256": "22f264451d520878b1f88c484ef77bd291f5dd3672f795aa37941e454222b170",
+      "source": "/assets/foliage/pine.ktx2"
+    },
+    "broadleaf": {
+      "path": "/assets/runtime/foliage/broadleaf.cd8dacd860343fe34ec5e273cfd66922db0e6ef1d234995ed4b8fbe4bade5ff8.ktx2",
+      "sha256": "cd8dacd860343fe34ec5e273cfd66922db0e6ef1d234995ed4b8fbe4bade5ff8",
+      "source": "/assets/foliage/broadleaf.ktx2"
+    },
+    "grass": {
+      "path": "/assets/runtime/foliage/grass.ef432c36488ca39fbfa686443e1484794a5ddc093bb63bec7d02fbb1a1f40be4.ktx2",
+      "sha256": "ef432c36488ca39fbfa686443e1484794a5ddc093bb63bec7d02fbb1a1f40be4",
+      "source": "/assets/foliage/grass.ktx2"
+    },
+    "pine-impostor": {
+      "path": "/assets/runtime/foliage/pine-impostor.d2f700191bfd8324ecf337f2be422ee174fcd80cd69c21bd66aba38de8915c5a.ktx2",
+      "sha256": "d2f700191bfd8324ecf337f2be422ee174fcd80cd69c21bd66aba38de8915c5a",
+      "source": "/assets/foliage/pine-impostor.ktx2"
+    },
+    "broadleaf-impostor": {
+      "path": "/assets/runtime/foliage/broadleaf-impostor.78124f4470476ccee469bd374646a77740dce5e9584679234a8885bfca59cbe9.ktx2",
+      "sha256": "78124f4470476ccee469bd374646a77740dce5e9584679234a8885bfca59cbe9",
+      "source": "/assets/foliage/broadleaf-impostor.ktx2"
+    },
+    "riverside-impostor": {
+      "path": "/assets/runtime/foliage/riverside-impostor.f186cdc3b87e27a46c4b3925609ab8874b528607af3d3ff54e141ba8de564096.ktx2",
+      "sha256": "f186cdc3b87e27a46c4b3925609ab8874b528607af3d3ff54e141ba8de564096",
+      "source": "/assets/foliage/riverside-impostor.ktx2"
+    }
+  },
+  "puffAtlas": {
+    "path": "/assets/runtime/particles/puff-atlas.5d3bb8e3c8e5dd8c360c07331e74e25204f108498ad259b9b17797c0a51677bd.ktx2",
+    "sha256": "5d3bb8e3c8e5dd8c360c07331e74e25204f108498ad259b9b17797c0a51677bd",
+    "source": "/assets/particles/puff-atlas.ktx2"
+  },
+  "decoders": {
+    "path": "/assets/runtime/decoders/52eaae3b98f0b45b3871ac38ae34dde26e88f27adbd3e3bf6740301cfb52abc1/",
+    "sha256": "52eaae3b98f0b45b3871ac38ae34dde26e88f27adbd3e3bf6740301cfb52abc1",
+    "files": {
+      "basis_transcoder.js": {
+        "sha256": "8478b5b6d6b74e7d3082b89f6417321d8d1dc0307f2b30d4484bb11b441696a1",
+        "source": "/assets/decoders/basis_transcoder.js"
+      },
+      "basis_transcoder.wasm": {
+        "sha256": "6cf17dc889352c42e9acf8897107978d127005fe3386c36a0e3845e27967630a",
+        "source": "/assets/decoders/basis_transcoder.wasm"
+      }
+    }
+  },
+  "audio": {
+    "turbine": {
+      "path": "/assets/runtime/audio/turbine.f07872f70e185994c037eb8a088f17381aac0578de6fe235e2a87683f0bd5648.wav",
+      "sha256": "f07872f70e185994c037eb8a088f17381aac0578de6fe235e2a87683f0bd5648",
+      "source": "/assets/audio/turbine.wav"
+    },
+    "wind": {
+      "path": "/assets/runtime/audio/wind.3bc1f11ed228fcac3dfe7a5a5797f9c4b98039fc22cbe0ff667ee51cbc8681cf.wav",
+      "sha256": "3bc1f11ed228fcac3dfe7a5a5797f9c4b98039fc22cbe0ff667ee51cbc8681cf",
+      "source": "/assets/audio/wind.wav"
+    },
+    "forest": {
+      "path": "/assets/runtime/audio/forest.0677d5760c585c721306b671d644bbd626a715be650eb7441d1d1445e565dd9d.wav",
+      "sha256": "0677d5760c585c721306b671d644bbd626a715be650eb7441d1d1445e565dd9d",
+      "source": "/assets/audio/forest.wav"
+    },
+    "river": {
+      "path": "/assets/runtime/audio/river.098d0dd618b9f2d8d35086c40f444c02dc8fe13f385693793d3dc0054ab39194.wav",
+      "sha256": "098d0dd618b9f2d8d35086c40f444c02dc8fe13f385693793d3dc0054ab39194",
+      "source": "/assets/audio/river.wav"
+    },
+    "explosion": {
+      "path": "/assets/runtime/audio/explosion.9f65c9b93781eaa6885ca5399cdb9190b1b4d5a6364e3e8e86716ad2887d50c7.wav",
+      "sha256": "9f65c9b93781eaa6885ca5399cdb9190b1b4d5a6364e3e8e86716ad2887d50c7",
+      "source": "/assets/audio/explosion.wav"
+    },
+    "wood": {
+      "path": "/assets/runtime/audio/wood.4ed1587394af8adde4fe6443ca6367a16b6dbb8e5e09d39c96df608de32c5d32.ogg",
+      "sha256": "4ed1587394af8adde4fe6443ca6367a16b6dbb8e5e09d39c96df608de32c5d32",
+      "source": "/assets/audio/wood.ogg"
+    },
+    "stone": {
+      "path": "/assets/runtime/audio/stone.b645f35d21194e7855dd4a5405b1e8e6bec070731b92df6abcb202676b8e9f2e.ogg",
+      "sha256": "b645f35d21194e7855dd4a5405b1e8e6bec070731b92df6abcb202676b8e9f2e",
+      "source": "/assets/audio/stone.ogg"
+    },
+    "cheer": {
+      "path": "/assets/runtime/audio/cheer.10d9f614307127a8c2b2b129e9a291b6071c8fc91f1fed4916f78ad47c956b25.ogg",
+      "sha256": "10d9f614307127a8c2b2b129e9a291b6071c8fc91f1fed4916f78ad47c956b25",
+      "source": "/assets/audio/cheer.ogg"
+    }
+  }
+}

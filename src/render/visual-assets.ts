@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import type { Material } from "../types";
+import RUNTIME_ASSETS from "../runtime-assets.json";
 
 export type SurfaceFamily =
   | "stone"
@@ -35,9 +36,9 @@ export interface VisualAssetManifest {
   decoders: { texture: string; geometry: "bundled-meshopt" };
 }
 export const VISUAL_ASSETS: VisualAssetManifest = {
-  version: 10,
-  modelLibrary: "/assets/models/siege-library.glb?v=10",
-  fruitSkin: "/assets/materials/pineapple-skin-v1.ktx2",
+  version: 11,
+  modelLibrary: RUNTIME_ASSETS.modelLibrary.path,
+  fruitSkin: RUNTIME_ASSETS.fruitSkin.path,
   surfaces: [
     "stone",
     "wood",
@@ -52,7 +53,7 @@ export const VISUAL_ASSETS: VisualAssetManifest = {
   detailLevels: [0, 1, 2],
   ownership: "existing-entity-id",
   animation: "snapshot-timeline",
-  decoders: { texture: "/assets/decoders/", geometry: "bundled-meshopt" },
+  decoders: { texture: RUNTIME_ASSETS.decoders.path, geometry: "bundled-meshopt" },
   families: (
     [
       ["module", "stone"],
@@ -119,7 +120,7 @@ export class VisualAssets {
   private ownedTextures = new Set<THREE.Texture>();
   constructor(renderer: THREE.WebGLRenderer) {
     this.loader = new KTX2Loader()
-      .setTranscoderPath("/assets/decoders/")
+      .setTranscoderPath(VISUAL_ASSETS.decoders.texture)
       .setWorkerLimit(2)
       .detectSupport(renderer);
     this.ready = this.load();
@@ -214,7 +215,7 @@ export class VisualAssets {
         foliageFamilies.slice(i, i + 2).map(async (family) => {
           try {
             const texture = await this.loader.loadAsync(
-              `/assets/foliage/${family}.ktx2?v=${VISUAL_ASSETS.version}`,
+              RUNTIME_ASSETS.foliage[family as keyof typeof RUNTIME_ASSETS.foliage].path,
             );
             texture.colorSpace = THREE.SRGBColorSpace;
             texture.anisotropy = 4;
@@ -234,9 +235,7 @@ export class VisualAssets {
     }
     mark("foliageMS");
     try {
-      const texture = await this.loader.loadAsync(
-        "/assets/particles/puff-atlas.ktx2",
-      );
+      const texture = await this.loader.loadAsync(RUNTIME_ASSETS.puffAtlas.path);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.generateMipmaps = false;
       texture.minFilter = texture.magFilter = THREE.LinearFilter;
@@ -268,9 +267,9 @@ export class VisualAssets {
         VISUAL_ASSETS.surfaces.slice(i, i + 2).map(async (family) => {
           const textures: THREE.Texture[] = [];
           try {
-            for (const channel of ["color", "normal", "orm"]) {
+            for (const channel of ["color", "normal", "orm"] as const) {
               const texture = await this.loader.loadAsync(
-                `/assets/materials/${family}-${channel}.ktx2?v=${VISUAL_ASSETS.version}`,
+                RUNTIME_ASSETS.surfaces[family][channel].path,
               );
               texture.colorSpace =
                 channel === "color" ? THREE.SRGBColorSpace : THREE.NoColorSpace;

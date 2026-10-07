@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-64",
+  "release": "visual-overhaul-2026-10-07-batch-65",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -102,7 +102,8 @@
     "spatial-monster-growl-and-action-signatures",
     "multi-scale-world-space-mountain-rock-relief",
     "snapshot-driven-jet-elevator-and-rudder-animation",
-    "isolated-aircraft-tail-control-review"
+    "isolated-aircraft-tail-control-review",
+    "sha256-addressed-runtime-assets"
   ],
   "performanceCertification": "deferred by release instruction"
 }
