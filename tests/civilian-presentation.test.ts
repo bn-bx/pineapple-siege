@@ -128,6 +128,50 @@ it("gives mourning residents a lowered head and bowed arms", () => {
   expect(Math.abs(leftArm.elements[1])).toBeGreaterThan(0.1);
   expect(Math.sign(leftArm.elements[1])).toBe(-Math.sign(rightArm.elements[1]));
 });
+it("shares readable smile, frown, and fear expressions on near residents", () => {
+  const view = new CivilianView(2),
+    state = snapshot(1, true) as any;
+  state.civilians[0].mood = "cheer";
+  state.civilians.push({
+    ...state.civilians[0],
+    id: 1,
+    p: [5, 10, 0],
+    mood: "sad",
+  });
+  view.update(state, undefined, 1, camera);
+  const expressions = view.group.children[14] as THREE.InstancedMesh,
+    fearExpressions = view.group.children[15] as THREE.InstancedMesh,
+    smile = new THREE.Matrix4(),
+    frown = new THREE.Matrix4(),
+    fear = new THREE.Matrix4(),
+    eye = new THREE.Matrix4(),
+    smileScale = new THREE.Vector3(),
+    fearScale = new THREE.Vector3();
+  expect(expressions.name).toBe("resident-expressions");
+  expect(fearExpressions.name).toBe("resident-fear-expressions");
+  expect(expressions.count).toBe(2);
+  expect(fearExpressions.count).toBe(0);
+  expressions.getMatrixAt(0, smile);
+  expressions.getMatrixAt(1, frown);
+  (view.group.children[6] as THREE.InstancedMesh).getMatrixAt(0, eye);
+  expect(smile.elements[0]).toBeGreaterThan(0);
+  expect(frown.elements[0]).toBeLessThan(0);
+  expect(smile.elements[14]).toBeCloseTo(eye.elements[14], 5);
+
+  state.civilians[0].mood = "flee";
+  view.update(state, undefined, 1, camera);
+  expect(expressions.count).toBe(1);
+  expect(fearExpressions.count).toBe(1);
+  fearExpressions.getMatrixAt(0, fear);
+  smileScale.setFromMatrixScale(smile);
+  fearScale.setFromMatrixScale(fear);
+  expect(fearScale.x).toBeLessThan(smileScale.x);
+  expect(fearScale.y).toBeGreaterThan(smileScale.y);
+  expect(fear.elements[14]).toBeGreaterThan(smile.elements[14]);
+  view.reset();
+  expect(expressions.count).toBe(0);
+  expect(fearExpressions.count).toBe(0);
+});
 it("adds deterministic shared headwear variants without per-person meshes", () => {
   const view = new CivilianView(8),
     state = snapshot(1, true) as any;
@@ -155,7 +199,7 @@ it("adds deterministic shared headwear variants without per-person meshes", () =
   wideHat.getColorAt(0, colorA);
   wideHat.getColorAt(1, colorB);
   expect(colorA.equals(colorB)).toBe(false);
-  expect(view.group.children).toHaveLength(14);
+  expect(view.group.children).toHaveLength(16);
 });
 it("adds deterministic shared scarves to a subset of near residents", () => {
   const view = new CivilianView(8),
@@ -172,7 +216,7 @@ it("adds deterministic shared scarves to a subset of near residents", () => {
     colorB = new THREE.Color();
   expect(scarves.count).toBe(3);
   scarves.getMatrixAt(0, matrix);
-  expect(matrix.elements[13]).toBeGreaterThan(11.8);
+  expect(matrix.elements[13]).toBeGreaterThan(11.7);
   scarves.getColorAt(0, colorA);
   scarves.getColorAt(1, colorB);
   expect(colorA.equals(colorB)).toBe(false);
@@ -215,7 +259,7 @@ it("uses human-scale proportions while keeping resident feet at ground level", (
 it("limits distant clothing tint to garments and retains hands and boots", () => {
   const view = new CivilianView(1);
   view.installVisuals();
-  const far = view.group.children.at(-1) as THREE.InstancedMesh;
+  const far = view.group.children[13] as THREE.InstancedMesh;
   const mask = far.geometry.getAttribute("clothMask");
   expect(Array.from(mask.array)).toContain(0);
   expect(Array.from(mask.array)).toContain(1);
@@ -235,5 +279,5 @@ it("limits distant clothing tint to garments and retains hands and boots", () =>
   ).toBe(true);
   hands.geometry.computeBoundingSphere();
   expect(hands.geometry.boundingSphere?.radius).toBeCloseTo(0.38, 2);
-  expect(view.group.children).toHaveLength(14);
+  expect(view.group.children).toHaveLength(16);
 });

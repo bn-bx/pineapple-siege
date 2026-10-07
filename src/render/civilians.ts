@@ -19,6 +19,8 @@ export class CivilianView {
   private hats: THREE.InstancedMesh[];
   private scarves: THREE.InstancedMesh;
   private hair: THREE.InstancedMesh;
+  private mouths: THREE.InstancedMesh;
+  private fearMouths: THREE.InstancedMesh;
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
@@ -147,6 +149,44 @@ export class CivilianView {
     this.hair.frustumCulled = false;
     this.hair.castShadow = true;
     this.hair.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const mouthShape = new THREE.Shape();
+    mouthShape.moveTo(-0.2, 0.045);
+    mouthShape.quadraticCurveTo(0, -0.14, 0.2, 0.045);
+    mouthShape.lineTo(0.2, -0.035);
+    mouthShape.quadraticCurveTo(0, -0.085, -0.2, -0.035);
+    mouthShape.closePath();
+    this.mouths = new THREE.InstancedMesh(
+      new THREE.ShapeGeometry(mouthShape),
+      new THREE.MeshStandardMaterial({
+        color: "#382720",
+        roughness: 1,
+        side: THREE.DoubleSide,
+      }),
+      count,
+    );
+    this.mouths.name = "resident-expressions";
+    this.mouths.count = 0;
+    this.mouths.frustumCulled = false;
+    this.mouths.castShadow = false;
+    this.mouths.receiveShadow = false;
+    this.mouths.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const fearShape = new THREE.Shape();
+    fearShape.absellipse(0, 0, 0.14, 0.21, 0, Math.PI * 2, false, 0);
+    this.fearMouths = new THREE.InstancedMesh(
+      new THREE.ShapeGeometry(fearShape),
+      new THREE.MeshStandardMaterial({
+        color: "#382720",
+        roughness: 1,
+        side: THREE.DoubleSide,
+      }),
+      count,
+    );
+    this.fearMouths.name = "resident-fear-expressions";
+    this.fearMouths.count = 0;
+    this.fearMouths.frustumCulled = false;
+    this.fearMouths.castShadow = false;
+    this.fearMouths.receiveShadow = false;
+    this.fearMouths.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.distant = new THREE.InstancedMesh(box, cloth, count);
     this.distant.count = 0;
     this.distant.frustumCulled = false;
@@ -167,6 +207,8 @@ export class CivilianView {
     this.group.add(this.scarves);
     this.group.add(this.hair);
     this.group.add(this.distant);
+    this.group.add(this.mouths);
+    this.group.add(this.fearMouths);
   }
   installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
     if (cloth) {
@@ -286,6 +328,8 @@ export class CivilianView {
     ground?: (x: number, z: number) => number,
   ) {
     let n = 0,
+      mouthCount = 0,
+      fearMouthCount = 0,
       far = 0,
       scarfCount = 0,
       hairCount = 0;
@@ -447,7 +491,7 @@ export class CivilianView {
         const scarfIndex = scarfCount++;
         // Float the shared neck ring clear of the upper torso so it remains
         // readable with every body tint and camera angle.
-        this.dummy.position.set(0, 3.65, 0);
+        this.dummy.position.set(0, 3.45, 0);
         this.dummy.rotation.set(0, 0, 0);
         this.dummy.scale.set(1.35, 1.4, 1.15);
         this.dummy.updateMatrix();
@@ -580,6 +624,27 @@ export class CivilianView {
         0.05,
         0.035,
       );
+      this.dummy.position.set(
+        0,
+        flee ? 4.08 : sad ? 3.82 : 3.96,
+        flee ? 0.72 : sad ? 0.695 : 0.37,
+      );
+      // Shared smiles flip into frowns for mourning; fear uses a separate
+      // instanced open-mouth shape so it reads as alarm rather than a stretched grin.
+      this.dummy.rotation.set(0, 0, sad ? Math.PI : 0);
+      this.dummy.scale.set(flee ? 0.8 : 1, flee ? 1.35 : 1, 1);
+      if (!c.alive) this.dummy.scale.setScalar(0);
+      this.dummy.updateMatrix();
+      if (flee)
+        this.fearMouths.setMatrixAt(
+          fearMouthCount++,
+          this.dummy.matrix.premultiply(this.root.matrix),
+        );
+      else
+        this.mouths.setMatrixAt(
+          mouthCount++,
+          this.dummy.matrix.premultiply(this.root.matrix),
+        );
       n++;
     }
     this.distant.count = far;
@@ -607,6 +672,16 @@ export class CivilianView {
     if (hairCount) this.hair.instanceMatrix.addUpdateRange(0, hairCount * 16);
     this.hair.instanceMatrix.needsUpdate = true;
     if (this.hair.instanceColor) this.hair.instanceColor.needsUpdate = hairCount > 0;
+    this.mouths.count = mouthCount;
+    this.mouths.instanceMatrix.needsUpdate = true;
+    this.mouths.instanceMatrix.clearUpdateRanges();
+    if (mouthCount)
+      this.mouths.instanceMatrix.addUpdateRange(0, mouthCount * 16);
+    this.fearMouths.count = fearMouthCount;
+    this.fearMouths.instanceMatrix.needsUpdate = true;
+    this.fearMouths.instanceMatrix.clearUpdateRanges();
+    if (fearMouthCount)
+      this.fearMouths.instanceMatrix.addUpdateRange(0, fearMouthCount * 16);
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k >= 6 ? n * 2 : n;
@@ -624,5 +699,7 @@ export class CivilianView {
     for (const hat of this.hats) hat.count = 0;
     this.scarves.count = 0;
     this.hair.count = 0;
+    this.mouths.count = 0;
+    this.fearMouths.count = 0;
   }
 }

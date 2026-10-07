@@ -64,6 +64,7 @@ const { world, heights } = await baseline();
   world.seed,
 );
 const viewpoints = document.querySelector<HTMLSelectElement>("#viewpoint")!;
+const residentPose = document.querySelector<HTMLSelectElement>("#resident-pose")!;
 for (const kind of new Set(world.sites.map((s) => s.kind)))
   if (!Array.from(viewpoints.options).some((o) => o.value === kind)) {
     const option = document.createElement("option");
@@ -108,6 +109,9 @@ const view = new GameRenderer(
   },
 );
 let snapshot: SimulationSnapshot,
+  reviewedResidentId: number | undefined,
+  reviewedResidentYaw: number | undefined,
+  residentCameraPending = false,
   ready = false,
   active = false,
   last = 0,
@@ -197,6 +201,35 @@ let touring = false;
 const resources: unknown[] = [];
 let lastResource = 0,
   lastSimulationTime = 0;
+function applyResidentReviewPose(state: SimulationSnapshot) {
+  if (viewpoints.value !== "resident" || reviewedResidentId === undefined)
+    return;
+  const resident = state.civilians.find((candidate) => candidate.id === reviewedResidentId);
+  if (resident) {
+    resident.mood = residentPose.value as typeof resident.mood;
+    // Keep the sampled heading stable while the worker acknowledges pause.
+    if (reviewedResidentYaw !== undefined)
+      resident.yaw = reviewedResidentYaw;
+  }
+}
+function frameReviewedResident(state: SimulationSnapshot) {
+  if (viewpoints.value !== "resident" || reviewedResidentId === undefined)
+    return;
+  const resident = state.civilians.find(
+    (candidate) => candidate.id === reviewedResidentId && candidate.alive,
+  );
+  if (!resident) return;
+  const [x, y, z] = resident.p,
+    facing = resident.yaw,
+    distance = 3.8;
+  inspectionTarget = [x, y, z];
+  view.inspectCamera(
+    [x + Math.sin(facing) * distance, y + 2.85, z + Math.cos(facing) * distance],
+    [x, y + 1.9, z],
+  );
+  status.textContent = `Resident close-up · ${resident.id} · ${residentPose.selectedOptions[0].textContent}`;
+  last = 0;
+}
 let readyResolve: () => void = () => {};
 worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   const m = e.data,
@@ -208,6 +241,7 @@ worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   }
   if (m.type === "snapshot") {
     snapshot = m;
+    applyResidentReviewPose(m);
     view.receive(m);
     if (active)
       ticks.push(
@@ -257,7 +291,12 @@ worker.onmessage = async (e: MessageEvent<WorkerMessage>) => {
   }
   if (m.type === "paused") {
     snapshot = m.snapshot;
+    applyResidentReviewPose(m.snapshot);
     view.receive(m.snapshot);
+    if (residentCameraPending) {
+      residentCameraPending = false;
+      frameReviewedResident(m.snapshot);
+    }
   }
   if (m.type === "saved") {
     if (active) captures.push(...(m.slices ?? []));
@@ -1338,63 +1377,13 @@ function inspect() {
       // Hold the sampled pose still so a walking resident cannot leave the
       // close-up between choosing the preset and capturing its evidence.
       touring = false;
+      reviewedResidentId = resident.id;
+      reviewedResidentYaw =
+        "yaw" in resident ? resident.yaw : resident.id * 2.399963;
+      if (snapshot) applyResidentReviewPose(snapshot);
+      residentCameraPending = true;
       send({ type: "pause", paused: true });
-      const [x, y, z] = resident.p,
-        facing = "yaw" in resident ? resident.yaw : resident.id * 2.399963,
-        target: Vec3 = [x, y + 1.1, z],
-        cameraDistance = 5.2,
-        angleOffsets = [
-          0,
-          -Math.PI / 4,
-          Math.PI / 4,
-          -Math.PI / 2,
-          Math.PI / 2,
-          -Math.PI * 0.7,
-          Math.PI * 0.7,
-          Math.PI,
-        ];
-      let cameraAngle = facing,
-        bestViewScore = -Infinity;
-      for (const offset of angleOffsets) {
-        const angle = facing + offset,
-          eyeX = x + Math.sin(angle) * cameraDistance,
-          eyeZ = z + Math.cos(angle) * cameraDistance,
-          dx = x - eyeX,
-          dz = z - eyeZ,
-          lengthSquared = dx * dx + dz * dz;
-        let clearance = 20;
-        for (const other of livingResidents) {
-          if (other.id === resident.id) continue;
-          const along = Math.max(
-              0.08,
-              Math.min(
-                0.95,
-                ((other.p[0] - eyeX) * dx + (other.p[2] - eyeZ) * dz) /
-                  lengthSquared,
-              ),
-            ),
-            nearestX = eyeX + dx * along,
-            nearestZ = eyeZ + dz * along;
-          clearance = Math.min(
-            clearance,
-            Math.hypot(other.p[0] - nearestX, other.p[2] - nearestZ),
-          );
-        }
-        const score = clearance - Math.abs(offset) * 0.12;
-        if (score > bestViewScore) {
-          cameraAngle = angle;
-          bestViewScore = score;
-        }
-      }
-      const eye: Vec3 = [
-        x + Math.sin(cameraAngle) * cameraDistance,
-        y + 2.35,
-        z + Math.cos(cameraAngle) * cameraDistance,
-      ];
-      inspectionTarget = [x, y, z];
-      view.inspectCamera(eye, target);
-      status.textContent = `Resident close-up · ${resident.id}`;
-      last = 0;
+      if (snapshot) frameReviewedResident(snapshot);
       return;
     }
   }
@@ -1722,6 +1711,12 @@ document.querySelector("#restore-view")!.addEventListener("click", async () => {
   }
 });
 document.querySelector("#viewpoint")!.addEventListener("change", inspect);
+residentPose.addEventListener("change", () => {
+  if (active || viewpoints.value !== "resident" || !snapshot) return;
+  applyResidentReviewPose(snapshot);
+  status.textContent = `Resident close-up · ${reviewedResidentId} · ${residentPose.selectedOptions[0].textContent}`;
+  last = 0;
+});
 document.querySelector("#altitude")!.addEventListener("change", inspect);
 document.querySelector("#distance")!.addEventListener("change", (event) => {
   if (!active)

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-52",
+  "release": "visual-overhaul-2026-10-07-batch-53",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -82,7 +82,10 @@
     "owner-linked-castle-curtain-wall-arrow-slits",
     "isolated-castle-curtain-wall-review-camera",
     "feathered-packed-earth-road-verges",
-    "isolated-road-surface-review-camera"
+    "isolated-road-surface-review-camera",
+    "snapshot-driven-resident-smile-frown-fear-expressions",
+    "isolated-resident-pose-review-selector",
+    "lowered-shared-scarf-collar-for-resident-face-readability"
   ],
   "performanceCertification": "deferred by release instruction"
 }
