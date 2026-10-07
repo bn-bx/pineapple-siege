@@ -75,11 +75,14 @@ export function installTerrainSurface(
         vec3 surfaceDx=dFdx(vSurfaceWorld),surfaceDy=dFdy(vSurfaceWorld);
         float slope=1.-abs(vSurfaceNormal.y);
         float landscapePatch=terrainVariation(vSurfaceWorld.xz*.014);
+        // Broken, height-biased scree patches keep mountain sides from reading
+        // as one smooth material sheet while staying continuous across LODs.
+        float screePatch=terrainVariation(vSurfaceWorld.xz*.024+vec2(vSurfaceWorld.y*.003,-vSurfaceWorld.y*.002));
         float cliff=max(smoothstep(.12,.65,slope),smoothstep(550.,850.,vSurfaceWorld.y));
         float outcrop=smoothstep(.12,.48,slope)*smoothstep(.55,.8,landscapePatch);
         cliff=max(cliff,outcrop*.58);
-        float scree=smoothstep(250.,600.,vSurfaceWorld.y)*smoothstep(.02,.16,slope);
-        cliff=max(cliff,scree*.65);
+        float scree=smoothstep(250.,600.,vSurfaceWorld.y)*smoothstep(.02,.16,slope)*mix(.42,.95,smoothstep(.2,.78,screePatch));
+        cliff=max(cliff,scree*.78);
         float bare=smoothstep(.82,1.14,vColor.r/max(vColor.g,.001));
         float charred=1.-smoothstep(.04,.24,max(vColor.r,max(vColor.g,vColor.b)));
         float shore=(1.-smoothstep(.5,6.,vSurfaceWorld.y))*(1.-cliff)*(1.-charred);
@@ -101,9 +104,9 @@ export function installTerrainSurface(
         float surfaceWet=(1.-smoothstep(-.5,2.,vSurfaceWorld.y))*(1.-cliff);
         // Broad, imperfect mineral beds break up smooth heightfield slopes.
         // Keep the bands in world space so streamed LODs agree at their seams.
-        float strata=.5+.5*sin(vSurfaceWorld.y*.075+vSurfaceWorld.x*.012+vSurfaceWorld.z*.008+(landscapePatch-.5)*1.3);
+        float strata=.5+.5*sin(vSurfaceWorld.y*.075+vSurfaceWorld.x*.012+vSurfaceWorld.z*.008+(landscapePatch-.5)*1.3+(screePatch-.5)*.65);
         vec3 grassVariation=mix(vec3(.83,.88,.76),vec3(1.06,1.04,.94),landscapePatch);
-        vec3 rockVariation=mix(vec3(.72,.75,.8),vec3(1.04,1.02,.97),landscapePatch)*(.9+.2*strata);
+        vec3 rockVariation=mix(vec3(.72,.75,.8),vec3(1.04,1.02,.97),landscapePatch)*(.86+.28*screePatch)*(.88+.24*strata);
         baseSurface*=mix(grassVariation,rockVariation,cliff)*(1.-surfaceWet*.22);
         diffuseColor.rgb=baseSurface*mix(vec3(mix(1.65,1.05,cliff)),vec3(.3),charred);
       `,

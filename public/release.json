@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-23",
+  "release": "visual-overhaul-2026-10-06-batch-24",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -34,7 +34,8 @@
     "isolated-castle-gate-review-preset",
     "softened-mountain-outcrop-strata",
     "seed-locked-species-specific-tree-crowns",
-    "speed-responsive-twin-jet-exhaust"
+    "speed-responsive-twin-jet-exhaust",
+    "deterministic-mountain-scree-breakup"
   ],
   "performanceCertification": "deferred by release instruction"
 }
