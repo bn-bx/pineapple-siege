@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Entity, Material, WorldData } from "../types";
 import { constructionScale } from "./material-scale";
+import { treeCanopyScale } from "./tree-appearance";
 import { treeImpostor } from "./tree-impostor";
 import type { VisualAssets } from "./visual-assets";
 
@@ -118,11 +119,7 @@ export class IslandHorizon {
         );
         if (forest) {
           dummy.position.y -= entity.s[1];
-          dummy.scale.set(
-            entity.s[0] * 1.45,
-            entity.s[1] * 2,
-            entity.s[0] * 1.45,
-          );
+          dummy.scale.fromArray(treeCanopyScale(entity));
         }
         dummy.updateMatrix();
         mesh.setMatrixAt(index, dummy.matrix);
