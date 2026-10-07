@@ -251,6 +251,8 @@ it("adds deterministic shared scarves to a subset of near residents", () => {
     colorA = new THREE.Color(),
     colorB = new THREE.Color();
   expect(scarves.count).toBe(3);
+  scarves.geometry.computeBoundingBox();
+  expect(scarves.geometry.boundingBox!.max.x).toBeLessThan(0.38);
   scarves.getMatrixAt(0, matrix);
   expect(matrix.elements[13]).toBeGreaterThan(11.7);
   scarves.getColorAt(0, colorA);

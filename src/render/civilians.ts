@@ -114,7 +114,7 @@ export class CivilianView {
       hat.castShadow = true;
       hat.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     }
-    const scarfCollar = new THREE.TorusGeometry(0.48, 0.12, 6, 12).rotateX(
+    const scarfCollar = new THREE.TorusGeometry(0.31, 0.055, 6, 12).rotateX(
         Math.PI / 2,
       ),
       scarfShape = new THREE.Shape();
@@ -508,7 +508,7 @@ export class CivilianView {
         // readable with every body tint and camera angle.
         this.dummy.position.set(0, 3.45, 0);
         this.dummy.rotation.set(0, 0, 0);
-        this.dummy.scale.set(1.35, 1.4, 1.15);
+        this.dummy.scale.set(0.95, 1, 0.9);
         this.dummy.updateMatrix();
         this.dummy.matrix.premultiply(this.root.matrix);
         this.scarves.setMatrixAt(scarfIndex, this.dummy.matrix);
