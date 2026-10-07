@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-16",
+  "release": "visual-overhaul-2026-10-06-batch-17",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -25,7 +25,9 @@
     "moving-river-shoal-foam",
     "owner-linked-castle-keep-arrow-slits",
     "isolated-castle-keep-review-preset",
-    "human-scale-residents-near-and-distant"
+    "human-scale-residents-near-and-distant",
+    "bounded-water-impact-rings",
+    "isolated-water-splash-preview"
   ],
   "performanceCertification": "deferred by release instruction"
 }

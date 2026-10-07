@@ -25,9 +25,16 @@ export class GroundDust {
     THREE.PlaneGeometry,
     THREE.MeshBasicMaterial
   >;
+  readonly ripples: THREE.InstancedMesh<
+    THREE.TorusGeometry,
+    THREE.MeshBasicMaterial
+  >;
   private capacity = 256;
+  private rippleCapacity = 64;
   private next = 0;
   private active = new Set<number>();
+  private rippleActive = new Set<number>();
+  private rippleNext = 0;
   private p = new Float32Array(this.capacity * 3);
   private age = new Float32Array(this.capacity).fill(100);
   private duration = new Float32Array(this.capacity);
@@ -36,6 +43,11 @@ export class GroundDust {
   // 0 = terrain-following dust, 1 = impact at a wall/airborne surface, 2 = water.
   private anchor = new Uint8Array(this.capacity);
   private animation = new Float32Array(this.capacity * 2);
+  private ripplePosition = new Float32Array(this.rippleCapacity * 3);
+  private rippleAge = new Float32Array(this.rippleCapacity).fill(100);
+  private rippleDuration = new Float32Array(this.rippleCapacity);
+  private rippleRadius = new Float32Array(this.rippleCapacity);
+  private rippleColor = new THREE.Color();
   private dummy = new THREE.Object3D();
   private rotation = new THREE.Quaternion();
   private axis = new THREE.Vector3(0, 0, 1);
@@ -75,6 +87,23 @@ export class GroundDust {
     for (let i = 0; i < this.capacity; i++)
       this.mesh.setColorAt(i, this.tint.set("#a18a68"));
     this.mesh.instanceColor!.setUsage(THREE.DynamicDrawUsage);
+    this.ripples = new THREE.InstancedMesh(
+      new THREE.TorusGeometry(1, 0.018, 4, 32),
+      new THREE.MeshBasicMaterial({
+        color: "#e1f1ed",
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
+      this.rippleCapacity,
+    );
+    this.ripples.renderOrder = 10;
+    this.ripples.count = 0;
+    this.ripples.frustumCulled = false;
+    this.ripples.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.ripples.setColorAt(0, new THREE.Color("#e1f1ed"));
     this.reset();
   }
   installAtlas(texture: THREE.Texture) {
@@ -155,6 +184,12 @@ export class GroundDust {
     ground: (x: number, z: number) => number,
   ) {
     if (e.kind === "impact") {
+      if (e.water)
+        this.splash(
+          [e.p[0], Math.max(0.24, e.p[1] + 0.2), e.p[2]],
+          reduced ? 2.6 : 4.2,
+          reduced ? 0.9 : 1.25,
+        );
       this.spawn(
         e.water ? [e.p[0], Math.max(0, e.p[1]), e.p[2]] : e.p,
         e.water ? "water" : "earth",
@@ -167,6 +202,12 @@ export class GroundDust {
     }
     const radius = e.profile?.craterRadius || 14;
     if (!e.water && e.p[1] - ground(e.p[0], e.p[2]) > radius) return;
+    if (e.water)
+      this.splash(
+        [e.p[0], Math.max(0.24, e.p[1] + 0.2), e.p[2]],
+        Math.max(9, radius * (reduced ? 0.28 : 0.48)),
+        reduced ? 1.6 : 2.4,
+      );
     const count = reduced ? 8 : e.kind === "nuke" ? 64 : 20;
     for (let j = 0; j < count; j++) {
       const angle = j * 2.399963 + e.seed,
@@ -188,46 +229,92 @@ export class GroundDust {
     camera: THREE.Camera,
     ground: (x: number, z: number) => number,
   ) {
-    if (!this.active.size) return;
-    for (const i of this.active) {
-      this.age[i] += dt;
-      const t = this.age[i] / this.duration[i];
-      this.dummy.scale.setScalar(0);
-      if (t < 1) {
-        this.p[i * 3] += Math.cos(this.angle[i]) * 0.8 * dt;
-        this.p[i * 3 + 2] += Math.sin(this.angle[i]) * 0.8 * dt;
-        this.dummy.position.fromArray(this.p, i * 3);
-        this.dummy.position.y =
-          (this.anchor[i] === 0
-            ? ground(this.dummy.position.x, this.dummy.position.z) + 2
-            : this.p[i * 3 + 1]) +
-          Math.sin(t * Math.PI) * (this.anchor[i] === 2 ? 6 : 4);
-        this.rotation.setFromAxisAngle(this.axis, this.angle[i] + t * 0.3);
-        this.dummy.quaternion.copy(camera.quaternion).multiply(this.rotation);
-        const size = this.size[i] * (1 + t * 2) * Math.min(1, t * 5 + 0.15);
-        this.dummy.scale.set(
-          size,
-          size * (this.anchor[i] === 2 ? 1.3 : 0.85),
-          1,
-        );
-        this.animation[i * 2] = t;
+    if (!this.active.size && !this.rippleActive.size) return;
+    if (this.active.size) {
+      for (const i of this.active) {
+        this.age[i] += dt;
+        const t = this.age[i] / this.duration[i];
+        this.dummy.scale.setScalar(0);
+        if (t < 1) {
+          this.p[i * 3] += Math.cos(this.angle[i]) * 0.8 * dt;
+          this.p[i * 3 + 2] += Math.sin(this.angle[i]) * 0.8 * dt;
+          this.dummy.position.fromArray(this.p, i * 3);
+          this.dummy.position.y =
+            (this.anchor[i] === 0
+              ? ground(this.dummy.position.x, this.dummy.position.z) + 2
+              : this.p[i * 3 + 1]) +
+            Math.sin(t * Math.PI) * (this.anchor[i] === 2 ? 6 : 4);
+          this.rotation.setFromAxisAngle(this.axis, this.angle[i] + t * 0.3);
+          this.dummy.quaternion.copy(camera.quaternion).multiply(this.rotation);
+          const size =
+            this.size[i] * (1 + t * 2) * Math.min(1, t * 5 + 0.15);
+          this.dummy.scale.set(
+            size,
+            size * (this.anchor[i] === 2 ? 1.3 : 0.85),
+            1,
+          );
+          this.animation[i * 2] = t;
+        }
+        if (t >= 1) this.active.delete(i);
+        this.dummy.updateMatrix();
+        this.mesh.setMatrixAt(i, this.dummy.matrix);
       }
-      if (t >= 1) this.active.delete(i);
-      this.dummy.updateMatrix();
-      this.mesh.setMatrixAt(i, this.dummy.matrix);
+      this.mesh.visible = this.active.size > 0;
+      this.mesh.instanceMatrix.needsUpdate = true;
+      this.mesh.geometry.attributes.puffAnimation.needsUpdate = true;
     }
-    this.mesh.visible = this.active.size > 0;
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.geometry.attributes.puffAnimation.needsUpdate = true;
+    let rippleCount = 0;
+    for (const i of this.rippleActive) {
+      this.rippleAge[i] += dt;
+      const t = this.rippleAge[i] / this.rippleDuration[i];
+      if (t >= 1) {
+        this.rippleActive.delete(i);
+        continue;
+      }
+      const eased = t * t * (3 - 2 * t),
+        radius = Math.max(0.05, this.rippleRadius[i] * eased),
+        x = this.ripplePosition[i * 3],
+        y = this.ripplePosition[i * 3 + 1],
+        z = this.ripplePosition[i * 3 + 2];
+      this.dummy.position.set(x, y, z);
+      this.dummy.rotation.set(-Math.PI / 2, 0, 0);
+      this.dummy.scale.set(radius, radius, radius);
+      this.dummy.updateMatrix();
+      this.ripples.setMatrixAt(rippleCount, this.dummy.matrix);
+      this.rippleColor.set("#e1f1ed").multiplyScalar(1 - eased * 0.78);
+      this.ripples.setColorAt(rippleCount, this.rippleColor);
+      rippleCount++;
+    }
+    this.ripples.count = rippleCount;
+    this.ripples.visible = rippleCount > 0;
+    if (rippleCount) {
+      this.ripples.instanceMatrix.needsUpdate = true;
+      if (this.ripples.instanceColor)
+        this.ripples.instanceColor.needsUpdate = true;
+    }
   }
   reset() {
     this.active.clear();
+    this.rippleActive.clear();
     this.mesh.visible = false;
+    this.ripples.visible = false;
+    this.ripples.count = 0;
     this.age.fill(100);
+    this.rippleAge.fill(100);
     this.dummy.scale.setScalar(0);
     this.dummy.updateMatrix();
     for (let i = 0; i < this.capacity; i++)
       this.mesh.setMatrixAt(i, this.dummy.matrix);
     this.mesh.instanceMatrix.needsUpdate = true;
+  }
+  private splash(p: number[], radius: number, duration: number) {
+    const i = this.rippleNext++ % this.rippleCapacity;
+    this.rippleActive.add(i);
+    this.ripplePosition.set(p, i * 3);
+    this.rippleAge[i] = 0;
+    this.rippleRadius[i] = radius;
+    this.rippleDuration[i] = duration;
+    this.rippleColor.set("#e1f1ed");
+    this.ripples.setColorAt(i, this.rippleColor);
   }
 }

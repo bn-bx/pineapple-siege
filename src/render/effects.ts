@@ -117,6 +117,7 @@ export class Effects {
       this.fragments.mesh,
       this.nukeFlash.mesh,
       this.dust.mesh,
+      this.dust.ripples,
     );
   }
   vaporize(p: [number, number, number], radius: number) {

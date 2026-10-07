@@ -10,6 +10,7 @@ import { DEFAULT_DESTRUCTION } from "./destruction-settings";
 import type {
   GameCommand,
   Vec3,
+  Explosion,
   WorkerMessage,
   SimulationSnapshot,
   WorldData,
@@ -1080,6 +1081,36 @@ document.querySelector("#inspect-impact")!.addEventListener("click", () => {
   touring = true;
   send({ type: "pause", paused: false });
   status.textContent = "Material impact inspection running";
+});
+document.querySelector("#inspect-water")!.addEventListener("click", () => {
+  if (active || !ready) return;
+  let point: Vec3 =
+    world.sites.find((site) => site.kind === "harbor")?.p ??
+    world.rivers?.[0]?.points[0] ??
+    world.castle;
+  let closest = Infinity;
+  for (const river of world.rivers ?? [])
+    for (const candidate of river.points) {
+      const distance =
+        (candidate[0] - inspectionTarget[0]) ** 2 +
+        (candidate[2] - inspectionTarget[2]) ** 2;
+      if (distance < closest) {
+        closest = distance;
+        point = candidate;
+      }
+    }
+  const splash: Explosion = {
+    type: "explosion",
+    p: [point[0], point[1], point[2]],
+    water: true,
+    power: 1,
+    seed: 0x7aa,
+    kind: "impact",
+  };
+  view.effects.dust.emit(splash, false, view.effects.ground);
+  touring = true;
+  send({ type: "pause", paused: false });
+  status.textContent = "Water splash inspection running";
 });
 document.querySelector("#inspect-nuke")!.addEventListener("click", () => {
   if (active || !ready) return;

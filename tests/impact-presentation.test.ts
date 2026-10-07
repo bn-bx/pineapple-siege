@@ -132,6 +132,113 @@ it("anchors wall impacts to their surface while ground plumes follow excavation"
     vi.unstubAllGlobals();
   }
 });
+it("adds a grounded expanding water ring and retires it after the splash", () => {
+  vi.stubGlobal("document", {
+    createElement: () => ({
+      getContext: () => ({
+        createRadialGradient: () => ({ addColorStop() {} }),
+        fillRect() {},
+      }),
+    }),
+  });
+  try {
+    const dust = new GroundDust(),
+      camera = new THREE.PerspectiveCamera(),
+      matrix = new THREE.Matrix4();
+    dust.emit(
+      {
+        type: "explosion",
+        p: [5, 0.04, 5],
+        water: true,
+        power: 1,
+        seed: 3,
+        kind: "impact",
+      },
+      false,
+      () => 0,
+    );
+    dust.update(0.25, camera, () => 0);
+    expect(dust.ripples.count).toBe(1);
+    dust.ripples.getMatrixAt(0, matrix);
+    expect(matrix.elements[13]).toBeCloseTo(0.24, 4);
+    expect(matrix.elements[0]).toBeGreaterThan(0.2);
+    dust.update(2, camera, () => 0);
+    expect(dust.ripples.count).toBe(0);
+    expect(dust.ripples.visible).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+it("keeps reduced-effects splashes visible at a smaller radius", () => {
+  vi.stubGlobal("document", {
+    createElement: () => ({
+      getContext: () => ({
+        createRadialGradient: () => ({ addColorStop() {} }),
+        fillRect() {},
+      }),
+    }),
+  });
+  try {
+    const normal = new GroundDust(),
+      reduced = new GroundDust(),
+      camera = new THREE.PerspectiveCamera(),
+      normalMatrix = new THREE.Matrix4(),
+      reducedMatrix = new THREE.Matrix4(),
+      event = {
+        type: "explosion",
+        p: [5, 0.04, 5] as [number, number, number],
+        water: true,
+        power: 1,
+        seed: 4,
+        kind: "impact" as const,
+      };
+    normal.emit(event, false, () => 0);
+    reduced.emit(event, true, () => 0);
+    normal.update(0.625, camera, () => 0);
+    reduced.update(0.45, camera, () => 0);
+    normal.ripples.getMatrixAt(0, normalMatrix);
+    reduced.ripples.getMatrixAt(0, reducedMatrix);
+    expect(normal.ripples.count).toBe(1);
+    expect(reduced.ripples.count).toBe(1);
+    expect(normalMatrix.elements[0]).toBeGreaterThan(reducedMatrix.elements[0]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+it("bounds repeated water splash rings to their fixed 64-instance pool", () => {
+  vi.stubGlobal("document", {
+    createElement: () => ({
+      getContext: () => ({
+        createRadialGradient: () => ({ addColorStop() {} }),
+        fillRect() {},
+      }),
+    }),
+  });
+  try {
+    const dust = new GroundDust(),
+      camera = new THREE.PerspectiveCamera();
+    for (let seed = 0; seed < 80; seed++)
+      dust.emit(
+        {
+          type: "explosion",
+          p: [seed, 0.04, seed],
+          water: true,
+          power: 1,
+          seed,
+          kind: "impact",
+        },
+        true,
+        () => 0,
+      );
+    dust.update(0.1, camera, () => 0);
+    expect(dust.ripples.count).toBe(64);
+    dust.reset();
+    expect(dust.ripples.count).toBe(0);
+    expect(dust.ripples.visible).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
 it("retains expired particle uploads while hidden and clears the full pool on reset", async () => {
   vi.stubGlobal("document", {
     createElement: () => ({
