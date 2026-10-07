@@ -7,24 +7,25 @@ export function treeCanopyScale(
 ): [number, number, number] {
   const variant = Math.max(0, Math.min(1, entity.variant ?? 0.5)),
     species = entity.treeSpecies ?? "pine",
+    phase = variant * Math.PI * 2,
     width =
     species === "riverside"
-        ? 0.84 + variant * 0.32
+        ? 0.84 + Math.sin(phase) * 0.14
         : species === "broadleaf"
-          ? 0.78 + variant * 0.44
-          : 0.8 + variant * 0.4,
+          ? 0.98 + Math.sin(phase) * 0.22
+          : 0.98 + Math.sin(phase) * 0.2,
     depth =
     species === "riverside"
-        ? 1.17 - variant * 0.34
+        ? 1.02 + Math.cos(phase * 1.7 + 0.3) * 0.22
         : species === "broadleaf"
-          ? 1.24 - variant * 0.48
-          : 1.22 - variant * 0.44,
+          ? 0.96 + Math.cos(phase * 1.35 + 0.7) * 0.2
+          : 0.98 + Math.cos(phase * 1.7 + 0.5) * 0.18,
     height =
       species === "riverside"
-        ? 0.9 + variant * 0.2
+        ? 1.08 + Math.sin(phase * 2.2 + 0.7) * 0.1
         : species === "broadleaf"
-          ? 0.82 + variant * 0.36
-          : 0.86 + variant * 0.28;
+          ? 0.95 + Math.cos(phase * 2.1 + 0.2) * 0.16
+          : 0.98 + Math.sin(phase * 2.3 + 1.1) * 0.12;
   return [
     entity.s[0] * 1.45 * width,
     entity.s[1] * 2 * height,

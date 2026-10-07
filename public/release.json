@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-76",
+  "release": "visual-overhaul-2026-10-07-batch-77",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -120,7 +120,8 @@
     "dry-bank-bridge-abutment-placement",
     "junction-only-river-join-pools",
     "continuous-river-surface-normals-and-depth-shading",
-    "flow-driven-shallow-bank-foam"
+    "flow-driven-shallow-bank-foam",
+    "decorrelated-seed-stable-tree-crown-silhouettes"
   ],
   "performanceCertification": "deferred by release instruction"
 }

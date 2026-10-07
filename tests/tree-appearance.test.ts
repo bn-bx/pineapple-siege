@@ -24,6 +24,24 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
   },
 );
 
+it.each(["pine", "broadleaf", "riverside"] as const)(
+  "keeps %s crown width, depth, and height variation independent",
+  (treeSpecies) => {
+    const crowns = Array.from({ length: 16 }, (_, i) =>
+      treeCanopyScale({
+        s: [3, 12, 3],
+        treeSpecies,
+        variant: i / 15,
+      }),
+    );
+    expect(new Set(crowns.map((shape) => shape.join(":"))).size).toBeGreaterThan(12);
+    for (const shape of crowns)
+      expect(shape.every((scale) => Number.isFinite(scale) && scale > 0)).toBe(
+        true,
+      );
+  },
+);
+
 it("keeps tree color variation deterministic and distinct across species and seeds", () => {
   const color = new THREE.Color(),
     pineA = setTreeCanopyColor(color.clone(), {

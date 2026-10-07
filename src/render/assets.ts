@@ -143,7 +143,7 @@ export function pineGeometry() {
       const y = pos.getY(i),
         a = Math.atan2(pos.getZ(i), pos.getX(i));
       let irregular =
-        1 + 0.1 * Math.sin(a * 5 + tier) + 0.06 * Math.cos(a * 11 - y * 23);
+        1 + 0.16 * Math.sin(a * 5 + tier) + 0.09 * Math.cos(a * 11 - y * 23);
       pos.setX(i, pos.getX(i) * irregular);
       pos.setZ(i, pos.getZ(i) * irregular);
     }
