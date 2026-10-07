@@ -14,6 +14,8 @@ import { installFractureSurface } from "./fracture-surface";
 import { Scenery } from "./scenery";
 import { VisualAssets, visualGeometry } from "./visual-assets";
 import {
+  bridgeDeckPresentation,
+  isBridgeRailingPart,
   isLoggingCampLog,
   isLighthouseLanternGlazing,
   lighthouseRoofPresentation,
@@ -362,6 +364,7 @@ export class GameRenderer {
   private cameraBox = new THREE.Box3();
   private cameraHit = new THREE.Vector3();
   private cameraCandidates = new Set<Entity>();
+  private bridgeAssemblies: Set<string>;
   private cameraCell = -1;
   private cameraRay = new THREE.Raycaster();
   private wreckTransform = new THREE.Matrix4();
@@ -377,6 +380,11 @@ export class GameRenderer {
     heights: Float32Array,
     private recycle?: (s: SimulationSnapshot) => void,
   ) {
+    this.bridgeAssemblies = new Set(
+      (world.sites ?? [])
+        .filter((site) => site.kind === "bridge" || site.kind === "crossing")
+        .map((site) => site.id),
+    );
     this.civilians = new CivilianView(world.civilians?.length ?? 0);
     this.scene.add(this.civilians.group);
     this.scene.add(this.projectileView.group);
@@ -1002,9 +1010,10 @@ export class GameRenderer {
       ...windmillRotorBladeIds(this.world),
       ...waterwheelPartIds(this.world),
     ]);
-  for (const e of this.world.entities) {
+    for (const e of this.world.entities) {
       if (
         animatedLandmarkPartIds.has(e.id) ||
+        isBridgeRailingPart(e, this.bridgeAssemblies) ||
         isLighthouseLanternGlazing(e)
       )
         continue;
@@ -1079,6 +1088,11 @@ export class GameRenderer {
           if (lighthouseRoof) {
             dummy.position.fromArray(lighthouseRoof.p);
             dummy.scale.fromArray(lighthouseRoof.s);
+          }
+          const bridgeDeck = bridgeDeckPresentation(e, this.bridgeAssemblies);
+          if (bridgeDeck) {
+            dummy.position.fromArray(bridgeDeck.p);
+            dummy.scale.fromArray(bridgeDeck.s);
           }
           dummy.updateMatrix();
           mesh.setMatrixAt(i, dummy.matrix);
@@ -1557,6 +1571,11 @@ export class GameRenderer {
         if (lighthouseRoof) {
           dummy.position.fromArray(lighthouseRoof.p);
           dummy.scale.fromArray(lighthouseRoof.s);
+        }
+        const bridgeDeck = bridgeDeckPresentation(e, this.bridgeAssemblies);
+        if (bridgeDeck) {
+          dummy.position.fromArray(bridgeDeck.p);
+          dummy.scale.fromArray(bridgeDeck.s);
         }
         dummy.updateMatrix();
         batch.mesh.setMatrixAt(i, dummy.matrix);

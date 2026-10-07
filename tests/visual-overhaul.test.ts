@@ -832,6 +832,12 @@ it("frames the castle gate with stone voussoirs owned by its existing wall block
 });
 it("caps bridge rail spans with rounded timber tied to each rail owner", async () => {
   const { Scenery } = await import("../src/render/scenery");
+  const { isBridgeRailingPart } = await import(
+    "../src/render/landmark-geometry"
+  );
+  const { bridgeDeckPresentation } = await import(
+    "../src/render/landmark-geometry"
+  );
   const rail = {
       id: 301,
       kind: "block",
@@ -848,6 +854,11 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
       p: [100, 20, 100],
       s: [6, 1, 5],
     };
+  expect(isBridgeRailingPart(rail, new Set(["bridge-1"]))).toBe(true);
+  expect(isBridgeRailingPart(deck, new Set(["bridge-1"]))).toBe(false);
+  const bridgeDeck = bridgeDeckPresentation(deck, new Set(["bridge-1"]))!;
+  expect(bridgeDeck.p[1] + bridgeDeck.s[1]).toBe(deck.p[1] + deck.s[1]);
+  expect(bridgeDeck.s[1]).toBe(0.38);
   const scenery = new Scenery(
     {
       paths: [],
@@ -867,12 +878,41 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
           (object) => object.name === "scenery:bridge-handrails",
         ) as THREE.InstancedMesh
       )?.count ?? 0;
+  const girderCount = (name: string) =>
+    (
+      scenery.group.children.find(
+        (object) => object.name === `scenery:${name}`,
+      ) as THREE.InstancedMesh | undefined
+      )?.count ?? 0;
+  const railingCount = (name: string) =>
+    (
+      scenery.group.children.find(
+        (object) => object.name === `scenery:${name}`,
+      ) as THREE.InstancedMesh | undefined
+    )?.count ?? 0;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
   expect(handrail()).toBe(1);
+  expect(railingCount("bridge-lower-handrails")).toBe(1);
+  expect(railingCount("bridge-railing-posts")).toBe(1);
+  expect(railingCount("bridge-railing-braces")).toBe(2);
+  expect(girderCount("bridge-main-girders")).toBe(2);
+  expect(girderCount("bridge-cross-joists")).toBe(1);
   scenery.update(camera, new Set([301]), 1200, 120, 1, true);
   expect(handrail()).toBe(0);
+  expect(railingCount("bridge-lower-handrails")).toBe(0);
+  expect(railingCount("bridge-railing-posts")).toBe(0);
+  expect(railingCount("bridge-railing-braces")).toBe(0);
+  expect(girderCount("bridge-main-girders")).toBe(2);
+  scenery.update(camera, new Set([302]), 1200, 120, 2, true);
+  expect(girderCount("bridge-main-girders")).toBe(0);
+  expect(girderCount("bridge-cross-joists")).toBe(0);
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(handrail()).toBe(1);
+  expect(railingCount("bridge-lower-handrails")).toBe(1);
+  expect(railingCount("bridge-railing-posts")).toBe(1);
+  expect(railingCount("bridge-railing-braces")).toBe(2);
+  expect(girderCount("bridge-main-girders")).toBe(2);
+  expect(girderCount("bridge-cross-joists")).toBe(1);
 });
 it("frames lighthouse lantern glass with owner-linked iron and Fresnel optics", async () => {
   const { Scenery } = await import("../src/render/scenery");

@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-47",
+  "release": "visual-overhaul-2026-10-06-batch-48",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -70,7 +70,11 @@
     "owner-linked-lighthouse-fresnel-optics",
     "derived-owner-linked-lighthouse-glazing",
     "isolated-lighthouse-lens-review-camera",
-    "presentation-fitted-lighthouse-lantern-cap"
+    "presentation-fitted-lighthouse-lantern-cap",
+    "owner-linked-bridge-main-girders-and-cross-joists",
+    "open-owner-linked-bridge-railings-with-x-braces",
+    "presentation-fitted-bridge-deck-thickness",
+    "isolated-bridge-underdeck-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }

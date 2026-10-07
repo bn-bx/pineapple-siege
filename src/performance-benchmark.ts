@@ -1010,6 +1010,72 @@ function inspect() {
       return;
     }
   }
+  if (kind === "bridge" || kind === "crossing") {
+    const site = world.sites.find((entry) => entry.kind === kind),
+      candidate = world.entities.find(
+        (entity) =>
+          entity.assembly === site?.id &&
+          entity.kind === "block" &&
+          entity.material === "wood" &&
+          Math.abs(entity.s[1] - 1) < 0.05 &&
+          entity.s[0] > 2.5 &&
+          entity.s[2] > 2.5,
+      );
+    if (site && candidate) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        runsAlongX = candidate.s[0] < candidate.s[2],
+        decks = world.entities
+          .filter(
+            (entity) =>
+              entity.assembly === site.id &&
+              entity.kind === "block" &&
+              entity.material === "wood" &&
+              Math.abs(entity.s[1] - 1) < 0.05 &&
+              entity.s[0] > 2.5 &&
+              entity.s[2] > 2.5,
+          )
+          .sort((a, b) =>
+            runsAlongX ? a.p[0] - b.p[0] : a.p[2] - b.p[2],
+          ),
+        deck = decks[Math.floor(decks.length / 2)] ?? candidate,
+        [x, y, z] = deck.p,
+        transverse = closeView ? 18 : 34,
+        waterLevel =
+          (site as (typeof site) & { waterLevel?: number }).waterLevel ??
+          y - 4,
+        sideEyes: Vec3[] = runsAlongX
+          ? [
+              [x, y, z - transverse],
+              [x, y, z + transverse],
+            ]
+          : [
+              [x - transverse, y, z],
+              [x + transverse, y, z],
+            ],
+        eye = sideEyes.reduce((lower, point) =>
+          view.terrain.sample(point[0], point[2]) <
+          view.terrain.sample(lower[0], lower[2])
+            ? point
+            : lower,
+        ),
+        eyeY = Math.max(
+          y + 0.15,
+          waterLevel + 3.2,
+          view.terrain.sample(eye[0], eye[2]) + 1.5,
+        );
+      inspectionTarget = [x, y, z];
+      view.inspectCamera(
+        [eye[0], eyeY, eye[2]],
+        [x, y - 0.9, z],
+      );
+      status.textContent = "Bridge girders and river-support review";
+      last = 0;
+      return;
+    }
+  }
   if (kind === "house-door") {
     const firstWall = world.entities.find(
       (entity) =>

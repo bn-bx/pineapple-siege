@@ -5,6 +5,8 @@ import type { WorldData, Entity } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { pathIndex } from "../world/generator.mjs";
 import {
+  bridgeDeckPresentation,
+  isBridgeRailingPart,
   isLighthouseLanternGlazing,
   lighthouseRoofPresentation,
 } from "./landmark-geometry";
@@ -354,6 +356,50 @@ export class Scenery {
     const bridgeRail = visualGeometry("bridge-handrail_lod0", () =>
       new THREE.CylinderGeometry(0.22, 0.22, 2, 8).rotateZ(Math.PI / 2),
     );
+    const bridgeDecks = new Map<string, Entity[]>();
+    for (const entity of world.entities) {
+      if (!bridgeDeckPresentation(entity, bridgeAssemblies)) continue;
+      const deck = bridgeDecks.get(entity.assembly);
+      if (deck) deck.push(entity);
+      else bridgeDecks.set(entity.assembly, [entity]);
+    }
+    for (const decks of bridgeDecks.values()) {
+      const runsAlongX = decks[0].s[0] < decks[0].s[2];
+      decks.sort((a, b) => a.p[runsAlongX ? 0 : 2] - b.p[runsAlongX ? 0 : 2]);
+      for (const deck of decks) {
+        const profile = bridgeDeckPresentation(deck, bridgeAssemblies)!,
+          [x, y, z] = profile.p,
+          [sx, sy, sz] = profile.s,
+          beamY = y - sy - 0.24,
+          halfSpan = (runsAlongX ? sx : sz) - 0.18,
+          crossOffset = (runsAlongX ? sz : sx) + 0.08;
+        for (const side of [-1, 1])
+          addBeam(
+            "bridge-main-girders",
+            deck,
+            runsAlongX
+              ? new THREE.Vector3(x - halfSpan, beamY, z + side * crossOffset)
+              : new THREE.Vector3(x + side * crossOffset, beamY, z - halfSpan),
+            runsAlongX
+              ? new THREE.Vector3(x + halfSpan, beamY, z + side * crossOffset)
+              : new THREE.Vector3(x + side * crossOffset, beamY, z + halfSpan),
+            0.36,
+            structuralTimber,
+          );
+        addBeam(
+          "bridge-cross-joists",
+          deck,
+          runsAlongX
+            ? new THREE.Vector3(x, beamY, z - crossOffset)
+            : new THREE.Vector3(x - crossOffset, beamY, z),
+          runsAlongX
+            ? new THREE.Vector3(x, beamY, z + crossOffset)
+            : new THREE.Vector3(x + crossOffset, beamY, z),
+          0.24,
+          materials.wood,
+        );
+      }
+    }
     const dockDecks = new Map<string, Entity[]>();
     for (const entity of world.entities) {
       if (
@@ -382,24 +428,65 @@ export class Scenery {
     for (const e of world.entities) {
       const [x, y, z] = e.p,
         [sx, sy, sz] = e.s;
-      const bridgeAxis = sz < 0.8 ? 0 : sx < 0.8 ? 1 : undefined;
-      if (
-        e.kind === "block" &&
-        e.material === "wood" &&
-        bridgeAssemblies.has(e.assembly) &&
-        bridgeAxis !== undefined &&
-        Math.abs(sy - 1) < 0.05 &&
-        (bridgeAxis === 0 ? sz < 0.8 : sx < 0.8)
-      ) {
+      const bridgeRailOwner = isBridgeRailingPart(e, bridgeAssemblies),
+        bridgeAxis = sz < 0.8 ? 0 : sx < 0.8 ? 1 : undefined;
+      if (bridgeRailOwner && bridgeAxis !== undefined) {
+        const runsAlongX = bridgeAxis === 0,
+          deckY = y - 2,
+          halfSpan = (runsAlongX ? sx : sz) - 0.16,
+          railTransform = (lift: number) =>
+            runsAlongX
+              ? [[x, deckY + lift, z], [halfSpan, 1, 1], 0] as const
+              : [[x, deckY + lift, z], [halfSpan, 1, 1], Math.PI / 2] as const;
+        const [topPosition, topScale, yaw] = railTransform(2.55),
+          [lowerPosition, lowerScale] = railTransform(1.55);
         add(
           "bridge-handrails",
           e,
-          [x, y + sy + 0.22, z],
-          bridgeAxis === 0 ? [sx, 1, 1] : [sz, 1, 1],
+          [...topPosition],
+          [...topScale],
           structuralTimber,
           bridgeRail,
           false,
-          bridgeAxis === 0 ? 0 : Math.PI / 2,
+          yaw,
+        );
+        add(
+          "bridge-lower-handrails",
+          e,
+          [...lowerPosition],
+          [...lowerScale],
+          structuralTimber,
+          bridgeRail,
+          false,
+          yaw,
+        );
+        add(
+          "bridge-railing-posts",
+          e,
+          [x, deckY + 1.88, z],
+          runsAlongX ? [0.14, 0.88, 0.14] : [0.14, 0.88, 0.14],
+          structuralTimber,
+        );
+        const from = (along: number, lift: number) =>
+            runsAlongX
+              ? new THREE.Vector3(x + along, deckY + lift, z)
+              : new THREE.Vector3(x, deckY + lift, z + along),
+          braceEnd = halfSpan * 0.86;
+        addBeam(
+          "bridge-railing-braces",
+          e,
+          from(-braceEnd, 1.08),
+          from(braceEnd, 2.42),
+          0.085,
+          materials.wood,
+        );
+        addBeam(
+          "bridge-railing-braces",
+          e,
+          from(-braceEnd, 2.42),
+          from(braceEnd, 1.08),
+          0.085,
+          materials.wood,
         );
       }
       if (mooringOwners.has(e.id)) {

@@ -38,6 +38,42 @@ export function isLighthouseLanternGlazing(
   );
 }
 
+/** Tall, narrow wooden bridge blocks are parapet owners, rendered as joinery. */
+export function isBridgeRailingPart(
+  entity: Pick<Entity, "assembly" | "kind" | "material" | "s">,
+  bridgeAssemblies: ReadonlySet<string>,
+) {
+  return (
+    entity.kind === "block" &&
+    entity.material === "wood" &&
+    bridgeAssemblies.has(entity.assembly) &&
+    Math.abs(entity.s[1] - 1) < 0.05 &&
+    ((entity.s[2] < 0.8 && entity.s[0] > 2.5) ||
+      (entity.s[0] < 0.8 && entity.s[2] > 2.5))
+  );
+}
+
+/** Thin rendered bridge decking while keeping its original top plane aligned. */
+export function bridgeDeckPresentation(
+  entity: Pick<Entity, "assembly" | "kind" | "material" | "p" | "s">,
+  bridgeAssemblies: ReadonlySet<string>,
+) {
+  if (
+    entity.kind !== "block" ||
+    entity.material !== "wood" ||
+    !bridgeAssemblies.has(entity.assembly) ||
+    Math.abs(entity.s[1] - 1) > 0.05 ||
+    entity.s[0] <= 2.5 ||
+    entity.s[2] <= 2.5
+  )
+    return undefined;
+  const halfHeight = 0.38;
+  return {
+    p: [entity.p[0], entity.p[1] + entity.s[1] - halfHeight, entity.p[2]] as Entity["p"],
+    s: [entity.s[0], halfHeight, entity.s[2]] as Entity["s"],
+  };
+}
+
 /** Horizontal sawn timber; entity scale and destruction ownership are unchanged. */
 export function loggingCampLogGeometry() {
   const geometry = new THREE.CylinderGeometry(1, 1, 2, 12, 1, false);
