@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-57",
+  "release": "visual-overhaul-2026-10-07-batch-58",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -90,7 +90,9 @@
     "snapshot-driven-monster-attack-and-stagger-jaw",
     "isolated-monster-pose-review-selector",
     "human-scale-resident-scarf-collars",
-    "single-flight-photo-export-with-progress"
+    "single-flight-photo-export-with-progress",
+    "owner-linked-quarry-hoist-and-load-cable",
+    "isolated-quarry-hoist-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }

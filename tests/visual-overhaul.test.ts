@@ -4,6 +4,10 @@ import { textureBytes, sceneResources } from "../src/render/resource-budget";
 import { qualityProfile, VISUAL_BUDGET } from "../src/render/quality-profile";
 import { SimulationCadence } from "../src/simulation-cadence";
 import { installFractureSurface } from "../src/render/fracture-surface";
+import {
+  quarryHoistOwner,
+  quarryHoistReviewCamera,
+} from "../src/render/landmark-geometry";
 import { CONFIG } from "../src/config";
 it("estimates shared and detached resident resources once, including shader textures", () => {
   const texture = new THREE.DataTexture(new Uint8Array(64), 4, 4);
@@ -67,6 +71,67 @@ it("retains fracture cut-face semantics and all surface-map UV channels", () => 
   ])
     expect(shader.vertexShader).toContain(`${channel}.x=fract`);
   expect(shader.fragmentShader).toContain("vExposedCut");
+});
+it("binds the quarry hoist to the middle scaffold crossbeam deterministically", () => {
+  const beams = [-24, -12, 0, 12, 24].map((x, id) => ({
+      id,
+      kind: "block",
+      material: "wood",
+      p: [x, 19, 40],
+      s: [6.5, 1, 3],
+    })) as any,
+    owner = quarryHoistOwner(beams);
+  expect(owner?.id).toBe(2);
+  expect(quarryHoistOwner([])).toBeUndefined();
+  const camera = quarryHoistReviewCamera(owner, 15);
+  expect(camera.target).toEqual([0, 20.12, 41.14]);
+  expect(camera.eye[2]).toBeGreaterThan(camera.target[2]);
+});
+it("removes and restores the quarry winch with its existing crossbeam owner", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const beams = [-24, -12, 0, 12, 24].map((offset, id) => ({
+      id,
+      kind: "block",
+      material: "wood",
+      p: [100 + offset, 19, 40],
+      s: [6.5, 1, 3],
+      assembly: "quarry-1-scaffold",
+      foundation: false,
+      supports: [],
+    })) as any,
+    owner = quarryHoistOwner(beams)!,
+    terrain = { sample: () => 10, flood: new Uint8Array(CONFIG.grid ** 2) },
+    scenery = new Scenery(
+      { paths: [], sites: [], entities: beams } as any,
+      terrain as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(100, 22, 40),
+    count = (key: string) =>
+      (scenery.group.children.find(
+        (object) => object.name === `scenery:${key}`,
+      ) as THREE.InstancedMesh | undefined)?.count ?? 0,
+    removed = new Set<number>();
+  scenery.update(camera, removed, 1200, 120, 0, true);
+  expect(count("quarry-winch-drum")).toBe(1);
+  expect(count("quarry-winch-collars")).toBe(2);
+  expect(count("quarry-winch-cable")).toBe(1);
+  expect(count("quarry-winch-crank")).toBe(1);
+  expect(count("quarry-winch-handle")).toBe(1);
+  expect(count("quarry-winch-load-ring")).toBe(1);
+  removed.add(owner.id);
+  scenery.update(camera, removed, 1200, 120, 1, true);
+  expect(count("quarry-winch-drum")).toBe(0);
+  expect(count("quarry-winch-cable")).toBe(0);
+  expect(count("quarry-winch-crank")).toBe(0);
+  removed.clear();
+  scenery.update(camera, removed, 1200, 120, 2, true);
+  expect(count("quarry-winch-drum")).toBe(1);
+  expect(count("quarry-winch-cable")).toBe(1);
 });
 it.each(["tree", "rock"])(
   "removes %s-owned ground dressing and suppresses it after excavation",

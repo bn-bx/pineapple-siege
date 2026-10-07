@@ -10,6 +10,8 @@ import { frameStats } from "./frame-stats";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
 import {
   harborDockReviewCamera,
+  quarryHoistOwner,
+  quarryHoistReviewCamera,
   waterwheelRotors,
   windmillRotors,
 } from "./render/landmark-geometry";
@@ -1068,6 +1070,28 @@ function inspect() {
         [x, y, z],
       );
       status.textContent = "Lighthouse Fresnel lens review";
+      last = 0;
+      return;
+    }
+  }
+  if (kind === "quarry") {
+    const site = world.sites.find((entry) => entry.kind === "quarry"),
+      owner = site
+        ? quarryHoistOwner(
+            world.entities.filter(
+              (entity) => entity.assembly === `${site.id}-scaffold`,
+            ),
+          )
+        : undefined;
+    if (owner) {
+      const closeView =
+          Number(
+            (document.querySelector("#altitude") as HTMLSelectElement).value,
+          ) === 12,
+        camera = quarryHoistReviewCamera(owner, closeView ? 15 : 28);
+      inspectionTarget = camera.target;
+      view.inspectCamera(camera.eye, camera.target);
+      status.textContent = "Quarry winch, cable, and load-ring review";
       last = 0;
       return;
     }

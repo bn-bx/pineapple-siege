@@ -32,6 +32,39 @@ export function harborDockPileGeometry() {
   return geometry;
 }
 
+/** Stable owner for the quarry hoist: the middle upper scaffold crossbeam. */
+export function quarryHoistOwner(parts: readonly Entity[]) {
+  const beams = parts
+    .filter(
+      (part) =>
+        part.kind === "block" &&
+        part.material === "wood" &&
+        part.s[0] >= 5 &&
+        part.s[1] <= 1.2 &&
+        part.s[2] >= 2,
+    )
+    .slice()
+    .sort((a, b) => a.p[0] - b.p[0]);
+  return beams[Math.floor(beams.length / 2)];
+}
+
+/** Frame the quarry's raised hoist above the cut without the foreground spoil pile. */
+export function quarryHoistReviewCamera(owner: Entity, distance: number) {
+  const target: Entity["p"] = [
+    owner.p[0],
+    owner.p[1] + owner.s[1] / 2 + 0.62,
+    owner.p[2] + owner.s[2] * 0.38,
+  ];
+  return {
+    eye: [
+      target[0] + distance * 0.62,
+      target[1] + distance * 0.3,
+      target[2] + distance,
+    ] as Entity["p"],
+    target,
+  };
+}
+
 /** Aim the isolated harbor review down a dock so its driven supports stay visible. */
 export function harborDockReviewCamera(decks: readonly Pick<Entity, "p">[]) {
   if (decks.length < 2) return undefined;

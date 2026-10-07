@@ -9,6 +9,7 @@ import {
   isBridgeRailingPart,
   isLighthouseLanternGlazing,
   lighthouseRoofPresentation,
+  quarryHoistOwner,
 } from "./landmark-geometry";
 import { visualGeometry } from "./visual-assets";
 
@@ -188,6 +189,22 @@ export class Scenery {
     const lighthouseGlassPane = visualGeometry(
       "lighthouse-lantern-glass_lod0",
       () => new THREE.PlaneGeometry(2, 2),
+    );
+    const quarryWinchDrum = visualGeometry(
+      "quarry-winch-drum_lod0",
+      () => new THREE.CylinderGeometry(1, 1, 2, 14),
+    );
+    const quarryWinchCollar = visualGeometry(
+      "quarry-winch-collar_lod0",
+      () => new THREE.TorusGeometry(1, 0.09, 6, 16).rotateY(Math.PI / 2),
+    );
+    const quarryLoadRing = visualGeometry(
+      "quarry-winch-load-ring_lod0",
+      () => new THREE.TorusGeometry(1, 0.12, 6, 12),
+    );
+    const quarryWinchHandle = visualGeometry(
+      "quarry-winch-handle_lod0",
+      () => new THREE.CylinderGeometry(0.09, 0.09, 1.15, 8).rotateX(Math.PI / 2),
     );
     const addBeam = (
       key: string,
@@ -980,6 +997,79 @@ export class Scenery {
           part.s[1] <= 1.2 &&
           part.s[2] >= 2,
       );
+      const hoistOwner = quarryHoistOwner(parts);
+      if (hoistOwner) {
+        const [x, y, z] = hoistOwner.p,
+          drumY = y + hoistOwner.s[1] / 2 + 0.62,
+          drumZ = z + hoistOwner.s[2] * 0.38,
+          winchTimber = materials.wood.clone();
+        winchTimber.color.multiplyScalar(0.74);
+        add(
+          "quarry-winch-drum",
+          hoistOwner,
+          [x, drumY, drumZ],
+          [0.48, 0.86, 0.48],
+          winchTimber,
+          quarryWinchDrum,
+          false,
+          0,
+          Math.PI / 2,
+        );
+        for (const end of [-1, 1]) {
+          add(
+            "quarry-winch-collars",
+            hoistOwner,
+            [x + end * 0.72, drumY, drumZ],
+            [0.52, 0.52, 0.52],
+            iron,
+            quarryWinchCollar,
+          );
+          add(
+            "quarry-winch-brackets",
+            hoistOwner,
+            [x + end * 1.04, y + hoistOwner.s[1] / 2 + 0.2, drumZ],
+            [0.16, 1.15, 0.16],
+            structuralTimber,
+          );
+        }
+        const cableTop = new THREE.Vector3(x, drumY - 0.48, drumZ),
+          cableBottom = new THREE.Vector3(x, y - 5.2, drumZ);
+        addBeam(
+          "quarry-winch-cable",
+          hoistOwner,
+          cableTop,
+          cableBottom,
+          0.055,
+          iron,
+        );
+        const crankX = x + 1.04,
+          crankY = drumY - 0.12,
+          crankZ = drumZ + 0.12;
+        addBeam(
+          "quarry-winch-crank",
+          hoistOwner,
+          new THREE.Vector3(crankX, drumY, drumZ),
+          new THREE.Vector3(crankX, crankY - 0.82, crankZ),
+          0.1,
+          iron,
+        );
+        add(
+          "quarry-winch-handle",
+          hoistOwner,
+          [crankX, crankY - 0.86, crankZ],
+          [1, 1, 1],
+          winchTimber,
+          quarryWinchHandle,
+        );
+        add(
+          "quarry-winch-load-ring",
+          hoistOwner,
+          [x, cableBottom.y - 0.38, drumZ],
+          [0.3, 0.3, 0.3],
+          iron,
+          quarryLoadRing,
+        );
+      }
       for (let i = 0; i < posts.length - 1; i++) {
         const left = posts[i],
           right = posts[i + 1],
