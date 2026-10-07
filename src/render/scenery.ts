@@ -1525,6 +1525,56 @@ export class Scenery {
           );
         }
       }
+      if (castleKeep) {
+        const keepWall = parts.filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "sandstone" &&
+            !part.foundation &&
+            part.s[0] >= 4 &&
+            part.s[2] >= 4 &&
+            part.s[1] >= 2.8 &&
+            part.s[1] <= 3.4,
+        );
+        if (keepWall.length >= 8) {
+          const minX = Math.min(...keepWall.map((part) => part.p[0] - part.s[0])),
+            maxX = Math.max(...keepWall.map((part) => part.p[0] + part.s[0])),
+            minZ = Math.min(...keepWall.map((part) => part.p[2] - part.s[2])),
+            maxZ = Math.max(...keepWall.map((part) => part.p[2] + part.s[2])),
+            baseY = Math.min(...keepWall.map((part) => part.p[1] - part.s[1])),
+            topY = Math.max(...keepWall.map((part) => part.p[1] + part.s[1])),
+            ownerNear = (x: number, y: number, z: number) =>
+              keepWall.reduce((best, part) => {
+                const distance =
+                    (part.p[0] - x) ** 2 +
+                    (part.p[2] - z) ** 2 +
+                    2 * (part.p[1] - y) ** 2,
+                  prior =
+                    (best.p[0] - x) ** 2 +
+                    (best.p[2] - z) ** 2 +
+                    2 * (best.p[1] - y) ** 2;
+                return distance < prior ? part : best;
+              });
+          let course = 0;
+          for (let y = baseY + 4; y < topY; y += 8, course++) {
+            const halfWidth = course === 0 ? 2.2 : course % 2 ? 1.7 : 1.9;
+            for (const [x, z] of [
+              [minX - 0.25, minZ - 0.25],
+              [minX - 0.25, maxZ + 0.25],
+              [maxX + 0.25, minZ - 0.25],
+              [maxX + 0.25, maxZ + 0.25],
+            ])
+              add(
+                "castle-keep-corner-buttresses",
+                ownerNear(x, y, z),
+                [x, y, z],
+                [halfWidth, 4, halfWidth],
+                materials.sandstone ?? materials.stone ?? materials.rock,
+                box,
+              );
+          }
+        }
+      }
       if (watchtower) {
         const supports = parts.filter(
           (part) =>

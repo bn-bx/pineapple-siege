@@ -1419,19 +1419,34 @@ function inspect() {
     p = (world.castles?.[0]?.landmarks.gate ?? world.landmarks.gate).slice();
   } else if (kind === "castle-keep") {
     const castle = world.castles?.[0];
-    const wall = castle
-      ? world.entities.find(
+    const keepWalls = castle
+      ? world.entities.filter(
           (entity) =>
             entity.assembly === `${castle.id}:keep` &&
             entity.kind === "block" &&
             entity.material === "sandstone" &&
             !entity.foundation &&
             entity.s[0] >= 4 &&
-            entity.s[1] >= 2.5 &&
-            entity.s[2] >= 4,
+            entity.s[2] >= 4 &&
+            entity.s[1] >= 2.8 &&
+            entity.s[1] <= 3.4,
         )
-      : undefined;
-    p = (wall?.p ?? castle?.landmarks.keep ?? world.landmarks.keep).slice();
+      : [];
+    if (keepWalls.length >= 8) {
+      const minX = Math.min(...keepWalls.map((part) => part.p[0] - part.s[0])),
+        minZ = Math.min(...keepWalls.map((part) => part.p[2] - part.s[2])),
+        baseY = Math.min(...keepWalls.map((part) => part.p[1] - part.s[1])),
+        corner: Vec3 = [minX - 0.25, baseY + 20, minZ - 0.25];
+      inspectionTarget = corner;
+      view.inspectCamera(
+        [corner[0] - 18, corner[1] + 1.5, corner[2] - 16],
+        corner,
+      );
+      status.textContent = "Castle keep corner-buttress review";
+      last = 0;
+      return;
+    }
+    p = (castle?.landmarks.keep ?? world.landmarks.keep).slice();
   } else if (kind === "harbor" && selectedSite) {
     const decks = world.entities.filter(
       (entity) =>

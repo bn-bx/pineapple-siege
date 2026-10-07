@@ -753,6 +753,53 @@ it("adds sparse arrow slits to castle keep courses with their original owners", 
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(slits()).toBe(8);
 });
+it("adds corner buttresses to castle keep wall owners and restores them", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const walls = [] as any[];
+  let id = 900;
+  for (const y of [10, 18, 26, 34, 42, 50])
+    for (const x of [-6, 0, 6])
+      for (const z of [-6, 0, 6]) {
+        if (Math.abs(x) !== 6 && Math.abs(z) !== 6) continue;
+        walls.push({
+          id: id++,
+          kind: "block",
+          p: [x, y, z],
+          s: [5.9, 3.1, 5.9],
+          material: "sandstone",
+          assembly: "castle:keep",
+          foundation: false,
+          supports: [],
+        });
+      }
+  const scenery = new Scenery(
+    { paths: [], entities: walls } as any,
+    { sample: () => 0 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+      sandstone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(0, 24, 0),
+    count = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:castle-keep-corner-buttresses",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0,
+    owner = walls.find(
+      (part) => part.p[0] === -6 && part.p[2] === -6 && part.p[1] === 10,
+    )!;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  const intact = count();
+  expect(intact).toBe(24);
+  scenery.update(camera, new Set([owner.id]), 1200, 120, 1, true);
+  expect(count()).toBeLessThan(intact);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(count()).toBe(intact);
+});
 it("bands castle towers with string courses owned by existing masonry", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const walls = [] as any[];

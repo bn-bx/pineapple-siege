@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-49",
+  "release": "visual-overhaul-2026-10-07-batch-50",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -76,7 +76,9 @@
     "presentation-fitted-bridge-deck-thickness",
     "isolated-bridge-underdeck-review-camera",
     "owner-linked-tapered-harbor-piles",
-    "isolated-harbor-dock-support-review-camera"
+    "isolated-harbor-dock-support-review-camera",
+    "owner-linked-castle-keep-corner-buttresses",
+    "isolated-castle-keep-corner-review-camera"
   ],
   "performanceCertification": "deferred by release instruction"
 }
