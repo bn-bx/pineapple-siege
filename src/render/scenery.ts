@@ -1000,6 +1000,51 @@ export class Scenery {
         }
       }
     }
+    for (const [name, parts] of assemblies) {
+      if (!/lighthouse/.test(name)) continue;
+      const lanterns = parts.filter(
+        (part) =>
+          part.kind === "block" &&
+          part.material === "window" &&
+          part.s[0] >= 3.5 &&
+          part.s[2] >= 3.5 &&
+          part.s[0] > part.s[1] &&
+          part.s[2] > part.s[1],
+      );
+      for (const owner of lanterns) {
+        const [x, y, z] = owner.p,
+          [sx, sy, sz] = owner.s,
+          inset = 0.035;
+        for (const sideX of [-1, 1])
+          for (const sideZ of [-1, 1])
+            add(
+              "lighthouse-lantern-frames",
+              owner,
+              [x + sideX * (sx + inset), y, z + sideZ * (sz + inset)],
+              [0.12, sy, 0.12],
+              iron,
+            );
+        for (const lift of [-1, 1]) {
+          const railY = y + lift * (sy - 0.08);
+          for (const side of [-1, 1]) {
+            add(
+              "lighthouse-lantern-frames",
+              owner,
+              [x, railY, z + side * (sz + inset)],
+              [sx + 0.12, 0.08, 0.08],
+              iron,
+            );
+            add(
+              "lighthouse-lantern-frames",
+              owner,
+              [x + side * (sx + inset), railY, z],
+              [0.08, 0.08, sz + 0.12],
+              iron,
+            );
+          }
+        }
+      }
+    }
     for (const e of world.entities) {
       if (
         e.kind !== "block" ||

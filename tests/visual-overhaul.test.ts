@@ -399,6 +399,41 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(handrail()).toBe(1);
 });
+it("frames lighthouse lantern glazing with owner-linked iron members", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const lantern = {
+    id: 401,
+    kind: "block",
+    p: [100, 62, 100],
+    s: [4, 2, 4],
+    material: "window",
+    assembly: "lighthouse-1",
+    foundation: false,
+    supports: [],
+  };
+  const scenery = new Scenery(
+    { paths: [], entities: [lantern] } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 62, 100),
+    frames = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:lighthouse-lantern-frames",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(frames()).toBe(12);
+  scenery.update(camera, new Set([lantern.id]), 1200, 120, 1, true);
+  expect(frames()).toBe(0);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(frames()).toBe(12);
+});
 it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
   const { windmillRotorBladeIds } = await import(
     "../src/render/landmark-geometry"
