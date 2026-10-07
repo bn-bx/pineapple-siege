@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-62",
+  "release": "visual-overhaul-2026-10-07-batch-63",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -99,7 +99,8 @@
     "event-specific-explosion-plume-colors",
     "isolated-crash-and-collapse-effect-review",
     "event-scaled-impact-flashes",
-    "spatial-monster-growl-and-action-signatures"
+    "spatial-monster-growl-and-action-signatures",
+    "multi-scale-world-space-mountain-rock-relief"
   ],
   "performanceCertification": "deferred by release instruction"
 }

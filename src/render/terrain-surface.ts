@@ -149,7 +149,10 @@ export function installTerrainSurface(
         // Broad mineral relief remains readable from flight altitude without
         // changing canonical heights or sampling another texture. Derivatives
         // are evaluated before the mask, including across cliff transitions.
-        float cliffRelief=landscapePatch*4.8+strata*.28;
+        // A second, finer world-space field breaks smooth cone-like peak faces
+        // into layered rock relief without moving canonical terrain vertices.
+        float cliffGrain=terrainVariation(vSurfaceWorld.xz*.072+vec2(vSurfaceWorld.y*.008,-vSurfaceWorld.y*.006));
+        float cliffRelief=landscapePatch*2.8+strata*.22+(cliffGrain-.5)*.45;
         vec3 cliffSigmaX=dFdx(-vViewPosition),cliffSigmaY=dFdy(-vViewPosition);
         vec3 cliffR1=cross(cliffSigmaY,normal),cliffR2=cross(normal,cliffSigmaX);
         float cliffDet=dot(cliffSigmaX,cliffR1);
