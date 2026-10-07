@@ -433,14 +433,30 @@ export class GameAudio {
   }
 
   explosion(e: Explosion) {
+    if (e.kind !== "nuke" && e.water) {
+      // A river ambience excerpt sounds like a loop fragment when fired as an
+      // impact. Use a compact low splash body plus a lighter spray layer; both
+      // pass through the ordinary bounded, spatialized voice pool.
+      const strength = Math.min(1.5, Math.max(0.35, e.power));
+      this.noise(
+        e.p,
+        e.kind === "collapse" ? 1.25 : 0.62,
+        (e.kind === "collapse" ? 0.34 : 0.22) * strength,
+        e.kind === "collapse" ? 760 : 1050,
+        1,
+      );
+      this.noise(
+        [e.p[0], e.p[1] + 1.2, e.p[2]],
+        0.28,
+        0.055 * strength,
+        4200,
+        0.7,
+      );
+      return;
+    }
     if (
       e.kind !== "nuke" &&
-      this.recording(
-        e.water ? "river" : "explosion",
-        e.p,
-        e.water ? 0.15 : 0.18,
-        e.water ? 0.8 : 1,
-      )
+      this.recording("explosion", e.p, 0.18, 1)
     )
       return;
     if (e.kind === "nuke") {
