@@ -1,0 +1,36 @@
+import { expect, it } from "vitest";
+import { SessionState } from "../src/session-state";
+it("waits for worker acknowledgement before photo and rejects a late acknowledgement after pause", () => {
+  const state = new SessionState();
+  state.play();
+  expect(state.active).toBe(false);
+  state.loaded();
+  state.play();
+  state.requestPhoto();
+  expect(state.active).toBe(false);
+  expect(state.photoMode).toBe(false);
+  state.pause();
+  state.photoReady();
+  expect(state.mode).toBe("menu");
+  state.play();
+  state.requestPhoto();
+  state.photoReady();
+  expect(state.photoMode).toBe(true);
+});
+it("retains worker readiness across graphics recovery and clears it for island loading", () => {
+  const state = new SessionState();
+  state.loaded();
+  state.play();
+  state.recover();
+  state.play();
+  expect(state.mode).toBe("recovery");
+  expect(state.ready).toBe(false);
+  state.restored();
+  expect(state.ready).toBe(true);
+  state.preview();
+  expect(state.active).toBe(false);
+  state.loading();
+  expect(state.ready).toBe(false);
+  state.loaded();
+  expect(state.mode).toBe("menu");
+});

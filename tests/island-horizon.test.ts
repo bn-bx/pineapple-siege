@@ -2,7 +2,6 @@ import { expect, it } from "vitest";
 import * as THREE from "three";
 import { IslandHorizon } from "../src/render/island-horizon";
 import type { WorldData } from "../src/types";
-import type { VisualAssets } from "../src/render/visual-assets";
 import { treeCanopyScale } from "../src/render/tree-appearance";
 
 it("keeps distant owners aligned with destruction and restored saves without modifying world entities", () => {
@@ -20,8 +19,6 @@ it("keeps distant owners aligned with destruction and restored saves without mod
     world,
     [{ allIds: [0, 1], kind: "block", x: 3010, z: 3000, radius: 30 }],
     { stone: new THREE.MeshStandardMaterial() } as any,
-    { foliage: new Map() } as VisualAssets,
-    { value: 1 },
   );
   const mesh = view.group.children[0] as THREE.InstancedMesh;
   const first = new THREE.Matrix4(),
@@ -61,8 +58,6 @@ it("carries the same species-specific crown proportions into whole-island silhou
     { entities } as unknown as WorldData,
     [{ allIds: [0, 1], kind: "tree", x: 3010, z: 3000, radius: 30 }],
     { bark: new THREE.MeshStandardMaterial() } as any,
-    { foliage: new Map() } as VisualAssets,
-    { value: 1 },
   );
   const mesh = view.group.children[0] as THREE.InstancedMesh;
   for (let index = 0; index < entities.length; index++) {

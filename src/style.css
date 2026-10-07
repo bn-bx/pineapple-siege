@@ -1183,14 +1183,25 @@ select:focus-visible {
   }
 }
 
-#assetNotice {
-  position: fixed;
-  bottom: 16px;
-  left: 16px;
-  max-width: 420px;
-  padding: 12px;
-  background: #13262aee;
-  border: 1px solid #d9a65b;
-  z-index: 8;
+/* Native disclosures keep settings usable with keyboard, mouse, and touch. */
+.settings-section summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 8px 0;
+}
+.settings-section:not([open]) {
+  padding-bottom: 8px;
+}
+.advanced {
+  grid-column: 1 / -1;
+}
+.advanced summary {
   font-size: 12px;
+}
+.rapid-fire {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
 }

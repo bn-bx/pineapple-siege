@@ -1,63 +1,11 @@
 import * as THREE from "three";
-import type { Explosion, FragmentEffect, Material } from "../types";
+import type { Explosion,FragmentEffect,Material } from "../types";
 
 export function impactTint(material: Material | "water"): string {
-  switch (material) {
-    case "water":
-      return "#bad7d4";
-    case "wood":
-      return "#9d7953";
-    case "foliage":
-      return "#7b8453";
-    case "window":
-      return "#d5e1dc";
-    case "plaster":
-      return "#d3c8b3";
-    case "earth":
-      return "#a18a68";
-    case "roof":
-      return "#a87965";
-    case "slate":
-      return "#8a9193";
-    case "sandstone":
-      return "#c4b495";
-    case "rock":
-      return "#898f91";
-    case "stone":
-      return "#adb0aa";
-  }
+  return material === "water" ? "#bad7d4" : "#a18a68";
 }
-
-export interface ImpactDustProfile {
-  size: number;
-  duration: number;
-  maxPuffs: number;
-}
-
-/** Material-aware clouds distinguish brittle chips from heavy masonry dust. */
-export function impactDustProfile(material: Material): ImpactDustProfile {
-  switch (material) {
-    case "wood":
-      return { size: 0.72, duration: 0.85, maxPuffs: 5 };
-    case "foliage":
-      return { size: 0.58, duration: 0.72, maxPuffs: 4 };
-    case "roof":
-      return { size: 0.62, duration: 0.9, maxPuffs: 4 };
-    case "slate":
-      return { size: 0.78, duration: 1.1, maxPuffs: 6 };
-    case "window":
-      return { size: 0.38, duration: 0.55, maxPuffs: 3 };
-    case "earth":
-      return { size: 1.12, duration: 1.28, maxPuffs: 6 };
-    case "sandstone":
-      return { size: 0.98, duration: 1.16, maxPuffs: 6 };
-    case "plaster":
-      return { size: 0.84, duration: 0.98, maxPuffs: 5 };
-    case "rock":
-      return { size: 0.92, duration: 1.18, maxPuffs: 6 };
-    case "stone":
-      return { size: 0.86, duration: 1.08, maxPuffs: 5 };
-  }
+export function impactDustProfile(_material: Material) {
+  return { size: .85, duration: 1, maxPuffs: 5 };
 }
 
 /** Fixed, shared pool. These plumes never change damage or saved world data. */
@@ -83,7 +31,6 @@ export class GroundDust {
   private angle = new Float32Array(this.capacity);
   // 0 = terrain-following dust, 1 = impact at a wall/airborne surface, 2 = water.
   private anchor = new Uint8Array(this.capacity);
-  private animation = new Float32Array(this.capacity * 2);
   private ripplePosition = new Float32Array(this.rippleCapacity * 3);
   private rippleAge = new Float32Array(this.rippleCapacity).fill(100);
   private rippleDuration = new Float32Array(this.rippleCapacity);
@@ -117,12 +64,6 @@ export class GroundDust {
       }),
       this.capacity,
     );
-    this.mesh.geometry.setAttribute(
-      "puffAnimation",
-      new THREE.InstancedBufferAttribute(this.animation, 2).setUsage(
-        THREE.DynamicDrawUsage,
-      ),
-    );
     this.mesh.frustumCulled = false;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     for (let i = 0; i < this.capacity; i++)
@@ -147,39 +88,6 @@ export class GroundDust {
     this.ripples.setColorAt(0, new THREE.Color("#e1f1ed"));
     this.reset();
   }
-  installAtlas(texture: THREE.Texture) {
-    this.mesh.material.map = texture;
-    this.fallback.dispose();
-    this.mesh.material.onBeforeCompile = (shader) => {
-      shader.vertexShader = shader.vertexShader
-        .replace(
-          "#include <common>",
-          "#include <common>\nattribute vec2 puffAnimation;varying vec2 vPuffAnimation;varying vec2 vPuffUv;",
-        )
-        .replace(
-          "#include <begin_vertex>",
-          "#include <begin_vertex>\nvPuffAnimation=puffAnimation;vPuffUv=uv;",
-        );
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          "#include <common>",
-          `#include <common>
-          varying vec2 vPuffAnimation;varying vec2 vPuffUv;
-          vec2 puffUv(float frame){vec2 cell=vec2(mod(frame,5.),floor(frame/5.));return (cell+(vec2(4.)+vPuffUv*248.)/256.)/5.;}`,
-        )
-        .replace(
-          "#include <map_fragment>",
-          `
-          float frame=vPuffAnimation.y+vPuffAnimation.x*3.;
-          vec4 first=texture2D(map,puffUv(mod(floor(frame),25.)));
-          vec4 second=texture2D(map,puffUv(mod(floor(frame)+1.,25.)));
-          diffuseColor*=mix(first,second,smoothstep(0.,1.,fract(frame)));
-          diffuseColor.a*=sin(clamp(vPuffAnimation.x,0.,1.)*3.14159265);`,
-        );
-    };
-    this.mesh.material.customProgramCacheKey = () => "animated-puff-atlas-v1";
-    this.mesh.material.needsUpdate = true;
-  }
   private spawn(
     p: number[],
     material: Material | "water",
@@ -197,8 +105,6 @@ export class GroundDust {
     this.size[i] = size;
     this.angle[i] = seed * 2.399963;
     this.anchor[i] = anchor;
-    this.animation[i * 2] = 0;
-    this.animation[i * 2 + 1] = Math.abs(Math.floor(seed * 17)) % 25;
     this.mesh.setColorAt(i, this.tint.set(impactTint(material)));
     this.mesh.instanceColor!.needsUpdate = true;
   }
@@ -295,7 +201,6 @@ export class GroundDust {
             size * (this.anchor[i] === 2 ? 1.3 : 0.85),
             1,
           );
-          this.animation[i * 2] = t;
         }
         if (t >= 1) this.active.delete(i);
         this.dummy.updateMatrix();
@@ -303,7 +208,6 @@ export class GroundDust {
       }
       this.mesh.visible = this.active.size > 0;
       this.mesh.instanceMatrix.needsUpdate = true;
-      this.mesh.geometry.attributes.puffAnimation.needsUpdate = true;
     }
     let rippleCount = 0;
     for (const i of this.rippleActive) {

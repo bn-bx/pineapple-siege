@@ -1,8 +1,7 @@
-import { discoActive } from "../disco";
-import { visualGeometry } from "./visual-assets";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DEFAULT_RENDER_DISTANCE } from "../config";
+import { discoActive } from "../disco";
 import type { SimulationSnapshot } from "../types";
 
 function boxFallback(name: string) {
@@ -223,114 +222,6 @@ export class CivilianView {
     this.group.add(this.mouths);
     this.group.add(this.fearMouths);
     this.group.add(this.eyeWhites);
-  }
-  installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
-    if (cloth) {
-      const material = this.parts[0].material as THREE.MeshStandardMaterial;
-      material.map = cloth.color;
-      material.normalMap = cloth.normal;
-      material.normalScale.set(0.4, 0.4);
-      material.needsUpdate = true;
-    }
-    const old = new Set(this.parts.map((p) => p.geometry));
-    this.parts[0].geometry = visualGeometry("human-torso_lod0", () =>
-      this.parts[0].geometry.clone(),
-    );
-    this.parts[1].geometry = visualGeometry("human-head_lod0", () =>
-      this.parts[1].geometry.clone(),
-    ).scale(2, 2, 2);
-    // Keep exposed hands on the shared skin material; the source mesh's dark
-    // vertex tint made bare hands read as black gloves in the finished cloth set.
-    const hands = new THREE.SphereGeometry(0.38, 10, 8);
-    // The shared skin material needs white vertex colors here: the imported
-    // head mesh enables vertex colors, and a missing attribute renders black.
-    hands.setAttribute(
-      "color",
-      new THREE.BufferAttribute(
-        new Float32Array(hands.attributes.position.count * 3).fill(1),
-        3,
-      ),
-    );
-    this.parts[7].geometry = hands;
-    this.parts[8].geometry = visualGeometry("human-boot_lod0", () =>
-      this.parts[8].geometry.clone(),
-    );
-    const skin = this.parts[1].material as THREE.MeshStandardMaterial;
-    skin.vertexColors = !!this.parts[1].geometry.getAttribute("color");
-    skin.needsUpdate = true;
-    const limb = visualGeometry("human-limb_lod0", () =>
-      this.parts[2].geometry.clone(),
-    );
-    for (const index of [2, 3, 4, 5]) this.parts[index].geometry = limb;
-    // One draw at distance retains a head, shoulders, arms and separate legs.
-    // Bake the same metre proportions used by the articulated near resident.
-    const distantParts: THREE.BufferGeometry[] = [];
-    const add = (name: string, p: number[], s: number[], tint = 0xffffff) => {
-      const g = visualGeometry(`${name}_lod2`, () => boxFallback(name));
-      g.scale(s[0], s[1], s[2]).translate(p[0], p[1], p[2]);
-      const authoredColor = g.getAttribute("color");
-      for (const key of Object.keys(g.attributes))
-        if (!["position", "normal", "uv"].includes(key)) g.deleteAttribute(key);
-      const color = new THREE.Color(tint),
-        values = new Float32Array(g.attributes.position.count * 3);
-      for (let i = 0; i < g.attributes.position.count; i++) {
-        const shade = color.clone();
-        if (authoredColor)
-          shade.multiply(
-            new THREE.Color().fromBufferAttribute(authoredColor, i),
-          );
-        shade.toArray(values, i * 3);
-      }
-      g.setAttribute("color", new THREE.BufferAttribute(values, 3));
-      g.setAttribute(
-        "clothMask",
-        new THREE.BufferAttribute(
-          new Float32Array(g.attributes.position.count).fill(
-            tint === 0xffffff ? 1 : 0,
-          ),
-          1,
-        ),
-      );
-      distantParts.push(g);
-    };
-    add("human-torso", [0, 2.55, 0], [1.65, 1.85, 0.9]);
-    add("human-head", [0, 4.05, 0], [0.8, 0.9, 0.76], 0xe9bd87);
-    for (const side of [-1, 1]) {
-      add("human-limb", [side * 1.08, 2.55, 0], [0.5, 1.7, 0.6]);
-      add("human-limb", [side * 0.45, 0.9, 0], [0.55, 1.8, 0.65], 0x34302c);
-      add("human-boot", [side * 0.45, 0.18, 0], [0.52, 0.58, 0.62], 0x34302c);
-      add("human-hand", [side * 1.08, 1.5, 0], [0.55, 0.55, 0.6], 0xe9bd87);
-    }
-    const silhouette = mergeGeometries(distantParts)!;
-    distantParts.forEach((g) => g.dispose());
-    silhouette.translate(0, -2, 0).scale(1 / 1.7, 1 / 4, 1 / 0.9);
-    old.add(this.distant.geometry);
-    this.distant.geometry = silhouette;
-    const distantMaterial = (
-      this.distant.material as THREE.MeshStandardMaterial
-    ).clone();
-    distantMaterial.vertexColors = true;
-    const original = distantMaterial.onBeforeCompile;
-    distantMaterial.onBeforeCompile = (shader, renderer) => {
-      original(shader, renderer);
-      shader.vertexShader = shader.vertexShader
-        .replace(
-          "#include <common>",
-          "#include <common>\nattribute float clothMask;",
-        )
-        .replace(
-          "#include <color_vertex>",
-          "#include <color_vertex>\n#ifdef USE_INSTANCING_COLOR\nvColor.rgb=mix(color.rgb,vColor.rgb,clothMask);\n#endif",
-        );
-    };
-    distantMaterial.customProgramCacheKey = () => "resident-clothing-mask-v1";
-    this.distant.material = distantMaterial;
-    for (const g of old)
-      if (
-        !this.parts.some((p) => p.geometry === g) &&
-        this.distant.geometry !== g
-      )
-        g.dispose();
   }
   /** Isolated inspector override; it never edits worker or saved civilian data. */
   setReviewDefeat(id: number, defeated: boolean, time = 0) {

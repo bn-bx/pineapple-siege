@@ -13,21 +13,16 @@
     "benchmark:world": "node scripts/generate-world.mjs && node scripts/benchmark-world.mjs",
     "benchmark:debris": "node scripts/generate-world.mjs && node scripts/benchmark-simple-debris.mjs",
     "benchmark:destruction": "node scripts/generate-world.mjs && node scripts/benchmark-destruction.mjs",
-    "assets:compress": "node scripts/compress-visual-assets.mjs",
     "assets:hash": "node scripts/hash-runtime-assets.mjs",
-    "assets:verify": "node scripts/hash-runtime-assets.mjs && node scripts/verify-visual-assets.mjs"
+    "assets:verify": "node scripts/hash-runtime-assets.mjs && node scripts/verify-built-runtime-assets.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.3",
     "three": "0.180.0"
   },
   "devDependencies": {
-    "@gltf-transform/core": "^4.5.1",
-    "@gltf-transform/extensions": "^4.5.1",
-    "@gltf-transform/functions": "^4.5.1",
     "@types/node": "^22.18.0",
     "@types/three": "0.180.0",
-    "meshoptimizer": "^1.3.0",
     "prettier": "3.6.2",
     "typescript": "~5.9.3",
     "vite": "^7.1.7",

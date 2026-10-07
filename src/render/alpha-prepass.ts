@@ -1,9 +1,7 @@
 import * as THREE from "three";
 
-/** Match cutouts and animated vertices while retaining a shared depth/normal pass. */
-export function matchPrepass(
-  material: THREE.MeshDepthMaterial | THREE.MeshNormalMaterial,
-) {
+/** Match cutouts and animated vertices while retaining a photo depth pass. */
+export function matchPrepass(material: THREE.MeshDepthMaterial) {
   let vertexSource: THREE.Material | undefined;
   let signature = "",
     vertexKey = "";
@@ -48,29 +46,11 @@ export function matchPrepass(
     material.needsUpdate = true;
   };
   material.onBeforeCompile = (shader, renderer) => {
-    // Existing debris depth hooks retain packed-pose interpolation. Foliage
-    // hooks retain wind/billboarding; their beauty fragment code is not used.
+    // Debris depth hooks retain packed-pose interpolation; their beauty
+    // fragment code is not used.
     const fragment = shader.fragmentShader;
     vertexSource?.onBeforeCompile(shader, renderer);
     shader.fragmentShader = fragment;
-    if (material instanceof THREE.MeshNormalMaterial) {
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          "#include <packing>",
-          `#include <common>
-          #include <packing>
-          #include <map_pars_fragment>
-          #include <alphamap_pars_fragment>
-          #include <alphatest_pars_fragment>`,
-        )
-        .replace(
-          "#include <normal_fragment_begin>",
-          `#include <map_fragment>
-          #include <alphamap_fragment>
-          #include <alphatest_fragment>
-          #include <normal_fragment_begin>`,
-        );
-    }
     mask?.(shader, renderer);
   };
 }

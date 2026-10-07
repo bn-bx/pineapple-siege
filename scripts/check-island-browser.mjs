@@ -54,6 +54,7 @@ try {
   await ready();
   assert.equal(await page.evaluate(() => lanternVale.world.seed), 41729);
   assert(!new URL(page.url()).searchParams.has("island"));
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#copyIslandLink").click();
   await page.locator("#enter").click();
   await page.waitForFunction(
@@ -94,6 +95,7 @@ try {
   await page.evaluate(() => {
     lanternVale.renderer.render = () => {};
   });
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await choose("PS2-0000002A");
   await page.locator("#keepIsland").click();
@@ -101,6 +103,7 @@ try {
   await page.locator("#backToIsland").click();
   await page.locator("#cancelIsland").click();
   assert.equal(await page.evaluate(() => lanternVale.world.seed), 41729);
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await page.locator("#previewSeed").fill("PS2-00000000");
   await page.locator("#previewSeedForm button").click();
@@ -115,6 +118,7 @@ try {
       return request;
     };
   });
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await choose("PS2-0000002A");
   await page.locator("#keepIsland").click();
@@ -127,6 +131,7 @@ try {
     IDBObjectStore.prototype.put = window.originalPut;
   });
   // A malformed pasted seed does not discard the valid candidate or saved world.
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await choose("PS2-0000002A");
   await page.locator("#previewSeed").fill("PS3-0000002A");
@@ -148,6 +153,7 @@ try {
   await page.evaluate(() => {
     lanternVale.renderer.render = () => {};
   });
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#reset").click();
   await page.locator("#confirmReset").click();
   await ready();
@@ -165,6 +171,7 @@ try {
   assert(!new URL(page.url()).searchParams.has("island"));
   const screenshots = [];
   for (const seed of ["PS2-00000000", "PS2-00000001"]) {
+    await page.locator(".settings-world").evaluate((e) => (e.open = true));
     await page.locator("#createIsland").click();
     await choose(seed);
     const name = `/tmp/island-qa/preview-${seed.slice(-8)}.png`;
@@ -173,6 +180,7 @@ try {
     await page.locator("#cancelIsland").click();
   }
   await page.setViewportSize({ width: 390, height: 760 });
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await choose("PS2-0000002A");
   await page
@@ -209,6 +217,7 @@ try {
       }
     };
   });
+  await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await page.waitForFunction(() =>
     document
@@ -251,6 +260,7 @@ try {
   await temporary.evaluate(() => {
     lanternVale.renderer.render = () => {};
   });
+  await temporary.locator(".settings-world").evaluate((e) => (e.open = true));
   await temporary.locator("#createIsland").click();
   await temporary.locator("#previewSeed").fill("PS2-0000002A");
   await temporary.locator("#previewSeedForm button").click();

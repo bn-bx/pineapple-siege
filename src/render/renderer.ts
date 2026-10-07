@@ -1,136 +1,64 @@
-import { crownSurface } from "./fruit-surface";
-import { IslandHorizon } from "./island-horizon";
-import { constructionScale } from "./material-scale";
-import { bannerWind, heraldicBannerGeometry } from "./banner-wind";
-import { foliageWind } from "./foliage-wind";
-import { skipEmptyPointLights } from "./local-light-cost";
-import { budgetSurfaceNormals } from "./surface-normal-budget";
-import { treeLOD } from "./tree-lod";
-import { treeImpostor } from "./tree-impostor";
-import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
-import { jetExhaustProfile } from "./jet-exhaust";
-import { jetSurfacePose } from "./jet-control-surfaces";
-import { waterPrepass } from "./water-prepass";
-import { installFractureSurface } from "./fracture-surface";
-import { Scenery } from "./scenery";
-import { HarborLadders } from "./harbor-ladders";
-import { VisualAssets, visualGeometry } from "./visual-assets";
+import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
-  bridgeDeckPresentation,
-  harborDockPileGeometry,
-  isHarborDockPile,
-  isBridgeRailingPart,
-  isLoggingCampLog,
-  isLighthouseLanternGlazing,
-  lighthouseRoofPresentation,
-  loggingCampLogGeometry,
-  windmillRotorBladeIds,
-  waterwheelPartIds,
-} from "./landmark-geometry";
-import { WindmillView } from "./windmill-view";
-import { WaterwheelView } from "./waterwheel-view";
-import { Presentation } from "./presentation";
-import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
-import { sceneResources } from "./resource-budget";
-import { installTerrainSurface } from "./terrain-surface";
-import { SimulationCadence } from "../simulation-cadence";
-import {
-  waterNormals,
-  OCEAN_COLOR_GLSL,
-  OCEAN_NORMAL_GLSL,
-} from "./water-surface";
-import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
-import { VillageLighting, villageDecorations } from "./village-lighting";
-import {
-  prepareDebrisMotion,
-  refreshDebrisMaterial,
-  resizeDebrisMotion,
-  writeDebrisMotion,
-  uploadDebrisMotion,
-} from "./debris-motion";
+  CHUNKS,
+  clamp,
+  CONFIG,
+  DEFAULT_RENDER_DISTANCE,
+  normalizeRenderDistance,
+} from "../config";
+import { isRoof } from "../debris-shape";
+import { discoActive } from "../disco";
+import { GPUTimer, PerformanceMonitor } from "../performance";
 import {
   BODY_MATERIALS,
-  PackedBodyReader,
   PackedBodyLookup,
+  PackedBodyReader,
 } from "../sim/body-buffer";
-import { motionFrame, bindMotion } from "../sim/motion-buffer";
-import { PerformanceMonitor, GPUTimer } from "../performance";
-import { AutoQuality } from "./auto-quality";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { withReflectionDetail } from "./reflection-detail";
-import { makeRivers } from "./river-view";
-import { SnapshotTimeline } from "./snapshot-timeline";
-import { CivilianView } from "./civilians";
-import { ProjectileView } from "./projectiles";
-import { isRoof } from "../debris-shape";
-import { MAX_BODY_LIMIT } from "../destruction-settings";
-import { CameraRig } from "./camera-rig";
-import { GooglyEyes } from "./googly-eyes";
-import { DiscoScene, DISCO_PATTERN_GLSL } from "./disco";
-import { discoActive } from "../disco";
-import {
-  makeMonster,
-  upgradeMonsterTemplate,
-  makeDistantMonster,
-  DistantMonsterView,
-  NearMonsterView,
-  MonsterFragmentView,
-  monsterCombatPose,
-} from "./monster";
-import { flightPose } from "./flight-pose";
-import * as THREE from "three";
-import { Water } from "three/addons/objects/Water.js";
-import {
-  createMaterials,
-  fractureGeometry,
-  roofGeometry,
-  roofFragmentGeometry,
-  fractureMaterials,
-  pineGeometry,
-  treeCrownGeometry,
-  treeCrownLowGeometry,
-  makeJet,
-  makePineapple,
-  upgradePineapple,
-} from "./assets";
-import { TerrainView } from "./terrain-view";
-import { Effects } from "./effects";
+import { bindMotion, motionFrame } from "../sim/motion-buffer";
+import { SimulationCadence } from "../simulation-cadence";
 import type {
-  WorldData,
-  Entity,
-  WorldDelta,
-  SimulationSnapshot,
-  Ruin,
   BodyView,
+  Entity,
   Explosion,
   FragmentEffect,
   Material,
+  Ruin,
+  SimulationSnapshot,
   Vec3,
+  WorldData,
+  WorldDelta,
 } from "../types";
+import { ActorView } from "./actors";
 import {
-  CONFIG,
-  CHUNKS,
-  clamp,
-  DEFAULT_MONSTER_COUNT,
-  DEFAULT_RENDER_DISTANCE,
-  normalizeRenderDistance,
-  MAX_MONSTER_COUNT,
-  LASER,
-  MONSTER_SCALE,
-  WEAPONS,
-} from "../config";
-interface Batch {
-  mesh: THREE.InstancedMesh;
-  low?: THREE.InstancedMesh;
-  middle?: THREE.InstancedMesh;
-  ids: number[];
-  allIds: number[];
-  kind: string;
-  detailGeometry?: [THREE.BufferGeometry, THREE.BufferGeometry];
-  x: number;
-  z: number;
-  radius: number;
-}
+  createMaterials,
+  fractureGeometry,
+  fractureMaterials,
+  makeJet,
+  pineGeometry,
+  roofFragmentGeometry,
+  roofGeometry,
+  treeCrownGeometry,
+} from "./assets";
+import { AutoQuality } from "./auto-quality";
+import { CameraRig } from "./camera-rig";
+import {
+  prepareDebrisMotion,
+  resizeDebrisMotion,
+  uploadDebrisMotion,
+  writeDebrisMotion,
+} from "./debris-motion";
+import { Effects } from "./effects";
+import { EnvironmentView } from "./environment";
+import { flightPose } from "./flight-pose";
+import { jetExhaustProfile } from "./jet-exhaust";
+import { Presentation } from "./presentation";
+import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
+import { sceneResources } from "./resource-budget";
+import { ResourceDisposal } from "./resource-disposal";
+import { SnapshotTimeline } from "./snapshot-timeline";
+import { TerrainView } from "./terrain-view";
+import { WorldBatches } from "./world-batches";
 const dummy = new THREE.Object3D(),
   zero = new THREE.Matrix4().makeScale(0, 0, 0),
   up = new THREE.Vector3(0, 1, 0);
@@ -143,50 +71,50 @@ const roofKeys = new Map(
   BODY_MATERIALS.map((material, index) => [material, bodyKeys[index]]),
 );
 export class GameRenderer {
-  readonly civilians: CivilianView;
-  readonly projectileView = new ProjectileView();
+  private environment: EnvironmentView;
+  private get sun() {
+    return this.environment.sun;
+  }
+  private get sky() {
+    return this.environment.sky;
+  }
+  private get lighting() {
+    return this.environment.lighting;
+  }
+
+  private worldView: WorldBatches;
+  private actors: ActorView;
+  get civilians() {
+    return this.actors.civilians;
+  }
+  private get batches() {
+    return this.worldView.batches;
+  }
+  private get removed() {
+    return this.worldView.removed;
+  }
+
   readonly rig = new CameraRig();
   private cameraCells = new Map<number, Entity[]>();
-  private forestCells = new Map<number, Entity[]>();
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(64, 1, 0.5, 2800);
   readonly terrain: TerrainView;
   readonly effects = new Effects();
-  readonly disco = new DiscoScene();
   readonly jet = makeJet();
   readonly performance = new PerformanceMonitor(4096);
   warmupStages: Record<string, number> = {};
   get assetLoadingStages() {
-    return this.visualAssets?.loadingStages ?? {};
+    return {};
   }
   private gpu: GPUTimer;
   private warming?: Promise<void>;
   private disposed = false;
   private graphicsLost = false;
   private auto = new AutoQuality(2);
-  private visualAssets: VisualAssets;
   private presentation: Presentation;
-  private visualsInstalled = false;
-  private scenery?: Scenery;
-  private harborLadders?: HarborLadders;
-  private windmills?: WindmillView;
-  private waterwheels?: WaterwheelView;
-  private foliageTime = { value: 0 };
-  private foliageDay = { value: 1 };
-  private treeLODState = {
-    camera: { value: new THREE.Vector3() },
-    ranges: { value: new THREE.Vector2(140 ** 2, 300 ** 2) },
-    warming: { value: 0 },
-  };
-  private surfaceNormalDetail = { value: 1 };
-  private foliageMaterials = new Map<string, THREE.MeshStandardMaterial>();
-  private foliageDepthMaterials = new Map<string, THREE.MeshDepthMaterial>();
   private cadence = new SimulationCadence();
   private nextResources = 0;
-  private environmentTarget?: THREE.WebGLRenderTarget;
-  private reflectionTarget?: THREE.WebGLRenderTarget;
-  private retiredGeometry = new Set<THREE.BufferGeometry>();
   private cachedProfile?: {
     selection: string;
     level: number;
@@ -205,28 +133,6 @@ export class GameRenderer {
       };
     return this.cachedProfile.value;
   }
-  get assetStatus() {
-    return {
-      loaded: this.visualAssets.loaded,
-      total: this.visualAssets.total,
-      failures: this.visualAssets.failures,
-    };
-  }
-  ambience() {
-    const p = this.jet.position,
-      h = this.terrain.sample(p.x, p.z);
-    const entities =
-      this.forestCells.get(
-        Math.floor(p.z / 64) * CHUNKS + Math.floor(p.x / 64),
-      ) ?? [];
-    return {
-      altitude: Math.max(0, p.y - h),
-      forest: entities.some((e) => e.kind === "tree" && !this.removed.has(e.id))
-        ? 1
-        : 0,
-      water: h < 4 ? 1 : 0,
-    };
-  }
   setPhotoExposure(value: number) {
     this.renderer.toneMappingExposure = THREE.MathUtils.clamp(value, 0.4, 2.2);
   }
@@ -237,32 +143,11 @@ export class GameRenderer {
   private nextShadow = 0;
   private shadowDirty = true;
   private lightingHour = NaN;
-  private nextReflection = 0.035;
   private lastArrival = 0;
   private reducedEffects = false;
   private cpuMS = 0;
   private wasActive = false;
-  private lighting = new EnvironmentLighting();
-  private villageLighting: VillageLighting;
-  private shadowCenter = new THREE.Vector3();
-  private discoSun = new THREE.Color("#b9c3ff");
-  private discoAmbient = new THREE.Color("#d9dcff");
-  private eyeRoots: THREE.Object3D[] = [];
-  private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
-  private monsterFragmentRoot = new THREE.Object3D();
-  private monsterFragmentQuaternion = new THREE.Quaternion();
-  private nearMonsterView = new NearMonsterView(MAX_MONSTER_COUNT);
-  readonly eyes = new GooglyEyes();
   readonly materials: ReturnType<typeof createMaterials>["materials"];
-  private sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
-  private sun = new THREE.DirectionalLight("#fff0d2", 2.8);
-  private ambient = new THREE.HemisphereLight("#c4e3f4", "#565b32", 1.8);
-  private water: Water;
-  private rivers: THREE.Group;
-  private batches: Batch[] = [];
-  private refs = new Map<number, { batch: Batch; index: number }[]>();
-  private removed = new Set<number>();
-  private islandHorizon?: IslandHorizon;
   private ruins = new Map<number, Ruin>();
   private ruinCells = new Map<number, Set<number>>();
   private ruinGroups = new Map<number, THREE.Group>();
@@ -303,38 +188,12 @@ export class GameRenderer {
   private bodySphere = new THREE.Sphere();
   private syncedBodies?: BodyView[];
   private previousBodies = new Map<number, BodyView>();
-  private previousProjectiles = new Map<
-    number,
-    SimulationSnapshot["projectiles"][number]
-  >();
-  private previousSpikes = new Map<
-    number,
-    SimulationSnapshot["monsterSpikes"][number]
-  >();
   private syncedBodyAlpha = -1;
   private debrisRotation = new THREE.Quaternion();
   private fallenPines: THREE.InstancedMesh;
   private fallenCanopies = new Map<string, THREE.InstancedMesh>();
   private crownGeometries = new Map<string, THREE.BufferGeometry>();
   private fallenTrunks: THREE.InstancedMesh;
-  private shotMeshes: THREE.Group[] = [];
-  private monsterMeshes: THREE.Group[] = [];
-  private distantMonsters: THREE.Group[] = [];
-  private distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
-  private googlyEyes = false;
-  private eyesRoots: THREE.Object3D[] = [];
-  private spikeMeshes: THREE.Mesh[] = [];
-  private spikeGeometry: THREE.BufferGeometry = new THREE.ConeGeometry(
-    0.75,
-    5,
-    5,
-  );
-  private spikeMaterial = new THREE.MeshStandardMaterial({
-    color: "#596d3a",
-    roughness: 0.78,
-    side: THREE.DoubleSide,
-  });
-  private flagGroup = new THREE.Group();
   private marker: THREE.Mesh;
   private inspect?: { p: THREE.Vector3; target: THREE.Vector3 };
   private last?: SimulationSnapshot;
@@ -369,7 +228,6 @@ export class GameRenderer {
   private cameraBox = new THREE.Box3();
   private cameraHit = new THREE.Vector3();
   private cameraCandidates = new Set<Entity>();
-  private bridgeAssemblies: Set<string>;
   private cameraCell = -1;
   private cameraRay = new THREE.Raycaster();
   private wreckTransform = new THREE.Matrix4();
@@ -385,22 +243,8 @@ export class GameRenderer {
     heights: Float32Array,
     private recycle?: (s: SimulationSnapshot) => void,
   ) {
-    this.bridgeAssemblies = new Set(
-      (world.sites ?? [])
-        .filter((site) => site.kind === "bridge" || site.kind === "crossing")
-        .map((site) => site.id),
-    );
-    this.civilians = new CivilianView(world.civilians?.length ?? 0);
-    this.scene.add(this.civilians.group);
-    this.scene.add(this.projectileView.group);
     for (const e of world.entities) {
-      if (e.kind === "tree") {
-        const key = Math.floor(e.p[2] / 64) * CHUNKS + Math.floor(e.p[0] / 64);
-        let cell = this.forestCells.get(key);
-        if (!cell) this.forestCells.set(key, (cell = []));
-        cell.push(e);
-        continue;
-      }
+      if (e.kind === "tree") continue;
       for (
         let z = Math.max(0, Math.floor((e.p[2] - e.s[2]) / 64));
         z <= Math.min(CHUNKS - 1, Math.floor((e.p[2] + e.s[2]) / 64));
@@ -432,7 +276,6 @@ export class GameRenderer {
           gl.getShaderInfoLog(fragment),
       );
     };
-    this.visualAssets = new VisualAssets(this.renderer);
     this.presentation = new Presentation(
       this.renderer,
       this.scene,
@@ -462,7 +305,6 @@ export class GameRenderer {
       this.renderer.getContext() as WebGL2RenderingContext,
       this.performance,
     );
-    this.eyes.setEnabled(false);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -475,152 +317,16 @@ export class GameRenderer {
     this.fragmentMaterials = fractureMaterials(this.materials);
     this.terrain = new TerrainView(world, heights, assets.grass);
     this.terrain.enableStreamingUploads();
-    this.scene.add(
-      this.terrain.group,
-      this.effects.group,
-      this.disco.group,
-      this.jet,
-      this.flagGroup,
-      this.sun,
-      this.sun.target,
-      this.ambient,
+    this.environment = new EnvironmentView(
+      this.scene,
+      this.terrain,
+      world,
+      this.materials,
+      this.visualProfile.shadowSize,
     );
-    this.ensureMonsterMeshes(DEFAULT_MONSTER_COUNT);
-    this.scene.add(
-      this.distantMonsterView.group,
-      this.nearMonsterView.group,
-      this.monsterFragmentView.group,
-    );
-
-    this.sun.castShadow = true;
-    const initialShadow = this.visualProfile.shadowSize;
-    this.sun.shadow.mapSize.set(initialShadow, initialShadow);
-    Object.assign(this.sun.shadow.camera, {
-      left: -220,
-      right: 220,
-      top: 220,
-      bottom: -220,
-      near: 1,
-      far: 2000,
-    });
-    this.sun.shadow.bias = -0.00015;
-    this.sun.shadow.normalBias = 0.5;
-    this.sun.shadow.camera.updateProjectionMatrix();
-    this.sky = new THREE.Mesh(
-      new THREE.SphereGeometry(2500, 24, 16),
-      new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        depthWrite: false,
-        uniforms: {
-          sun: { value: this.lighting.sunDirection },
-          zenithColor: { value: this.lighting.zenithColor },
-          horizonColor: { value: this.lighting.horizonColor },
-          cloudColor: { value: this.lighting.cloudColor },
-          twilight: { value: 0 },
-          discoAmount: this.disco.skyAmount,
-          day: { value: 1 },
-          time: { value: 0 },
-          laserDim: { value: 0 },
-        },
-        vertexShader:
-          "varying vec3 vDirection; void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-        fragmentShader: SKY_FRAGMENT,
-      }),
-    );
-    this.sky.frustumCulled = false;
-    this.sky.renderOrder = -10;
-    this.scene.add(this.sky);
-    this.buildBatches();
-    const normals = waterNormals();
-    this.water = new Water(
-      new THREE.PlaneGeometry(CONFIG.worldSize * 3, CONFIG.worldSize * 3),
-      {
-        textureWidth: this.visualProfile.reflectionWidth,
-        textureHeight: this.visualProfile.reflectionHeight,
-        waterNormals: normals,
-        sunDirection: new THREE.Vector3(0.3, 0.6, 0.2),
-        sunColor: 0xffeed5,
-        waterColor: 0x28645d,
-        distortionScale: 0.65,
-        fog: false,
-      },
-    );
-    this.water.rotation.x = -Math.PI / 2;
-    this.water.position.set(CONFIG.worldSize / 2, 0.04, CONFIG.worldSize / 2);
-    const mat = this.water.material;
-    mat.uniforms.uFlood = { value: this.terrain.floodTexture };
-    mat.uniforms.uHeight = { value: this.terrain.heightTexture };
-    mat.uniforms.uDiscoAmount = this.disco.amount;
-    mat.uniforms.uDiscoTime = this.disco.time;
-    mat.fragmentShader = mat.fragmentShader
-      .replace(
-        /vec4 getNoise\( vec2 uv \) \{[\s\S]*?\n\s*\}/,
-        OCEAN_NORMAL_GLSL,
-      )
-      .replace(
-        "uniform float alpha;",
-        `uniform float alpha; uniform sampler2D uFlood; uniform sampler2D uHeight;
-         uniform float uDiscoAmount; uniform float uDiscoTime; ${DISCO_PATTERN_GLSL}`,
-      )
-      .replace(
-        "#include <logdepthbuf_fragment>",
-        `#include <logdepthbuf_fragment>\n vec2 terrainUV=(worldPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.; bool inMap=all(greaterThanEqual(terrainUV,vec2(0.)))&&all(lessThanEqual(terrainUV,vec2(1.))); float groundHeight=inMap?texture2D(uHeight,terrainUV).r:-30.; if(inMap&&(texture2D(uFlood,terrainUV).r<.5 || groundHeight>=0.))discard; float waterDepth=max(0.,-groundHeight);`,
-      )
-      .replace("float rf0 = 0.3;", "float rf0 = 0.025;")
-      .replace("vec3 outgoingLight = albedo;", OCEAN_COLOR_GLSL);
-    const original = this.water.onBeforeRender;
-    this.water.onBeforeRender = (r, s, c, g, m, group) => {
-      if (s.overrideMaterial) return;
-      if (
-        this.elapsed >= this.nextReflection &&
-        !this.renderer.shadowMap.needsUpdate
-      ) {
-        this.nextReflection =
-          this.elapsed + this.visualProfile.reflectionInterval;
-        const visible = this.effects.group.visible;
-        this.effects.group.visible = false;
-        const started = performance.now();
-        try {
-          this.configureReflection();
-          const reflect = () => original.call(this.water, r, s, c, g, m, group);
-          if (this.visualProfile.reflectionFoliageDetail) reflect();
-          else
-            withReflectionDetail(
-              this.scene,
-              this.batches,
-              this.treeLODState.ranges.value,
-              this.scenery?.group,
-              reflect,
-            );
-        } finally {
-          this.effects.group.visible = visible;
-          this.performance.record(
-            "reflectionSubmit",
-            performance.now() - started,
-          );
-        }
-      }
-    };
-    waterPrepass(
-      this.water.material,
-      this.terrain.heightTexture,
-      this.terrain.floodTexture,
-    );
-    this.scene.add(this.water);
-    this.rivers = makeRivers(world, this.terrain);
-    this.scene.add(this.rivers);
-    const village = villageDecorations(world);
-    this.villageLighting = new VillageLighting(
-      village.lamps,
-      village.windows,
-      this.terrain.heightTexture,
-    );
-    this.scene.add(
-      this.villageLighting.mesh,
-      this.villageLighting.windows,
-      this.villageLighting.pools,
-      ...this.villageLighting.lights,
-    );
+    this.scene.add(this.terrain.group, this.effects.group, this.jet);
+    this.worldView = new WorldBatches(this.scene, world, this.materials);
+    this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
     this.fallenPines = new THREE.InstancedMesh(
       pineGeometry(),
       this.materials.foliage,
@@ -638,13 +344,6 @@ export class GameRenderer {
       mesh.castShadow = mesh.receiveShadow = true;
       prepareDebrisMotion(mesh, this.bodyAlpha, this.bodyGPUEnabled);
       this.scene.add(mesh);
-    }
-    this.addBanners();
-    for (let i = 0; i < 12; i++) {
-      let shot = makePineapple();
-      shot.visible = false;
-      this.shotMeshes.push(shot);
-      this.scene.add(shot);
     }
     const markerBands = [
       [3.6, 3.9, 0x071015],
@@ -691,506 +390,11 @@ export class GameRenderer {
       this.bodyMeshes.set(material, mesh);
       this.scene.add(mesh);
     }
-    this.disco.decorateScene(this.scene);
-    // Water skips reflections for an underwater camera. Warm from the real
-    // spawn so the first flight never compiles the entire mirrored scene.
     this.camera.position.fromArray(world.spawn);
     this.camera.lookAt(world.castle[0], world.castle[1], world.castle[2]);
     this.camera.updateMatrixWorld();
     this.setRenderDistance(this.renderDistance);
     this.resize();
-  }
-  private installVisuals() {
-    this.visualsInstalled = true;
-    if (this.visualAssets.puffAtlas)
-      this.effects.installParticles(this.visualAssets.puffAtlas);
-    this.effects.setParticleDepth(this.presentation.particleDepth);
-    this.visualAssets.applyMaterials(this.materials);
-    const cloth = this.visualAssets.surfaces.get("cloth");
-    const bannerMaterial = (
-      this.flagGroup.children[0] as THREE.Mesh | undefined
-    )?.material as THREE.MeshStandardMaterial | undefined;
-    if (cloth && bannerMaterial) {
-      bannerMaterial.map = cloth.color;
-      bannerMaterial.normalMap = cloth.normal;
-      bannerMaterial.normalScale.set(0.25, 0.25);
-      bannerMaterial.roughnessMap = cloth.orm;
-      bannerMaterial.needsUpdate = true;
-    }
-    for (const [name, material] of Object.entries(this.materials))
-      if (material.normalMap)
-        constructionScale(
-          material,
-          ["roof", "slate"].includes(name)
-            ? 0.32
-            : name === "wood"
-              ? 0.22
-              : 0.4,
-        );
-    this.visualAssets.applyMaterials(this.fragmentMaterials);
-    for (const material of Object.values(this.fragmentMaterials))
-      if (material.normalMap) installFractureSurface(material);
-    for (const [key, mesh] of this.bodyMeshes) {
-      const source = this.fragmentMaterials[key.split(":")[0] as Material];
-      refreshDebrisMaterial(mesh, source, this.bodyAlpha, this.bodyGPUEnabled);
-    }
-    this.scene.fog = null;
-    installTerrainSurface(this.terrain.material, this.visualAssets);
-    const library = new Map<string, THREE.BufferGeometry>();
-    const geometry = (name: string, old: THREE.BufferGeometry) => {
-      let value = library.get(name);
-      if (!value)
-        library.set(name, (value = visualGeometry(name, () => old.clone())));
-      this.retiredGeometry.add(old);
-      return value;
-    };
-    const foliageMaterials = this.foliageMaterials;
-    for (const species of ["pine", "broadleaf", "riverside"]) {
-      const map = this.visualAssets.foliage.get(
-        species === "pine" ? "pine" : "broadleaf",
-      );
-      const mat = new THREE.MeshStandardMaterial({
-        map,
-        alphaTest: 0.42,
-        side: THREE.DoubleSide,
-        roughness: 0.92,
-        color: species === "riverside" ? "#bbc5a3" : "#c9cbb1",
-      });
-      foliageWind(mat, this.foliageTime);
-      const depth = new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking,
-        map,
-        alphaTest: mat.alphaTest,
-        side: mat.side,
-      });
-      foliageWind(depth, this.foliageTime);
-      this.foliageDepthMaterials.set(species, depth);
-      foliageMaterials.set(species, mat);
-      this.disco.decorate(mat);
-    }
-    for (const batch of this.batches) {
-      const entity = this.world.entities[batch.allIds[0]];
-      const family =
-        batch.kind === "pine"
-          ? (entity.treeSpecies ?? "pine")
-          : entity.kind === "rock"
-            ? "rock"
-            : isRoof(entity.material)
-              ? "roof"
-              : batch.kind === "trunk"
-                ? undefined
-                : entity.material === "window"
-                  ? "window"
-                  : "module";
-      if (!family) continue;
-      if (batch.kind === "pine") {
-        const mat = foliageMaterials.get(family)!;
-        batch.mesh.material = mat;
-        batch.mesh.customDepthMaterial = this.foliageDepthMaterials.get(family);
-        if (batch.low) batch.low.material = mat;
-      }
-      batch.mesh.geometry = geometry(`${family}_lod0`, batch.mesh.geometry);
-      if (batch.low) {
-        const impostor = this.visualAssets.foliage.get(`${family}-impostor`);
-        batch.low.geometry = impostor
-          ? new THREE.PlaneGeometry(2.25, 2.25).translate(0, 0.5, 0)
-          : geometry(`${family}_lod2`, batch.low.geometry);
-        if (impostor)
-          batch.low.material = treeImpostor(impostor, this.foliageDay);
-      }
-      const middle = geometry(`${family}_lod1`, batch.mesh.geometry);
-      if (batch.kind === "pine") {
-        const source = foliageMaterials.get(family)!;
-        const standing = (band: number) => {
-          const mat = source.clone();
-          foliageWind(mat, this.foliageTime);
-          treeLOD(mat, this.treeLODState, band);
-          this.disco.decorate(mat);
-          const depth = new THREE.MeshDepthMaterial({
-            depthPacking: THREE.RGBADepthPacking,
-            map: source.map,
-            alphaTest: source.alphaTest,
-            side: source.side,
-          });
-          foliageWind(depth, this.foliageTime);
-          treeLOD(depth, this.treeLODState, band);
-          this.foliageDepthMaterials.set(`${family}:${band}`, depth);
-          return { mat, depth };
-        };
-        // Reuse species materials across spatial batches, with separate bands.
-        const getStanding = (band: number) => {
-          const key = `${family}:${band}`;
-          let mat = foliageMaterials.get(key);
-          if (!mat) {
-            const result = standing(band);
-            mat = result.mat;
-            foliageMaterials.set(key, mat);
-          }
-          return { mat, depth: this.foliageDepthMaterials.get(key)! };
-        };
-        const near = getStanding(0),
-          mid = getStanding(1);
-        batch.mesh.material = near.mat;
-        batch.mesh.customDepthMaterial = near.depth;
-        batch.middle = new THREE.InstancedMesh(
-          middle,
-          mid.mat,
-          batch.mesh.instanceMatrix.count,
-        );
-        batch.middle.instanceMatrix = batch.mesh.instanceMatrix;
-        batch.middle.instanceColor = batch.mesh.instanceColor;
-        batch.middle.count = batch.mesh.count;
-        batch.middle.receiveShadow = true;
-        batch.middle.customDepthMaterial = mid.depth;
-        batch.middle.matrixAutoUpdate =
-          batch.middle.matrixWorldAutoUpdate = false;
-        batch.middle.computeBoundingSphere();
-        this.scene.add(batch.middle);
-        if (batch.low)
-          treeLOD(batch.low.material as THREE.Material, this.treeLODState, 2);
-      } else batch.detailGeometry = [batch.mesh.geometry, middle];
-      batch.mesh.computeBoundingSphere();
-      batch.low?.computeBoundingSphere();
-    }
-    for (const shot of this.shotMeshes)
-      upgradePineapple(shot, this.visualAssets.fruitSkin);
-    for (const [species, mesh] of [
-      ["pine", this.fallenPines],
-      ...this.fallenCanopies.entries(),
-    ] as [string, THREE.InstancedMesh][]) {
-      this.retiredGeometry.add(mesh.geometry);
-      mesh.geometry = geometry(`${species}_lod1`, mesh.geometry);
-      (mesh.material as THREE.Material).dispose();
-      mesh.material = foliageMaterials.get(species)!;
-      mesh.customDepthMaterial?.dispose();
-      delete mesh.userData.motion;
-      prepareDebrisMotion(mesh, this.bodyAlpha, this.bodyGPUEnabled);
-    }
-    for (const old of this.crownGeometries.values())
-      this.retiredGeometry.add(old);
-    this.crownGeometries.clear();
-    upgradeMonsterTemplate(
-      this.visualAssets.fruitSkin,
-      this.visualAssets.surfaces.get("wood"),
-    );
-    for (const view of [
-      this.nearMonsterView,
-      this.distantMonsterView,
-      this.monsterFragmentView,
-    ]) {
-      this.scene.remove(view.group);
-      view.group.traverse((o) => {
-        if (o instanceof THREE.InstancedMesh) {
-          this.retiredGeometry.add(o.geometry);
-          o.dispose();
-        }
-      });
-    }
-    this.nearMonsterView = new NearMonsterView(MAX_MONSTER_COUNT);
-    this.distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
-    this.monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
-    this.scene.add(
-      this.nearMonsterView.group,
-      this.distantMonsterView.group,
-      this.monsterFragmentView.group,
-    );
-    this.disco.decorateScene(this.scene);
-    this.retiredGeometry.add(this.villageLighting.windows.geometry);
-    this.villageLighting.windows.geometry = visualGeometry(
-      "window_lod1",
-      () => new THREE.BoxGeometry(2, 2, 2),
-    ).scale(0.5, 0.5, 0.5);
-    this.villageLighting.windows.computeBoundingSphere();
-    this.civilians.installVisuals(this.visualAssets.surfaces.get("cloth"));
-    this.retiredGeometry.add(this.spikeGeometry);
-    this.spikeGeometry = visualGeometry(
-      "leaf_lod1",
-      () => new THREE.ConeGeometry(0.75, 5, 5),
-    ).scale(0.75, 2.5, 0.75);
-    crownSurface(this.spikeMaterial, 2.5, 0.75);
-    for (const spike of this.spikeMeshes) spike.geometry = this.spikeGeometry;
-    const bark = this.visualAssets.surfaces.get("bark");
-    if (bark) {
-      const material = new THREE.MeshStandardMaterial({
-        map: bark.color,
-        normalMap: bark.normal,
-        roughnessMap: bark.orm,
-        roughness: 1,
-      });
-      constructionScale(material, 0.35);
-      this.disco.decorate(material);
-      for (const batch of this.batches)
-        if (batch.kind === "trunk") batch.mesh.material = material;
-      (this.fallenTrunks.material as THREE.Material).dispose();
-      this.fallenTrunks.material = material;
-      this.settledTrunkMaterial = material;
-      this.fallenTrunks.customDepthMaterial?.dispose();
-      delete this.fallenTrunks.userData.motion;
-      prepareDebrisMotion(
-        this.fallenTrunks,
-        this.bodyAlpha,
-        this.bodyGPUEnabled,
-      );
-    }
-    this.scenery = new Scenery(
-      this.world,
-      this.terrain,
-      this.materials,
-      this.visualAssets.foliage.get("grass"),
-      this.villageLighting.windowSources,
-    );
-    this.scene.add(this.scenery.group);
-    this.harborLadders = new HarborLadders(
-      this.world,
-      this.terrain,
-      this.materials.wood,
-    );
-    this.scene.add(this.harborLadders.group);
-    this.windmills = new WindmillView(
-      this.world,
-      this.materials.wood,
-      this.box,
-    );
-    this.scene.add(this.windmills.group);
-    this.waterwheels = new WaterwheelView(
-      this.world,
-      this.materials.wood,
-      this.box,
-    );
-    this.scene.add(this.waterwheels.group);
-    this.islandHorizon = new IslandHorizon(
-      this.world,
-      this.batches,
-      this.materials,
-      this.visualAssets,
-      this.foliageDay,
-    );
-    this.islandHorizon.restore(this.removed);
-    this.scene.add(this.islandHorizon.group);
-    this.scenery.group.traverse((o) => {
-      if (
-        o instanceof THREE.Mesh &&
-        o.material instanceof THREE.MeshStandardMaterial
-      )
-        this.disco.decorate(o.material);
-    });
-    if (this.visualAssets.jet) {
-      for (const mesh of [...this.jet.children])
-        if (
-          !mesh.name.startsWith("flame") &&
-          mesh.name !== "cockpit-details"
-        ) {
-          this.jet.remove(mesh);
-          if (mesh instanceof THREE.Mesh)
-            this.retiredGeometry.add(mesh.geometry);
-        }
-      this.jet.add(this.visualAssets.jet);
-    }
-    // Roughness-aware lighting is baked once, then its strength follows hour.
-    const environment = new THREE.Scene();
-    environment.background = new THREE.Color("#a9bfca");
-    for (const [color, p, scale] of [
-      ["#fff1db", [0, 8, 0], [15, 0.2, 15]],
-      ["#46543a", [0, -6, 0], [20, 0.2, 20]],
-      ["#f4e8ce", [7, 5, -5], [3, 3, 3]],
-    ] as const) {
-      const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(scale[0], scale[1], scale[2]),
-        new THREE.MeshBasicMaterial({ color }),
-      );
-      mesh.position.set(p[0], p[1], p[2]);
-      environment.add(mesh);
-    }
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.environmentTarget = pmrem.fromScene(environment, 0.04, 0.1, 100, {
-      size: 128,
-    });
-    this.scene.environment = this.environmentTarget.texture;
-    pmrem.dispose();
-    environment.traverse((o) => {
-      if (o instanceof THREE.Mesh) {
-        o.geometry.dispose();
-        (o.material as THREE.Material).dispose();
-      }
-    });
-    this.shadowDirty = true;
-  }
-  private buildBatches() {
-    const grouped = new Map<string, Entity[]>();
-    const animatedLandmarkPartIds = new Set([
-      ...windmillRotorBladeIds(this.world),
-      ...waterwheelPartIds(this.world),
-    ]);
-    for (const e of this.world.entities) {
-      if (
-        animatedLandmarkPartIds.has(e.id) ||
-        isBridgeRailingPart(e, this.bridgeAssemblies) ||
-        isLighthouseLanternGlazing(e)
-      )
-        continue;
-      // Larger construction batches reduce CPU draw submission while retaining
-      // spatial bounds, owner lookup and the original collision entities.
-      // Match construction to the existing forest/rock spatial grid. Fewer
-      // material batches reduce submission work; owner references and the
-      // batch-derived distant-coverage boundary are rebuilt together.
-      const size = 512;
-      const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
-      let key =
-        (isHarborDockPile(e)
-          ? "dock-pile-"
-          : isLoggingCampLog(e)
-            ? "log-"
-            : "") +
-        e.kind +
-        e.material +
-        (e.treeSpecies ?? "pine") +
-        cell;
-      if (e.kind === "tree") {
-        const trunkKey = "trunk" + cell;
-        let trunks = grouped.get(trunkKey);
-        if (!trunks) grouped.set(trunkKey, (trunks = []));
-        trunks.push(e);
-      }
-      let list = grouped.get(key);
-      if (!list) grouped.set(key, (list = []));
-      list.push(e);
-    }
-    const pine = pineGeometry(),
-      low = new THREE.ConeGeometry(1, 1, 7, 1);
-    low.translate(0, 0.5, 0);
-    const roof = this.roof;
-    const log = loggingCampLogGeometry();
-    const dockPile = harborDockPileGeometry();
-    const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
-      rock = new THREE.DodecahedronGeometry(1, 0);
-    for (const [groupKey, list] of grouped) {
-      let e = list[0];
-      const add = (
-        geo: THREE.BufferGeometry,
-        material: THREE.Material,
-        kind: string,
-        lowGeo?: THREE.BufferGeometry,
-      ) => {
-        let mesh = new THREE.InstancedMesh(geo, material, list.length);
-        mesh.castShadow = mesh.receiveShadow = true;
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        let batch: Batch = {
-          mesh,
-          ids: list.map((e) => e.id),
-          allIds: list.map((e) => e.id),
-          kind,
-          x: e.p[0],
-          z: e.p[2],
-          radius: 0,
-        };
-        if (lowGeo) {
-          batch.low = new THREE.InstancedMesh(lowGeo, material, list.length);
-          batch.low.receiveShadow = true;
-          this.scene.add(batch.low);
-        }
-        list.forEach((e, i) => {
-          dummy.position.fromArray(e.p);
-          dummy.rotation.set(0, e.kind === "block" ? 0 : e.variant * 6.28, 0);
-          dummy.scale.fromArray(e.s);
-          if (kind === "pine") {
-            dummy.position.y -= e.s[1];
-            dummy.scale.fromArray(treeCanopyScale(e));
-          }
-          if (kind === "trunk") {
-            dummy.position.y -= e.s[1] * 0.4;
-            dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
-          }
-          const lighthouseRoof = lighthouseRoofPresentation(e);
-          if (lighthouseRoof) {
-            dummy.position.fromArray(lighthouseRoof.p);
-            dummy.scale.fromArray(lighthouseRoof.s);
-          }
-          const bridgeDeck = bridgeDeckPresentation(e, this.bridgeAssemblies);
-          if (bridgeDeck) {
-            dummy.position.fromArray(bridgeDeck.p);
-            dummy.scale.fromArray(bridgeDeck.s);
-          }
-          dummy.updateMatrix();
-          mesh.setMatrixAt(i, dummy.matrix);
-          batch.low?.setMatrixAt(i, dummy.matrix);
-          const color =
-            kind === "pine"
-              ? setTreeCanopyColor(new THREE.Color(), e)
-              : new THREE.Color().setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
-          mesh.setColorAt(i, color);
-          batch.low?.setColorAt(i, color);
-          let refs = this.refs.get(e.id);
-          if (!refs) this.refs.set(e.id, (refs = []));
-          refs.push({ batch, index: i });
-        });
-        mesh.computeBoundingSphere();
-        batch.x = mesh.boundingSphere!.center.x;
-        batch.z = mesh.boundingSphere!.center.z;
-        batch.radius = mesh.boundingSphere!.radius;
-        batch.low?.computeBoundingSphere();
-        mesh.matrixAutoUpdate = false;
-        mesh.matrixWorldAutoUpdate = false;
-        if (batch.low) {
-          batch.low.matrixAutoUpdate = false;
-          batch.low.matrixWorldAutoUpdate = false;
-        }
-        this.scene.add(mesh);
-        this.batches.push(batch);
-      };
-      if (groupKey.startsWith("trunk")) {
-        add(trunk, this.materials.wood, "trunk");
-        continue;
-      }
-      if (groupKey.startsWith("log-")) {
-        add(log, this.materials.wood, "log");
-        continue;
-      }
-      if (groupKey.startsWith("dock-pile-")) {
-        add(dockPile, this.materials.wood, "dock-pile");
-        continue;
-      }
-      if (e.kind === "tree") {
-        const species = e.treeSpecies ?? "pine";
-        add(
-          species === "pine" ? pine : this.crownGeometry(species),
-          this.materials.foliage,
-          "pine",
-          species === "pine" ? low : treeCrownLowGeometry(species),
-        );
-      } else
-        add(
-          e.kind === "rock" ? rock : isRoof(e.material) ? roof : this.box,
-          this.materials[e.material],
-          e.kind,
-        );
-    }
-  }
-  private addBanners() {
-    const mat = new THREE.MeshStandardMaterial({
-      color: "#ffffff",
-      vertexColors: true,
-      side: THREE.DoubleSide,
-      roughness: 0.9,
-    });
-    bannerWind(mat, this.foliageTime);
-    const depth = new THREE.MeshDepthMaterial({
-      depthPacking: THREE.RGBADepthPacking,
-      side: THREE.DoubleSide,
-    });
-    bannerWind(depth, this.foliageTime);
-    for (const banner of this.world.banners) {
-      const mesh = new THREE.Mesh(
-        heraldicBannerGeometry(banner.s[0], banner.s[1], banner.owner),
-        mat,
-      );
-      mesh.position.fromArray(banner.p);
-      mesh.rotation.y = banner.yaw ?? 0;
-      mesh.updateMatrix();
-      mesh.matrixAutoUpdate = false;
-      mesh.customDepthMaterial = depth;
-      mesh.userData.owner = banner.owner;
-      this.flagGroup.add(mesh);
-    }
   }
   prewarm(): Promise<void> {
     if (this.disposed) return Promise.resolve();
@@ -1208,18 +412,13 @@ export class GameRenderer {
       this.warmupStages[name] = now - stageStarted;
       stageStarted = now;
     };
-    if (this.visualAssets) await this.visualAssets.ready;
-    mark("assetWaitMS");
-    if (this.disposed || this.graphicsLost) return;
-    if (this.visualAssets && !this.visualsInstalled) this.installVisuals();
-    mark("visualInstallMS");
     this.renderer.initTexture(this.terrain.heightTexture);
     this.renderer.initTexture(this.terrain.floodTexture);
     this.fallenCanopy("broadleaf");
     this.fallenCanopy("riverside");
     this.effects.prewarm();
     // Roof fragments omit instance colors, unlike ordinary airborne chunks.
-    // Prepare every shape with its actual attributes before reflections see it.
+    // Prepare every shape with its actual attributes before play.
     for (const material of Object.keys(this.fragmentMaterials) as Material[])
       if (isRoof(material))
         for (const roofPart of [1, 2, 3, 4]) {
@@ -1235,7 +434,6 @@ export class GameRenderer {
           mesh.receiveShadow = true;
           mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
           prepareDebrisMotion(mesh, this.bodyAlpha, this.bodyGPUEnabled);
-          this.disco.decorate(mesh.material as THREE.MeshStandardMaterial);
           this.bodyMeshes.set(key, mesh);
           this.scene.add(mesh);
         }
@@ -1269,21 +467,8 @@ export class GameRenderer {
       this.scene.add(mesh);
       temporary.push(mesh);
     }
-    for (const [species, material] of this.foliageMaterials ?? []) {
-      const mesh = new THREE.InstancedMesh(
-        this.crownGeometry(species as "pine" | "broadleaf" | "riverside"),
-        material,
-        1,
-      );
-      mesh.setColorAt(0, new THREE.Color(1, 1, 1));
-      mesh.setMatrixAt(0, new THREE.Matrix4());
-      mesh.castShadow = mesh.receiveShadow = true;
-      mesh.customDepthMaterial = this.foliageDepthMaterials.get(species);
-      this.scene.add(mesh);
-      temporary.push(mesh);
-    }
     for (const batch of this.batches)
-      for (const mesh of [batch.mesh, batch.middle, batch.low])
+      for (const mesh of [batch.mesh, batch.low])
         if (mesh && !mesh.parent) {
           this.scene.add(mesh);
           temporary.push(mesh);
@@ -1291,7 +476,6 @@ export class GameRenderer {
     // Settled rubble uses regular instancing, whereas airborne rubble has motion
     // attributes. Warm both shader programs before either can appear in combat.
     for (const material of Object.values(this.fragmentMaterials)) {
-      this.disco.decorate(material);
       const mesh = new THREE.InstancedMesh(this.fractureBox, material, 1);
       mesh.setColorAt(0, new THREE.Color(1, 1, 1));
       mesh.setMatrixAt(0, new THREE.Matrix4());
@@ -1307,15 +491,6 @@ export class GameRenderer {
       count?: number;
     }[] = [];
     this.scene.traverse((o) => {
-      if (o instanceof THREE.Mesh)
-        for (const material of Array.isArray(o.material)
-          ? o.material
-          : [o.material])
-          if (material instanceof THREE.MeshStandardMaterial) {
-            skipEmptyPointLights(material);
-            this.surfaceNormalDetail ??= { value: 1 };
-            budgetSurfaceNormals(material, this.surfaceNormalDetail);
-          }
       states.push({
         object: o,
         visible: o.visible,
@@ -1327,7 +502,6 @@ export class GameRenderer {
       if (o instanceof THREE.InstancedMesh) o.count = 1;
     });
     mark("variantAssemblyMS");
-    if (this.treeLODState) this.treeLODState.warming.value = 1;
     try {
       // Keep polling cancellable: Three's compileAsync continues polling old
       // programs after a context loss/disposal. These properties are pinned to
@@ -1349,13 +523,6 @@ export class GameRenderer {
       this.renderer.shadowMap.needsUpdate = true;
       this.renderer.render(this.scene, this.camera);
       mark("shadowAndSceneWarmMS");
-      // Reflection renders use a different output colour space. compileAsync for
-      // the screen does not warm those programs or allocate the reflection target.
-      // Render it deliberately while paused, after the shadow pass has completed.
-      this.nextReflection = this.elapsed;
-      this.renderer.shadowMap.needsUpdate = false;
-      this.renderer.render(this.scene, this.camera);
-      mark("reflectionWarmMS");
       this.presentation?.prewarm();
       this.presentation?.configure(
         this.visualProfile,
@@ -1398,7 +565,6 @@ export class GameRenderer {
       }
       mark("gpuCompletionWaitMS");
     } finally {
-      if (this.treeLODState) this.treeLODState.warming.value = 0;
       for (const state of states) {
         state.object.visible = state.visible;
         state.object.frustumCulled = state.culled;
@@ -1410,9 +576,7 @@ export class GameRenderer {
         this.scene.remove(mesh);
         if (
           (mesh as THREE.InstancedMesh).isInstancedMesh &&
-          !this.batches.some(
-            (b) => b.mesh === mesh || b.middle === mesh || b.low === mesh,
-          )
+          !this.batches.some((b) => b.mesh === mesh || b.low === mesh)
         )
           (mesh as THREE.InstancedMesh).dispose();
       }
@@ -1423,31 +587,6 @@ export class GameRenderer {
     this.reducedEffects = value;
     this.effects.reduced =
       value || (this.quality === "auto" && this.auto.level >= 2);
-  }
-  setGooglyEyes(value: boolean) {
-    this.syncedBodies = undefined;
-    this.googlyEyes = value;
-    this.eyes.setEnabled(value);
-    for (const monster of this.monsterMeshes) {
-      const nativeEyes = monster.getObjectByName("native-eyes");
-      if (nativeEyes) nativeEyes.visible = !value;
-    }
-  }
-  private ensureMonsterMeshes(count: number) {
-    while (this.monsterMeshes.length < count) {
-      const monster = new THREE.Group();
-      monster.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
-      const distant = new THREE.Group();
-      distant.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
-      for (const child of distant.children) child.visible = false;
-      const nativeEyes = monster.getObjectByName("native-eyes");
-      if (nativeEyes) nativeEyes.visible = !this.googlyEyes;
-      monster.visible = distant.visible = false;
-      this.monsterMeshes.push(monster);
-      this.distantMonsters.push(distant);
-      // Attach only visible detail models; hidden hierarchies otherwise still
-      // recalculate thousands of world matrices on every frame.
-    }
   }
   setQuality(q: string) {
     this.quality = q;
@@ -1462,22 +601,6 @@ export class GameRenderer {
     }
     this.lastLOD = -Infinity;
     this.resize();
-  }
-  private configureReflection() {
-    // Water owns this target in a closure. Keep its owner once allocated;
-    // resizing releases Three's texture properties until the next render.
-    const properties = this.renderer.properties.get(
-      this.water.material.uniforms.mirrorSampler.value,
-    ) as { __renderTarget?: THREE.WebGLRenderTarget };
-    this.reflectionTarget ??= properties.__renderTarget;
-    const target = this.reflectionTarget,
-      profile = this.visualProfile;
-    if (
-      target &&
-      (target.width !== profile.reflectionWidth ||
-        target.height !== profile.reflectionHeight)
-    )
-      target.setSize(profile.reflectionWidth, profile.reflectionHeight);
   }
   /** Independent certification cases begin with the same startup quality. */
   resetAutoQuality() {
@@ -1543,8 +666,6 @@ export class GameRenderer {
     waterMask?: Uint8Array,
   ) {
     this.setChase();
-    this.removed.clear();
-    this.islandHorizon?.restore([]);
     this.ruins.clear();
     this.ruinCells.clear();
     this.dirtyRuinBatches.clear();
@@ -1559,70 +680,10 @@ export class GameRenderer {
     this.terrain.restore(heights);
     this.terrain.setFlood(flood, true);
     if (waterMask) this.terrain.setWaterMask(waterMask);
-    this.harborLadders?.refresh();
-    this.refs.clear();
-    for (const batch of this.batches) {
-      batch.ids = batch.allIds.slice();
-      batch.mesh.count = batch.ids.length;
-      if (batch.low) batch.low.count = batch.ids.length;
-      if (batch.middle) batch.middle.count = batch.ids.length;
-      batch.ids.forEach((id, i) => {
-        let refs = this.refs.get(id);
-        if (!refs) this.refs.set(id, (refs = []));
-        refs.push({ batch, index: i });
-        const e = this.world.entities[id];
-        dummy.position.fromArray(e.p);
-        dummy.rotation.set(0, e.kind === "block" ? 0 : e.variant * 6.28, 0);
-        dummy.scale.fromArray(e.s);
-        if (batch.kind === "pine") {
-          dummy.position.y -= e.s[1];
-          dummy.scale.fromArray(treeCanopyScale(e));
-        }
-        if (batch.kind === "trunk") {
-          dummy.position.y -= e.s[1] * 0.4;
-          dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
-        }
-        const lighthouseRoof = lighthouseRoofPresentation(e);
-        if (lighthouseRoof) {
-          dummy.position.fromArray(lighthouseRoof.p);
-          dummy.scale.fromArray(lighthouseRoof.s);
-        }
-        const bridgeDeck = bridgeDeckPresentation(e, this.bridgeAssemblies);
-        if (bridgeDeck) {
-          dummy.position.fromArray(bridgeDeck.p);
-          dummy.scale.fromArray(bridgeDeck.s);
-        }
-        dummy.updateMatrix();
-        batch.mesh.setMatrixAt(i, dummy.matrix);
-        batch.low?.setMatrixAt(i, dummy.matrix);
-        const color =
-          batch.kind === "pine"
-            ? setTreeCanopyColor(this.fragmentColor, e)
-            : this.fragmentColor.setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
-        batch.mesh.setColorAt(i, color);
-        batch.low?.setColorAt(i, color);
-        if (batch.mesh.instanceColor)
-          batch.mesh.instanceColor.needsUpdate = true;
-        if (batch.low?.instanceColor)
-          batch.low.instanceColor.needsUpdate = true;
-        batch.mesh.instanceMatrix.needsUpdate = true;
-        if (batch.low) batch.low.instanceMatrix.needsUpdate = true;
-      });
-    }
-    for (const id of removed) this.hideEntity(id);
+    this.worldView.restore(removed);
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
-    this.disco.reset();
-    for (const shot of this.shotMeshes.splice(12)) this.scene.remove(shot);
-    for (const shot of this.shotMeshes) shot.visible = false;
-    this.civilians.reset();
-    this.projectileView.reset();
-    for (const m of this.monsterMeshes) m.visible = false;
-    for (const m of this.distantMonsters) m.visible = false;
-    this.nearMonsterView.begin();
-    this.distantMonsterView.begin();
-    this.distantMonsterView.finish();
-    for (const s of this.spikeMeshes) s.visible = false;
+    this.actors.reset();
     this.readyCamera = false;
     this.motionFrames.clear();
     this.previous = undefined;
@@ -1633,44 +694,9 @@ export class GameRenderer {
     this.syncedBodies = undefined;
     this.renderer.shadowMap.needsUpdate = true;
   }
-  private hideEntity(id: number) {
-    this.removed.add(id);
-    this.islandHorizon?.remove(id);
-    const refs = this.refs.get(id);
-    if (!refs) return;
-    for (const ref of refs) {
-      const batch = ref.batch,
-        last = batch.ids.length - 1;
-      if (ref.index !== last) {
-        const moved = batch.ids[last];
-        batch.ids[ref.index] = moved;
-        for (const mesh of [batch.mesh, batch.middle, batch.low])
-          if (mesh) {
-            mesh.getMatrixAt(last, dummy.matrix);
-            mesh.setMatrixAt(ref.index, dummy.matrix);
-            if (mesh.instanceColor) {
-              mesh.getColorAt(last, this.fragmentColor);
-              mesh.setColorAt(ref.index, this.fragmentColor);
-              mesh.instanceColor.addUpdateRange(ref.index * 3, 3);
-              mesh.instanceColor.needsUpdate = true;
-            }
-          }
-        const movedRef = this.refs.get(moved)!.find((r) => r.batch === batch)!;
-        movedRef.index = ref.index;
-      }
-      batch.ids.pop();
-      for (const mesh of [batch.mesh, batch.middle, batch.low])
-        if (mesh) {
-          mesh.count = batch.ids.length;
-          mesh.instanceMatrix.addUpdateRange(ref.index * 16, 16);
-          mesh.instanceMatrix.needsUpdate = true;
-        }
-    }
-    this.refs.delete(id);
-  }
 
   delta(d: WorldDelta) {
-    for (const id of d.removed) this.hideEntity(id);
+    for (const id of d.removed) this.worldView.remove(id);
     for (const id of d.rubbleRemoved) this.removeRuin(id);
     for (const r of d.settled) this.addRuin(r);
     if (d.terrain) this.terrain.patch(d.terrain);
@@ -1787,8 +813,7 @@ export class GameRenderer {
           add(
             `canopy-${e.treeSpecies ?? "pine"}`,
             this.crownGeometry(e.treeSpecies ?? "pine"),
-            this.foliageMaterials?.get(e.treeSpecies ?? "pine") ??
-              this.materials.foliage,
+            this.materials.foliage,
           );
         } else if (r.pile) {
           // A compact record renders as several irregular solid chunks rather
@@ -1838,9 +863,6 @@ export class GameRenderer {
           );
         }
         mesh.receiveShadow = true;
-        for (const [species, foliage] of this.foliageMaterials ?? [])
-          if (mat === foliage)
-            mesh.customDepthMaterial = this.foliageDepthMaterials?.get(species);
         mesh.boundingSphere = bounds.clone();
         mesh.matrixAutoUpdate = false;
         mesh.matrixWorldAutoUpdate = false;
@@ -1946,9 +968,7 @@ export class GameRenderer {
     this.crownGeometries ??= new Map();
     let geometry = this.crownGeometries.get(species);
     if (!geometry) {
-      geometry = this.visualsInstalled
-        ? visualGeometry(`${species}_lod1`, () => treeCrownGeometry(species))
-        : treeCrownGeometry(species);
+      geometry = treeCrownGeometry(species);
       this.crownGeometries.set(species, geometry);
     }
     return geometry;
@@ -1963,7 +983,7 @@ export class GameRenderer {
     if (!mesh) {
       mesh = new THREE.InstancedMesh(
         this.crownGeometry(species),
-        this.foliageMaterials?.get(species) ?? this.materials.foliage,
+        this.materials.foliage,
         Math.max(64, needed),
       );
       mesh.setColorAt(0, new THREE.Color());
@@ -1987,7 +1007,7 @@ export class GameRenderer {
     packet?: SimulationSnapshot["packedBodies"],
     oldPacket?: SimulationSnapshot["packedBodies"],
   ) {
-    const gpu = !!packet && !this.googlyEyes;
+    const gpu = !!packet;
     if (this.bodyAlpha) {
       this.bodyAlpha.value = alpha;
       this.bodyGPUEnabled.value = gpu ? 1 : 0;
@@ -2325,21 +1345,8 @@ export class GameRenderer {
       if (!this.previous.packedBodies)
         for (const body of this.previous.bodies)
           this.previousBodies.set(body.id, body);
-      this.previousProjectiles.clear();
-      for (const shot of this.previous.projectiles)
-        this.previousProjectiles.set(shot.id, shot);
-      this.previousSpikes.clear();
-      for (const spike of this.previous.monsterSpikes)
-        this.previousSpikes.set(spike.id, spike);
     }
     const dancing = discoActive(snap.lasers);
-    this.disco.update(
-      dancing,
-      active ? dt : dancing && this.disco.amount.value === 0 ? 0.75 : 0,
-      snap.time,
-      (x, z) => this.terrain.sample(x, z),
-      this.effects.reduced,
-    );
     const p = snap.plane;
     const { position, rotation, discontinuity } = flightPose(
       this.previous?.plane,
@@ -2363,19 +1370,6 @@ export class GameRenderer {
           .material as THREE.MeshBasicMaterial;
         material.opacity = exhaust.coreOpacity;
       }
-    }
-    const surfacePose = jetSurfacePose(p, this.previous?.plane.yaw, dt);
-    for (const [name, angle] of [
-      ["aileron-left", surfacePose.aileronLeft],
-      ["aileron-right", surfacePose.aileronRight],
-      ["elevator-left", surfacePose.elevator],
-      ["elevator-right", surfacePose.elevator],
-      ["rudder-left", surfacePose.rudder],
-      ["rudder-right", surfacePose.rudder],
-    ] as const) {
-      const surface = this.jet.getObjectByName(name);
-      if (surface)
-        surface.rotation[name.startsWith("rudder") ? "y" : "x"] = angle;
     }
     const f = new THREE.Vector3(0, 0, 1).applyQuaternion(rotation);
     let target = position.clone().addScaledVector(f, 40);
@@ -2527,7 +1521,6 @@ export class GameRenderer {
     }
     if (this.rig.mode === "photo")
       this.rig.applyPhoto(this.camera, (x, z) => this.terrain.sample(x, z));
-    this.sky.position.copy(this.camera.position);
     this.updateRuins(Math.max(0, optionalDeadline - performance.now()));
     const bodiesStarted = performance.now();
     this.syncBodies(
@@ -2538,215 +1531,17 @@ export class GameRenderer {
     );
     this.performance.record("bodies", performance.now() - bodiesStarted);
     const actorsStarted = performance.now();
-    this.civilians.update(
+    this.actors.update(
       snap,
       this.previous,
       alpha,
-      this.camera.position,
-      this.renderDistance,
       this.camera,
-      (x, z) => this.terrain.sample(x, z),
+      this.renderDistance,
+      active,
+      this.frame,
+      this.elapsed,
+      dancing,
     );
-    this.ensureMonsterMeshes(snap.monsters.length);
-    this.monsterFragmentView.begin(this.googlyEyes);
-    this.nearMonsterView.begin(this.googlyEyes);
-    this.distantMonsterView.begin(this.googlyEyes);
-    for (let i = 0; i < this.monsterMeshes.length; i++) {
-      const mesh = this.monsterMeshes[i],
-        distant = this.distantMonsters[i];
-      const m = snap.monsters[i];
-      const wreckageScale = THREE.MathUtils.lerp(
-        this.previous?.monsters[i]?.cleanupScale ?? 1,
-        m?.cleanupScale ?? 1,
-        alpha,
-      );
-      mesh.visible = distant.visible =
-        !!m && !m.cleared && (!m.defeated || !!m.ragdoll);
-      if (m?.fragments?.length && !m.cleared) {
-        const previous = this.previous?.monsters[m.id]?.fragments;
-        const root = this.monsterFragmentRoot;
-        for (const fragment of m.fragments) {
-          if (
-            (fragment.p[0] - this.camera.position.x) ** 2 +
-              (fragment.p[2] - this.camera.position.z) ** 2 >
-            (this.renderDistance + 40) ** 2
-          )
-            continue;
-          const old = previous?.find((p) => p.part === fragment.part);
-          root.position.fromArray(fragment.p);
-          root.quaternion.fromArray(fragment.q);
-          if (old) {
-            root.position.set(
-              ...(fragment.p.map((v, i) =>
-                THREE.MathUtils.lerp(old.p[i], v, alpha),
-              ) as [number, number, number]),
-            );
-            root.quaternion
-              .fromArray(old.q)
-              .slerp(
-                this.monsterFragmentQuaternion.fromArray(fragment.q),
-                alpha,
-              );
-          }
-          root.scale.setScalar(MONSTER_SCALE * wreckageScale);
-          this.monsterFragmentView.add(fragment.part, root);
-        }
-        continue;
-      }
-      if (!m || m.cleared || (m.defeated && !m.ragdoll)) {
-        if (mesh.parent) this.scene.remove(mesh);
-        if (distant.parent) this.scene.remove(distant);
-        continue;
-      }
-      if (
-        (m.p[0] - this.camera.position.x) ** 2 +
-          (m.p[2] - this.camera.position.z) ** 2 >
-        (this.renderDistance + 90) ** 2
-      ) {
-        mesh.visible = distant.visible = false;
-        if (mesh.parent) this.scene.remove(mesh);
-        if (distant.parent) this.scene.remove(distant);
-        continue;
-      }
-      const old = this.previous?.monsters[m.id];
-      if (old && old.defeated === m.defeated)
-        mesh.position.set(
-          THREE.MathUtils.lerp(old.p[0], m.p[0], alpha),
-          THREE.MathUtils.lerp(old.p[1], m.p[1], alpha),
-          THREE.MathUtils.lerp(old.p[2], m.p[2], alpha),
-        );
-      else mesh.position.fromArray(m.p);
-      if (m.ragdoll) {
-        mesh.quaternion.fromArray(m.ragdoll);
-        if (old?.ragdoll) {
-          mesh.quaternion
-            .fromArray(old.ragdoll)
-            .slerp(new THREE.Quaternion().fromArray(m.ragdoll), alpha);
-        }
-        mesh.scale.setScalar(MONSTER_SCALE * wreckageScale);
-        distant.position.copy(mesh.position);
-        distant.quaternion.copy(mesh.quaternion);
-        distant.scale.setScalar(MONSTER_SCALE * wreckageScale);
-        if (this.camera.position.distanceTo(mesh.position) < 480) {
-          const sway = Math.sin(m.phase) * m.stagger * 0.25;
-          this.nearMonsterView.add(mesh, 0.35 + sway, -0.35 - sway, sway * 0.2);
-        } else this.distantMonsterView.add(distant);
-        continue;
-      }
-      const beat = Math.sin(snap.time * Math.PI * 4 + m.id * 0.7);
-      const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23),
-        pose = monsterCombatPose(m.phase, m.windup, m.stagger, crawl),
-        dance = dancing && !pose.active;
-      mesh.rotation.x = pose.lean;
-      mesh.rotation.y = m.yaw + (dance ? beat * 0.28 : 0);
-      mesh.rotation.z = dance ? beat * 0.1 : 0;
-      if (dance) mesh.position.y += Math.max(0, beat) * 2;
-      distant.position.copy(mesh.position);
-      distant.rotation.y = mesh.rotation.y;
-      distant.rotation.z = mesh.rotation.z;
-      distant.scale.setScalar(MONSTER_SCALE);
-      const detail = this.camera.position.distanceTo(mesh.position) < 480;
-      mesh.visible = detail;
-      distant.visible = !detail;
-      if (mesh.parent) this.scene.remove(mesh);
-      if (distant.parent) this.scene.remove(distant);
-      if (!detail) {
-        this.distantMonsterView.add(distant);
-        continue;
-      }
-      const left = dance ? -0.65 - beat * 0.45 : pose.left,
-        right = dance ? 0.65 - beat * 0.45 : pose.right;
-      mesh.scale.setScalar(
-        MONSTER_SCALE *
-          (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1),
-      );
-      this.nearMonsterView.add(
-        mesh,
-        left,
-        right,
-        dance ? Math.sin(m.phase * 0.09) * 0.08 : pose.crown,
-        pose.brow,
-        pose.jaw,
-      );
-    }
-    this.monsterFragmentView.finish(this.googlyEyes);
-    this.nearMonsterView.finish(this.googlyEyes);
-    this.distantMonsterView.finish(this.googlyEyes);
-    while (this.spikeMeshes.length < snap.monsterSpikes.length) {
-      const spike = new THREE.Mesh(this.spikeGeometry, this.spikeMaterial);
-      spike.scale.setScalar(MONSTER_SCALE);
-      this.spikeMeshes.push(spike);
-      this.scene.add(spike);
-    }
-    for (let i = 0; i < this.spikeMeshes.length; i++) {
-      const spike = this.spikeMeshes[i],
-        s = snap.monsterSpikes[i];
-      spike.visible = !!s;
-      if (s) {
-        const old = this.previousSpikes.get(s.id);
-        if (old)
-          spike.position.set(
-            ...(s.p.map((v, k) => THREE.MathUtils.lerp(old.p[k], v, alpha)) as [
-              number,
-              number,
-              number,
-            ]),
-          );
-        else spike.position.fromArray(s.p);
-        spike.quaternion.setFromUnitVectors(
-          up,
-          new THREE.Vector3(...s.v).normalize(),
-        );
-      }
-    }
-    if (!this.googlyEyes) {
-      for (const shot of this.shotMeshes) shot.visible = false;
-      this.projectileView.update(
-        snap.projectiles,
-        this.previousProjectiles,
-        alpha,
-      );
-      if (active && this.frame % 6 === 0)
-        for (const shot of snap.projectiles)
-          if (shot.weapon === "cannon") this.effects.trail(shot.p, shot.v);
-    } else {
-      this.projectileView.reset();
-      // Eye-enabled shots retain individual eye anchors.
-      while (this.shotMeshes.length < snap.projectiles.length) {
-        const shot = makePineapple();
-        shot.traverse((object) => {
-          if (
-            object instanceof THREE.Mesh &&
-            object.material instanceof THREE.MeshStandardMaterial
-          )
-            this.disco.decorate(object.material);
-        });
-        this.shotMeshes.push(shot);
-        this.scene.add(shot);
-      }
-      for (let i = 0; i < this.shotMeshes.length; i++) {
-        const shot = this.shotMeshes[i],
-          s = snap.projectiles[i];
-        shot.visible = !!s;
-        if (s) {
-          const old = this.previousProjectiles.get(s.id);
-          if (old)
-            shot.position.set(
-              ...(s.p.map((v, k) =>
-                THREE.MathUtils.lerp(old.p[k], v, alpha),
-              ) as [number, number, number]),
-            );
-          else shot.position.fromArray(s.p);
-          shot.scale.setScalar(WEAPONS[s.weapon].length / 3.3);
-          if (active && s.weapon === "cannon" && this.frame % 6 === 0)
-            this.effects.trail(s.p, s.v);
-          shot.quaternion.setFromUnitVectors(
-            new THREE.Vector3(0, 1, 0),
-            new THREE.Vector3(...s.v).normalize(),
-          );
-        }
-      }
-    }
     this.marker.visible =
       this.rig.mode === "chase" && !!snap.aim && p.crashed <= 0;
     if (snap.aim) {
@@ -2763,106 +1558,17 @@ export class GameRenderer {
     }
     this.performance.record("actors", performance.now() - actorsStarted);
     if (!active && this.lightingHour !== snap.hour) {
-      this.nextReflection = this.nextShadow = -Infinity;
+      this.nextShadow = -Infinity;
       this.shadowDirty = true;
     }
     this.lightingHour = snap.hour;
-    this.lighting.update(snap.hour);
-    this.foliageTime.value = snap.time;
-    this.foliageDay.value = this.lighting.daylight;
-    this.scenery?.update(
-      this.camera.position,
-      this.removed,
+    this.environment.update(
+      snap,
+      this.camera,
+      position,
       this.renderDistance,
-      this.visualProfile.foliageDistance,
-      snap.time,
-      this.rig.mode === "photo" || !active,
+      this.effects.reduced,
     );
-    this.harborLadders?.update(
-      this.camera.position,
-      this.removed,
-      this.renderDistance,
-    );
-    this.windmills?.update(snap.time, this.removed);
-    this.waterwheels?.update(snap.time, this.removed);
-    const { daylight: day, night, lightDirection: ld } = this.lighting;
-    this.sky.material.uniforms.day.value = day;
-    this.sky.material.uniforms.twilight.value = this.lighting.twilight;
-    this.sky.material.uniforms.time.value = snap.time;
-    // Strike age keeps the atmosphere frozen with pause/photo mode and avoids
-    // stacking darkness when several beams fire at once.
-    let laserDim = 0;
-    for (const strike of snap.lasers) {
-      if (strike.phase !== "burning") continue;
-      const age = strike.age - LASER.charge;
-      const envelope = Math.min(
-        THREE.MathUtils.smoothstep(age, 0, 0.25),
-        THREE.MathUtils.smoothstep(LASER.beam - age, 0, 0.5),
-      );
-      laserDim = Math.max(
-        laserDim,
-        envelope * (this.effects.reduced ? 0.14 : 0.28),
-      );
-    }
-    this.sky.material.uniforms.laserDim.value = laserDim;
-    const shadowCenter = this.shadowCenter.set(
-      position.x,
-      Math.max(0, this.terrain.sample(position.x, position.z)),
-      position.z,
-    );
-    this.sun.position.copy(shadowCenter).addScaledVector(ld, 1000);
-    this.sun.target.position.copy(shadowCenter);
-    this.sun.intensity = this.lighting.sunIntensity;
-    this.sun.color.copy(this.lighting.sunColor);
-    this.ambient.intensity = this.lighting.ambientIntensity;
-    this.ambient.color.copy(this.lighting.ambientColor);
-    this.ambient.groundColor.copy(this.lighting.groundColor);
-    this.scene.environmentIntensity = 0.28 + day * 0.72;
-    this.materials.window.emissiveIntensity = night * 0.45;
-    this.sun.intensity = THREE.MathUtils.lerp(
-      this.sun.intensity,
-      0.55,
-      this.disco.skyAmount.value,
-    );
-    this.sun.color.lerp(this.discoSun, this.disco.skyAmount.value);
-    this.ambient.intensity = THREE.MathUtils.lerp(
-      this.ambient.intensity,
-      1.25,
-      this.disco.skyAmount.value,
-    );
-    this.ambient.color.lerp(this.discoAmbient, this.disco.skyAmount.value);
-    this.villageLighting.update(
-      this.camera.position,
-      this.removed,
-      night,
-      this.renderDistance,
-      dt,
-    );
-    this.water.material.uniforms.waterColor.value.copy(
-      this.lighting.waterColor,
-    );
-    this.water.material.uniforms.sunDirection.value.copy(ld);
-    this.water.material.uniforms.sunColor.value
-      .copy(this.sun.color)
-      .multiplyScalar(0.2 + day * 0.8);
-    this.water.material.uniforms.time.value = snap.time;
-    const riverMaterial = this.rivers.userData
-      .material as THREE.MeshStandardMaterial;
-    riverMaterial.color.copy(this.lighting.waterColor);
-    const riverUniforms = this.rivers.userData.uniforms;
-    riverUniforms.time.value = snap.time;
-    riverUniforms.sky.value.copy(this.lighting.horizonColor);
-    riverUniforms.sun.value.copy(this.water.material.uniforms.sunColor.value);
-    riverUniforms.sunDirection.value.copy(ld);
-    riverUniforms.eye.value.copy(this.camera.position);
-    // Extending the terrain horizon must not extend detailed river residency.
-    for (const child of this.rivers.children) {
-      const bounds = (child as THREE.Mesh).geometry.boundingSphere!;
-      const dx = bounds.center.x - this.camera.position.x;
-      const dz = bounds.center.z - this.camera.position.z;
-      child.visible =
-        dx * dx + dz * dz < (this.renderDistance + bounds.radius) ** 2;
-    }
     const terrainStarted = performance.now();
     this.terrain.update(
       this.camera.position,
@@ -2877,67 +1583,17 @@ export class GameRenderer {
     this.performance.queues.terrainWorkerActive = this.terrain.workerActive
       ? 1
       : 0;
-    this.treeLODState.camera.value.copy(this.camera.position);
-    this.treeLODState.ranges.value.set(
-      this.visualProfile.nearFoliageDistance ** 2,
-      this.visualProfile.middleFoliageDistance ** 2,
-    );
-    this.performance.queues.nearFoliageDistance =
-      this.visualProfile.nearFoliageDistance;
-    this.performance.queues.middleFoliageDistance =
-      this.visualProfile.middleFoliageDistance;
-    this.flagGroup.visible = true;
-    for (const flag of this.flagGroup.children) {
-      const m = flag as THREE.Mesh;
-      m.visible = !this.removed.has(m.userData.owner);
-    }
     if (
       this.rig.mode === "photo" ||
       this.elapsed - this.lastLOD > 0.25 ||
       this.frame < 3
     ) {
-      for (const b of this.batches) {
-        let d = Math.hypot(
-          b.x - this.camera.position.x,
-          b.z - this.camera.position.z,
-        );
-        b.mesh.castShadow =
-          d < (this.visualProfile.name === "Recovery" ? 140 : 220);
-        if (b.detailGeometry)
-          b.mesh.geometry =
-            b.detailGeometry[
-              d <
-              (b.kind === "pine"
-                ? this.visualProfile.nearFoliageDistance
-                : 180 * this.visualProfile.detail)
-                ? 0
-                : 1
-            ];
-        if (b.middle && b.low) {
-          const near = this.visualProfile.nearFoliageDistance;
-          const middle = this.visualProfile.middleFoliageDistance;
-          b.mesh.visible = near > 0 && d < near * 1.06 + b.radius;
-          b.middle.visible =
-            d < middle * 1.06 + b.radius && d + b.radius >= near * 0.94;
-          b.low.visible =
-            d + b.radius >= middle * 0.94 && d < this.renderDistance + b.radius;
-          b.mesh.castShadow = b.middle.castShadow =
-            d - b.radius < (this.visualProfile.name === "Recovery" ? 140 : 220);
-        } else if (b.low) {
-          b.mesh.visible = d < 360;
-          b.low.visible = d >= 360 && d < this.renderDistance + b.radius;
-        } else if (b.kind === "trunk")
-          b.mesh.visible = d < Math.min(700, this.renderDistance + 90);
-        else b.mesh.visible = d < this.renderDistance + b.radius;
-        for (const mesh of [b.mesh, b.middle, b.low])
-          if (mesh) {
-            if (mesh.visible && mesh.count && !mesh.parent)
-              this.scene.add(mesh);
-            else if ((!mesh.visible || !mesh.count) && mesh.parent)
-              this.scene.remove(mesh);
-          }
-      }
-      this.islandHorizon?.setView(this.camera.position, this.renderDistance);
+      this.worldView.update(
+        this.camera,
+        this.renderDistance,
+        this.visualProfile.treeDistance,
+        this.visualProfile.name === "Recovery" ? 140 : 220,
+      );
       this.lastLOD = this.elapsed;
     }
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
@@ -2969,42 +1625,7 @@ export class GameRenderer {
       this.camera,
       this.effects.reduced,
     );
-    if (this.googlyEyes) {
-      const roots = this.eyesRoots;
-      roots.length = 0;
-      roots.push(
-        this.jet,
-        this.flagGroup,
-        this.disco.ball,
-        this.nearMonsterView.faces,
-        this.distantMonsterView.faces,
-        this.monsterFragmentView.faces,
-        this.fallenPines,
-        this.fallenTrunks,
-        this.effects.fragments.mesh,
-      );
-      for (const batch of this.batches) {
-        roots.push(batch.mesh);
-        if (batch.middle) roots.push(batch.middle);
-        if (batch.low) roots.push(batch.low);
-      }
-      for (const mesh of this.fallenCanopies.values()) roots.push(mesh);
-      for (const mesh of this.bodyMeshes.values()) roots.push(mesh);
-      for (const group of this.ruinGroups.values()) roots.push(group);
-      for (const shot of this.shotMeshes) roots.push(shot);
-      for (const spike of this.spikeMeshes) roots.push(spike);
-      roots.push(this.villageLighting.mesh);
-      for (const cloud of this.effects.cloudFaces) roots.push(cloud);
-      this.eyes.update(roots, snap, this.jet.position);
-    }
     this.performance.record("prepare", performance.now() - workStarted);
-    const terrainNormalDetail =
-      this.terrain.material.userData.terrainNormalDetail;
-    if (terrainNormalDetail)
-      terrainNormalDetail.value = +this.visualProfile.ambientOcclusion;
-    (this.surfaceNormalDetail ??= { value: 1 }).value =
-      +this.visualProfile.surfaceNormals;
-    this.performance.queues.surfaceNormals = +this.visualProfile.surfaceNormals;
     // Thousands of alpha-tested falling leaf cards must not dominate the
     // shadow pass when Auto has already reduced foliage and cosmetic detail.
     const debrisShadows =
@@ -3024,7 +1645,6 @@ export class GameRenderer {
     this.renderer.info.reset();
     this.performance.queues.shaderPrograms =
       this.renderer.info.programs?.length ?? 0;
-    this.presentation.setHeat(snap.lasers, this.camera, snap.time);
     this.presentation.configure(
       this.visualProfile,
       this.reducedEffects,
@@ -3046,30 +1666,16 @@ export class GameRenderer {
       this.quality === "auto" ? this.auto.level : -1;
     this.performance.queues.sceneHeight = this.presentation.size[1];
     this.performance.queues.sceneWidth = this.presentation.size[0];
-    this.performance.queues.postProcessing =
-      +this.presentation.ao.enabled +
-      +this.presentation.bloom.enabled +
-      +this.presentation.smaa.enabled +
-      this.presentation.particleDepth.enabled.value +
-      +this.presentation.focus.enabled +
-      +this.presentation.heat.enabled;
+    this.performance.queues.postProcessing = this.presentation.passCount;
     this.performance.queues.renderTargetBytes =
-      this.presentation.targetBytes +
-      (this.reflectionTarget?.width ?? this.visualProfile.reflectionWidth) *
-        (this.reflectionTarget?.height ?? this.visualProfile.reflectionHeight) *
-        8 +
-      this.sun.shadow.mapSize.x ** 2 * 8 +
-      384 * 512 * 8;
-    this.performance.queues.reflectionWidth =
-      this.reflectionTarget?.width ?? this.visualProfile.reflectionWidth;
-    this.performance.queues.reflectionHeight =
-      this.reflectionTarget?.height ?? this.visualProfile.reflectionHeight;
-    this.performance.queues.reflectionFoliageDetail =
-      +this.visualProfile.reflectionFoliageDetail;
+      this.presentation.targetBytes + this.sun.shadow.mapSize.x ** 2 * 8;
     if (this.elapsed >= this.nextResources) {
       Object.assign(
         this.performance.queues,
-        sceneResources(this.scene, this.visualAssets.residentTextures),
+        sceneResources(this.scene, [
+          this.terrain.heightTexture,
+          this.terrain.floodTexture,
+        ]),
       );
       this.nextResources = this.elapsed + 3;
     }
@@ -3109,10 +1715,7 @@ export class GameRenderer {
 
   dispose() {
     this.disposed = true;
-    this.visualAssets?.dispose();
     this.presentation?.dispose();
-    this.environmentTarget?.dispose();
-    this.retiredGeometry?.forEach((g) => g.dispose());
     this.timeline.reset();
     this.last = this.previous = undefined;
     for (const snapshot of this.retired) this.recycle?.(snapshot);
@@ -3121,62 +1724,16 @@ export class GameRenderer {
     this.ruinBuild?.return(undefined);
     this.gpu.dispose();
     this.terrain.dispose();
-    this.effects.reset();
-    for (const b of this.batches) {
-      this.scene.add(b.mesh);
-      if (b.middle) this.scene.add(b.middle);
-      if (b.low) this.scene.add(b.low);
-    }
-    for (const group of this.ruinGroups.values()) this.scene.add(group);
-    for (const mesh of this.effects.prewarmMeshes) this.scene.add(mesh);
-    this.eyes.dispose();
-    this.nearMonsterView.disposeFaces();
-    this.distantMonsterView.disposeFaces();
-    this.monsterFragmentView?.disposeFaces();
-    this.harborLadders?.dispose();
-    const geometries = new Set<THREE.BufferGeometry>(),
-      materials = new Set<THREE.Material>(),
-      textures = new Set<THREE.Texture>();
-    geometries.add(this.spikeGeometry);
-    materials.add(this.spikeMaterial);
-    for (const material of this.foliageDepthMaterials?.values() ?? [])
-      materials.add(material);
-    if (this.settledTrunkMaterial) materials.add(this.settledTrunkMaterial);
-    // Water keeps its render target in a closure. r180 records the owner on the
-    // sampled texture; disposing only that texture leaves its framebuffer behind.
-    const reflectionTexture = this.water.material.uniforms.mirrorSampler.value;
-    const reflection = this.renderer.properties.get(reflectionTexture) as {
-      __renderTarget?: THREE.WebGLRenderTarget;
-    };
-    (this.reflectionTarget ?? reflection.__renderTarget)?.dispose();
-    this.sun.shadow.dispose();
-    this.scene.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (mesh.customDepthMaterial) materials.add(mesh.customDepthMaterial);
-      if (mesh.geometry) geometries.add(mesh.geometry);
-      if (mesh.material)
-        for (const m of Array.isArray(mesh.material)
-          ? mesh.material
-          : [mesh.material])
-          materials.add(m);
-      if ((mesh as THREE.InstancedMesh).isInstancedMesh)
-        (mesh as THREE.InstancedMesh).dispose();
-    });
-    for (const material of materials) {
-      for (const value of Object.values(material))
-        if (value instanceof THREE.Texture) textures.add(value);
-      if (material instanceof THREE.ShaderMaterial)
-        for (const uniform of Object.values(material.uniforms)) {
-          if (uniform.value instanceof THREE.Texture)
-            textures.add(uniform.value);
-          else if (Array.isArray(uniform.value))
-            for (const value of uniform.value)
-              if (value instanceof THREE.Texture) textures.add(value);
-        }
-      material.dispose();
-    }
-    for (const geometry of geometries) geometry.dispose();
-    for (const texture of textures) texture.dispose();
+    const resources = new ResourceDisposal();
+    this.worldView.dispose(resources);
+    this.actors.dispose(resources);
+    this.environment.dispose(resources);
+    this.effects.dispose(resources);
+    for (const group of this.ruinGroups.values()) resources.collect(group);
+    if (this.settledTrunkMaterial)
+      resources.materials.add(this.settledTrunkMaterial);
+    resources.collect(this.scene);
+    resources.dispose();
     this.terrain.heightTexture.dispose();
     this.terrain.floodTexture.dispose();
     this.renderer.dispose();
@@ -3242,7 +1799,6 @@ export class GameRenderer {
   }
   inspectCamera(p: number[], target: number[]) {
     this.lastLOD = -Infinity;
-    this.nextReflection = -Infinity;
     this.inspect = {
       p: new THREE.Vector3().fromArray(p),
       target: new THREE.Vector3().fromArray(target),
@@ -3267,10 +1823,7 @@ export class GameRenderer {
       renderDistance: this.renderDistance,
       clouds: this.effects.cloudCount,
       fragments: this.effects.fragments.count,
-      projectiles:
-        this.projectileView.count +
-        this.shotMeshes.filter((s) => s.visible).length,
-      googlyFaces: this.eyes.count,
+      projectiles: this.actors.projectileCount,
     };
   }
 }

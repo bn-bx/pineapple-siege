@@ -4,6 +4,7 @@ import { normalizePreferences } from "../src/preferences";
 import { CameraRig } from "../src/render/camera-rig";
 import { DEFAULT_DESTRUCTION } from "../src/destruction-settings";
 import { frameStats } from "../src/frame-stats";
+import { WorldBatches } from "../src/render/world-batches";
 import { GameRenderer } from "../src/render/renderer";
 import { SnapshotTimeline } from "../src/render/snapshot-timeline";
 import type { SimulationSnapshot } from "../src/types";
@@ -39,9 +40,8 @@ it("normalizes every persistent setting independently", () => {
   });
   expect(normalizePreferences({ ...p, volume: 9 }).volume).toBe(1);
 });
-it("defaults to eyes off and 120 monsters while preserving saved population choices", () => {
+it("defaults to 120 monsters while preserving saved population choices", () => {
   expect(normalizePreferences()).toMatchObject({
-    googlyEyes: false,
     monsterCount: 120,
   });
   const migrated = normalizePreferences({
@@ -50,42 +50,19 @@ it("defaults to eyes off and 120 monsters while preserving saved population choi
     nukeYield: "local",
   });
   expect(migrated).toMatchObject({
-    googlyEyes: false,
     monsterCount: 8,
     nukeYield: "valley",
   });
-  expect(
-    normalizePreferences({ ...migrated, monsterCount: 8, googlyEyes: false }),
-  ).toMatchObject({
+  expect(normalizePreferences({ ...migrated, monsterCount: 8 })).toMatchObject({
     monsterCount: 8,
-    googlyEyes: false,
   });
   expect(normalizePreferences({ revision: 1, monsterCount: 3 })).toMatchObject({
     monsterCount: 3,
   });
 });
-it("turns the old automatic-on eyes off once and preserves later choices", () => {
-  const migrated = normalizePreferences({
-    revision: 2,
-    googlyEyes: true,
-    monsterCount: 8,
-    nukeYield: "castle",
-  });
-  expect(migrated).toMatchObject({
-    googlyEyes: false,
-    monsterCount: 8,
-    nukeYield: "valley",
-  });
-  expect(
-    normalizePreferences({ ...migrated, googlyEyes: true }).googlyEyes,
-  ).toBe(true);
-  expect(
-    normalizePreferences({ ...migrated, googlyEyes: false }).googlyEyes,
-  ).toBe(false);
-});
 it("persists integer monster counts across 0–400 and normalizes invalid values", () => {
   for (const monsterCount of [0, 1, 7, 20, 99, 199, 200, 399, 400]) {
-    const preferences = normalizePreferences({ revision: 3, monsterCount });
+    const preferences = normalizePreferences({ revision: 4, monsterCount });
     expect(preferences.monsterCount).toBe(monsterCount);
     expect(normalizePreferences(preferences).monsterCount).toBe(monsterCount);
   }
@@ -216,7 +193,7 @@ it("normalizes saved render distance without resetting other preferences", () =>
     [1650, 1700],
   ]) {
     const preferences = normalizePreferences({
-      revision: 3,
+      revision: 4,
       renderDistance: value,
       monsterCount: 7,
       nukeYield: "local",
@@ -229,6 +206,7 @@ it("normalizes saved render distance without resetting other preferences", () =>
 it("gives separate settlements independent draw bounds so distant structures can be culled", () => {
   const view = {
     world: {
+      banners: [],
       entities: [200, 2200].map((z, id) => ({
         id,
         kind: "block",
@@ -244,7 +222,12 @@ it("gives separate settlements independent draw bounds so distant structures can
     box: new THREE.BoxGeometry(2, 2, 2),
     materials: { stone: new THREE.MeshStandardMaterial() },
   };
-  (GameRenderer.prototype as any).buildBatches.call(view);
+  const batches = new WorldBatches(
+    view.scene,
+    view.world as any,
+    view.materials as any,
+  );
+  view.refs = batches.refs;
   const camera = new THREE.PerspectiveCamera(64, 1, 0.5, 600);
   camera.position.set(0, 10, 0);
   camera.lookAt(0, 10, 1);
@@ -295,4 +278,27 @@ it("keeps the near edge of oversized rubble visible inside render distance", () 
   view.camera.position.x = 2000;
   view.updateRuins();
   expect(group.visible).toBe(false);
+});
+
+it("ignores retired decoration choices while retaining supported revision-3 preferences", () => {
+  const preferences = normalizePreferences({
+    revision: 3,
+    googlyEyes: true,
+    quality: "720",
+    volume: 0.7,
+    monsterCount: 8,
+    renderDistance: 2300,
+    reverseX: true,
+    destruction: { ...DEFAULT_DESTRUCTION, noCooldown: true },
+  } as any);
+  expect(preferences).not.toHaveProperty("googlyEyes");
+  expect(preferences).toMatchObject({
+    revision: 4,
+    quality: "720",
+    volume: 0.7,
+    monsterCount: 8,
+    renderDistance: 2300,
+    reverseX: true,
+    destruction: { noCooldown: true },
+  });
 });

@@ -1,12 +1,10 @@
-import { crownSurface, fruitSurface } from "./fruit-surface";
-import { visualGeometry } from "./visual-assets";
-import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import * as THREE from "three";
+import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
+import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 import {
   monsterBodyQuarter,
   monsterQuarterCaps,
 } from "./monster-fragment-geometry";
-import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 
 /** Combat-only near poses share the existing instanced limbs and snapshot state. */
 export function monsterCombatPose(
@@ -244,58 +242,7 @@ function build() {
     mouthGroup.add(tooth);
   }
   g.add(mouthGroup);
-  g.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
   return g;
-}
-export function upgradeMonsterTemplate(
-  texture?: THREE.Texture,
-  wood?: { color: THREE.Texture; normal: THREE.Texture },
-) {
-  template ??= build();
-  const body = template.children.find(
-    (o) => o instanceof THREE.Mesh && o.position.y === 15,
-  ) as THREE.Mesh;
-  fruitSurface(body.material as THREE.MeshStandardMaterial, texture);
-  body.geometry = visualGeometry("fruit_lod0", () => body.geometry.clone());
-  for (const name of ["leftArm", "rightArm", "roots"]) {
-    template.getObjectByName(name)?.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return;
-      const material = object.material as THREE.MeshStandardMaterial;
-      if (material.color.getHex() !== 0x987126 && !material.userData.rootLimb)
-        return;
-      material.userData.rootLimb = true;
-      material.map = wood?.color ?? null;
-      material.normalMap = wood?.normal ?? null;
-      material.normalScale.set(0.35, 0.35);
-      material.color.set(wood ? "#b5a06b" : "#987126");
-      material.needsUpdate = true;
-    });
-  }
-  const crown = template.getObjectByName("crown")!;
-  crown.children.forEach((o, i) => {
-    const mesh = o as THREE.Mesh;
-    crownSurface(mesh.material as THREE.MeshStandardMaterial, 5.5, 1.4);
-    mesh.geometry = visualGeometry("leaf_lod0", () =>
-      mesh.geometry.clone(),
-    ).scale(1.4, 4.5 + (i % 3), 1.4);
-  });
-  if (distantTemplate) {
-    const fruit = distantTemplate.children[0] as THREE.Mesh;
-    fruit.geometry = visualGeometry("fruit_lod2", () => fruit.geometry.clone());
-    fruit.material = body.material;
-    const crown = distantTemplate.children[1] as THREE.Mesh;
-    const blades = Array.from({ length: 7 }, (_, i) =>
-      visualGeometry("leaf_lod2", () => crown.geometry.clone())
-        .scale(1.4, 5, 1.4)
-        .rotateZ(0.3)
-        .rotateY((i * Math.PI * 2) / 7),
-    );
-    crown.geometry = mergeMonsterGeometry(blades)!;
-    for (const blade of blades) blade.dispose();
-    crown.material = (
-      template.getObjectByName("crown")!.children[0] as THREE.Mesh
-    ).material;
-  }
 }
 export function makeMonster() {
   template ??= build();
@@ -306,7 +253,6 @@ let distantTemplate: THREE.Group | undefined;
 export function makeDistantMonster() {
   if (!distantTemplate) {
     distantTemplate = new THREE.Group();
-    distantTemplate.userData.googlyBounds = [0, 18.5, 0, 7, 5, 8.5];
     const fruit = new THREE.Mesh(
       new THREE.SphereGeometry(1, 8, 6),
       new THREE.MeshLambertMaterial({ color: "#d3962e" }),
@@ -331,10 +277,7 @@ export function makeDistantMonster() {
         ),
       );
     }
-    const roots = new THREE.Mesh(
-      groundingRootGeometry(),
-      armMat,
-    );
+    const roots = new THREE.Mesh(groundingRootGeometry(), armMat);
     roots.name = "grounding-roots";
     distantTemplate.add(roots);
   }
@@ -344,12 +287,6 @@ export function makeDistantMonster() {
 /** Shared distant draws for all enemies, including rooted feet and disco transforms. */
 export class DistantMonsterView {
   readonly group = new THREE.Group();
-  private faceMesh?: THREE.InstancedMesh;
-  private faceLocal = new THREE.Matrix4().compose(
-    new THREE.Vector3(0, 18.5, 0),
-    new THREE.Quaternion(),
-    new THREE.Vector3(7, 5, 8.5),
-  );
   readonly parts: THREE.InstancedMesh[];
   private local: THREE.Matrix4[];
   private matrix = new THREE.Matrix4();
@@ -373,44 +310,8 @@ export class DistantMonsterView {
       return part;
     });
   }
-  get faces() {
-    if (!this.faceMesh) {
-      const material = new THREE.MeshBasicMaterial();
-      material.visible = false;
-      const mesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        material,
-        this.capacity,
-      );
-      mesh.count = 0;
-      mesh.frustumCulled = false;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.faceMesh = mesh;
-      this.group.add(mesh);
-    }
-    return this.faceMesh;
-  }
-  private finishFaces(eyes: boolean) {
-    const mesh = this.faceMesh;
-    if (!mesh) return;
-    mesh.count = eyes ? this.count : 0;
-    mesh.visible = eyes;
-    mesh.instanceMatrix.clearUpdateRanges();
-    if (mesh.count) mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
-    mesh.instanceMatrix.needsUpdate = true;
-  }
-  disposeFaces() {
-    const mesh = this.faceMesh;
-    if (!mesh) return;
-    this.group.remove(mesh);
-    mesh.dispose();
-    mesh.geometry.dispose();
-    (mesh.material as THREE.Material).dispose();
-    this.faceMesh = undefined;
-  }
-  begin(eyes = false) {
+  begin() {
     this.count = 0;
-    if (eyes) void this.faces;
   }
   add(root: THREE.Object3D) {
     root.updateMatrix();
@@ -419,14 +320,9 @@ export class DistantMonsterView {
         this.count,
         this.matrix.multiplyMatrices(root.matrix, this.local[i]),
       );
-    this.faceMesh?.setMatrixAt(
-      this.count,
-      this.matrix.multiplyMatrices(root.matrix, this.faceLocal),
-    );
     this.count++;
   }
-  finish(eyes = false) {
-    this.finishFaces(eyes);
+  finish() {
     for (const part of this.parts) {
       part.count = this.count;
       part.instanceMatrix.clearUpdateRanges();
@@ -444,15 +340,9 @@ export class NearMonsterView {
     limb: string;
     local: THREE.Matrix4;
   }[] = [];
-  private faceMesh?: THREE.InstancedMesh;
   private count = 0;
   private matrix = new THREE.Matrix4();
   private pivot = new THREE.Object3D();
-  private faceLocal = new THREE.Matrix4().compose(
-    new THREE.Vector3(0, 18.5, 0),
-    new THREE.Quaternion(),
-    new THREE.Vector3(7, 5, 8.5),
-  );
   constructor(private capacity: number) {
     const template = makeMonster();
     template.updateMatrixWorld(true);
@@ -498,44 +388,8 @@ export class NearMonsterView {
       this.parts.push({ mesh, limb: g.limb, local: g.local });
     }
   }
-  get faces() {
-    if (!this.faceMesh) {
-      const material = new THREE.MeshBasicMaterial();
-      material.visible = false;
-      const mesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        material,
-        this.capacity,
-      );
-      mesh.count = 0;
-      mesh.frustumCulled = false;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.faceMesh = mesh;
-      this.group.add(mesh);
-    }
-    return this.faceMesh;
-  }
-  private finishFaces(eyes: boolean) {
-    const mesh = this.faceMesh;
-    if (!mesh) return;
-    mesh.count = eyes ? this.count : 0;
-    mesh.visible = eyes;
-    mesh.instanceMatrix.clearUpdateRanges();
-    if (mesh.count) mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
-    mesh.instanceMatrix.needsUpdate = true;
-  }
-  disposeFaces() {
-    const mesh = this.faceMesh;
-    if (!mesh) return;
-    this.group.remove(mesh);
-    mesh.dispose();
-    mesh.geometry.dispose();
-    (mesh.material as THREE.Material).dispose();
-    this.faceMesh = undefined;
-  }
-  begin(eyes = false) {
+  begin() {
     this.count = 0;
-    if (eyes) void this.faces;
   }
   add(
     root: THREE.Object3D,
@@ -584,35 +438,24 @@ export class NearMonsterView {
         this.matrix.multiplyMatrices(root.matrix, this.pivot.matrix),
       );
     }
-    this.faceMesh?.setMatrixAt(
-      this.count,
-      this.matrix.multiplyMatrices(root.matrix, this.faceLocal),
-    );
     this.count++;
   }
-  finish(eyes: boolean) {
+  finish() {
     for (const { mesh, limb } of this.parts) {
-      mesh.visible = limb !== "native-eyes" || !eyes;
+      mesh.visible = true;
       mesh.count = this.count;
       mesh.instanceMatrix.clearUpdateRanges();
       if (this.count) mesh.instanceMatrix.addUpdateRange(0, this.count * 16);
       mesh.instanceMatrix.needsUpdate = true;
     }
-    this.finishFaces(eyes);
   }
 }
 
 /** Detached body, crown and two arms share material batches across all defeats. */
 export class MonsterFragmentView {
   readonly group = new THREE.Group();
-  private faceMesh?: THREE.InstancedMesh;
   private faceCount = 0;
   private faceMatrix = new THREE.Matrix4();
-  private faceLocal = new THREE.Matrix4().compose(
-    new THREE.Vector3(0, 3.5, 0),
-    new THREE.Quaternion(),
-    new THREE.Vector3(7, 5, 8.5),
-  );
   private quarterFaceLocal = new THREE.Matrix4().compose(
     new THREE.Vector3(4, -2.5, 0),
     new THREE.Quaternion(),
@@ -710,60 +553,17 @@ export class MonsterFragmentView {
       this.batches.push({ mesh, part: batch.part, count: 0 });
     }
   }
-  get faces() {
-    if (!this.faceMesh) {
-      const material = new THREE.MeshBasicMaterial();
-      material.visible = false;
-      const mesh = new THREE.InstancedMesh(
-        new THREE.BoxGeometry(2, 2, 2),
-        material,
-        this.batches[0].mesh.instanceMatrix.count,
-      );
-      mesh.count = 0;
-      mesh.frustumCulled = false;
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.faceMesh = mesh;
-      this.group.add(mesh);
-    }
-    return this.faceMesh;
-  }
-  disposeFaces() {
-    const mesh = this.faceMesh;
-    if (!mesh) return;
-    this.group.remove(mesh);
-    mesh.dispose();
-    mesh.geometry.dispose();
-    (mesh.material as THREE.Material).dispose();
-    this.faceMesh = undefined;
-  }
-  begin(eyes = false) {
+  begin() {
     this.faceCount = 0;
-    if (eyes) void this.faces;
     for (const batch of this.batches) batch.count = 0;
   }
   add(part: number, root: THREE.Object3D) {
     root.updateMatrix();
-    if ((part === 0 || part === 4) && this.faceMesh)
-      this.faceMesh.setMatrixAt(
-        this.faceCount++,
-        this.faceMatrix.multiplyMatrices(
-          root.matrix,
-          part === 4 ? this.quarterFaceLocal : this.faceLocal,
-        ),
-      );
     for (const batch of this.batches)
       if (batch.part === part)
         batch.mesh.setMatrixAt(batch.count++, root.matrix);
   }
-  finish(eyes = false) {
-    const face = this.faceMesh;
-    if (face) {
-      face.count = eyes ? this.faceCount : 0;
-      face.visible = eyes;
-      face.instanceMatrix.clearUpdateRanges();
-      if (face.count) face.instanceMatrix.addUpdateRange(0, face.count * 16);
-      face.instanceMatrix.needsUpdate = true;
-    }
+  finish() {
     for (const batch of this.batches) {
       batch.mesh.count = batch.count;
       batch.mesh.instanceMatrix.clearUpdateRanges();

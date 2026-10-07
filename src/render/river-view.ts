@@ -3,7 +3,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { CONFIG } from "../config";
-import { waterPrepass } from "./water-prepass";
+import { makeWaterMaterial } from "./ocean";
 
 /** Water remains a continuous surface; procedural ripples provide its normals. */
 function flattenWaterNormals(geometry: THREE.BufferGeometry) {
@@ -74,10 +74,7 @@ export function riverBendReviewCamera(
     const combinedX = before[0] + after[0],
       combinedZ = before[1] + after[1],
       length = Math.hypot(combinedX, combinedZ);
-    tangent =
-      length > 1e-5
-        ? [combinedX / length, combinedZ / length]
-        : after;
+    tangent = length > 1e-5 ? [combinedX / length, combinedZ / length] : after;
   }
   if (bestIndex < 0 || bestCurvature < 0.005) return undefined;
   const point = points[bestIndex],
@@ -98,86 +95,9 @@ export function riverBendReviewCamera(
 
 export function makeRivers(world: WorldData, terrain: TerrainView) {
   const group = new THREE.Group();
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x285951,
-    roughness: 0.24,
-    metalness: 0.02,
-
-    side: THREE.DoubleSide,
-  });
-  waterPrepass(material, terrain.heightTexture, terrain.floodTexture);
-  const uniforms = {
-    time: { value: 0 },
-    sky: { value: new THREE.Color("#b1d3e1") },
-    sun: { value: new THREE.Color("#ffe9c7") },
-    sunDirection: { value: new THREE.Vector3(0, 1, 0) },
-    eye: { value: new THREE.Vector3() },
-  };
+  const material = makeWaterMaterial(terrain);
   group.userData.material = material;
-  group.userData.uniforms = uniforms;
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uRiverTime = uniforms.time;
-    shader.uniforms.uRiverSky = uniforms.sky;
-    shader.uniforms.uRiverSun = uniforms.sun;
-    shader.uniforms.uRiverSunDirection = uniforms.sunDirection;
-    shader.uniforms.uRiverEye = uniforms.eye;
-    shader.uniforms.uTerrain = { value: terrain.heightTexture };
-    shader.uniforms.uWet = { value: terrain.floodTexture };
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        "#include <common>",
-        "#include <common>\nvarying vec3 riverPosition; varying vec2 riverFlow; attribute vec2 flow;",
-      )
-      .replace(
-        "#include <worldpos_vertex>",
-        "#include <worldpos_vertex>\nriverPosition=(modelMatrix*vec4(transformed,1.)).xyz; riverFlow=flow;",
-      );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        "#include <common>",
-        `#include <common>\nvarying vec3 riverPosition; varying vec2 riverFlow;uniform sampler2D uTerrain,uWet;
-        uniform float uRiverTime; uniform vec3 uRiverSky,uRiverSun,uRiverSunDirection,uRiverEye;`,
-      )
-      .replace(
-        "#include <clipping_planes_fragment>",
-        `#include <clipping_planes_fragment>\nvec2 riverUV=(riverPosition.xz/${CONFIG.spacing}.+.5)/${CONFIG.grid}.;float riverDepth=riverPosition.y-texture2D(uTerrain,riverUV).r;
-        if(texture2D(uWet,riverUV).r<.5 || riverDepth<=0.)discard;
-        diffuseColor.rgb*=1.05-.13*smoothstep(.35,7.,riverDepth);
-        // Advect continuous world-space waves along the local flow. Dotting
-        // absolute coordinates with a changing tangent creates striped bends.
-        vec2 flowDirection=normalize(riverFlow);
-        vec2 advected=riverPosition.xz-flowDirection*uRiverTime*.8;
-        float phaseA=dot(advected,vec2(.71,.43));
-        float phaseB=dot(advected,vec2(-.31,1.1));
-        float rippleA=exp(-.5*pow(fwidth(phaseA),2.));
-        float rippleB=exp(-.5*pow(fwidth(phaseB),2.));
-        float current=sin(phaseA*.3)*sin(phaseB*.25);
-        float broad=sin(dot(advected,vec2(.045,.07)));
-        diffuseColor.rgb*=.97+.025*current+.035*broad;
-        // A narrow, moving pale-water edge makes shallow reaches readable
-        // without a second texture sample, mesh, or reflection pass.
-        float shoal=(1.-smoothstep(.45,3.8,riverDepth))*smoothstep(.035,.42,riverDepth);
-        float foamCrest=smoothstep(.24,.74,.46+current*.42+broad*.18);
-        float riverFoam=shoal*(.22+.78*foamCrest);
-        diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.82,.87,.80),riverFoam*.58);
-        vec2 ripple=(vec2(.71,.43)*cos(phaseA)*rippleA+vec2(-.31,1.1)*sin(phaseB)*rippleB)*.018;
-        vec3 riverNormal=normalize(vec3(ripple.x,1.,ripple.y));`,
-      )
-      .replace(
-        "#include <normal_fragment_maps>",
-        `#include <normal_fragment_maps>
-        normal=normalize(normal+(viewMatrix*vec4(ripple.x,0.,ripple.y,0.)).xyz);`,
-      )
-      .replace(
-        "#include <emissivemap_fragment>",
-        `#include <emissivemap_fragment>
-        vec3 toEye=normalize(uRiverEye-riverPosition);
-        float fresnel=.025+.65*pow(1.-max(dot(toEye,riverNormal),0.),5.);
-        float glint=pow(max(dot(toEye,reflect(-uRiverSunDirection,riverNormal)),0.),100.);
-        totalEmissiveRadiance+=uRiverSky*fresnel*.55+uRiverSun*glint*.65;
-        totalEmissiveRadiance+=uRiverSun*riverFoam*.08;`,
-      );
-  };
+  group.userData.time = material.userData.time;
   const riverList = world.rivers ?? [],
     junctions = new Map<
       string,

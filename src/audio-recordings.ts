@@ -1,13 +1,8 @@
 import RUNTIME_ASSETS from "./runtime-assets.json";
 
 export const AUDIO_RECORDINGS = {
-  turbine: RUNTIME_ASSETS.audio.turbine.path,
   wind: RUNTIME_ASSETS.audio.wind.path,
-  forest: RUNTIME_ASSETS.audio.forest.path,
-  river: RUNTIME_ASSETS.audio.river.path,
   explosion: RUNTIME_ASSETS.audio.explosion.path,
-  wood: RUNTIME_ASSETS.audio.wood.path,
-  stone: RUNTIME_ASSETS.audio.stone.path,
   cheer: RUNTIME_ASSETS.audio.cheer.path,
 } as const;
 export type Recording = keyof typeof AUDIO_RECORDINGS;

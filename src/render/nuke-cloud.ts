@@ -1,4 +1,3 @@
-import { softenParticles, type ParticleDepth } from "./soft-particles";
 import * as THREE from "three";
 import type { Explosion } from "../types";
 const dummy = new THREE.Object3D();
@@ -22,10 +21,8 @@ interface Puff {
 }
 export class NukeCloud {
   readonly group = new THREE.Group();
-  readonly face = new THREE.Group();
   private material: THREE.ShaderMaterial;
   private smoke: THREE.InstancedMesh;
-  private atlasInstalled = false;
   private puffs: Puff[] = [];
   private shock: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   age = 0;
@@ -54,16 +51,6 @@ export class NukeCloud {
       this.material,
       total,
     );
-    this.smoke.geometry.setAttribute(
-      "cloudPuffFrame",
-      new THREE.InstancedBufferAttribute(
-        Float32Array.from(
-          { length: total },
-          (_, i) => (i * 17 + event.seed) % 25,
-        ),
-        1,
-      ),
-    );
     this.smoke.frustumCulled = false;
     this.smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const height = event.profile!.cloudHeight,
@@ -71,15 +58,6 @@ export class NukeCloud {
         const v = Math.sin(i * 127.1 + event.seed * 31.7) * 43758.5453;
         return v - Math.floor(v);
       };
-    this.face.userData.googlyBounds = [
-      0,
-      height * 0.43,
-      0,
-      height * 0.23,
-      height * 0.27,
-      height * 0.23,
-    ];
-    this.group.add(this.face);
     const color = new THREE.Color();
     const add = (
       p: THREE.Vector3,
@@ -172,8 +150,6 @@ export class NukeCloud {
         puff.p.multiplyScalar(ratio);
         puff.size *= ratio;
       }
-      const b = this.face.userData.googlyBounds as number[];
-      for (let i = 0; i < b.length; i++) b[i] *= ratio;
     }
     if (event.water !== this.event.water) {
       const color = new THREE.Color();
@@ -217,9 +193,6 @@ export class NukeCloud {
         : Math.min(1, Math.max(0, (20 - this.age) / 5));
     this.material.uniforms.opacity.value = fade;
     this.material.uniforms.time.value = this.age;
-    this.face.scale.setScalar(grow);
-    this.face.position.y = this.age * eventRise(this.event);
-    this.face.visible = fade > 0.15;
     for (let i = 0; i < this.puffs.length; i++) {
       const p = this.puffs[i],
         wave = Math.sin(this.age * 0.8 + p.phase);
@@ -245,35 +218,6 @@ export class NukeCloud {
   }
   get finished() {
     return this.age >= 20;
-  }
-  installAtlas(texture: THREE.Texture) {
-    this.material.uniforms.cloudAtlas = { value: texture };
-    if (this.atlasInstalled) return;
-    this.atlasInstalled = true;
-    this.material.vertexShader =
-      "attribute float cloudPuffFrame;varying float vCloudPuffFrame;\n" +
-      this.material.vertexShader.replace(
-        "vColor=instanceColor;",
-        "vColor=instanceColor;vCloudPuffFrame=cloudPuffFrame;",
-      );
-    this.material.fragmentShader =
-      `uniform sampler2D cloudAtlas;varying float vCloudPuffFrame;
-      vec2 cloudAtlasUV(vec2 uv,float frame){return (vec2(mod(frame,5.),floor(frame/5.))+(vec2(4.)+uv*248.)/256.)/5.;}\n` +
-      this.material.fragmentShader
-        .replace(
-          "if(a<.015)discard;",
-          `float frame=vCloudPuffFrame+time*.35;
-        vec4 puff=mix(texture2D(cloudAtlas,cloudAtlasUV(vUv,mod(floor(frame),25.))),texture2D(cloudAtlas,cloudAtlasUV(vUv,mod(floor(frame)+1.,25.))),smoothstep(0.,1.,fract(frame)));
-        a*=puff.a;if(a<.015)discard;`,
-        )
-        .replace(
-          "gl_FragColor=vec4(c,a);",
-          "c*=mix(.75,1.05,puff.r);gl_FragColor=vec4(c,a);",
-        );
-    this.material.needsUpdate = true;
-  }
-  setParticleDepth(depth: ParticleDepth) {
-    softenParticles(this.material, depth, 8, true);
   }
   dispose() {
     this.smoke.dispose();

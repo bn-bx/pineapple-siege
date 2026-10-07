@@ -20,7 +20,6 @@ it("keeps broken windows dark even when their intact material emits light", () =
     expect(fragments.window.emissiveIntensity).toBe(0);
     expect(fragments.window.emissive.getHex()).toBe(0);
     expect(intact.emissiveIntensity).toBe(0.9);
-    fragments.window.map!.dispose();
     fragments.window.dispose();
     intact.dispose();
   } finally {

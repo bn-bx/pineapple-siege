@@ -1,7 +1,7 @@
-import { fixedDestruction } from "./destruction-settings";
 import { normalizeMonsterCount, normalizeRenderDistance } from "./config";
+import { fixedDestruction } from "./destruction-settings";
 import type { Preferences } from "./types";
-export const PREFERENCE_REVISION = 3;
+export const PREFERENCE_REVISION = 4;
 export function normalizePreferences(
   value: Partial<Preferences> = {},
 ): Preferences {
@@ -18,8 +18,6 @@ export function normalizePreferences(
     destruction: fixedDestruction(value.destruction),
     monsterCount: normalizeMonsterCount(value.monsterCount),
     renderDistance: normalizeRenderDistance(value.renderDistance),
-    googlyEyes:
-      value.revision === PREFERENCE_REVISION && value.googlyEyes === true,
     quality: ["auto", "720", "1080", "1440"].includes(value.quality!)
       ? value.quality!
       : "auto",

@@ -29,7 +29,9 @@
         <div class="menu-heading">
           <div>
             <h1 id="title">Pineapple Siege</h1>
-            <p class="intro" id="intro">Changes are saved locally.</p>
+            <p class="intro" id="intro">
+              Fly, fire, and reshape your island. Progress saves locally.
+            </p>
           </div>
           <div class="actions">
             <button class="primary" id="enter" disabled>
@@ -50,6 +52,9 @@
             weapon to select it</span
           >
         </div>
+        <label class="check rapid-fire"
+          >Rapid fire · 0.1 sec<input id="noCooldown" type="checkbox"
+        /></label>
         <div class="settings-heading">
           <h2>Settings</h2>
           <button id="defaultSettings" class="secondary" type="button" disabled>
@@ -57,11 +62,12 @@
           </button>
         </div>
         <div id="settings">
-          <section
+          <details
             class="settings-section settings-flight"
+            open
             aria-labelledby="heading-flight"
           >
-            <h3 id="heading-flight">Flight</h3>
+            <summary id="heading-flight">Controls</summary>
             <div class="settings-grid">
               <label
                 >Steering sensitivity<input
@@ -84,27 +90,16 @@
                 >Reduce camera shake<input id="reduceShake" type="checkbox"
               /></label>
             </div>
-          </section>
-          <section
-            class="settings-section settings-destruction"
-            aria-labelledby="heading-destruction"
-          >
-            <h3 id="heading-destruction">Destruction</h3>
-            <div class="settings-grid">
-              <label class="check"
-                >No cooldown · 0.1 sec<input id="noCooldown" type="checkbox"
-              /></label>
-            </div>
-          </section>
-          <section
+          </details>
+          <details
             class="settings-section settings-graphics"
             aria-labelledby="heading-graphics"
           >
-            <h3 id="heading-graphics">Graphics</h3>
+            <summary id="heading-graphics">Graphics</summary>
             <div class="settings-grid">
               <label
                 >Render quality<select id="quality">
-                  <option value="auto">Auto · HD</option>
+                  <option value="auto">Auto</option>
                   <option value="720">Balanced · 720p</option>
                   <option value="1080">High · 1080p</option>
                   <option value="1440">Ultra · 1440p</option>
@@ -132,19 +127,19 @@
               <label class="check"
                 >Reduce effects<input id="reduceEffects" type="checkbox"
               /></label>
-              <label class="check"
-                >Googly eyes<input id="googlyEyes" type="checkbox"
-              /></label>
-              <label class="check"
-                >Show performance<input id="showPerf" type="checkbox"
-              /></label>
+              <details class="advanced">
+                <summary>Advanced</summary>
+                <label class="check"
+                  >Show performance<input id="showPerf" type="checkbox"
+                /></label>
+              </details>
             </div>
-          </section>
-          <section
+          </details>
+          <details
             class="settings-section settings-audio"
             aria-labelledby="heading-audio"
           >
-            <h3 id="heading-audio">Audio</h3>
+            <summary id="heading-audio">Audio</summary>
             <div class="settings-grid">
               <label
                 >Sound volume<input
@@ -159,12 +154,12 @@
                 >Mute<input id="mute" type="checkbox"
               /></label>
             </div>
-          </section>
-          <section
+          </details>
+          <details
             class="settings-section settings-world"
             aria-labelledby="heading-world"
           >
-            <h3 id="heading-world">World</h3>
+            <summary id="heading-world">World</summary>
             <div class="island-sharing">
               <label
                 >Island seed<input
@@ -210,7 +205,7 @@
                 >Hold time<input id="holdTime" type="checkbox" /></label
               ><button id="reset" class="danger">Reset world</button>
             </div>
-          </section>
+          </details>
         </div>
         <p class="asset-credits">
           <a href="/assets/CREDITS.md" target="_blank" rel="noopener"
@@ -327,7 +322,6 @@
       boost
     </div>
     <div id="saveStatus" role="status"></div>
-    <aside id="assetNotice" role="status" hidden></aside>
     <pre id="perf" hidden></pre>
     <dialog id="islandPreview" aria-labelledby="islandPreviewTitle">
       <h2 id="islandPreviewTitle">Choose your island</h2>

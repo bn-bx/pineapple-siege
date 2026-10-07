@@ -23,3 +23,6 @@ ascii_fort_notes.md
 
 # Generated historical regression fixture.
 tests/fixtures/legacy-world/
+
+# Generated benchmark reports and inspection captures.
+artifacts/

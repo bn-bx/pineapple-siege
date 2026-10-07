@@ -2,11 +2,7 @@ import { expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { voiceReplacement } from "../src/audio-priority";
 import { sceneResources } from "../src/render/resource-budget";
-import {
-  GroundDust,
-  impactDustProfile,
-  impactTint,
-} from "../src/render/dust";
+import { GroundDust, impactDustProfile, impactTint } from "../src/render/dust";
 import {
   explosionFlashStyle,
   explosionParticleTint,
@@ -164,21 +160,16 @@ it("anchors wall impacts to their surface while ground plumes follow excavation"
     dust.mesh.getMatrixAt(1, matrix);
     expect(matrix.elements[13]).toBeGreaterThan(3);
     expect(matrix.elements[13]).toBeLessThan(10);
-    expect(impactTint("wood")).not.toBe(impactTint("stone"));
+    expect(impactTint("wood")).toBe(impactTint("stone"));
   } finally {
     vi.unstubAllGlobals();
   }
 });
-it("gives glass and foliage compact, short-lived dust while stone throws a heavier cloud", () => {
-  const glass = impactDustProfile("window"),
-    leaves = impactDustProfile("foliage"),
-    stone = impactDustProfile("stone");
-  expect(impactTint("window")).toBe("#d5e1dc");
-  expect(glass.size).toBeLessThan(stone.size);
-  expect(glass.duration).toBeLessThan(stone.duration);
-  expect(glass.maxPuffs).toBeLessThan(stone.maxPuffs);
-  expect(leaves.duration).toBeLessThan(stone.duration);
-  expect(impactTint("rock")).not.toBe(impactTint("stone"));
+it("shares a bounded dust profile across construction materials", () => {
+  for (const material of ["wood", "foliage", "window", "rock"] as const) {
+    expect(impactDustProfile(material)).toEqual(impactDustProfile("stone"));
+    expect(impactTint(material)).toBe(impactTint("stone"));
+  }
 });
 it("adds a grounded expanding water ring and retires it after the splash", () => {
   vi.stubGlobal("document", {

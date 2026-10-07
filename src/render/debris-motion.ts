@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { copyFoliageWind } from "./foliage-wind";
 import type { BodyView } from "../types";
 const declarations = `
 attribute vec3 motionPreviousP, motionPreviousS;
@@ -97,7 +96,6 @@ export function refreshDebrisMaterial(
     alphaTest: (material as THREE.MeshStandardMaterial).alphaTest,
     side: material.side,
   });
-  copyFoliageWind(source, depth);
   patch(depth, alpha, enabled);
   mesh.customDepthMaterial?.dispose();
   mesh.customDepthMaterial = depth;

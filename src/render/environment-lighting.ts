@@ -1,4 +1,4 @@
-import { Color, Vector3, MathUtils } from "three";
+import { Color, MathUtils, Vector3 } from "three";
 
 const palette = {
   sunDay: new Color("#ffe9c7"),
@@ -15,9 +15,6 @@ const palette = {
   horizonDay: new Color("#b1d3e1"),
   horizonSet: new Color("#fca579"),
   horizonNight: new Color("#293b58"),
-  cloudDay: new Color("#fff5df"),
-  cloudSet: new Color("#ffc092"),
-  cloudNight: new Color("#3c4d6a"),
   waterDay: new Color("#285f65"),
   waterSet: new Color("#365e7c"),
   waterNight: new Color("#102940"),
@@ -32,7 +29,6 @@ export class EnvironmentLighting {
   readonly groundColor = new Color();
   readonly zenithColor = new Color();
   readonly horizonColor = new Color();
-  readonly cloudColor = new Color();
   readonly waterColor = new Color();
   daylight = 1;
   twilight = 0;
@@ -70,9 +66,6 @@ export class EnvironmentLighting {
     this.horizonColor
       .lerpColors(palette.horizonNight, palette.horizonDay, this.daylight)
       .lerp(palette.horizonSet, this.twilight);
-    this.cloudColor
-      .lerpColors(palette.cloudNight, palette.cloudDay, this.daylight)
-      .lerp(palette.cloudSet, this.twilight);
     this.waterColor
       .lerpColors(palette.waterNight, palette.waterDay, this.daylight)
       .lerp(palette.waterSet, this.twilight * 0.65);
@@ -82,46 +75,15 @@ export class EnvironmentLighting {
 }
 
 export const SKY_FRAGMENT = `
-uniform vec3 sun,zenithColor,horizonColor,cloudColor;
-uniform float day,time,laserDim,twilight,discoAmount;
+uniform vec3 sun,zenithColor,horizonColor;
+uniform float laserDim;
 varying vec3 vDirection;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
 void main(){
   vec3 d=normalize(vDirection);
-  float h=pow(1.-max(d.y,0.),3.);
-  float facing=max(dot(d.xz,sun.xz)/max(length(d.xz)*length(sun.xz),.001),0.);
-  vec3 c=mix(zenithColor,horizonColor,h);
-  c+=twilight*pow(facing,4.)*h*vec3(.22,.045,.025);
-  c+=twilight*(1.-facing)*h*vec3(.065,.025,.09);
-  float cloud=0.;
-  if(d.y>.03){
-    vec2 p=d.xz/d.y*1.1+time*.002;
-    float n=noise(p*2.)*.6+noise(p*4.1+13.)*.28+noise(p*8.3)*.12;
-    cloud=smoothstep(.50,.69,n)*smoothstep(.03,.18,d.y);
-    vec3 shade=mix(zenithColor*.6,cloudColor,smoothstep(.50,.77,n));
-    shade+=twilight*facing*vec3(.16,.025,.008);
-    c=mix(c,shade,cloud*.9);
-  }
-  float alignment=max(dot(d,sun),0.);
-  float sunVisible=smoothstep(-.1,.015,sun.y);
-  c+=vec3(1.,.48,.18)*pow(alignment,32.)*twilight*.18;
-  float solarDisk=smoothstep(.99998,.999989,alignment);
-  c+=vec3(6.,5.2,4.4)*solarDisk*sunVisible*(1.-cloud*.85);
-  c+=vec3(1.,.77,.45)*pow(alignment,350.)*sunVisible*.08;
-  float lunarAlignment=max(dot(d,-sun),0.);
-  float lunarDisk=smoothstep(.999978,.999988,lunarAlignment);
-  if(lunarDisk>0. && day<1.){
-    vec3 axis=abs(sun.y)>.9 ? vec3(1.,0.,0.) : vec3(0.,1.,0.);
-    vec3 moonRight=normalize(cross(-sun,axis)),moonUp=cross(moonRight,-sun);
-    vec2 moonUv=vec2(dot(d,moonRight),dot(d,moonUp))*110.;
-    float maria=noise(moonUv*7.+13.);
-    float lunarShade=mix(.45,.9,smoothstep(.2,.8,maria));
-    c+=vec3(.74,.8,.88)*lunarShade*lunarDisk*(1.-day)*(1.-cloud*.8);
-  }
-  float stars=step(.9985,hash(floor(d.xz/(abs(d.y)+.2)*600.)))*max(d.y,0.);
-  c+=stars*(1.-day)*(1.-cloud);
-  gl_FragColor=vec4(mix(c*(1.-laserDim),vec3(.001,.001,.003),discoAmount),1.);
+  vec3 c=mix(zenithColor,horizonColor,pow(1.-max(d.y,0.),3.));
+  float alignment=max(dot(d,sun.y>=0.?sun:-sun),0.);
+  c+=vec3(.8,.75,.6)*smoothstep(.9999,.99998,alignment);
+  gl_FragColor=vec4(c*(1.-laserDim),1.);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;

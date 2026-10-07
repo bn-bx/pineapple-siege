@@ -1,8 +1,6 @@
-import { visualGeometry } from "./visual-assets";
-import { crownSurface, fruitSurface } from "./fruit-surface";
-import { roofParts } from "../debris-shape";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { roofParts } from "../debris-shape";
 import type { Material } from "../types";
 function random(seed: number) {
   let v = Math.sin(seed * 127.1 + 43.7) * 43758.5453;
@@ -151,7 +149,7 @@ export function pineGeometry() {
     g.computeVertexNormals();
     pieces.push(g);
   }
-  return mergeGeometries(pieces);
+  return mergeGeometries(pieces)!;
 }
 export function makeJet() {
   const g = new THREE.Group(),
@@ -272,12 +270,7 @@ export function makeJet() {
     needle.rotateZ(x * 1.4).translate(x, 0.84, 2.53);
     needles.push(needle);
   }
-  detail(
-    "flight-instrument-bezels",
-    mergeGeometries(bezels)!,
-    dark,
-    [0, 0, 0],
-  );
+  detail("flight-instrument-bezels", mergeGeometries(bezels)!, dark, [0, 0, 0]);
   detail(
     "flight-instrument-faces",
     mergeGeometries(faces)!,
@@ -298,8 +291,7 @@ export function makeJet() {
   );
   display.rotation.x = -0.16;
   const sideConsoleGeometries = [-1, 1].map((side) =>
-    new THREE.BoxGeometry(0.16, 0.17, 0.72)
-      .translate(side * 0.48, 0.67, 1.86),
+    new THREE.BoxGeometry(0.16, 0.17, 0.72).translate(side * 0.48, 0.67, 1.86),
   );
   detail(
     "side-consoles",
@@ -455,26 +447,7 @@ export function makeJet() {
     core.rotation.x = -Math.PI / 2;
     core.name = "flame-core";
   }
-  g.userData.googlyBounds = [0, 1, 1.5, 1.4, 0.9, 3];
   return g;
-}
-export function upgradePineapple(group: THREE.Group, texture?: THREE.Texture) {
-  const fruit = group.children[0] as THREE.Mesh;
-  fruitSurface(fruit.material as THREE.MeshStandardMaterial, texture);
-  if (pineappleTemplate && group !== pineappleTemplate)
-    upgradePineapple(pineappleTemplate, texture);
-  if (group.userData.visualUpgrade) return;
-  group.userData.visualUpgrade = true;
-  fruit.geometry = visualGeometry("fruit_lod1", () =>
-    fruit.geometry.clone(),
-  ).scale(0.85, 0.85, 0.85);
-  for (const object of group.children.slice(1)) {
-    const mesh = object as THREE.Mesh;
-    crownSurface(mesh.material as THREE.MeshStandardMaterial, 0.625, 0.18);
-    mesh.geometry = visualGeometry("leaf_lod1", () =>
-      mesh.geometry.clone(),
-    ).scale(0.18, 0.625, 0.18);
-  }
 }
 let pineappleTemplate: THREE.Group | undefined;
 export function makePineapple(length = 6): THREE.Group {
@@ -523,7 +496,6 @@ export function makePineapple(length = 6): THREE.Group {
     group.add(leaf);
   }
   for (const child of group.children) child.position.y -= 0.45;
-  group.userData.googlyBounds = [0, -0.45, 0, 0.85, 1.1, 0.85];
   pineappleTemplate = group;
   return makePineapple(length);
 }
@@ -586,31 +558,8 @@ export function fractureMaterials(
         m.emissiveIntensity = 0;
       }
       m.vertexColors = true;
-      const atlas = document.createElement("canvas");
-      atlas.width = 512;
-      atlas.height = 256;
-      const c = atlas.getContext("2d")!;
-      if (original.map) c.drawImage(original.map.image, 0, 0, 256, 256);
-      else {
-        c.fillStyle = "#d0c4ac";
-        c.fillRect(0, 0, 256, 256);
-      }
-      c.fillStyle =
-        key === "wood" ? "#a1815e" : key === "roof" ? "#916f54" : "#8f8b7d";
-      c.fillRect(256, 0, 256, 256);
-      for (let i = 0; i < 5000; i++) {
-        const v = random(i + 900);
-        c.fillStyle = `rgba(${v > 0.5 ? "255,244,222" : "49,44,35"},${0.04 + v * 0.12})`;
-        c.fillRect(
-          256 + random(i) * 256,
-          random(i + 100) * 256,
-          key === "wood" ? 1 : 2,
-          key === "wood" ? 12 : 2,
-        );
-      }
-      m.map = new THREE.CanvasTexture(atlas);
-      m.map.colorSpace = THREE.SRGBColorSpace;
-      m.map.anisotropy = 4;
+      // Broken surfaces reuse the base material and texture.
+      m.color.multiplyScalar(0.9);
       return [key, m];
     }),
   ) as Record<Material, THREE.MeshStandardMaterial>;
@@ -642,7 +591,7 @@ export function treeCrownGeometry(
     g.translate(x, y, z);
     pieces.push(g);
   }
-  return mergeGeometries(pieces);
+  return mergeGeometries(pieces)!;
 }
 export function treeCrownLowGeometry(
   species: "pine" | "broadleaf" | "riverside" = "pine",

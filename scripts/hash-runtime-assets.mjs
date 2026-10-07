@@ -24,16 +24,7 @@ async function addAsset(source) {
   };
 }
 
-const families = ["stone", "wood", "grass", "rock", "soil", "sand", "roof", "bark", "cloth"];
-const foliageFamilies = [
-  "pine",
-  "broadleaf",
-  "grass",
-  "pine-impostor",
-  "broadleaf-impostor",
-  "riverside-impostor",
-];
-const recordingNames = ["turbine", "wind", "forest", "river", "explosion", "wood", "stone", "cheer"];
+const recordingNames = ["wind", "explosion", "cheer"];
 
 await rm(runtimeRoot, { recursive: true, force: true });
 await mkdir(runtimeRoot, { recursive: true });
@@ -41,53 +32,15 @@ await mkdir(runtimeRoot, { recursive: true });
 const manifest = {
   version: 1,
   cachePolicy: "sha256-filename",
-  modelLibrary: await addAsset("public/assets/models/siege-library.glb"),
-  fruitSkin: await addAsset("public/assets/materials/pineapple-skin-v1.ktx2"),
-  surfaces: {},
-  foliage: {},
-  puffAtlas: await addAsset("public/assets/particles/puff-atlas.ktx2"),
-  decoders: {},
   audio: {},
 };
 
-for (const family of families) {
-  manifest.surfaces[family] = {};
-  for (const channel of ["color", "normal", "orm"]) {
-    manifest.surfaces[family][channel] = await addAsset(
-      `public/assets/materials/${family}-${channel}.ktx2`,
-    );
-  }
-}
-for (const family of foliageFamilies) {
-  manifest.foliage[family] = await addAsset(`public/assets/foliage/${family}.ktx2`);
-}
 for (const name of recordingNames) {
-  const extension = name === "wood" || name === "stone" || name === "cheer" ? "ogg" : "wav";
-  manifest.audio[name] = await addAsset(`public/assets/audio/${name}.${extension}`);
+  const extension = name === "cheer" ? "ogg" : "wav";
+  manifest.audio[name] = await addAsset(
+    `public/assets/audio/${name}.${extension}`,
+  );
 }
-
-const decoderNames = ["basis_transcoder.js", "basis_transcoder.wasm"];
-const decoderBytes = await Promise.all(
-  decoderNames.map(async (name) => [name, await readFile(`public/assets/decoders/${name}`)]),
-);
-const decoderHashes = Object.fromEntries(
-  decoderBytes.map(([name, bytes]) => [name, digest(bytes)]),
-);
-const decoderSetHash = digest(
-  decoderNames.map((name) => `${name}:${decoderHashes[name]}`).join("\n"),
-);
-const decoderDirectory = path.join(runtimeRoot, "decoders", decoderSetHash);
-await mkdir(decoderDirectory, { recursive: true });
-for (const [name, bytes] of decoderBytes) {
-  await copyFile(`public/assets/decoders/${name}`, path.join(decoderDirectory, name));
-}
-manifest.decoders = {
-  path: `/assets/runtime/decoders/${decoderSetHash}/`,
-  sha256: decoderSetHash,
-  files: Object.fromEntries(
-    decoderNames.map((name) => [name, { sha256: decoderHashes[name], source: `/assets/decoders/${name}` }]),
-  ),
-};
 
 await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-console.log(`Hashed ${Object.keys(manifest.audio).length + Object.keys(manifest.foliage).length + families.length * 3 + decoderNames.length + 3} runtime assets.`);
+console.log(`Hashed ${recordingNames.length} runtime audio assets.`);

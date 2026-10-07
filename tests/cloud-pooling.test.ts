@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as THREE from "three";
+import { ResourceDisposal } from "../src/render/resource-disposal";
 import { Effects } from "../src/render/effects";
 import type { Explosion } from "../src/types";
 it("prewarms both cloud qualities and reuses the requested presentation without pool growth", () => {
@@ -28,5 +29,10 @@ it("prewarms both cloud qualities and reuses the requested presentation without 
     effects.cloudsPool.push(c);
   }
   expect(effects.cloudsPool).toHaveLength(6);
-  effects.disposePools();
+  effects.group = new THREE.Group();
+  effects.reset = () => {};
+  const resources = new ResourceDisposal();
+  effects.dispose(resources);
+  resources.dispose();
+  expect(effects.cloudsPool).toHaveLength(0);
 });

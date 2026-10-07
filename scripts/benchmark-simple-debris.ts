@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 const world = JSON.parse(readFileSync("public/world.json", "utf8"));
 const bytes = readFileSync("public/world.bin");
@@ -78,5 +78,9 @@ for (let i = 0; i < 540; i++) {
     for (const v of Object.values(series)) (v as number[]).length = 0;
   }
 }
-writeFileSync("docs/SIMPLE_BLAST_CPU.json", JSON.stringify(report, null, 2));
+mkdirSync("artifacts", { recursive: true });
+writeFileSync(
+  "artifacts/SIMPLE_BLAST_CPU.json",
+  JSON.stringify(report, null, 2),
+);
 sim.dispose();

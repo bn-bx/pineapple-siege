@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CONFIG } from "../config";
 
-/** The same authoritative wet mask clips beauty, AO, photo and particle depth. */
+/** The same authoritative wet mask clips ocean, rivers and photo rendering. */
 export function waterPrepass(
   material: THREE.Material,
   height: THREE.Texture,

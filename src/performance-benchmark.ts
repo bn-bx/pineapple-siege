@@ -1,35 +1,23 @@
+import { createReviewSnapshot } from "./render/review-snapshot";
 import { GameAudio } from "./audio";
-import { discoActive } from "./disco";
-import { checkStorage } from "./storage-checks";
-import { CONFIG, LASER } from "./config";
-import { pathIndex } from "./world/generator.mjs";
-import { GameRenderer } from "./render/renderer";
-import { loadTerrain } from "./world-loader";
-import { SaveStore, compatible } from "./storage";
-import { SaveWriter } from "./save-writer";
-import { frameStats } from "./frame-stats";
+import { LASER } from "./config";
 import { DEFAULT_DESTRUCTION } from "./destruction-settings";
-import {
-  harborDockReviewCamera,
-  loggingCampReviewCamera,
-  quarryHoistOwner,
-  quarryHoistReviewCamera,
-  warehouseCargoReviewCamera,
-  warehouseStagingSpot,
-  watchtowerBeaconReviewCamera,
-  waterwheelRotors,
-  windmillRotors,
-} from "./render/landmark-geometry";
+import { frameStats } from "./frame-stats";
+import { GameRenderer } from "./render/renderer";
 import { riverBendReviewCamera } from "./render/river-view";
+import { SaveWriter } from "./save-writer";
+import { SaveStore } from "./storage";
+import { checkStorage } from "./storage-checks";
 import type {
-  GameCommand,
-  Vec3,
-  Explosion,
-  LaserStrike,
-  WorkerMessage,
-  SimulationSnapshot,
-  WorldData,
+Explosion,
+GameCommand,
+LaserStrike,
+SimulationSnapshot,
+Vec3,
+WorkerMessage,
+WorldData,
 } from "./types";
+import { loadTerrain } from "./world-loader";
 const canvas = document.querySelector<HTMLCanvasElement>("#world")!,
   status = document.querySelector("#status")!,
   report = document.querySelector<HTMLElement>("#report")!;
@@ -411,7 +399,6 @@ async function beginCase(index: number) {
   audio.reset();
   status.textContent = "Preparing case";
   view.setRenderDistance(1200);
-  view.setGooglyEyes(false);
   ready = false;
   const wait = new Promise<void>((r) => (readyResolve = r));
   send({ type: "reset" });
@@ -762,7 +749,6 @@ function frame(now: number) {
         render: view.stats,
         resources: resources.slice(),
         audio: audio.stats,
-        assets: view.assetStatus,
         loading: {
           shaderAndAssetsMS: preparationMS,
           totalStartupMS: startupMS,
@@ -851,10 +837,8 @@ function frame(now: number) {
       p,
       view.cameraDirection(),
       false,
-      view.ambience(),
     );
     audio.syncLasers(snapshot.lasers, p);
-    audio.syncDisco(discoActive(snapshot.lasers), snapshot.time);
   }
   if (active) {
     cpu.push(performance.now() - t + handlerWork);
@@ -1008,87 +992,6 @@ function inspect() {
   if (active || !ready) return;
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
-  if (kind === "windmill") {
-    const site = world.sites.find((entry) => entry.kind === "windmill"),
-      rotor = windmillRotors(world).find(
-        (entry) => entry.center[0] === site?.p[0],
-      );
-    if (site && rotor) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        [x, y, z] = rotor.center,
-        distance = closeView ? 38 : 62;
-      inspectionTarget = rotor.center.slice() as Vec3;
-      view.inspectCamera(
-        [x + distance * 0.5, y + distance * 0.2, z - distance],
-        [x, y, z],
-      );
-      status.textContent = "Windmill rotor and hub review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "watermill") {
-    const site = world.sites.find((entry) => entry.kind === "watermill"),
-      rotor = waterwheelRotors(world).find(
-        (entry) => entry.siteId === site?.id,
-      );
-    if (site && rotor) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        [x, y, z] = rotor.center,
-        distance = closeView ? 30 : 48,
-        [sideX, , sideZ] = rotor.axis;
-      inspectionTarget = rotor.center.slice() as Vec3;
-      view.inspectCamera(
-        [x + sideX * distance, y + distance * 0.16, z + sideZ * distance],
-        [x, y, z],
-      );
-      status.textContent = "Waterwheel, paddles, and axle review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "lighthouse") {
-    const site = world.sites.find((entry) => entry.kind === "lighthouse"),
-      lantern = world.entities.find(
-        (entity) =>
-          entity.assembly === site?.id &&
-          entity.kind === "block" &&
-          entity.material === "window" &&
-          entity.s[0] >= 3.5 &&
-          entity.s[2] >= 3.5 &&
-          entity.s[0] > entity.s[1] &&
-          entity.s[2] > entity.s[1],
-      );
-    if (site && lantern) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        [x, y, z] = lantern.p,
-        offsetX = x - CONFIG.worldSize * 0.5,
-        offsetZ = z - CONFIG.worldSize * 0.5,
-        offsetLength = Math.hypot(offsetX, offsetZ) || 1,
-        distance = closeView ? 17 : 30;
-      inspectionTarget = [x, y, z];
-      view.inspectCamera(
-        [
-          x + (offsetX / offsetLength) * distance,
-          y + (closeView ? -8 : distance * 0.08),
-          z + (offsetZ / offsetLength) * distance,
-        ],
-        [x, y, z],
-      );
-      status.textContent = "Lighthouse Fresnel lens review";
-      last = 0;
-      return;
-    }
-  }
   if (kind === "river-bend") {
     const closeView =
         Number(
@@ -1103,50 +1006,6 @@ function inspect() {
       inspectionTarget = camera.target;
       view.inspectCamera(camera.eye, camera.target);
       status.textContent = "Mitered river-bend join review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "quarry") {
-    const site = world.sites.find((entry) => entry.kind === "quarry"),
-      owner = site
-        ? quarryHoistOwner(
-            world.entities.filter(
-              (entity) => entity.assembly === `${site.id}-scaffold`,
-            ),
-          )
-        : undefined;
-    if (owner) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        camera = quarryHoistReviewCamera(owner, closeView ? 8 : 16);
-      inspectionTarget = camera.target;
-      view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Quarry winch, cable, and ore-load review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "logging") {
-    const site = world.sites.find((entry) => entry.kind === "logging"),
-      stack = site
-        ? world.entities
-            .filter((entity) =>
-              entity.assembly.startsWith(`${site.id}-stack-`),
-            )
-            .sort((a, b) => a.p[1] - b.p[1])[0]
-        : undefined;
-    if (stack) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        camera = loggingCampReviewCamera(stack, closeView ? 24 : 38);
-      inspectionTarget = camera.target;
-      view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Logging-camp log stack and chock review";
       last = 0;
       return;
     }
@@ -1217,164 +1076,6 @@ function inspect() {
       return;
     }
   }
-  if (kind === "house-door") {
-    const firstWall = world.entities.find(
-      (entity) =>
-        entity.kind === "block" &&
-        entity.assembly.includes("-house") &&
-        entity.material === "plaster" &&
-        entity.foundation &&
-        entity.s[2] <= 1.05 &&
-        entity.s[0] > 1.2,
-    );
-    const walls = world.entities
-      .filter(
-        (entity) =>
-          entity.kind === "block" &&
-          entity.assembly === firstWall?.assembly &&
-          entity.foundation &&
-          entity.s[2] <= 1.05 &&
-          entity.s[0] > 1.2 &&
-          entity.material !== "window",
-      )
-      .sort((a, b) => a.p[0] - b.p[0]);
-    const front = Math.min(...walls.map((wall) => wall.p[2]));
-    const pair = walls
-      .filter((wall) => Math.abs(wall.p[2] - front) < 0.05)
-      .sort((a, b) => a.p[0] - b.p[0]);
-    if (pair.length === 2) {
-      const [left, right] = pair,
-        hinge = left.p[0] + left.s[0],
-        end = right.p[0] - right.s[0],
-        halfWidth = (end - hinge) / 2,
-        base = Math.max(left.p[1] - left.s[1], right.p[1] - right.s[1]),
-        halfHeight = Math.min(left.s[1], right.s[1]),
-        face = front - Math.max(left.s[2], right.s[2]) - 0.14,
-        angle = Math.PI * 0.59,
-        target: Vec3 = [
-          hinge + Math.cos(angle) * halfWidth,
-          base + halfHeight,
-          face - Math.sin(angle) * halfWidth,
-        ];
-      inspectionTarget = target;
-      view.inspectCamera(
-        [target[0] + 6, target[1] + 1.4, target[2] - 4],
-        target,
-      );
-      status.textContent = "House entrance joinery review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "house-window") {
-    const houseWalls = world.entities.filter(
-      (entity) =>
-        entity.assembly.includes("-house") && entity.material === "plaster",
-    );
-    const assembly = houseWalls[0]?.assembly;
-    const candidates = houseWalls.filter(
-      (entity) =>
-        entity.assembly === assembly &&
-        !entity.foundation &&
-        entity.s[2] <= 1.1 &&
-        entity.s[0] > 1.5,
-    );
-    const groundCourse = Math.min(...candidates.map((wall) => wall.p[1])),
-      front = Math.min(...candidates.map((wall) => wall.p[2])),
-      back = Math.max(...candidates.map((wall) => wall.p[2])),
-      wall = candidates.find(
-        (candidate) =>
-          candidate.p[1] === groundCourse && candidate.p[2] === front,
-      ) ??
-      candidates.find(
-        (candidate) =>
-          candidate.p[1] === groundCourse && candidate.p[2] === back,
-      );
-    const side = wall?.p[2] === front ? -1 : 1;
-    if (wall) {
-      const target = wall.p.slice() as Vec3,
-        eye = wall.p.slice() as Vec3;
-      target[2] += side * (wall.s[2] + 0.08);
-      target[1] += 0.1;
-      eye[2] = target[2] + side * 5;
-      eye[1] += 1.5;
-      inspectionTarget = target;
-      view.inspectCamera(eye, target);
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "farm") {
-    const closeView =
-        Number(
-          (document.querySelector("#altitude") as HTMLSelectElement).value,
-        ) === 12,
-      barn = world.entities.find(
-        (entity) =>
-          entity.kind === "block" &&
-          /(?:^|-)farm-\d+-barn$/.test(entity.assembly),
-      );
-    if (barn && closeView) {
-      const [x, , barnZ] = barn.p,
-        z = barnZ - 37,
-        y = view.terrain.sample(x, z),
-        across = Math.max(8, Math.min(15, barn.s[0] * 0.58));
-      inspectionTarget = [x, y, z];
-      view.inspectCamera(
-        [x + across * 0.6 + 7, y + 14, z - 23],
-        [x, y + 1.2, z],
-      );
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "watchtower-beacon") {
-    const site = world.sites.find((entry) => entry.kind === "watchtower"),
-      roof = site
-        ? world.entities
-            .filter(
-              (entity) =>
-                entity.assembly === site.id && entity.material === "roof",
-            )
-            .sort((a, b) => b.p[1] - a.p[1])[0]
-        : undefined;
-    if (roof) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        camera = watchtowerBeaconReviewCamera(roof, closeView ? 5.5 : 12);
-      inspectionTarget = camera.target;
-      view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Watchtower signal beacon review";
-      last = 0;
-      return;
-    }
-  }
-  if (kind === "watchtower") {
-    const site = world.sites.find((entry) => entry.kind === "watchtower");
-    if (site) {
-      const [x, y, z] = site.p,
-        parts = world.entities.filter((entity) => entity.assembly === site.id),
-        topY = Math.max(
-          y,
-          ...parts.map((entity) => entity.p[1] + entity.s[1]),
-        ),
-        topOffset = topY - y,
-        closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        distance = closeView ? 42 : 72;
-      inspectionTarget = [x, topY - 6, z];
-      view.inspectCamera(
-        [x + distance, y + topOffset + 8, z + distance],
-        [x, y + topOffset - 6, z],
-      );
-      last = 0;
-      return;
-    }
-  }
   if (kind === "castle-gate" && world.castles?.[0]) {
     const castle = world.castles[0],
       [x, y, z] = castle.landmarks.gate,
@@ -1432,30 +1133,6 @@ function inspect() {
       ],
       [x, y + aimHeight, z],
     );
-    last = 0;
-    return;
-  }
-  if (kind === "aircraft-controls" && snapshot) {
-    const p = snapshot.plane.p,
-      yaw = snapshot.plane.yaw,
-      closeView =
-        Number(
-          (document.querySelector("#altitude") as HTMLSelectElement).value,
-        ) === 12,
-      distance = closeView ? 16 : 28,
-      eye: Vec3 = [
-        p[0] - Math.sin(yaw) * distance + Math.cos(yaw) * 3.2,
-        p[1] + 3.5,
-        p[2] - Math.cos(yaw) * distance - Math.sin(yaw) * 3.2,
-      ],
-      target: Vec3 = [
-        p[0] - Math.sin(yaw) * 4.5,
-        p[1] + 1.1,
-        p[2] - Math.cos(yaw) * 4.5,
-      ];
-    inspectionTarget = target;
-    view.inspectCamera(eye, target);
-    status.textContent = "Aircraft tail-control review";
     last = 0;
     return;
   }
@@ -1550,63 +1227,6 @@ function inspect() {
     status.textContent = `Monster close-up · ${monster.id} · ${monsterPose.selectedOptions[0].textContent}`;
     last = 0;
     return;
-  }
-  if (kind === "warehouse") {
-    const site = world.sites.find(
-        (entry) =>
-          (entry.kind === "harbor" || entry.kind === "watermill") &&
-          world.entities.some(
-            (entity) => entity.assembly === `${entry.id}-warehouse`,
-          ),
-      ),
-      parts = site
-        ? world.entities.filter(
-            (entity) => entity.assembly === `${site.id}-warehouse`,
-          )
-        : [],
-      roofs = parts.filter(
-        (entity) => entity.material === "roof" || entity.material === "slate",
-      );
-    if (site && roofs.length) {
-      const closeView =
-          Number(
-            (document.querySelector("#altitude") as HTMLSelectElement).value,
-          ) === 12,
-        maxX = Math.max(...parts.map((part) => part.p[0] + part.s[0])),
-        minX = Math.min(...parts.map((part) => part.p[0] - part.s[0])),
-        x = maxX + 2.5,
-        z = roofs.reduce((sum, part) => sum + part.p[2], 0) / roofs.length,
-        staging = warehouseStagingSpot(
-          [x, 0, z],
-          `${site.id}-warehouse`,
-          world.entities,
-          (px, pz) => view.terrain.sample(px, pz),
-          (px, pz) => {
-            const gx = Math.round(px / CONFIG.spacing),
-              gz = Math.round(pz / CONFIG.spacing);
-            return (
-              gx >= 0 &&
-              gz >= 0 &&
-              gx < CONFIG.grid &&
-              gz < CONFIG.grid &&
-              !!view.terrain.flood[gz * CONFIG.grid + gx]
-            );
-          },
-          pathIndex(world.paths),
-        );
-      if (staging) {
-        const camera = warehouseCargoReviewCamera(
-          [staging[0] + 0.35, staging[1] + 0.9, staging[2]],
-          [(minX + maxX) / 2, 0, z],
-          closeView ? 9 : 17,
-        );
-        inspectionTarget = camera.target;
-        view.inspectCamera(camera.eye, camera.target);
-        status.textContent = "Warehouse freight staging and owner review";
-        last = 0;
-        return;
-      }
-    }
   }
   const selectedSite = world.sites.find(
     (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
@@ -1731,20 +1351,12 @@ function inspect() {
     }
     p = (castle?.landmarks.keep ?? world.landmarks.keep).slice();
   } else if (kind === "harbor" && selectedSite) {
-    const decks = world.entities.filter(
-      (entity) =>
-        entity.kind === "block" &&
-        entity.material === "wood" &&
-        entity.assembly === `${selectedSite.id}-dock` &&
-        entity.s[1] <= 0.8 &&
-        Math.min(entity.s[0], entity.s[2]) >= 1.8 &&
-        Math.max(entity.s[0], entity.s[2]) >= 4.5,
-    );
-    const camera = harborDockReviewCamera(decks);
+    const center = selectedSite.p;
+    const camera = { eye: [center[0] + 60, center[1] + 25, center[2] + 60], target: center };
     if (camera) {
       inspectionTarget = camera.target;
       view.inspectCamera(camera.eye, camera.target);
-      status.textContent = "Harbor dock water-access ladder review";
+      status.textContent = "Harbor structures and coast review";
       last = 0;
       return;
     }
@@ -1948,7 +1560,7 @@ document.querySelector("#inspect-water-laser")!.addEventListener("click", () => 
     age: LASER.charge + 0.35,
     phase: "burning",
   };
-  snapshot = { ...snapshot, lasers: [strike] };
+  snapshot = createReviewSnapshot(snapshot, { lasers: [strike] });
   view.receive(snapshot);
   view.inspectCamera(
     [point[0] + 65, point[1] + 45, point[2] + 65],
@@ -1999,9 +1611,6 @@ document.querySelector("#altitude")!.addEventListener("change", inspect);
 document.querySelector("#distance")!.addEventListener("change", (event) => {
   if (!active)
     view.setRenderDistance(Number((event.target as HTMLSelectElement).value));
-});
-document.querySelector("#eyes")!.addEventListener("change", (event) => {
-  if (!active) view.setGooglyEyes((event.target as HTMLInputElement).checked);
 });
 document.querySelector("#hour")!.addEventListener("change", (event) => {
   if (!active)

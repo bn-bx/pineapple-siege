@@ -1,9 +1,6 @@
 import * as THREE from "three";
 import type { Entity, Material, WorldData } from "../types";
-import { constructionScale } from "./material-scale";
 import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
-import { treeImpostor } from "./tree-impostor";
-import type { VisualAssets } from "./visual-assets";
 
 interface Coverage {
   allIds: number[];
@@ -27,8 +24,6 @@ export class IslandHorizon {
     world: WorldData,
     coverage: readonly Coverage[],
     materials: Record<Material, THREE.MeshStandardMaterial>,
-    assets: VisualAssets,
-    day: THREE.IUniform<number>,
   ) {
     const owners = new Map<number, Coverage>();
     for (const batch of coverage)
@@ -56,21 +51,15 @@ export class IslandHorizon {
       const geometry = key.startsWith("rock:")
         ? new THREE.DodecahedronGeometry(1, 0)
         : forest
-          ? new THREE.PlaneGeometry(2.25, 2.25).translate(0, 0.5, 0)
+          ? new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0)
           : key === "roof" || key === "slate"
             ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)
             : new THREE.BoxGeometry(2, 2, 2);
-      const atlas = assets.foliage.get(`${species}-impostor`);
-      const material =
-        forest && atlas
-          ? treeImpostor(atlas, day)
-          : new THREE.MeshStandardMaterial({
-              color: source.color,
-              map: source.map,
-              roughness: 1,
-            });
-      if (material instanceof THREE.MeshStandardMaterial)
-        constructionScale(material, key === "wood" ? 0.2 : 0.4);
+      const material = new THREE.MeshStandardMaterial({
+        color: source.color,
+        map: source.map,
+        roughness: 1,
+      });
       const bounds = new Float32Array(entities.length * 3);
       geometry.setAttribute(
         "horizonCoverage",
@@ -103,7 +92,7 @@ export class IslandHorizon {
         depthPacking: THREE.RGBADepthPacking,
         alphaTest: material.alphaTest,
         side: material.side,
-        map: forest ? (atlas ?? null) : null,
+        map: null,
       });
       depth.onBeforeCompile = material.onBeforeCompile;
       depth.customProgramCacheKey = material.customProgramCacheKey;

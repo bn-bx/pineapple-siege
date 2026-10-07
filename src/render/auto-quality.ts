@@ -79,7 +79,4 @@ export class AutoQuality {
   get shadowInterval() {
     return this.level < 2 ? 1 / 24 : 1 / 12;
   }
-  get reflectionInterval() {
-    return this.level < 2 ? 1 / 12 : this.level === 2 ? 1 / 6 : 1 / 3;
-  }
 }

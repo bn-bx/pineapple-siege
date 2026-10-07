@@ -342,28 +342,3 @@ it("uses human-scale proportions while keeping resident feet at ground level", (
   expect(bootMatrix.elements[13]).toBeCloseTo(10.09, 3);
   expect(torsoMatrix.elements[0]).toBeCloseTo(0.825, 3);
 });
-it("limits distant clothing tint to garments and retains hands and boots", () => {
-  const view = new CivilianView(1);
-  view.installVisuals();
-  const far = view.group.children[13] as THREE.InstancedMesh;
-  const mask = far.geometry.getAttribute("clothMask");
-  expect(Array.from(mask.array)).toContain(0);
-  expect(Array.from(mask.array)).toContain(1);
-  const shader = { uniforms: {}, vertexShader: "#include <common>\n#include <color_vertex>", fragmentShader: "" } as any;
-  (far.material as THREE.Material).onBeforeCompile(shader, {} as any);
-  expect(shader.vertexShader).toContain("mix(color.rgb,vColor.rgb,clothMask)");
-  const close = snapshot(1, true);
-  view.update(close, undefined, 1, camera);
-  const hands = view.group.children[7] as THREE.InstancedMesh;
-  const skinColor = new THREE.Color();
-  hands.getColorAt(0, skinColor);
-  expect(skinColor.getHex()).toBe(0xe9bd87);
-  expect(
-    Array.from(hands.geometry.getAttribute("color").array).every(
-      (value) => value === 1,
-    ),
-  ).toBe(true);
-  hands.geometry.computeBoundingSphere();
-  expect(hands.geometry.boundingSphere?.radius).toBeCloseTo(0.38, 2);
-  expect(view.group.children).toHaveLength(17);
-});

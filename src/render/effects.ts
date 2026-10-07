@@ -1,15 +1,15 @@
-import { softenParticles, type ParticleDepth } from "./soft-particles";
-import { GroundDust } from "./dust";
 import * as THREE from "three";
-import { NukeCloud } from "./nuke-cloud";
-import { Fragments } from "./fragments";
-import { NukeFlash } from "./nuke-flash";
-import { SpaceLaser } from "./space-laser";
+import type { Explosion,FragmentEffect } from "../types";
+import { GroundDust } from "./dust";
 import {
-  explosionFlashStyle,
-  explosionParticleTint,
+explosionFlashStyle,
+explosionParticleTint,
 } from "./explosion-palette";
-import type { Explosion, FragmentEffect } from "../types";
+import { Fragments } from "./fragments";
+import { NukeCloud } from "./nuke-cloud";
+import { NukeFlash } from "./nuke-flash";
+import type { ResourceDisposal } from "./resource-disposal";
+import { SpaceLaser } from "./space-laser";
 export class Effects {
   readonly laser = new SpaceLaser();
   readonly dust = new GroundDust();
@@ -34,22 +34,6 @@ export class Effects {
   private flashGeometry = new THREE.SphereGeometry(1, 16, 10);
   private blastColor = new THREE.Color();
   private cloudsPool: NukeCloud[] = [];
-  private particleDepth?: ParticleDepth;
-  private puffAtlas?: THREE.Texture;
-  installParticles(texture: THREE.Texture) {
-    this.puffAtlas = texture;
-    this.dust.installAtlas(texture);
-    for (const cloud of [...this.clouds, ...this.cloudsPool])
-      cloud.installAtlas(texture);
-    if (this.particleDepth) this.setParticleDepth(this.particleDepth);
-  }
-  setParticleDepth(depth: ParticleDepth) {
-    this.particleDepth = depth;
-    softenParticles(this.dust.mesh.material, depth);
-    softenParticles(this.points.material as THREE.PointsMaterial, depth, 1.5);
-    for (const cloud of [...this.clouds, ...this.cloudsPool])
-      cloud.setParticleDepth(depth);
-  }
   private flashes: {
     mesh: THREE.Mesh;
     life: number;
@@ -174,8 +158,6 @@ export class Effects {
   }
   private makeCloud(event: Explosion, reduced: boolean) {
     const cloud = new NukeCloud(event, reduced);
-    if (this.puffAtlas) cloud.installAtlas(this.puffAtlas);
-    if (this.particleDepth) cloud.setParticleDepth(this.particleDepth);
     return cloud;
   }
   private takeCloud(event: Explosion, reduced: boolean) {
@@ -183,13 +165,6 @@ export class Effects {
     return index < 0
       ? this.makeCloud(event, reduced)
       : this.cloudsPool.splice(index, 1)[0];
-  }
-  disposePools() {
-    this.flashGeometry.dispose();
-    for (const m of this.flashPool) m.material.dispose();
-    this.flashPool.length = 0;
-    for (const c of this.cloudsPool) c.dispose();
-    this.cloudsPool.length = 0;
   }
   explosion(e: Explosion, scale = 1) {
     this.dust.emit(e, this.reduced || scale < 1, this.ground);
@@ -307,9 +282,6 @@ export class Effects {
   get cloudCount() {
     return this.clouds.length;
   }
-  get cloudFaces() {
-    return this.clouds.map((cloud) => cloud.face);
-  }
   update(dt: number) {
     if (this.vaporRegions.size) {
       this.fragments.vaporizeMany([...this.vaporRegions.values()]);
@@ -410,5 +382,15 @@ export class Effects {
     }
     this.flashes = [];
     this.shake = 0;
+  }
+
+  dispose(resources: ResourceDisposal) {
+    this.reset();
+    resources.collect(this.group);
+    for (const object of this.prewarmMeshes) resources.collect(object);
+    resources.geometries.add(this.flashGeometry);
+    this.flashPool.length = 0;
+    this.cloudsPool.length = 0;
+    this.group.removeFromParent();
   }
 }

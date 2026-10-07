@@ -1,18 +1,18 @@
 import { voiceReplacement, type AudibleVoice } from "./audio-priority";
 import { loadRecordings, type Recording } from "./audio-recordings";
-import type {
-  Vec3,
-  Explosion,
-  WeaponId,
-  ContactSound,
-  LaserStrike,
-} from "./types";
-import { setAudioPosition, setListenerOrientation } from "./spatial-audio";
 import {
   createBlastLimiter,
   createBlastNoise,
   playNukeBlast,
 } from "./blast-audio";
+import { setAudioPosition, setListenerOrientation } from "./spatial-audio";
+import type {
+  ContactSound,
+  Explosion,
+  LaserStrike,
+  Vec3,
+  WeaponId,
+} from "./types";
 
 interface NoiseTone {
   startHz: number;
@@ -40,13 +40,8 @@ export class GameAudio {
   private engineGain?: GainNode;
   private filter?: BiquadFilterNode;
   private voices: (AudibleVoice & { stop: () => void })[] = [];
-  private turbine?: OscillatorNode;
-  private turbineGain?: GainNode;
-  private windGain?: GainNode;
-  private windFilter?: BiquadFilterNode;
   private volume = 0.35;
   private muted = false;
-  private lastDiscoStep = -1;
   private lastNuke = -Infinity;
   private lastNukePosition: Vec3 = [0, 0, 0];
   async start() {
@@ -69,26 +64,9 @@ export class GameAudio {
       this.filter.connect(this.engineGain);
       this.engineGain.connect(this.mix);
       this.engine.start();
-      this.turbine = this.ctx.createOscillator();
-      this.turbine.type = "sine";
-      this.turbineGain = this.ctx.createGain();
-      this.turbineGain.gain.value = 0.008;
-      this.turbine.connect(this.turbineGain).connect(this.mix);
-      this.turbine.start();
-      const wind = this.ctx.createBufferSource();
-      wind.buffer = this.blastNoise;
-      wind.loop = true;
-      this.windFilter = this.ctx.createBiquadFilter();
-      this.windFilter.type = "bandpass";
-      this.windFilter.frequency.value = 650;
-      this.windFilter.Q.value = 0.45;
-      this.windGain = this.ctx.createGain();
-      this.windGain.gain.value = 0.02;
-      wind.connect(this.windFilter).connect(this.windGain).connect(this.mix);
-      wind.start();
       void loadRecordings(this.ctx).then((buffers) => {
         this.recordings = buffers;
-        for (const name of ["turbine", "wind", "forest", "river"] as const) {
+        for (const name of ["wind"] as const) {
           const buffer = buffers.get(name);
           if (!buffer || !this.ctx || !this.mix) continue;
           const source = this.ctx.createBufferSource(),
@@ -126,16 +104,10 @@ export class GameAudio {
   pause() {
     this.ctx?.suspend().catch(() => {});
   }
-  update(
-    speed: number,
-    p: Vec3,
-    forward: Vec3,
-    boost = false,
-    ambience = { altitude: 200, forest: 0, water: 0 },
-  ) {
+  update(speed: number, p: Vec3, forward: Vec3, boost = false) {
     if (!this.ctx || !this.engine) return;
     this.engine.frequency.setTargetAtTime(
-      45 + speed * 0.6,
+      45 + speed * 0.6 + (boost ? 25 : 0),
       this.ctx.currentTime,
       0.2,
     );
@@ -150,45 +122,9 @@ export class GameAudio {
       this.ctx.currentTime,
       0.25,
     );
-    this.turbine!.frequency.setTargetAtTime(
-      220 + throttle * 520 + (boost ? 130 : 0),
-      this.ctx.currentTime,
-      0.3,
-    );
-    this.turbineGain!.gain.setTargetAtTime(
-      0.005 + throttle * 0.008,
-      this.ctx.currentTime,
-      0.3,
-    );
-    this.windGain!.gain.setTargetAtTime(
-      0.012 + throttle * 0.07,
-      this.ctx.currentTime,
-      0.3,
-    );
-    this.windFilter!.frequency.setTargetAtTime(
-      400 + throttle * 1100,
-      this.ctx.currentTime,
-      0.3,
-    );
     this.listenerPosition = p;
-    const near = Math.max(0, 1 - ambience.altitude / 180);
-    for (const [name, loop] of this.loops) {
-      const gain =
-        name === "turbine"
-          ? 0.025 + throttle * 0.075
-          : name === "wind"
-            ? 0.015 + throttle * 0.035
-            : name === "forest"
-              ? ambience.forest * near * 0.07
-              : ambience.water * near * 0.09;
-      loop.gain.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.8);
-      if (name === "turbine")
-        loop.source.playbackRate.setTargetAtTime(
-          0.85 + throttle * 0.3,
-          this.ctx.currentTime,
-          0.4,
-        );
-    }
+    for (const loop of this.loops.values())
+      loop.gain.gain.setTargetAtTime(0.025, this.ctx.currentTime, 0.8);
     const l = this.ctx.listener;
     setAudioPosition(l, p);
     setListenerOrientation(l, forward);
@@ -342,53 +278,8 @@ export class GameAudio {
     return true;
   }
   contact(e: ContactSound) {
-    const settle = e.action === "settle";
-    const energy = Math.min(2, Math.max(0, e.energy));
-    // Loose soil, leaves and glazing have no masonry-sized thump.
-    if (
-      e.material === "earth" ||
-      e.material === "foliage" ||
-      e.material === "window"
-    ) {
-      const glass = e.material === "window",
-        leaves = e.material === "foliage";
-      this.noise(
-        e.p,
-        settle ? 0.16 : glass ? 0.42 : leaves ? 0.5 : 0.3,
-        (settle ? 0.018 : glass ? 0.045 : 0.035) * energy,
-        glass ? 7200 : leaves ? 2400 : 650,
-        settle ? 0.45 : 1,
-      );
-      return;
-    }
-    const timber = e.material === "wood";
-    const tile = e.material === "roof" || e.material === "slate";
-    const plaster = e.material === "plaster";
-    const duration = settle
-      ? 0.2
-      : timber
-        ? 0.65
-        : tile
-          ? 0.32
-          : plaster
-            ? 0.38
-            : 0.8;
-    const gain =
-      (settle ? 0.04 : tile ? 0.085 : plaster ? 0.095 : 0.13) * energy;
-    const rate = (tile ? 1.35 : plaster ? 1.15 : 0.9) + (e.energy % 1) * 0.2;
-    const cutoff = timber ? 3300 : tile ? 6800 : plaster ? 2800 : 5200;
-    if (
-      this.recording(
-        timber ? "wood" : "stone",
-        e.p,
-        gain,
-        duration,
-        rate,
-        cutoff,
-      )
-    )
-      return;
-    this.noise(e.p, duration, gain * 0.65, cutoff, settle ? 0.45 : 1);
+    if (e.action === "settle") return;
+    this.noise(e.p, 0.3, 0.06 * Math.min(2, Math.max(0, e.energy)), 1800);
   }
   monster(p: Vec3, kind: "hit" | "defeat" | "throw" | "swipe") {
     const profile = {
@@ -483,7 +374,6 @@ export class GameAudio {
   }
   reset() {
     this.lastNuke = -Infinity;
-    this.lastDiscoStep = -1;
     for (const voice of this.laserVoices.values()) voice.stop();
     this.laserVoices.clear();
     for (const voice of [...this.voices]) voice.stop();
@@ -520,11 +410,7 @@ export class GameAudio {
       );
       return;
     }
-    if (
-      e.kind !== "nuke" &&
-      this.recording("explosion", e.p, 0.18, 1)
-    )
-      return;
+    if (e.kind !== "nuke" && this.recording("explosion", e.p, 0.18, 1)) return;
     if (e.kind === "nuke") {
       if (!this.ctx || !this.mix || !this.blastNoise) return;
       const p = this.lastNukePosition;
@@ -569,49 +455,6 @@ export class GameAudio {
       weapon === "nuke" ? 420 : 1700,
       3,
     );
-  }
-  syncDisco(enabled: boolean, simTime: number) {
-    if (!enabled || !this.ctx || !this.mix) {
-      this.lastDiscoStep = -1;
-      return;
-    }
-    const step = Math.floor(simTime * 4);
-    if (step === this.lastDiscoStep) return;
-    this.lastDiscoStep = step;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const hat = ctx.createBufferSource();
-    hat.buffer = this.blastNoise!;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 4500;
-    const hatGain = ctx.createGain();
-    hatGain.gain.setValueAtTime(step % 2 ? 0.018 : 0.035, now);
-    hatGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-    hat.connect(filter).connect(hatGain).connect(this.mix);
-    hat.start(now);
-    hat.stop(now + 0.1);
-    hat.onended = () => {
-      hat.disconnect();
-      filter.disconnect();
-      hatGain.disconnect();
-    };
-    if (step % 2 === 0) {
-      const kick = ctx.createOscillator();
-      kick.type = "sine";
-      kick.frequency.setValueAtTime(135, now);
-      kick.frequency.exponentialRampToValueAtTime(48, now + 0.18);
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.23);
-      kick.connect(gain).connect(this.mix);
-      kick.start(now);
-      kick.stop(now + 0.24);
-      kick.onended = () => {
-        kick.disconnect();
-        gain.disconnect();
-      };
-    }
   }
   syncLasers(lasers: LaserStrike[], listener: Vec3) {
     if (!this.ctx || !this.mix || !this.blastNoise) return;

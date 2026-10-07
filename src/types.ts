@@ -47,7 +47,6 @@ export interface Preferences {
   quality?: string;
   renderDistance?: number;
   reduceEffects?: boolean;
-  googlyEyes?: boolean;
   reduceShake?: boolean;
   volume?: number;
   mute?: boolean;

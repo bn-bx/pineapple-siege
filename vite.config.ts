@@ -24,16 +24,16 @@ const saveBenchmark: Connect.NextHandleFunction = (request, response, next) => {
           !report.image.startsWith("data:image/png;base64,")
         )
           throw Error("Invalid scene image");
-        const name = "docs/PERFORMANCE_SCENE_" + Date.now() + ".png";
-        mkdirSync("docs", { recursive: true });
+        const name = "artifacts/PERFORMANCE_SCENE_" + Date.now() + ".png";
+        mkdirSync("artifacts", { recursive: true });
         writeFileSync(name, Buffer.from(report.image.slice(22), "base64"));
         response.setHeader("Content-Type", "application/json");
         response.end(JSON.stringify({ path: name }));
         return;
       }
       if (!Array.isArray(report)) throw Error("Invalid report");
-      const name = "docs/PERFORMANCE_NATIVE_" + Date.now() + ".json";
-      mkdirSync("docs", { recursive: true });
+      const name = "artifacts/PERFORMANCE_NATIVE_" + Date.now() + ".json";
+      mkdirSync("artifacts", { recursive: true });
       writeFileSync(name, JSON.stringify(report, null, 2));
       response.setHeader("Content-Type", "application/json");
       response.end(JSON.stringify({ path: name }));

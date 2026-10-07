@@ -1,79 +1,79 @@
-import { VERTICAL_LIMITS } from "../world/vertical-limits.mjs";
-import { packMotion } from "./motion-buffer";
-import { StaticBlockerIndex } from "./static-blockers";
-import { SparseIndices } from "./sparse-indices";
-import { SparseValues } from "./sparse-values";
-import { civilianPopulation } from "../civilian-morale";
-import { Civilians } from "./civilians";
-import { CHUNKS } from "../config";
-import {
-  DEFAULT_DESTRUCTION,
-  normalizeDestruction,
-  nukeProfile,
-  laserProfile,
-  resolvedLaserProfile,
-  BODY_LIMITS,
-  CANNON_LIMITS,
-  COSMETIC_SCALE,
-  RUBBLE_LIMITS,
-} from "../destruction-settings";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { civilianPopulation } from "../civilian-morale";
 import {
-  CONFIG,
   BLAST_DEBRIS_LIMIT,
-  WRECKAGE_FLIGHT_SECONDS,
-  WRECKAGE_FADE_SECONDS,
-  WRECKAGE_LIFETIME,
+  CHUNKS,
+  CONFIG,
   LASER,
-  WEAPONS,
   RAPID_FIRE_INTERVAL,
+  WEAPONS,
+  WRECKAGE_FADE_SECONDS,
+  WRECKAGE_FLIGHT_SECONDS,
+  WRECKAGE_LIFETIME,
   clamp,
   lerp,
 } from "../config";
-import { Terrain } from "./terrain";
-import { MonsterRagdolls } from "./monster-ragdolls";
-import { Monsters } from "./monsters";
-import { MONSTER_BODY_HEIGHT } from "./monsters";
-import { discoActive } from "../disco";
-import { consolidateRubble } from "./rubble";
-import { BodyPoseCache, DebrisMap } from "./body-pose-cache";
 import {
   isRoof,
-  roofVertices,
   roofClearance,
   roofParts,
+  roofVertices,
 } from "../debris-shape";
+import {
+  BODY_LIMITS,
+  CANNON_LIMITS,
+  COSMETIC_SCALE,
+  DEFAULT_DESTRUCTION,
+  RUBBLE_LIMITS,
+  laserProfile,
+  normalizeDestruction,
+  nukeProfile,
+  resolvedLaserProfile,
+} from "../destruction-settings";
+import { discoActive } from "../disco";
+import type {
+  BlastProfile,
+  BodyView,
+  ContactSound,
+  DestructionJob,
+  DestructionSettings,
+  Entity,
+  Explosion,
+  FragmentEffect,
+  InputState,
+  LaserStrike,
+  LaserWork,
+  NukeYield,
+  PlaneState,
+  ProjectileWeapon,
+  Quat,
+  Ruin,
+  SaveSnapshot,
+  SimulationSnapshot,
+  SupportJob,
+  Vec3,
+  WeaponId,
+  WorkerMessage,
+  WorldData,
+} from "../types";
+import { VERTICAL_LIMITS } from "../world/vertical-limits.mjs";
 import {
   advanceDebris,
   orientedSize,
   type BallisticDebris,
 } from "./ballistic-debris";
-import type {
-  Vec3,
-  Quat,
-  WorldData,
-  Entity,
-  InputState,
-  PlaneState,
-  BodyView,
-  Ruin,
-  SaveSnapshot,
-  SaveSection,
-  SupportJob,
-  WorkerMessage,
-  SimulationSnapshot,
-  Explosion,
-  WeaponId,
-  NukeYield,
-  DestructionJob,
-  FragmentEffect,
-  DestructionSettings,
-  BlastProfile,
-  ContactSound,
-  ProjectileWeapon,
-  LaserStrike,
-  LaserWork,
-} from "../types";
+import { BodyPoseCache, DebrisMap } from "./body-pose-cache";
+import { Civilians } from "./civilians";
+import { DestructionDriver } from "./destruction-driver";
+import { MonsterRagdolls } from "./monster-ragdolls";
+import { MONSTER_BODY_HEIGHT, Monsters } from "./monsters";
+import { packMotion } from "./motion-buffer";
+import { consolidateRubble } from "./rubble";
+import { SparseIndices } from "./sparse-indices";
+import { SparseValues } from "./sparse-values";
+import { StaticBlockerIndex } from "./static-blockers";
+import { Terrain } from "./terrain";
+import { WeaponDriver } from "./weapon-driver";
 const vec = (p: Vec3) => ({ x: p[0], y: p[1], z: p[2] });
 const identity = { x: 0, y: 0, z: 0, w: 1 };
 // Membership in the upper 16 bits, permitted partners in the lower 16 bits.
@@ -95,6 +95,70 @@ interface Shot {
   age: number;
 }
 export class Simulation {
+  private weaponDriver?: WeaponDriver;
+  private destructionDriver?: DestructionDriver;
+  private prepareWeapons(): void {
+    const sim = this;
+    this.weaponDriver ??= new WeaponDriver({
+      get weapon() {
+        return sim.weapon;
+      },
+      set weapon(value) {
+        sim.weapon = value;
+      },
+      get input() {
+        return sim.input;
+      },
+      set input(value) {
+        sim.input = value;
+      },
+      get cooldowns() {
+        return sim.cooldowns;
+      },
+      set cooldowns(value) {
+        sim.cooldowns = value;
+      },
+      laserAim: (...args) => sim.laserAim(...args),
+      startLaser: (...args) => sim.startLaser(...args),
+      get destruction() {
+        return sim.destruction;
+      },
+      set destruction(value) {
+        sim.destruction = value;
+      },
+      get projectiles() {
+        return sim.projectiles;
+      },
+      get pendingJobs() {
+        return sim.pendingJobs;
+      },
+      get shots() {
+        return sim.shots;
+      },
+      set shots(value) {
+        sim.shots = value;
+      },
+      get nextShot() {
+        return sim.nextShot;
+      },
+      set nextShot(value) {
+        sim.nextShot = value;
+      },
+      get nukeYield() {
+        return sim.nukeYield;
+      },
+      set nukeYield(value) {
+        sim.nukeYield = value;
+      },
+      sweep: (...args) => sim.sweep(...args),
+      get monsters() {
+        return sim.monsters;
+      },
+      detonateNuke: (...args) => sim.detonateNuke(...args),
+      explode: (...args) => sim.explode(...args),
+    });
+  }
+
   private soundCells = new Set<string>();
   private soundTick = -1;
   private contact(
@@ -1378,114 +1442,66 @@ export class Simulation {
     }
     job.fragments = budget.n;
   }
-  processDestruction(budgetMS = 2) {
-    const start = performance.now();
-    this.processSupport(start + budgetMS * 0.5);
-    while (this.pendingJobs.length && performance.now() - start < budgetMS) {
-      const job = this.pendingJobs[0],
-        profile = job.profile;
-      if (job.phase === "terrain") {
-        if (job.cursor >= job.chunks.length) {
-          job.phase = "entities";
-          job.cursor = 0;
-          continue;
-        }
-        const id = job.chunks[job.cursor++];
-        this.bump();
-        const patch = this.terrain.crater(
-          job.p[0],
-          job.p[2],
-          profile.craterRadius,
-          profile.depth * job.excavation,
-          this.revision,
-          id,
-        );
-        const flood = this.terrain.floodChanged(patch.indices);
-        for (const changed of patch.chunks)
-          if (this.terrainColliders.has(changed))
-            this.invalidateTerrainCollider(changed);
-        this.flush(patch, flood);
-      } else if (job.phase === "entities") {
-        if (job.cursor >= job.entities.length) {
-          job.phase = "support";
-          job.cursor = 0;
-          job.assemblies = [...new Set(job.assemblies)];
-          continue;
-        }
-        const e = this.world.entities[job.entities[job.cursor++]];
-        if (this.removed.has(e.id)) continue;
-        const d = Math.hypot(
-          ...e.p.map((v, k) => Math.max(0, Math.abs(v - job.p[k]) - e.s[k])),
-        );
-        if (e.assembly) job.assemblies.push(e.assembly);
-        // Deterministic breakup probability softens only the outer 30% of the blast.
-        const strength = clamp(
-          (profile.damageRadius - d) / (profile.damageRadius * 0.3),
-          0,
-          1,
-        );
-        if (
-          d < profile.damageRadius &&
-          (e.kind === "tree" || strength > rand(e.id * 31))
-        ) {
-          this.bump();
-          const speed =
-            profile.scatterMin +
-            (profile.scatterMax - profile.scatterMin) * strength;
-          if (
-            job.fragments < profile.bodyLimit - 24 &&
-            distance(e.p, this.plane.p) < 700
-          ) {
-            const budget = { n: job.fragments, limit: profile.bodyLimit - 24 };
-            this.fragment(e, job.p, speed, budget);
-            job.fragments = budget.n;
-          } else {
-            this.removeEntity(e);
-            this.staticFragment(e, job.p, speed);
-          }
-          // Bounded effect allocation, distributed over the destroyed structures.
-          if (job.cursor <= 40)
-            this.emitFragments(
-              e.p,
-              job.p,
-              e.kind === "tree" ? "wood" : e.material,
-              Math.floor((profile.ejecta * 0.4) / 40),
-              speed,
-              Math.max(...e.s) * 0.5,
-              job.seed + e.id,
-            );
-        }
-      } else {
-        const queue = job.supportQueue!;
-        if (queue.length) {
-          const ids = queue.pop()!,
-            e = this.world.entities[ids[0]],
-            budget = { n: job.fragments, limit: profile.bodyLimit };
-          // Assembly connectivity was resolved once; consume its falling clusters incrementally.
-          const id = ids.pop()!;
-          const part = this.world.entities[id];
-          if (budget.n < budget.limit)
-            this.fragment(part, job.p, profile.scatterMin, budget);
-          else this.staticFragment(part, job.p, profile.scatterMin);
-          if (ids.length) queue.push(ids);
-          job.fragments = budget.n;
-        } else if (job.cursor < job.assemblies.length) {
-          this.dirtyAssemblies.clear();
-          this.dirtyAssemblies.add(job.assemblies[job.cursor++]);
-          this.resolveSupport(job.p, 14, 0, queue);
-        } else {
-          if (this.supportJobs.some((s) => s.ownerSeed === job.seed)) break;
-          this.pendingJobs.shift();
-          this.bump();
-          this.flush();
-          continue;
-        }
-      }
-      // Nuke support work is owned by its serialized job, not an incidental impact.
-      this.dirtyAssemblies.clear();
-    }
-    this.flush();
-    this.destructionMS = performance.now() - start;
+  processDestruction(budgetMS = 2): void {
+    const sim = this;
+    this.destructionDriver ??= new DestructionDriver({
+      processSupport: (...args) => sim.processSupport(...args),
+      get pendingJobs() {
+        return sim.pendingJobs;
+      },
+      bump: (...args) => sim.bump(...args),
+      get terrain() {
+        return sim.terrain;
+      },
+      get revision() {
+        return sim.revision;
+      },
+      set revision(value) {
+        sim.revision = value;
+      },
+      get terrainColliders() {
+        return sim.terrainColliders;
+      },
+      set terrainColliders(value) {
+        sim.terrainColliders = value;
+      },
+      invalidateTerrainCollider: (...args) =>
+        sim.invalidateTerrainCollider(...args),
+      flush: (...args) => sim.flush(...args),
+      get world() {
+        return sim.world;
+      },
+      get removed() {
+        return sim.removed;
+      },
+      get plane() {
+        return sim.plane;
+      },
+      set plane(value) {
+        sim.plane = value;
+      },
+      fragment: (...args) => sim.fragment(...args),
+      removeEntity: (...args) => sim.removeEntity(...args),
+      staticFragment: (...args) => sim.staticFragment(...args),
+      emitFragments: (...args) => sim.emitFragments(...args),
+      get dirtyAssemblies() {
+        return sim.dirtyAssemblies;
+      },
+      set dirtyAssemblies(value) {
+        sim.dirtyAssemblies = value;
+      },
+      resolveSupport: (...args) => sim.resolveSupport(...args),
+      get supportJobs() {
+        return sim.supportJobs;
+      },
+      get destructionMS() {
+        return sim.destructionMS;
+      },
+      set destructionMS(value) {
+        sim.destructionMS = value;
+      },
+    });
+    this.destructionDriver.process(budgetMS);
   }
   explode(p: Vec3, power = 1, kind: Explosion["kind"] = "blast") {
     this.bump();
@@ -1879,48 +1895,8 @@ export class Simulation {
       return;
     }
     p.p = next;
-    const weapon = this.weapon;
-    if (weapon === "laser") {
-      if (this.input.fire && this.cooldowns.laser <= 1e-9) {
-        const target = this.laserAim();
-        if (target) this.startLaser(target);
-      }
-      return;
-    }
-    const tuning = WEAPONS[weapon];
-    if (
-      this.input.fire &&
-      this.cooldowns[weapon] <= 1e-9 &&
-      (this.destruction.noCooldown ||
-        (this.projectiles.length < CONFIG.maxProjectiles &&
-          (weapon !== "nuke" ||
-            this.pendingJobs.length +
-              this.projectiles.filter((p) => p.weapon === "nuke").length <
-              8)))
-    ) {
-      this.cooldowns[weapon] = this.destruction.noCooldown
-        ? RAPID_FIRE_INTERVAL
-        : tuning.cooldown;
-      this.shots++;
-      this.projectiles.push({
-        id: this.nextShot++,
-        weapon,
-        yield: this.nukeYield,
-        profile:
-          weapon === "nuke"
-            ? nukeProfile(this.nukeYield, this.destruction)
-            : undefined,
-        p:
-          weapon === "cannon"
-            ? (p.p.map((v, i) => v + f[i] * 12) as Vec3)
-            : [p.p[0], p.p[1] - 12, p.p[2]],
-        v:
-          weapon === "cannon"
-            ? (f.map((v) => v * (p.speed + tuning.launchSpeed)) as Vec3)
-            : [p.v[0], p.v[1] - 8, p.v[2]],
-        age: 0,
-      });
-    }
+    this.prepareWeapons();
+    this.weaponDriver!.fire(p, f);
   }
   private orientedSize(s: Vec3, q: Quat): Vec3 {
     return orientedSize(s, q);
@@ -2416,43 +2392,8 @@ export class Simulation {
       }
     }
     const projectilesStarted = performance.now();
-    for (let i = this.projectiles.length - 1; i >= 0; i--) {
-      const s = this.projectiles[i];
-      let next = s.p.map((v, k) => v + s.v[k] * dt) as Vec3,
-        hit = this.sweep(
-          s.p,
-          next,
-          WEAPONS[s.weapon].radius,
-          WEAPONS[s.weapon].length / 2,
-        );
-      const monsterHit = this.monsters.intersect(
-        s.p,
-        next,
-        WEAPONS[s.weapon].radius,
-      );
-      if (
-        monsterHit &&
-        (!hit || distance(s.p, monsterHit.p) < distance(s.p, hit))
-      )
-        hit = monsterHit.p;
-      s.age += dt;
-      if (hit) {
-        this.projectiles.splice(i, 1);
-        if (s.weapon === "nuke") this.detonateNuke(hit, s.yield, s.profile);
-        else this.explode(hit);
-      } else if (
-        s.age > WEAPONS[s.weapon].lifetime ||
-        next[0] < 0 ||
-        next[0] > CONFIG.worldSize ||
-        next[2] < 0 ||
-        next[2] > CONFIG.worldSize
-      )
-        this.projectiles.splice(i, 1);
-      else {
-        s.p = next;
-        s.v[1] -= WEAPONS[s.weapon].gravity * dt;
-      }
-    }
+    this.prepareWeapons();
+    this.weaponDriver!.update(dt);
     this.stageMS.projectiles = performance.now() - projectilesStarted;
     const destructionStarted = performance.now();
     const laserMS = this.processLaserWork(1);
