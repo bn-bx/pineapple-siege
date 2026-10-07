@@ -1304,7 +1304,6 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   expect(railingCount("bridge-railing-braces")).toBe(2);
   expect(girderCount("bridge-main-girders")).toBe(2);
   expect(girderCount("bridge-cross-joists")).toBe(1);
-  expect(pierCount("bridge-pier-capstones")).toBe(1);
   expect(pierCount("bridge-pier-courses")).toBe(1);
   expect(pierCount("bridge-pier-footings")).toBe(1);
   scenery.update(camera, new Set([301]), 1200, 120, 1, true);
@@ -1324,11 +1323,9 @@ it("caps bridge rail spans with rounded timber tied to each rail owner", async (
   expect(girderCount("bridge-main-girders")).toBe(2);
   expect(girderCount("bridge-cross-joists")).toBe(1);
   scenery.update(camera, new Set([303]), 1200, 120, 3, true);
-  expect(pierCount("bridge-pier-capstones")).toBe(0);
   expect(pierCount("bridge-pier-courses")).toBe(0);
   expect(pierCount("bridge-pier-footings")).toBe(0);
   scenery.update(camera, new Set(), 1200, 120, 4, true);
-  expect(pierCount("bridge-pier-capstones")).toBe(1);
   expect(pierCount("bridge-pier-courses")).toBe(1);
   expect(pierCount("bridge-pier-footings")).toBe(1);
 });

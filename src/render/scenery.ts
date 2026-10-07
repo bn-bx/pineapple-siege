@@ -497,13 +497,6 @@ export class Scenery {
       const [x, y, z] = pier.p,
         [sx, sy, sz] = pier.s;
       add(
-        "bridge-pier-capstones",
-        pier,
-        [x, y + sy + 0.12, z],
-        [sx + 0.35, 0.16, sz + 0.35],
-        materials.sandstone ?? materials.stone ?? materials.rock,
-      );
-      add(
         "bridge-pier-courses",
         pier,
         [x, y, z],
