@@ -651,6 +651,49 @@ export class Scenery {
       if (parts) parts.push(e);
       else assemblies.set(e.assembly, [e]);
     }
+    for (const [name, parts] of assemblies) {
+      if (!/coastal-ruin/.test(name)) continue;
+      for (const owner of parts) {
+        if (
+          owner.kind !== "block" ||
+          owner.material !== "stone" ||
+          !owner.foundation
+        )
+          continue;
+        for (let i = 0; i < 5; i++) {
+          const angle = ((owner.id * 17 + i * 137.5) * Math.PI) / 180,
+            radius =
+              Math.max(owner.s[0], owner.s[2]) +
+              0.8 +
+              ((owner.id + i * 3) % 5) * 0.55,
+            px = owner.p[0] + Math.cos(angle) * radius,
+            pz = owner.p[2] + Math.sin(angle) * radius,
+            h = terrain.sample(px, pz),
+            size = 0.45 + ((owner.id * 3 + i * 7) % 6) * 0.14,
+            halfHeight = size * (0.35 + (i % 3) * 0.12);
+          if (
+            h < 2 ||
+            this.wet(px, pz) ||
+            roads(px, pz) < 6 ||
+            Math.abs(h - terrain.sample(px + size, pz)) > halfHeight ||
+            Math.abs(h - terrain.sample(px - size, pz)) > halfHeight ||
+            Math.abs(h - terrain.sample(px, pz + size)) > halfHeight ||
+            Math.abs(h - terrain.sample(px, pz - size)) > halfHeight
+          )
+            continue;
+          add(
+            "coastal-ruin-rubble",
+            owner,
+            [px, h + halfHeight * 0.52, pz],
+            [size, halfHeight, size * (0.65 + (i % 3) * 0.12)],
+            materials.rock ?? materials.stone,
+            rock,
+            true,
+            angle,
+          );
+        }
+      }
+    }
     const door = visualGeometry(
       "door_lod0",
       () => new THREE.BoxGeometry(2, 2, 0.1),

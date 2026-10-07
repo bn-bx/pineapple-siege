@@ -308,6 +308,48 @@ it("adds owner-linked mooring details only to the ends of harbor docks", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(batchCount("dock-bollards")).toBe(4);
 });
+it("dresses coastal ruins with ground-following rubble that clears on flood or owner damage", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const { CONFIG } = await import("../src/config");
+  const flood = new Uint8Array(CONFIG.grid * CONFIG.grid),
+    ruinWall = {
+      id: 151,
+      kind: "block",
+      p: [100, 13, 100],
+      s: [3, 3, 10],
+      material: "stone",
+      assembly: "site-coastal-ruin-0",
+      foundation: true,
+      supports: [],
+    },
+    scenery = new Scenery(
+      { paths: [], entities: [ruinWall] } as any,
+      { sample: () => 10, flood } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(100, 14, 100),
+    rubble = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:coastal-ruin-rubble",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  const dryCount = rubble();
+  expect(dryCount).toBe(5);
+  scenery.update(camera, new Set([ruinWall.id]), 1200, 120, 1, true);
+  expect(rubble()).toBe(0);
+  flood.fill(1);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(rubble()).toBe(0);
+  flood.fill(0);
+  scenery.update(camera, new Set(), 1200, 120, 3, true);
+  expect(rubble()).toBe(dryCount);
+});
 it("cuts dark arrow-slit windows into each destructible watchtower course", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const tower = [
