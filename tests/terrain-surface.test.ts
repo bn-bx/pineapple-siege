@@ -28,4 +28,6 @@ it("keeps the scanned shoreline sand free of the grass tint", () => {
   material.onBeforeCompile(shader, {} as any);
   expect(shader.fragmentShader).toContain("vec3 sandTex=");
   expect(shader.fragmentShader).toContain("max(cliff,shore)");
+  expect(shader.fragmentShader).toContain("cliff=max(cliff,outcrop*.58)");
+  expect(shader.fragmentShader).toContain("cliffRelief=landscapePatch*4.2");
 });
