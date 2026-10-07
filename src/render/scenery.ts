@@ -127,6 +127,21 @@ export class Scenery {
       "arch-trim_lod1",
       () => new THREE.RingGeometry(1, 1.18, 8, 1, 0, Math.PI),
     );
+    const slitShape = new THREE.Shape();
+    slitShape.moveTo(-0.24, -0.68);
+    slitShape.lineTo(0.24, -0.68);
+    slitShape.lineTo(0.24, 0.2);
+    slitShape.quadraticCurveTo(0.24, 0.62, 0, 0.88);
+    slitShape.quadraticCurveTo(-0.24, 0.62, -0.24, 0.2);
+    slitShape.closePath();
+    const arrowSlit = visualGeometry(
+      "watchtower-arrow-slit_lod0",
+      () => new THREE.ShapeGeometry(slitShape),
+    );
+    const slitMaterial = new THREE.MeshStandardMaterial({
+      color: "#182022",
+      roughness: 0.96,
+    });
     const addBeam = (
       key: string,
       owner: Entity,
@@ -917,6 +932,45 @@ export class Scenery {
           box,
           true,
         );
+    }
+    for (const [name, parts] of assemblies) {
+      if (!/watchtower/.test(name)) continue;
+      const masonry = parts
+        .filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "stone" &&
+            part.s[0] >= 4 &&
+            part.s[2] >= 4 &&
+            part.s[1] >= 3,
+        )
+        .sort((a, b) => a.p[1] - b.p[1]);
+      for (const owner of masonry) {
+        const [x, y, z] = owner.p,
+          [sx, , sz] = owner.s;
+        for (const side of [-1, 1]) {
+          add(
+            "watchtower-arrow-slits",
+            owner,
+            [x + side * (sx + 0.035), y, z],
+            [1, 1, 1],
+            slitMaterial,
+            arrowSlit,
+            false,
+            side * Math.PI * 0.5,
+          );
+          add(
+            "watchtower-arrow-slits",
+            owner,
+            [x, y, z + side * (sz + 0.035)],
+            [1, 1, 1],
+            slitMaterial,
+            arrowSlit,
+            false,
+            side < 0 ? Math.PI : 0,
+          );
+        }
+      }
     }
     for (const e of world.entities) {
       if (

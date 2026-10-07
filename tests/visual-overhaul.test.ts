@@ -308,6 +308,53 @@ it("adds owner-linked mooring details only to the ends of harbor docks", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(batchCount("dock-bollards")).toBe(4);
 });
+it("cuts dark arrow-slit windows into each destructible watchtower course", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const tower = [
+    {
+      id: 201,
+      kind: "block",
+      p: [100, 20, 100],
+      s: [6, 4.2, 6],
+      material: "stone",
+      assembly: "site-watchtower-0",
+      foundation: true,
+      supports: [],
+    },
+    {
+      id: 202,
+      kind: "block",
+      p: [100, 28.4, 100],
+      s: [6, 4.2, 6],
+      material: "stone",
+      assembly: "site-watchtower-0",
+      foundation: false,
+      supports: [],
+    },
+  ];
+  const scenery = new Scenery(
+    { paths: [], entities: tower } as any,
+    { sample: () => 10 } as any,
+    {
+      wood: new THREE.MeshStandardMaterial(),
+      rock: new THREE.MeshStandardMaterial(),
+      stone: new THREE.MeshStandardMaterial(),
+    },
+  );
+  const camera = new THREE.Vector3(100, 24, 100),
+    slits = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:watchtower-arrow-slits",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(slits()).toBe(8);
+  scenery.update(camera, new Set([201]), 1200, 120, 1, true);
+  expect(slits()).toBe(4);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(slits()).toBe(8);
+});
 it("animates windmill sails from existing destructible owners and freezes on snapshot time", async () => {
   const { windmillRotorBladeIds } = await import(
     "../src/render/landmark-geometry"
