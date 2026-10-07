@@ -22,6 +22,7 @@ import { bindTouchControls, pointerSteering } from "./input";
 import { frameStats } from "./frame-stats";
 import { GameRenderer } from "./render/renderer";
 import { GameAudio } from "./audio";
+import { createPhotoSaveAction } from "./photo-save";
 import { SaveStore, compatible } from "./storage";
 import {
   clamp,
@@ -1041,22 +1042,22 @@ $<HTMLInputElement>("photoExposure").oninput = (e) =>
   view?.setPhotoExposure(Number((e.target as HTMLInputElement).value));
 $<HTMLInputElement>("photoFocus").oninput = (e) =>
   view?.setPhotoFocus(Number((e.target as HTMLInputElement).value));
-$("savePhoto").onclick = () => {
-  view
-    .capture()
-    .then((blob) => {
-      const url = URL.createObjectURL(blob),
-        a = document.createElement("a");
+$("savePhoto").onclick = createPhotoSaveAction(
+  $<HTMLButtonElement>("savePhoto"),
+  $("photoStatus"),
+  () => view.capture(),
+  (blob) => {
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement("a");
       a.href = url;
       a.download = "pineapple-siege.png";
       a.click();
+    } finally {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      $("photoStatus").textContent = "Photo saved";
-    })
-    .catch(
-      () => ($("photoStatus").textContent = "Could not save photo. Try again."),
-    );
-};
+    }
+  },
+);
 for (const weapon of ["cannon", "nuke", "laser"] as const)
   $("select-" + weapon).onclick = () => {
     if (active) send({ type: "weapon", weapon });

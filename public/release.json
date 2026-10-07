@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-56",
+  "release": "visual-overhaul-2026-10-07-batch-57",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -89,7 +89,8 @@
     "snapshot-driven-resident-eye-whites-and-headwear-alignment",
     "snapshot-driven-monster-attack-and-stagger-jaw",
     "isolated-monster-pose-review-selector",
-    "human-scale-resident-scarf-collars"
+    "human-scale-resident-scarf-collars",
+    "single-flight-photo-export-with-progress"
   ],
   "performanceCertification": "deferred by release instruction"
 }
