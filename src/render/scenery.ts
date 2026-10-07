@@ -1478,7 +1478,60 @@ export class Scenery {
     }
     for (const [name, parts] of assemblies) {
       const watchtower = /watchtower/.test(name),
-        castleKeep = /:keep$/.test(name);
+        castleKeep = /:keep$/.test(name),
+        castleCurtainWall = /:(?:front|rear|west|east)$/.test(name);
+      if (castleCurtainWall) {
+        const masonry = parts.filter(
+          (part) =>
+            part.kind === "block" &&
+            part.material === "sandstone" &&
+            !part.foundation,
+        );
+        if (masonry.length >= 8) {
+          const minX = Math.min(...masonry.map((part) => part.p[0])),
+            maxX = Math.max(...masonry.map((part) => part.p[0])),
+            minZ = Math.min(...masonry.map((part) => part.p[2])),
+            maxZ = Math.max(...masonry.map((part) => part.p[2])),
+            alongAxis = maxX - minX >= maxZ - minZ ? 0 : 2,
+            normalAxis = alongAxis === 0 ? 2 : 0,
+            courses = masonry.filter(
+              (part) =>
+                part.s[1] >= 1.6 &&
+                part.s[1] <= 4.1 &&
+                part.s[alongAxis] >= 3.5 &&
+                part.s[normalAxis] >= 1.5 &&
+                part.s[alongAxis] >= part.s[normalAxis] * 1.35,
+            ),
+            levels = [
+              ...new Set(courses.map((part) => Math.round(part.p[1] * 100))),
+            ].sort((a, b) => a - b),
+            middleLevel = levels[Math.floor(levels.length / 2)],
+            slitOwners = courses
+              .filter((part) => Math.round(part.p[1] * 100) === middleLevel)
+              .sort((a, b) => a.p[alongAxis] - b.p[alongAxis]);
+          for (let i = 1; i < slitOwners.length - 1; i += 3) {
+            const owner = slitOwners[i];
+            for (const outward of [-1, 1]) {
+              const position = owner.p.slice();
+              position[normalAxis] += outward * (owner.s[normalAxis] + 0.06);
+              add(
+                "castle-curtain-wall-arrow-slits",
+                owner,
+                position,
+                [0.86, 1.42, 1],
+                slitMaterial,
+                arrowSlit,
+                false,
+                normalAxis === 2
+                  ? outward < 0
+                    ? Math.PI
+                    : 0
+                  : outward * Math.PI * 0.5,
+              );
+            }
+          }
+        }
+      }
       if (!watchtower && !castleKeep) continue;
       const masonry = parts
         .filter(

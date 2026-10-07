@@ -800,6 +800,47 @@ it("adds corner buttresses to castle keep wall owners and restores them", async 
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(count()).toBe(intact);
 });
+it("cuts paired arrow slits into castle curtain-wall owners and restores them", async () => {
+  const { Scenery } = await import("../src/render/scenery");
+  const walls = [] as any[];
+  let id = 1200;
+  for (const y of [5, 9, 13])
+    for (let i = 0; i < 9; i++)
+      walls.push({
+        id: id++,
+        kind: "block",
+        p: [i * 12, y, 0],
+        s: [4, 2.4, 2.4],
+        material: "sandstone",
+        assembly: "castle:front",
+        foundation: false,
+        supports: [],
+      });
+  const scenery = new Scenery(
+      { paths: [], entities: walls } as any,
+      { sample: () => 0 } as any,
+      {
+        wood: new THREE.MeshStandardMaterial(),
+        rock: new THREE.MeshStandardMaterial(),
+        stone: new THREE.MeshStandardMaterial(),
+        sandstone: new THREE.MeshStandardMaterial(),
+      },
+    ),
+    camera = new THREE.Vector3(48, 9, 0),
+    count = () =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === "scenery:castle-curtain-wall-arrow-slits",
+        ) as THREE.InstancedMesh
+      )?.count ?? 0,
+    owner = walls.find((part) => part.p[0] === 48 && part.p[1] === 9)!;
+  scenery.update(camera, new Set(), 1200, 120, 0, true);
+  expect(count()).toBe(6);
+  scenery.update(camera, new Set([owner.id]), 1200, 120, 1, true);
+  expect(count()).toBe(4);
+  scenery.update(camera, new Set(), 1200, 120, 2, true);
+  expect(count()).toBe(6);
+});
 it("bands castle towers with string courses owned by existing masonry", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const walls = [] as any[];

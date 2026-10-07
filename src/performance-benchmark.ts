@@ -1415,6 +1415,61 @@ function inspect() {
     (site) => site.kind === kind || (kind === "bridge" && site.kind === "crossing"),
   );
   if (selectedSite) p = selectedSite.p.slice();
+  if (kind === "castle-walls" && world.castles?.[0]) {
+    const castle = world.castles[0],
+      wall = world.entities.filter(
+        (entity) =>
+          entity.assembly === `${castle.id}:front` &&
+          entity.kind === "block" &&
+          entity.material === "sandstone" &&
+          !entity.foundation &&
+          entity.s[1] >= 1.6 &&
+          entity.s[1] <= 4.1 &&
+          Math.max(entity.s[0], entity.s[2]) >=
+            Math.min(entity.s[0], entity.s[2]) * 1.35,
+      );
+    if (wall.length >= 8) {
+      const xExtent = Math.max(...wall.map((part) => part.p[0])) -
+          Math.min(...wall.map((part) => part.p[0])),
+        zExtent = Math.max(...wall.map((part) => part.p[2])) -
+          Math.min(...wall.map((part) => part.p[2])),
+        alongAxis = xExtent >= zExtent ? 0 : 2,
+        normalAxis = alongAxis === 0 ? 2 : 0,
+        courses = wall.filter(
+          (part) =>
+            part.s[alongAxis] >= 3.5 && part.s[normalAxis] >= 1.5,
+        ),
+        levels = [
+          ...new Set(courses.map((part) => Math.round(part.p[1] * 100))),
+        ].sort((a, b) => a - b),
+        row = courses
+          .filter(
+            (part) =>
+              Math.round(part.p[1] * 100) ===
+              levels[Math.floor(levels.length / 2)],
+          )
+          .sort((a, b) => a.p[alongAxis] - b.p[alongAxis]),
+        middle = Math.floor(row.length / 4),
+        slitIndex = Math.min(
+          row.length - 2,
+          1 + Math.floor((middle - 1) / 3) * 3,
+        ),
+        owner = row[slitIndex];
+      if (owner) {
+        const target = owner.p.slice() as Vec3,
+          outward = Math.sign(owner.p[normalAxis] - castle.p[normalAxis]) || 1,
+          eye = target.slice() as Vec3;
+        target[normalAxis] += outward * (owner.s[normalAxis] + 0.06);
+        eye[normalAxis] = target[normalAxis] + outward * 13;
+        eye[1] += 1.4;
+        inspectionTarget = target;
+        view.inspectCamera(eye, target);
+        status.textContent = "Castle curtain-wall arrow-slit review";
+        last = 0;
+        return;
+      }
+    }
+  }
   if (kind === "castle-gate") {
     p = (world.castles?.[0]?.landmarks.gate ?? world.landmarks.gate).slice();
   } else if (kind === "castle-keep") {
