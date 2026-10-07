@@ -8,6 +8,25 @@ import {
 } from "./monster-fragment-geometry";
 import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 
+/** Combat-only near poses share the existing instanced limbs and snapshot state. */
+export function monsterCombatPose(
+  phase: number,
+  windup: number,
+  stagger: number,
+  crawl: number,
+) {
+  const charge = THREE.MathUtils.clamp(windup / 0.75, 0, 1),
+    recoil = THREE.MathUtils.clamp(stagger / 0.45, 0, 1),
+    shake = Math.sin(phase * 12) * recoil;
+  return {
+    left: THREE.MathUtils.lerp(crawl, -1.2, charge) + shake * 0.2,
+    right: THREE.MathUtils.lerp(-crawl, 1.2, charge) - shake * 0.2,
+    lean: -charge * 0.14 + shake * 0.09,
+    crown: Math.sin(phase * 0.09) * 0.08 - charge * 0.12 + shake * 0.05,
+    active: charge > 0.01 || recoil > 0.01,
+  };
+}
+
 let template: THREE.Group | undefined;
 const cylinder = (
   a: THREE.Vector3,

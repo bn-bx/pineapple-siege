@@ -67,6 +67,7 @@ import {
   DistantMonsterView,
   NearMonsterView,
   MonsterFragmentView,
+  monsterCombatPose,
 } from "./monster";
 import { flightPose } from "./flight-pose";
 import * as THREE from "three";
@@ -2581,11 +2582,14 @@ export class GameRenderer {
         } else this.distantMonsterView.add(distant);
         continue;
       }
-      mesh.rotation.x = 0;
       const beat = Math.sin(snap.time * Math.PI * 4 + m.id * 0.7);
-      mesh.rotation.y = m.yaw + (dancing ? beat * 0.28 : 0);
-      mesh.rotation.z = dancing ? beat * 0.1 : 0;
-      if (dancing) mesh.position.y += Math.max(0, beat) * 2;
+      const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23),
+        pose = monsterCombatPose(m.phase, m.windup, m.stagger, crawl),
+        dance = dancing && !pose.active;
+      mesh.rotation.x = pose.lean;
+      mesh.rotation.y = m.yaw + (dance ? beat * 0.28 : 0);
+      mesh.rotation.z = dance ? beat * 0.1 : 0;
+      if (dance) mesh.position.y += Math.max(0, beat) * 2;
       distant.position.copy(mesh.position);
       distant.rotation.y = mesh.rotation.y;
       distant.rotation.z = mesh.rotation.z;
@@ -2599,9 +2603,8 @@ export class GameRenderer {
         this.distantMonsterView.add(distant);
         continue;
       }
-      const crawl = Math.sin(m.phase * 0.2) * (m.stagger > 0 ? 0.05 : 0.23);
-      const left = dancing ? -0.65 - beat * 0.45 : m.windup > 0 ? -0.6 : crawl;
-      const right = dancing ? 0.65 - beat * 0.45 : m.windup > 0 ? 0.6 : -crawl;
+      const left = dance ? -0.65 - beat * 0.45 : pose.left,
+        right = dance ? 0.65 - beat * 0.45 : pose.right;
       mesh.scale.setScalar(
         MONSTER_SCALE *
           (m.stagger > 0 ? 1 + Math.sin(this.elapsed * 35) * 0.025 : 1),
@@ -2610,7 +2613,7 @@ export class GameRenderer {
         mesh,
         left,
         right,
-        Math.sin(m.phase * 0.09) * 0.08,
+        dance ? Math.sin(m.phase * 0.09) * 0.08 : pose.crown,
       );
     }
     this.monsterFragmentView.finish(this.googlyEyes);

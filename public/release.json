@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-26",
+  "release": "visual-overhaul-2026-10-06-batch-27",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -37,7 +37,8 @@
     "speed-responsive-twin-jet-exhaust",
     "deterministic-mountain-scree-breakup",
     "owner-linked-castle-tower-string-courses",
-    "snapshot-driven-resident-run-and-mourning-poses"
+    "snapshot-driven-resident-run-and-mourning-poses",
+    "snapshot-driven-monster-windup-and-stagger-poses"
   ],
   "performanceCertification": "deferred by release instruction"
 }
