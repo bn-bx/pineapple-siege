@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-29",
+  "release": "visual-overhaul-2026-10-06-batch-30",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -40,7 +40,8 @@
     "snapshot-driven-resident-run-and-mourning-poses",
     "snapshot-driven-monster-windup-and-stagger-poses",
     "owner-linked-open-tower-crenellations",
-    "owner-linked-watchtower-gallery-and-rails"
+    "owner-linked-watchtower-gallery-and-rails",
+    "deterministic-instanced-resident-headwear"
   ],
   "performanceCertification": "deferred by release instruction"
 }

@@ -16,6 +16,7 @@ export class CivilianView {
   readonly group = new THREE.Group();
   private parts: THREE.InstancedMesh[];
   private distant: THREE.InstancedMesh;
+  private hats: THREE.InstancedMesh[];
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private sphere = new THREE.Sphere(new THREE.Vector3(), 5);
@@ -38,6 +39,10 @@ export class CivilianView {
     (c) => new THREE.Color(c),
   );
   private root = new THREE.Object3D();
+  private hatColors = [
+    [0x917346, 0x746044, 0xa37f48],
+    [0x4a6065, 0x784f42, 0x65734c],
+  ].map((colors) => colors.map((color) => new THREE.Color(color)));
   private defeated = new Map<number, number>();
   private observedDead = new Set<number>();
   constructor(count: number) {
@@ -63,6 +68,41 @@ export class CivilianView {
       new THREE.InstancedMesh(sphere, skin, count * 2),
       new THREE.InstancedMesh(box, dark, count * 2),
     ];
+    const hatGeometry = (wide: boolean) => {
+      const brim = new THREE.CylinderGeometry(
+          wide ? 0.68 : 0.48,
+          wide ? 0.68 : 0.48,
+          0.1,
+          12,
+        ),
+        crown = wide
+          ? new THREE.CylinderGeometry(0.36, 0.44, 0.4, 10)
+          : new THREE.SphereGeometry(
+              0.48,
+              10,
+              6,
+              0,
+              Math.PI * 2,
+              0,
+              Math.PI / 2,
+            );
+      crown.translate(0, wide ? 0.2 : 0.08, 0);
+      const geometry = mergeGeometries([brim, crown])!;
+      brim.dispose();
+      crown.dispose();
+      return geometry;
+    };
+    const hatMaterial = new THREE.MeshStandardMaterial({ roughness: 0.96 });
+    this.hats = [
+      new THREE.InstancedMesh(hatGeometry(true), hatMaterial, count),
+      new THREE.InstancedMesh(hatGeometry(false), hatMaterial, count),
+    ];
+    for (const hat of this.hats) {
+      hat.count = 0;
+      hat.frustumCulled = false;
+      hat.castShadow = true;
+      hat.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    }
     this.distant = new THREE.InstancedMesh(box, cloth, count);
     this.distant.count = 0;
     this.distant.frustumCulled = false;
@@ -79,6 +119,7 @@ export class CivilianView {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       this.group.add(mesh);
     }
+    for (const hat of this.hats) this.group.add(hat);
     this.group.add(this.distant);
   }
   installVisuals(cloth?: { color: THREE.Texture; normal: THREE.Texture }) {
@@ -190,6 +231,7 @@ export class CivilianView {
   ) {
     let n = 0,
       far = 0;
+    const hatCounts = [0, 0];
     if (viewCamera)
       this.frustum.setFromProjectionMatrix(
         this.projection.multiplyMatrices(
@@ -315,6 +357,21 @@ export class CivilianView {
         this.root.scale.set(shrink * 0.5, shrink * 0.5, shrink * 0.7);
       }
       this.root.updateMatrix();
+      const hatStyle = c.id % 4;
+      if (hatStyle < 2) {
+        const hatIndex = hatCounts[hatStyle]++,
+          palette = this.hatColors[hatStyle];
+        this.dummy.position.set(0, 4.52, 0);
+        this.dummy.rotation.set(0, 0, 0);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        this.dummy.matrix.premultiply(this.root.matrix);
+        this.hats[hatStyle].setMatrixAt(hatIndex, this.dummy.matrix);
+        this.hats[hatStyle].setColorAt(
+          hatIndex,
+          palette[(Math.floor(c.id / 4) + c.id) % palette.length],
+        );
+      }
       const place = (
         part: number,
         index: number,
@@ -444,6 +501,14 @@ export class CivilianView {
     if (far) this.distant.instanceMatrix.addUpdateRange(0, far * 16);
     this.distant.instanceMatrix.needsUpdate = true;
     this.distant.instanceColor!.needsUpdate = !!far;
+    for (let i = 0; i < this.hats.length; i++) {
+      const hat = this.hats[i];
+      hat.count = hatCounts[i];
+      hat.instanceMatrix.clearUpdateRanges();
+      if (hat.count) hat.instanceMatrix.addUpdateRange(0, hat.count * 16);
+      hat.instanceMatrix.needsUpdate = true;
+      if (hat.instanceColor) hat.instanceColor.needsUpdate = hat.count > 0;
+    }
     for (let k = 0; k < this.parts.length; k++) {
       const mesh = this.parts[k];
       mesh.count = k >= 6 ? n * 2 : n;
@@ -458,5 +523,6 @@ export class CivilianView {
     this.observedDead.clear();
     this.distant.count = 0;
     for (const mesh of this.parts) mesh.count = 0;
+    for (const hat of this.hats) hat.count = 0;
   }
 }
