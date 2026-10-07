@@ -928,29 +928,37 @@ function inspect() {
   const kind = (document.querySelector("#viewpoint") as HTMLSelectElement)
     .value;
   if (kind === "house-window") {
-    const walls = world.entities.filter(
+    const houseWalls = world.entities.filter(
       (entity) =>
-        entity.kind === "block" &&
-        entity.material === "plaster" &&
-        /-house-\d+$/.test(entity.assembly) &&
-        entity.s[1] >= 1.5 &&
-        entity.s[1] <= 2.5 &&
-        Math.min(entity.s[0], entity.s[2]) <= 1.05 &&
-        Math.max(entity.s[0], entity.s[2]) > 2.4,
+        entity.assembly.includes("-house") && entity.material === "plaster",
     );
-    const groundCourse = Math.min(...walls.map((wall) => wall.p[1]));
-    const wall = walls.find(
-      (candidate) => Math.abs(candidate.p[1] - groundCourse) < 0.05,
+    const assembly = houseWalls[0]?.assembly;
+    const candidates = houseWalls.filter(
+      (entity) =>
+        entity.assembly === assembly &&
+        !entity.foundation &&
+        entity.s[2] <= 1.1 &&
+        entity.s[0] > 1.5,
     );
+    const groundCourse = Math.min(...candidates.map((wall) => wall.p[1])),
+      front = Math.min(...candidates.map((wall) => wall.p[2])),
+      back = Math.max(...candidates.map((wall) => wall.p[2])),
+      wall = candidates.find(
+        (candidate) =>
+          candidate.p[1] === groundCourse && candidate.p[2] === front,
+      ) ??
+      candidates.find(
+        (candidate) =>
+          candidate.p[1] === groundCourse && candidate.p[2] === back,
+      );
+    const side = wall?.p[2] === front ? -1 : 1;
     if (wall) {
-      const normalAxis = wall.s[0] < wall.s[2] ? 0 : 2,
-        side = wall.id % 2 ? 1 : -1,
-        target = wall.p.slice() as Vec3,
+      const target = wall.p.slice() as Vec3,
         eye = wall.p.slice() as Vec3;
-      target[normalAxis] += side * (wall.s[normalAxis] + 0.08);
-      target[1] += 0.35;
-      eye[normalAxis] = target[normalAxis] + side * 5;
-      eye[1] += 1.8;
+      target[2] += side * (wall.s[2] + 0.08);
+      target[1] += 0.1;
+      eye[2] = target[2] + side * 5;
+      eye[1] += 1.5;
       inspectionTarget = target;
       view.inspectCamera(eye, target);
       last = 0;

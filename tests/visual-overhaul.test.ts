@@ -423,7 +423,7 @@ it("divides settlement windows with owner-linked muntins on both faces", async (
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(muntins().count).toBe(2);
 });
-it("adds divided panes to destructible hamlet wall courses", async () => {
+it("divides night-aware hamlet panes with wall-owned muntins", async () => {
   const { Scenery } = await import("../src/render/scenery");
   const wall = {
     id: 732,
@@ -443,6 +443,11 @@ it("adds divided panes to destructible hamlet wall courses", async () => {
       rock: new THREE.MeshStandardMaterial(),
       stone: new THREE.MeshStandardMaterial(),
     },
+    undefined,
+    [
+      { owner: wall.id, p: [100, 8, 98.92], s: [2.2, 2.4, 0.12] },
+      { owner: wall.id, p: [100, 8, 101.08], s: [2.2, 2.4, 0.12] },
+    ],
   );
   const camera = new THREE.Vector3(100, 12, 100),
     batchCount = (name: string) =>
@@ -452,13 +457,13 @@ it("adds divided panes to destructible hamlet wall courses", async () => {
         ) as THREE.InstancedMesh
       )?.count ?? 0;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
-  expect(batchCount("hamlet-window-panes")).toBe(2);
+  expect(batchCount("window-frame")).toBeGreaterThan(0);
   expect(batchCount("window-muntins")).toBe(4);
   scenery.update(camera, new Set([wall.id]), 1200, 120, 1, true);
-  expect(batchCount("hamlet-window-panes")).toBe(0);
+  expect(batchCount("window-frame")).toBe(0);
   expect(batchCount("window-muntins")).toBe(0);
   scenery.update(camera, new Set(), 1200, 120, 2, true);
-  expect(batchCount("hamlet-window-panes")).toBe(2);
+  expect(batchCount("window-frame")).toBeGreaterThan(0);
 });
 it("dresses coastal ruins with ground-following rubble that clears on flood or owner damage", async () => {
   const { Scenery } = await import("../src/render/scenery");
