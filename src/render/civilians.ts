@@ -30,7 +30,7 @@ export class CivilianView {
   private handTransform = new THREE.Matrix4().compose(
     new THREE.Vector3(0, -0.62, 0),
     new THREE.Quaternion(),
-    new THREE.Vector3(1.1, 0.32, 1),
+    new THREE.Vector3(1.15, 0.72, 0.8),
   );
   private bootTransform = new THREE.Matrix4().compose(
     new THREE.Vector3(0, -0.4, 0),
@@ -183,9 +183,19 @@ export class CivilianView {
     this.parts[1].geometry = visualGeometry("human-head_lod0", () =>
       this.parts[1].geometry.clone(),
     ).scale(2, 2, 2);
-    this.parts[7].geometry = visualGeometry("human-hand_lod0", () =>
-      this.parts[7].geometry.clone(),
+    // Keep exposed hands on the shared skin material; the source mesh's dark
+    // vertex tint made bare hands read as black gloves in the finished cloth set.
+    const hands = new THREE.SphereGeometry(0.38, 10, 8);
+    // The shared skin material needs white vertex colors here: the imported
+    // head mesh enables vertex colors, and a missing attribute renders black.
+    hands.setAttribute(
+      "color",
+      new THREE.BufferAttribute(
+        new Float32Array(hands.attributes.position.count * 3).fill(1),
+        3,
+      ),
     );
+    this.parts[7].geometry = hands;
     this.parts[8].geometry = visualGeometry("human-boot_lod0", () =>
       this.parts[8].geometry.clone(),
     );
