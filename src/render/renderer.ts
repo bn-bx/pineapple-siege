@@ -2618,6 +2618,7 @@ export class GameRenderer {
         left,
         right,
         dance ? Math.sin(m.phase * 0.09) * 0.08 : pose.crown,
+        pose.brow,
       );
     }
     this.monsterFragmentView.finish(this.googlyEyes);

@@ -1,8 +1,11 @@
 import { expect, it } from "vitest";
 import * as THREE from "three";
-import { DistantMonsterView, monsterCombatPose } from "../src/render/monster";
+import {
+  DistantMonsterView,
+  monsterCombatPose,
+} from "../src/render/monster";
 
-it("renders 400 distant monsters in four shared batches and clears hidden enemies", () => {
+it("renders 400 distant monsters in five shared batches, including grounding roots", () => {
   const view = new DistantMonsterView(400);
   const root = new THREE.Object3D();
   root.position.set(4100, 80, 4200);
@@ -11,8 +14,10 @@ it("renders 400 distant monsters in four shared batches and clears hidden enemie
   view.begin();
   for (let i = 0; i < 400; i++) view.add(root);
   view.finish();
-  expect(view.group.children).toHaveLength(4);
+  expect(view.group.children).toHaveLength(5);
   expect(view.parts.every((p) => p.count === 400)).toBe(true);
+  view.parts[4].geometry.computeBoundingBox();
+  expect(view.parts[4].geometry.boundingBox!.min.y).toBeLessThan(0.5);
   const actual = new THREE.Matrix4();
   view.parts[0].getMatrixAt(399, actual);
   const expected = new THREE.Matrix4().compose(
@@ -41,4 +46,6 @@ it("raises a readable attack windup and adds a short stagger recoil", () => {
   expect(staggered.active).toBe(true);
   expect(Math.abs(staggered.lean)).toBeGreaterThan(0.08);
   expect(staggered.left).not.toBeCloseTo(idle.left, 2);
+  expect(charging.brow).toBeLessThan(idle.brow);
+  expect(staggered.brow).toBeGreaterThan(idle.brow);
 });

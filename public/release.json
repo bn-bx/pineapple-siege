@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-06-batch-43",
+  "release": "visual-overhaul-2026-10-06-batch-44",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -60,7 +60,9 @@
     "deterministic-species-canopy-silhouette-variation",
     "owner-linked-braced-house-shutters-and-iron-hinges",
     "owner-linked-braced-entrance-doors-and-ring-latches",
-    "isolated-house-door-review-preset"
+    "isolated-house-door-review-preset",
+    "snapshot-driven-expressive-monster-brows",
+    "ground-contact-pineapple-root-feet"
   ],
   "performanceCertification": "deferred by release instruction"
 }

@@ -23,6 +23,7 @@ export function monsterCombatPose(
     right: THREE.MathUtils.lerp(-crawl, 1.2, charge) - shake * 0.2,
     lean: -charge * 0.14 + shake * 0.09,
     crown: Math.sin(phase * 0.09) * 0.08 - charge * 0.12 + shake * 0.05,
+    brow: recoil * 0.16 - charge * 0.12,
     active: charge > 0.01 || recoil > 0.01,
   };
 }
@@ -44,6 +45,56 @@ const cylinder = (
   mesh.castShadow = true;
   return mesh;
 };
+function groundingRootGeometry() {
+  const segments: [THREE.Vector3, THREE.Vector3, number][] = [];
+  for (const sign of [-1, 1]) {
+    segments.push(
+      [
+        new THREE.Vector3(sign * 3.8, 6, 0.5),
+        new THREE.Vector3(sign * 5.1, 2.6, 1.4),
+        1.35,
+      ],
+      [
+        new THREE.Vector3(sign * 5.1, 2.6, 1.4),
+        new THREE.Vector3(sign * 5.8, 0.8, 2.4),
+        1,
+      ],
+      [
+        new THREE.Vector3(sign * 5.8, 0.8, 2.4),
+        new THREE.Vector3(sign * 7.2, 0.28, 3.4),
+        0.58,
+      ],
+      [
+        new THREE.Vector3(sign * 5.7, 0.8, 2.4),
+        new THREE.Vector3(sign * 4.7, 0.24, 3.45),
+        0.5,
+      ],
+    );
+  }
+  const pieces = segments.map(([from, to, radius]) => {
+    const direction = to.clone().sub(from),
+      geometry = new THREE.CylinderGeometry(
+        radius * 0.8,
+        radius,
+        direction.length(),
+        7,
+      );
+    geometry.applyMatrix4(
+      new THREE.Matrix4().compose(
+        from.clone().add(to).multiplyScalar(0.5),
+        new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          direction.normalize(),
+        ),
+        new THREE.Vector3(1, 1, 1),
+      ),
+    );
+    return geometry;
+  });
+  const merged = mergeMonsterGeometry(pieces)!;
+  for (const piece of pieces) piece.dispose();
+  return merged;
+}
 function build() {
   const g = new THREE.Group();
   const canvas = document.createElement("canvas");
@@ -91,6 +142,19 @@ function build() {
   nativeEyes.name = "native-eyes";
   nativeEyes.visible = false;
   g.add(nativeEyes);
+  const brows = new THREE.Group();
+  brows.name = "brows";
+  brows.position.set(0, 20.5, 8);
+  for (const sign of [-1, 1])
+    brows.add(
+      cylinder(
+        new THREE.Vector3(sign * 1.5, 0.5, 0),
+        new THREE.Vector3(sign * 5.2, -0.9, -0.6),
+        0.55,
+        dark,
+      ),
+    );
+  g.add(brows);
   const ivory = new THREE.MeshStandardMaterial({
     color: "#e7dca9",
     roughness: 0.75,
@@ -116,6 +180,10 @@ function build() {
     crown.add(blade);
   }
   g.add(crown);
+  const roots = new THREE.Mesh(groundingRootGeometry(), limb);
+  roots.name = "roots";
+  roots.castShadow = true;
+  g.add(roots);
   for (const sign of [-1, 1]) {
     const socket = new THREE.Mesh(new THREE.SphereGeometry(1.55, 9, 8), dark);
     socket.position.set(sign * 3.4, 18.5, 7.1);
@@ -124,14 +192,6 @@ function build() {
     pupil.position.set(sign * 3.4, 18.5, 8.15);
     pupil.scale.z = 0.45;
     nativeEyes.add(socket, pupil);
-    g.add(
-      cylinder(
-        new THREE.Vector3(sign * 1.5, 21, 8),
-        new THREE.Vector3(sign * 5.2, 19.6, 7.4),
-        0.55,
-        dark,
-      ),
-    );
     const arm = new THREE.Group();
     arm.name = sign < 0 ? "leftArm" : "rightArm";
     arm.position.set(sign * 7.5, 19, 0);
@@ -189,7 +249,7 @@ export function upgradeMonsterTemplate(
   ) as THREE.Mesh;
   fruitSurface(body.material as THREE.MeshStandardMaterial, texture);
   body.geometry = visualGeometry("fruit_lod0", () => body.geometry.clone());
-  for (const name of ["leftArm", "rightArm"]) {
+  for (const name of ["leftArm", "rightArm", "roots"]) {
     template.getObjectByName(name)?.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       const material = object.material as THREE.MeshStandardMaterial;
@@ -263,11 +323,17 @@ export function makeDistantMonster() {
         ),
       );
     }
+    const roots = new THREE.Mesh(
+      groundingRootGeometry(),
+      armMat,
+    );
+    roots.name = "grounding-roots";
+    distantTemplate.add(roots);
   }
   return distantTemplate.clone(true);
 }
 
-/** Four shared draws for all distant enemies, including their disco transforms. */
+/** Shared distant draws for all enemies, including rooted feet and disco transforms. */
 export class DistantMonsterView {
   readonly group = new THREE.Group();
   private faceMesh?: THREE.InstancedMesh;
@@ -463,26 +529,35 @@ export class NearMonsterView {
     this.count = 0;
     if (eyes) void this.faces;
   }
-  add(root: THREE.Object3D, left: number, right: number, crown: number) {
+  add(
+    root: THREE.Object3D,
+    left: number,
+    right: number,
+    crown: number,
+    brow = 0,
+  ) {
     root.updateMatrix();
     for (const part of this.parts) {
       this.pivot.matrix.copy(part.local);
       if (
         part.limb === "leftArm" ||
         part.limb === "rightArm" ||
-        part.limb === "crown"
+        part.limb === "crown" ||
+        part.limb === "brows"
       ) {
         part.local.decompose(
           this.pivot.position,
           this.pivot.quaternion,
           this.pivot.scale,
         );
-        this.pivot.rotation.z =
-          part.limb === "leftArm"
-            ? left
-            : part.limb === "rightArm"
-              ? right
-              : crown;
+        if (part.limb === "brows") this.pivot.scale.y *= 1 + brow;
+        else
+          this.pivot.rotation.z =
+            part.limb === "leftArm"
+              ? left
+              : part.limb === "rightArm"
+                ? right
+                : crown;
         this.pivot.updateMatrix();
       }
       part.mesh.setMatrixAt(
