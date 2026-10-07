@@ -5,6 +5,10 @@ import { NukeCloud } from "./nuke-cloud";
 import { Fragments } from "./fragments";
 import { NukeFlash } from "./nuke-flash";
 import { SpaceLaser } from "./space-laser";
+import {
+  explosionFlashStyle,
+  explosionParticleTint,
+} from "./explosion-palette";
 import type { Explosion, FragmentEffect } from "../types";
 export class Effects {
   readonly laser = new SpaceLaser();
@@ -53,6 +57,7 @@ export class Effects {
     radius: number;
     duration: number;
     nuke: boolean;
+    intensity: number;
   }[] = [];
   private clouds: NukeCloud[] = [];
   readonly nukeFlash = new NukeFlash();
@@ -234,15 +239,7 @@ export class Effects {
         i * 3,
       );
       this.life[i] = this.totalLife[i] = 1 + Math.random() * 4;
-      const c = this.blastColor.set(
-        e.water
-          ? "#c0e5e1"
-          : j % 5 === 0
-            ? "#ffd987"
-            : j % 3 === 0
-              ? "#e78734"
-              : "#9f917c",
-      );
+      const c = this.blastColor.set(explosionParticleTint(e.kind, e.water, j));
       c.multiplyScalar(0.7 + Math.random() * 0.4);
       this.colors.set([c.r, c.g, c.b], i * 3);
     }
@@ -271,9 +268,12 @@ export class Effects {
           this.flashGeometry,
           new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }),
         );
-      mesh.material.color.set(
-        e.kind === "nuke" ? "#ffffff" : e.water ? "#bfebeb" : "#ffe198",
+      const flashStyle = explosionFlashStyle(
+        e.kind,
+        e.water,
+        e.profile?.craterRadius,
       );
+      mesh.material.color.set(flashStyle.color);
       mesh.material.opacity = 0.85;
       mesh.material.toneMapped = e.kind !== "nuke";
       mesh.position.fromArray(e.p);
@@ -284,8 +284,8 @@ export class Effects {
         duration: e.kind === "nuke" ? 4.5 : 0.55,
         nuke: e.kind === "nuke",
         water: e.water,
-        radius:
-          e.kind === "nuke" ? Math.min(150, e.profile!.craterRadius * 1.2) : 16,
+        radius: flashStyle.radius,
+        intensity: flashStyle.intensity,
       });
       this.shake = Math.min(1, this.shake + 0.65);
     }
@@ -363,7 +363,8 @@ export class Effects {
       f.mesh.scale.set(s, s * (f.water ? 0.3 : 0.7), s);
       (f.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(
         0,
-        (f.life / f.duration) * (f.nuke ? (this.reduced ? 0.45 : 1) : 0.7),
+        (f.life / f.duration) *
+          (f.nuke ? (this.reduced ? 0.45 : 1) : f.intensity),
       );
       if (f.nuke)
         (f.mesh.material as THREE.MeshBasicMaterial).color

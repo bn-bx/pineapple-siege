@@ -3,6 +3,10 @@ import * as THREE from "three";
 import { voiceReplacement } from "../src/audio-priority";
 import { sceneResources } from "../src/render/resource-budget";
 import { GroundDust, impactTint } from "../src/render/dust";
+import {
+  explosionFlashStyle,
+  explosionParticleTint,
+} from "../src/render/explosion-palette";
 import { Fragments } from "../src/render/fragments";
 it.each(["wood", "roof", "slate", "window", "foliage"] as const)(
   "settles %s chips on their thin face above canonical ground",
@@ -56,6 +60,35 @@ it("keeps important audible voices and reevaluates distance after flight", () =>
   expect(
     voiceReplacement([], { p: [0, 0, 0], gain: 1, priority: 1 }, [0, 0, 0], 0),
   ).toBe(-1);
+});
+it("uses distinct fixed-pool plume colors for rubble, crash, impact, and nuke events", () => {
+  expect(explosionParticleTint("blast", false, 0)).toBe("#ffd987");
+  expect(explosionParticleTint("collapse", false, 0)).toBe("#c8c0b4");
+  expect(explosionParticleTint("crash", false, 0)).toBe("#ffe6ad");
+  expect(explosionParticleTint("impact", false, 0)).toBe("#c0ad8e");
+  expect(explosionParticleTint("nuke", false, 0)).toBe("#fff0bd");
+  for (const kind of ["blast", "collapse", "crash", "impact", "nuke"] as const)
+    expect(explosionParticleTint(kind, true, 0)).toBe("#d8efed");
+  expect(explosionParticleTint("collapse", false, 0)).not.toBe(
+    explosionParticleTint("crash", false, 0),
+  );
+});
+it("sizes and tones blast flashes for the event instead of reusing one land flash", () => {
+  expect(explosionFlashStyle("blast", false)).toMatchObject({
+    color: "#ffe198",
+    radius: 12,
+    intensity: 0.7,
+  });
+  expect(explosionFlashStyle("collapse", false)).toMatchObject({
+    color: "#d0c5b2",
+    radius: 8,
+  });
+  expect(explosionFlashStyle("crash", false)).toMatchObject({
+    color: "#fff0dc",
+    radius: 9,
+  });
+  expect(explosionFlashStyle("nuke", false, 240).radius).toBe(150);
+  expect(explosionFlashStyle("impact", true).color).toBe("#bfebeb");
 });
 it("counts interleaved vertex storage once and includes each instance buffer", () => {
   const scene = new THREE.Scene(),

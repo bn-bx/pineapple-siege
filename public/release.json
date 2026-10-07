@@ -1,5 +1,5 @@
 {
-  "release": "visual-overhaul-2026-10-07-batch-60",
+  "release": "visual-overhaul-2026-10-07-batch-61",
   "worldVersion": 8,
   "includes": [
     "local-pbr-assets",
@@ -95,7 +95,10 @@
     "isolated-quarry-hoist-review-camera",
     "owner-linked-terrain-following-tree-root-flares",
     "bounded-mitered-river-bend-joins",
-    "isolated-river-bend-review-camera"
+    "isolated-river-bend-review-camera",
+    "event-specific-explosion-plume-colors",
+    "isolated-crash-and-collapse-effect-review",
+    "event-scaled-impact-flashes"
   ],
   "performanceCertification": "deferred by release instruction"
 }

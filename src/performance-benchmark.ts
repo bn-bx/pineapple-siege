@@ -1723,6 +1723,34 @@ document.querySelector("#inspect-impact")!.addEventListener("click", () => {
   send({ type: "pause", paused: false });
   status.textContent = "Material impact inspection running";
 });
+function inspectExplosion(kind: "crash" | "collapse") {
+  if (active || !ready) return;
+  const p: Vec3 = [
+    inspectionTarget[0],
+    view.effects.ground(inspectionTarget[0], inspectionTarget[2]) + 5,
+    inspectionTarget[2],
+  ];
+  view.effects.explosion({
+    type: "explosion",
+    p,
+    water: false,
+    power: kind === "crash" ? 0.65 : 0.8,
+    seed: kind === "crash" ? 0xc2a5 : 0xc011,
+    kind,
+  });
+  touring = true;
+  send({ type: "pause", paused: false });
+  status.textContent =
+    kind === "crash"
+      ? "Crash plume inspection running"
+      : "Collapse dust inspection running";
+}
+document
+  .querySelector("#inspect-crash")!
+  .addEventListener("click", () => inspectExplosion("crash"));
+document
+  .querySelector("#inspect-collapse")!
+  .addEventListener("click", () => inspectExplosion("collapse"));
 document.querySelector("#inspect-water")!.addEventListener("click", () => {
   if (active || !ready) return;
   let point: Vec3 =
