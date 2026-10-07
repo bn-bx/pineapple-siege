@@ -428,9 +428,17 @@ it("divides settlement windows with owner-linked muntins on both faces", async (
     muntins = () =>
       scenery.group.children.find(
         (object) => object.name === "scenery:window-muntins",
-      ) as THREE.InstancedMesh;
+      ) as THREE.InstancedMesh,
+    batchCount = (name: string) =>
+      (
+        scenery.group.children.find(
+          (object) => object.name === `scenery:${name}`,
+        ) as THREE.InstancedMesh
+      )?.count ?? 0;
   scenery.update(camera, new Set(), 1200, 120, 0, true);
   expect(muntins().count).toBe(2);
+  expect(batchCount("shutter-diagonal-braces")).toBe(4);
+  expect(batchCount("window-hinges")).toBe(8);
   const nearFace = new THREE.Matrix4(),
     farFace = new THREE.Matrix4();
   muntins().getMatrixAt(0, nearFace);
@@ -439,8 +447,11 @@ it("divides settlement windows with owner-linked muntins on both faces", async (
   expect(Math.abs(nearFace.elements[12] - farFace.elements[12])).toBeGreaterThan(0.2);
   scenery.update(camera, new Set([window.id]), 1200, 120, 1, true);
   expect(muntins().count).toBe(0);
+  expect(batchCount("shutter-diagonal-braces")).toBe(0);
+  expect(batchCount("window-hinges")).toBe(0);
   scenery.update(camera, new Set(), 1200, 120, 2, true);
   expect(muntins().count).toBe(2);
+  expect(batchCount("shutter-diagonal-braces")).toBe(4);
 });
 it("divides night-aware hamlet panes with wall-owned muntins", async () => {
   const { Scenery } = await import("../src/render/scenery");

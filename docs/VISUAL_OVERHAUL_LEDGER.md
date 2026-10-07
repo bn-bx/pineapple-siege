@@ -86,7 +86,9 @@ The jet now has a visible cockpit instrument cluster, pilot suit and harness, si
 
 Mountain bed color and relief now produce more visible but restrained world-space strata, with existing noise and scree breaking up the bands. The shader reuses its existing material samples; terrain heights, streamed geometry, island visibility, and fog settings are unchanged. The high-altitude seed 41729 view is shown in [PERFORMANCE_SCENE_1791344359764.png](PERFORMANCE_SCENE_1791344359764.png). The focused terrain-shader test and production build pass. Batch 40 shipped in `df7f104`; its live marker is confirmed.
 
-Pine, broadleaf, and riverside crowns now use wider deterministic height and width ranges, giving each tree a more distinct silhouette across the existing near and distant batches. The same world-stable transforms carry through the fallen-tree presentation. Seed 41729's pine inspection is shown in [PERFORMANCE_SCENE_1791344646164.png](PERFORMANCE_SCENE_1791344646164.png). Ten focused tree and debris tests pass and the production build passes. Batch 41 is prepared for deployment.
+Pine, broadleaf, and riverside crowns now use wider deterministic height and width ranges, giving each tree a more distinct silhouette across the existing near and distant batches. The same world-stable transforms carry through the fallen-tree presentation. Seed 41729's pine inspection is shown in [PERFORMANCE_SCENE_1791344646164.png](PERFORMANCE_SCENE_1791344646164.png). Ten focused tree and debris tests pass and the production build passes. Batch 41 shipped in `ded4dec`; its production marker was confirmed.
+
+Hamlet-house shutters now have owner-linked diagonal timber braces and paired iron hinge straps on both visible faces. The additions follow each existing window owner through removal and restoration, without adding saved entities, collision, or draw batches. The seed 41729 close-up is shown in [PERFORMANCE_SCENE_1791345102151.png](PERFORMANCE_SCENE_1791345102151.png). The focused window ownership test and production build pass. Batch 42 is prepared for deployment.
 
 ## Coverage
 

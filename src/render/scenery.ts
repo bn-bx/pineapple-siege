@@ -226,7 +226,9 @@ export class Scenery {
         if (!stone) {
           for (const sign of [-1, 1]) {
             const panel = face.slice();
-            panel[horizontal ? 0 : 2] += sign * width * 1.65;
+            const axisIndex = horizontal ? 0 : 2,
+              panelWidth = width * 0.42;
+            panel[axisIndex] += sign * width * 1.65;
             add(
               "timber-shutters",
               e,
@@ -236,6 +238,39 @@ export class Scenery {
                 : [0.1, sy * 0.8, width * 0.42],
               structuralTimber,
             );
+            // A diagonal rail and paired iron straps turn plain shutter slabs
+            // into fitted joinery. They stay on the same window owner.
+            const braceFace = face.slice();
+            braceFace[axis] += outward * 0.085;
+            const lower = braceFace.slice(),
+              upper = braceFace.slice();
+            lower[axisIndex] += sign * width * 1.65 - sign * panelWidth * 0.3;
+            lower[1] -= sy * 0.18;
+            upper[axisIndex] += sign * width * 1.65 + sign * panelWidth * 0.3;
+            upper[1] += sy * 0.18;
+            addBeam(
+              "shutter-diagonal-braces",
+              e,
+              new THREE.Vector3(...lower as [number, number, number]),
+              new THREE.Vector3(...upper as [number, number, number]),
+              0.075,
+              materials.wood,
+            );
+            for (const lift of [-0.25, 0.25]) {
+              const hinge = face.slice();
+              hinge[axisIndex] += sign * width * 1.65 - sign * panelWidth * 0.34;
+              hinge[axis] += outward * 0.06;
+              hinge[1] += lift * sy;
+              add(
+                "window-hinges",
+                e,
+                hinge,
+                horizontal
+                  ? [panelWidth * 0.58, 0.055, 0.045]
+                  : [0.045, 0.055, panelWidth * 0.58],
+                iron,
+              );
+            }
           }
         }
         add(
