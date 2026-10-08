@@ -10,8 +10,8 @@ export const CONFIG = {
   dt: 1 / 60,
   debrisGravity: 21.6,
   minSpeed: 35,
-  maxSpeed: 90,
-  boostSpeed: 120,
+  maxSpeed: 180,
+  boostSpeed: 240,
   turnSpeed: 1.05,
   pitchSpeed: 0.75,
   maxPitch: 1.12,
@@ -27,7 +27,7 @@ export const CONFIG = {
   damageRadius: 24,
   maxBodies: 256,
   maxFragments: 64,
-  maxProjectiles: 12,
+  maxProjectiles: 40,
   maxRubblePerChunk: 36,
   respawnDelay: 2,
   worldSize: WORLD_SIZE,
@@ -36,6 +36,7 @@ export const CONFIG = {
   chunkSize: CHUNK_SIZE,
 };
 export const FLY_COUNT = 6;
+export const MAX_MONSTER_SPIKES = 600;
 export const MONSTER_SCALE = 2;
 export const RAPID_FIRE_INTERVAL = 0.1;
 export const DEFAULT_MONSTER_COUNT = 120;
@@ -88,12 +89,12 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
 export const WEAPONS = {
   laser: { cooldown: 24 },
   cannon: {
-    cooldown: 0.75,
+    cooldown: 0.25,
     length: 6,
     radius: 1.6,
     gravity: 5,
     lifetime: 8,
-    launchSpeed: 140,
+    launchSpeed: 420,
   },
   nuke: {
     cooldown: 10,

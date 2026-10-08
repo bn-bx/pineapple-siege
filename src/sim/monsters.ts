@@ -2,6 +2,7 @@ import {
   CONFIG,
   DEFAULT_MONSTER_COUNT,
   MAX_MONSTER_COUNT,
+  MAX_MONSTER_SPIKES,
   MONSTER_SCALE,
   clamp,
   normalizeMonsterCount,
@@ -45,6 +46,7 @@ export class Monsters {
     this.ensureStates(
       Math.min(
         MAX_MONSTER_COUNT,
+        MAX_MONSTER_SPIKES,
         Math.max(DEFAULT_MONSTER_COUNT, saved?.length ?? 0),
       ),
       saved,
@@ -247,6 +249,7 @@ export class Monsters {
     obstacle: (a: Vec3, b: Vec3) => boolean,
     disco = false,
     planeVelocity: Vec3 = [0, 0, 0],
+    previousPlane: Vec3 = plane,
   ) {
     this.tick++;
     let swipe = false;
@@ -306,7 +309,7 @@ export class Monsters {
               v + planeVelocity[i] * lead + (i === 1 ? 6 * lead * lead : 0),
           ) as Vec3;
           const length = Math.hypot(...aim) || 1;
-          if (this.spikes.length < 600) {
+          if (this.spikes.length < MAX_MONSTER_SPIKES) {
             this.spikes.push({
               id: this.nextSpike++,
               p: origin,
@@ -357,16 +360,18 @@ export class Monsters {
       const s = this.spikes[i];
       s.age += dt;
       const next = s.p.map((v, k) => v + s.v[k] * dt) as Vec3;
-      const d = next.map((v, k) => v - s.p[k]) as Vec3;
-      const rel = s.p.map((v, k) => v - plane[k]) as Vec3;
+      const d = next.map(
+        (v, k) => v - s.p[k] - (plane[k] - previousPlane[k]),
+      ) as Vec3;
+      const rel = s.p.map((v, k) => v - previousPlane[k]) as Vec3;
       const t = clamp(
         -d.reduce((sum, v, k) => sum + v * rel[k], 0) /
           (d.reduce((sum, v) => sum + v * v, 0) || 1),
         0,
         1,
       );
-      const closest = next.map((_, k) => s.p[k] + d[k] * t) as Vec3;
-      if (!crashed && Math.hypot(...closest.map((v, k) => v - plane[k])) < 5) {
+      const closest = rel.map((v, k) => v + d[k] * t) as Vec3;
+      if (!crashed && Math.hypot(...closest) < 5) {
         swipe = true;
         this.spikes.splice(i, 1);
       } else if (

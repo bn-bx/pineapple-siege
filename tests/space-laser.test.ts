@@ -138,7 +138,7 @@ it("locks fresh aimed targets, rejects sky shots and keeps independent cooldowns
   s.input.fire = true;
   s.step();
   expect(s.projectiles[0].weapon).toBe("cannon");
-  expect(s.cooldowns.cannon).toBe(0.75);
+  expect(s.cooldowns.cannon).toBe(0.25);
   const cooldown = s.cooldowns.laser;
   s.respawn();
   expect(s.cooldowns.laser).toBe(cooldown);

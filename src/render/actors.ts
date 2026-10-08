@@ -1,3 +1,4 @@
+import { MonsterProjectileView } from "./monster-projectiles";
 import { FlyView } from "./fly";
 import * as THREE from "three";
 import {
@@ -17,11 +18,11 @@ import {
 import { ProjectileView } from "./projectiles";
 import type { ResourceDisposal } from "./resource-disposal";
 import type { TerrainView } from "./terrain-view";
-const up = new THREE.Vector3(0, 1, 0);
 export class ActorView {
   readonly flyView = new FlyView();
   readonly civilians: CivilianView;
   readonly projectileView = new ProjectileView();
+  readonly monsterProjectileView = new MonsterProjectileView();
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
   private monsterFragmentRoot = new THREE.Object3D();
   private monsterFragmentQuaternion = new THREE.Quaternion();
@@ -29,24 +30,9 @@ export class ActorView {
   private distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
   private monsterMeshes: THREE.Group[] = [];
   private distantMonsters: THREE.Group[] = [];
-  private spikeMeshes: THREE.Mesh[] = [];
-  private spikeGeometry: THREE.BufferGeometry = new THREE.ConeGeometry(
-    0.75,
-    5,
-    5,
-  );
-  private spikeMaterial = new THREE.MeshStandardMaterial({
-    color: "#596d3a",
-    roughness: 0.78,
-    side: THREE.DoubleSide,
-  });
   private previousProjectiles = new Map<
     number,
     SimulationSnapshot["projectiles"][number]
-  >();
-  private previousSpikes = new Map<
-    number,
-    SimulationSnapshot["monsterSpikes"][number]
   >();
   private previous?: SimulationSnapshot;
   private camera!: THREE.PerspectiveCamera;
@@ -64,6 +50,7 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
+      this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,
       this.monsterFragmentView.group,
@@ -85,14 +72,10 @@ export class ActorView {
     this.flyView.reset();
     this.civilians.reset();
     this.projectileView.reset();
+    this.monsterProjectileView.reset();
     this.previous = undefined;
     this.previousProjectiles.clear();
-    this.previousSpikes.clear();
-    for (const mesh of [
-      ...this.monsterMeshes,
-      ...this.distantMonsters,
-      ...this.spikeMeshes,
-    ])
+    for (const mesh of [...this.monsterMeshes, ...this.distantMonsters])
       mesh.visible = false;
     for (const view of [
       this.nearMonsterView,
@@ -117,11 +100,8 @@ export class ActorView {
     if (this.previous !== previous) {
       this.previous = previous;
       this.previousProjectiles.clear();
-      this.previousSpikes.clear();
       for (const shot of previous?.projectiles ?? [])
         this.previousProjectiles.set(shot.id, shot);
-      for (const spike of previous?.monsterSpikes ?? [])
-        this.previousSpikes.set(spike.id, spike);
     }
     this.camera = camera;
     this.renderDistance = renderDistance;
@@ -262,33 +242,11 @@ export class ActorView {
     this.monsterFragmentView.finish();
     this.nearMonsterView.finish();
     this.distantMonsterView.finish();
-    while (this.spikeMeshes.length < snap.monsterSpikes.length) {
-      const spike = new THREE.Mesh(this.spikeGeometry, this.spikeMaterial);
-      spike.scale.setScalar(MONSTER_SCALE);
-      this.spikeMeshes.push(spike);
-      this.scene.add(spike);
-    }
-    for (let i = 0; i < this.spikeMeshes.length; i++) {
-      const spike = this.spikeMeshes[i],
-        s = snap.monsterSpikes[i];
-      spike.visible = !!s;
-      if (s) {
-        const old = this.previousSpikes.get(s.id);
-        if (old)
-          spike.position.set(
-            ...(s.p.map((v, k) => THREE.MathUtils.lerp(old.p[k], v, alpha)) as [
-              number,
-              number,
-              number,
-            ]),
-          );
-        else spike.position.fromArray(s.p);
-        spike.quaternion.setFromUnitVectors(
-          up,
-          new THREE.Vector3(...s.v).normalize(),
-        );
-      }
-    }
+    this.monsterProjectileView.update(
+      snap.monsterSpikes,
+      previous?.monsterSpikes,
+      alpha,
+    );
     this.projectileView.update(
       snap.projectiles,
       this.previousProjectiles,
@@ -308,17 +266,14 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
+      this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,
       this.monsterFragmentView.group,
-      ...this.spikeMeshes,
     ]) {
       resources.collect(group);
       group.removeFromParent();
     }
-    resources.geometries.add(this.spikeGeometry);
-    resources.materials.add(this.spikeMaterial);
-    this.spikeMeshes.length = 0;
     this.monsterMeshes.length = 0;
     this.distantMonsters.length = 0;
   }

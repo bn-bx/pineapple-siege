@@ -383,7 +383,8 @@ export class Simulation {
   };
   private nextBody = 100000;
   private nextShot = 1;
-  private throttle = 0.48;
+  private throttle =
+    (62 - CONFIG.minSpeed) / (CONFIG.maxSpeed - CONFIG.minSpeed);
   private changedRemoved: number[] = [];
   private changedSettled: Ruin[] = [];
   private changedRubbleRemoved: number[] = [];
@@ -1794,7 +1795,8 @@ export class Simulation {
       crashed: 0,
       boundary: false,
     });
-    this.throttle = 0.48;
+    this.throttle =
+      (62 - CONFIG.minSpeed) / (CONFIG.maxSpeed - CONFIG.minSpeed);
     this.input.fire = false;
   }
   private laserPlaneHit(from: Vec3, to: Vec3): Vec3 | null {
@@ -1862,11 +1864,12 @@ export class Simulation {
     );
     let turn = clamp(this.input.x + this.input.bank * 0.8, -1, 1),
       pitch = clamp(this.input.y, -1, 1);
+    const boundaryMargin = Math.max(200, p.speed / CONFIG.turnSpeed + 50);
     p.boundary =
-      p.p[0] < 200 ||
-      p.p[0] > CONFIG.worldSize - 200 ||
-      p.p[2] < 200 ||
-      p.p[2] > CONFIG.worldSize - 200;
+      p.p[0] < boundaryMargin ||
+      p.p[0] > CONFIG.worldSize - boundaryMargin ||
+      p.p[2] < boundaryMargin ||
+      p.p[2] > CONFIG.worldSize - boundaryMargin;
     if (p.boundary) {
       let desired = Math.atan2(
           CONFIG.worldSize / 2 - p.p[0],
@@ -2367,6 +2370,7 @@ export class Simulation {
       this.blockedMonster,
       discoActive(this.lasers),
       this.plane.v,
+      wasCrashed ? this.plane.p : previousPlanePosition,
     );
     this.stageMS.monsters = performance.now() - monstersStarted;
     for (const p of this.monsters.throws)

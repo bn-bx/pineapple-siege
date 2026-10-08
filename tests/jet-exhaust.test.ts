@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { makeJet } from "../src/render/assets";
+import { CONFIG } from "../src/config";
 import { jetExhaustProfile } from "../src/render/jet-exhaust";
 
 describe("jet exhaust", () => {
@@ -14,11 +15,18 @@ describe("jet exhaust", () => {
   });
 
   it("keeps the hot core shorter and all emission bounded", () => {
-    const profile = jetExhaustProfile(120, Math.PI / 2);
+    const profile = jetExhaustProfile(CONFIG.boostSpeed, Math.PI / 2);
     expect(profile.coreLength).toBeLessThan(profile.outerLength);
     expect(profile.outerOpacity).toBeLessThanOrEqual(0.821);
     expect(profile.coreOpacity).toBeLessThanOrEqual(0.931);
     expect(jetExhaustProfile(1_000, 0).outerLength).toBeLessThan(1.8);
+  });
+
+  it("keeps normal full throttle visually distinct from boost", () => {
+    const normal = jetExhaustProfile(CONFIG.maxSpeed, 0);
+    const boost = jetExhaustProfile(CONFIG.boostSpeed, 0);
+    expect(boost.outerLength).toBeGreaterThan(normal.outerLength);
+    expect(boost.coreOpacity).toBeGreaterThan(normal.coreOpacity);
   });
 
   it("uses a small repeatable pulse instead of a hard speed threshold", () => {
@@ -68,7 +76,10 @@ describe("jet exhaust", () => {
     expect(left.position.x).toBeLessThan(0);
     expect(right.position.x).toBeGreaterThan(0);
     jet.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
+      if (
+        object instanceof THREE.Mesh ||
+        object instanceof THREE.LineSegments
+      ) {
         object.geometry.dispose();
         const { material } = object;
         if (Array.isArray(material))
@@ -84,9 +95,7 @@ describe("jet exhaust", () => {
       display = cockpit?.getObjectByName("multifunction-display") as
         | THREE.Mesh
         | undefined,
-      hud = cockpit?.getObjectByName("hud-combiner") as
-        | THREE.Mesh
-        | undefined,
+      hud = cockpit?.getObjectByName("hud-combiner") as THREE.Mesh | undefined,
       bezels = cockpit?.getObjectByName("flight-instrument-bezels") as
         | THREE.Mesh
         | undefined;
@@ -95,7 +104,10 @@ describe("jet exhaust", () => {
     expect(cockpit?.getObjectByName("pilot-harness")).toBeDefined();
     expect(cockpit?.getObjectByName("side-consoles")).toBeDefined();
     expect(display?.material).toMatchObject({ transparent: true });
-    expect(hud?.material).toMatchObject({ transparent: true, depthWrite: false });
+    expect(hud?.material).toMatchObject({
+      transparent: true,
+      depthWrite: false,
+    });
     expect(display?.position.y).toBeGreaterThan(0.8);
     expect(hud?.position.y).toBeGreaterThan(display?.position.y ?? 0);
     expect(bezels?.geometry.getAttribute("position").count).toBeGreaterThan(80);

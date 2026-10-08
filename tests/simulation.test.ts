@@ -130,7 +130,7 @@ describe("flight and collision", () => {
     sim.plane.p = [world.castle[0] - 45, 18, world.castleBounds.min[1] - 15];
     sim.plane.yaw = 0;
     sim.plane.pitch = 0;
-    sim.plane.speed = 120;
+    sim.plane.speed = CONFIG.boostSpeed;
     sim.input.boost = true;
     for (let n = 0; n < 20 && sim.plane.crashed === 0; n++) sim.step();
     expect(sim.plane.crashed).toBeGreaterThan(0);

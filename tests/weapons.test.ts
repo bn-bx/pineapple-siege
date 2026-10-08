@@ -6,7 +6,9 @@ import { pointerSteering } from "../src/input";
 import { NUKE_PROFILES } from "../src/config";
 import { compatible } from "../src/storage";
 import type { WorldData, NukeYield } from "../src/types";
-const world: WorldData = JSON.parse(readFileSync("tests/fixtures/legacy-world/world.json", "utf8"));
+const world: WorldData = JSON.parse(
+  readFileSync("tests/fixtures/legacy-world/world.json", "utf8"),
+);
 const b = readFileSync("tests/fixtures/legacy-world/world.bin"),
   base = new Float32Array(
     b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
@@ -191,13 +193,13 @@ it("sweeps a falling nuke into the river and retains its released yield", () => 
   s.dispose();
 });
 
-it("fires three normal cannon rounds in 1.7 seconds with the faster cooldown", () => {
+it("fires seven normal cannon rounds in 1.7 seconds with the faster cooldown", () => {
   const s = sim();
   s.setMonsterCount(0);
   s.plane.p = [1024, 700, 650];
   s.input.fire = true;
   for (let i = 0; i < 102; i++) s.step();
-  expect(s.snapshot().stats.shots).toBe(3);
-  expect(s.projectiles).toHaveLength(3);
+  expect(s.snapshot().stats.shots).toBe(7);
+  expect(s.projectiles).toHaveLength(7);
   s.dispose();
 });
