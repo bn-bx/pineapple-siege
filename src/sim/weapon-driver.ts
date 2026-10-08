@@ -1,3 +1,4 @@
+import type { Flies } from "./flies";
 import { CONFIG, RAPID_FIRE_INTERVAL, WEAPONS } from "../config";
 import { nukeProfile } from "../destruction-settings";
 import type {
@@ -52,6 +53,7 @@ export interface WeaponDriverContext {
     radius?: number,
     halfLength?: number,
   ) => Vec3 | null;
+  flies?: Flies;
   monsters: Monsters;
   detonateNuke: (
     p: Vec3,
@@ -116,6 +118,13 @@ export class WeaponDriver {
           WEAPONS[s.weapon].radius,
           WEAPONS[s.weapon].length / 2,
         );
+      const flyHit = this.host.flies?.intersect(
+        s.p,
+        next,
+        WEAPONS[s.weapon].radius,
+      );
+      if (flyHit && (!hit || distance(s.p, flyHit.p) < distance(s.p, hit)))
+        hit = flyHit.p;
       const monsterHit = this.host.monsters.intersect(
         s.p,
         next,

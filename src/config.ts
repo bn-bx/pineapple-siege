@@ -35,6 +35,7 @@ export const CONFIG = {
   spacing: TERRAIN_SPACING,
   chunkSize: CHUNK_SIZE,
 };
+export const FLY_COUNT = 6;
 export const MONSTER_SCALE = 2;
 export const RAPID_FIRE_INTERVAL = 0.1;
 export const DEFAULT_MONSTER_COUNT = 120;

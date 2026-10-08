@@ -1,5 +1,5 @@
 {
-  "release": "crt-filter-2026-10-07",
+  "release": "giant-flies-2026-10-08",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
   "preferenceRevision": 5,
@@ -8,6 +8,7 @@
     "procedural-islands-local-saves",
     "shared-materials-simple-water",
     "session-renderer-simulation-modules",
-    "crt-presets-photo-export"
+    "crt-presets-photo-export",
+    "giant-fly-airborne-combat"
   ]
 }

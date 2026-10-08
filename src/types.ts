@@ -84,6 +84,20 @@ export interface MonsterState {
   windup: number;
   stagger: number;
 }
+export interface FlyState {
+  id: number;
+  p: Vec3;
+  v: Vec3;
+  yaw: number;
+  pitch: number;
+  roll: number;
+  health: number;
+  defeated: boolean;
+  mode: "roam" | "chase" | "windup" | "lunge" | "recovery";
+  timer: number;
+  deathAge: number;
+  phase: number;
+}
 export interface MonsterSpike {
   id: number;
   age: number;
@@ -301,6 +315,7 @@ export interface SimulationSnapshot {
   population: CivilianPopulation;
   civilians: CivilianState[];
   settlements: SettlementState[];
+  flies?: FlyState[];
   monsters: MonsterState[];
   monsterSpikes: MonsterSpike[];
   monsterCount: number;
@@ -387,6 +402,7 @@ export interface SaveSnapshot {
   vaporized: number[];
   civilians?: CivilianState[];
   settlements?: SettlementState[];
+  flies?: FlyState[];
   monsters?: MonsterState[];
 }
 export type GameCommand =

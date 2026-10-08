@@ -489,6 +489,29 @@ export function compatible(
         ))) &&
     Array.isArray(s.vaporized) &&
     s.vaporized.every(Number.isInteger) &&
+    (s.flies === undefined ||
+      (Array.isArray(s.flies) &&
+        s.flies.length === 6 &&
+        s.flies.every(
+          (f, id) =>
+            f &&
+            f.id === id &&
+            validPoint(f.p) &&
+            Array.isArray(f.v) &&
+            f.v.length === 3 &&
+            f.v.every(Number.isFinite) &&
+            [f.yaw, f.pitch, f.roll, f.timer, f.deathAge, f.phase].every(
+              Number.isFinite,
+            ) &&
+            Number.isInteger(f.health) &&
+            f.health >= 0 &&
+            f.health <= 3 &&
+            typeof f.defeated === "boolean" &&
+            f.defeated === (f.health === 0) &&
+            f.timer >= 0 &&
+            f.deathAge >= 0 &&
+            ["roam", "chase", "windup", "lunge", "recovery"].includes(f.mode),
+        ))) &&
     (s.monsters === undefined ||
       (Array.isArray(s.monsters) &&
         s.monsters.length <= MAX_MONSTER_COUNT &&

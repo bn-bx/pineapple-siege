@@ -1,3 +1,4 @@
+import { Flies } from "./flies";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { civilianPopulation } from "../civilian-morale";
 import {
@@ -154,6 +155,9 @@ export class Simulation {
       get monsters() {
         return sim.monsters;
       },
+      get flies() {
+        return sim.flies;
+      },
       detonateNuke: (...args) => sim.detonateNuke(...args),
       explode: (...args) => sim.explode(...args),
     });
@@ -178,6 +182,7 @@ export class Simulation {
     this.emit({ type: "contactSound", p: [...p], material, energy, action });
   }
   readonly terrain: Terrain;
+  readonly flies: Flies;
   readonly monsters: Monsters;
   get monsterCount() {
     return this.monsters.count;
@@ -482,6 +487,7 @@ export class Simulation {
       if (!this.streamedStatics && !this.removed.has(e.id))
         this.addEntityCollider(e);
     }
+    this.flies = new Flies(world, this.terrain, this.removed, save?.flies);
     for (const r of this.ruins.values())
       if (!this.streamedStatics) this.addRuinCollider(r);
     this.ensureTerrain();
@@ -1762,6 +1768,7 @@ export class Simulation {
       : null;
   }
   respawn() {
+    this.flies.protect();
     let p: Vec3 = [...this.world.spawn];
     p[1] = Math.max(p[1], this.terrain.sample(p[0], p[2]) + 65);
     for (let i = 0; i < 8; i++) {
@@ -1992,6 +1999,14 @@ export class Simulation {
     amount: number,
     laserColumn = false,
   ) {
+    for (const f of this.flies.damage(p, radius, amount, laserColumn)) {
+      this.bump();
+      this.emit({
+        type: "monsterEvent",
+        p: [...f.p],
+        kind: f.defeated ? "defeat" : "hit",
+      });
+    }
     const before = this.monsters.active();
     this.civilians.blast(p, radius, laserColumn);
     for (const m of laserColumn
@@ -2026,11 +2041,16 @@ export class Simulation {
     if (length <= 0) return null;
     const b = a.map((v, i) => v + f[i] * length) as Vec3;
     const worldHit = this.sweep(a, b, 0);
+    const flyHit = this.flies.intersect(a, b);
     const monsterHit = this.monsters.intersect(a, b);
+    const nearestWorld =
+      flyHit && (!worldHit || distance(a, flyHit.p) < distance(a, worldHit))
+        ? flyHit.p
+        : worldHit;
     return monsterHit &&
-      (!worldHit || distance(a, monsterHit.p) < distance(a, worldHit))
+      (!nearestWorld || distance(a, monsterHit.p) < distance(a, nearestWorld))
       ? monsterHit.p
-      : worldHit;
+      : nearestWorld;
   }
   startLaser(p: Vec3) {
     if (
@@ -2303,6 +2323,9 @@ export class Simulation {
     for (let t = 0; t < tuning.lifetime; t += 0.16) {
       let b = a.map((x, i) => x + v[i] * 0.16) as Vec3;
       let hit = this.sweep(a, b, tuning.radius, tuning.length / 2);
+      const flyHit = this.flies.intersect(a, b, tuning.radius);
+      if (flyHit && (!hit || distance(a, flyHit.p) < distance(a, hit)))
+        hit = flyHit.p;
       const monsterHit = this.monsters.intersect(a, b, tuning.radius);
       if (monsterHit && (!hit || distance(a, monsterHit.p) < distance(a, hit)))
         hit = monsterHit.p;
@@ -2375,6 +2398,19 @@ export class Simulation {
       this.plane.crashed = CONFIG.respawnDelay;
       this.explode(this.plane.p, 0.65, "crash");
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
+    }
+    const flyHit = this.flies.step(
+      dt,
+      wasCrashed ? this.plane.p : previousPlanePosition,
+      this.plane.p,
+      this.plane.v,
+      wasCrashed || this.plane.crashed > 0,
+      (a, b, radius) => this.sweep(a, b, radius),
+    );
+    if (flyHit && this.plane.crashed <= 0) {
+      this.plane.p = flyHit;
+      this.plane.crashed = CONFIG.respawnDelay;
+      this.explode(flyHit, 0.65, "crash");
     }
     if (this.tick % 60 === 0 && this.monsterCount) this.bump();
     const lasersStarted = performance.now();
@@ -2513,6 +2549,7 @@ export class Simulation {
           })),
       civilians: packed ? [] : structuredClone(this.civilians.states),
       settlements: structuredClone(this.civilians.settlements),
+      flies: structuredClone(this.flies.states),
       monsters: packed
         ? []
         : structuredClone(this.monsters.states.slice(0, this.monsterCount)),
@@ -2633,6 +2670,7 @@ export class Simulation {
       })),
       civilians: this.civilians.states.map((c) => ({ ...c, p: [...c.p] })),
       settlements: this.civilians.settlements.map((s) => ({ ...s })),
+      flies: structuredClone(this.flies.states),
       monsters: this.monsters.states.map((m) => ({
         ...m,
         p: [...m.p],
@@ -2812,6 +2850,7 @@ export class Simulation {
       vaporized: [...this.vaporized],
       civilians: structuredClone(this.civilians.states),
       settlements: structuredClone(this.civilians.settlements),
+      flies: structuredClone(this.flies.states),
       monsters: structuredClone(this.monsters.states),
     };
   }

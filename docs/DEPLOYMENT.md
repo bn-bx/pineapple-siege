@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`crt-filter-2026-10-07` adds saved Off / Subtle / Retro TV presets with visible raster scanlines, phosphor glow, and rounded screen curvature. World version 8 and save compatibility 9 remain unchanged; preference revision is 5. See [CRT verification](CRT_QA.md) for visual, browser, and local timing checks, and [simplification verification](SIMPLIFICATION_QA.md) for remaining performance gates.
+`giant-flies-2026-10-08` adds six giant houseflies that roam, chase, and ram the jet. Their animated models are about three times the jet's size. Cannon, nuclear, and laser damage can defeat them; saves retain their health and defeats. Older saves spawn six flies automatically. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

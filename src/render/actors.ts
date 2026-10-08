@@ -1,3 +1,4 @@
+import { FlyView } from "./fly";
 import * as THREE from "three";
 import {
   DEFAULT_MONSTER_COUNT,
@@ -18,6 +19,7 @@ import type { ResourceDisposal } from "./resource-disposal";
 import type { TerrainView } from "./terrain-view";
 const up = new THREE.Vector3(0, 1, 0);
 export class ActorView {
+  readonly flyView = new FlyView();
   readonly civilians: CivilianView;
   readonly projectileView = new ProjectileView();
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
@@ -59,6 +61,7 @@ export class ActorView {
   ) {
     this.civilians = new CivilianView(world.civilians?.length ?? 0);
     this.scene.add(
+      this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
       this.nearMonsterView.group,
@@ -79,6 +82,7 @@ export class ActorView {
     }
   }
   reset() {
+    this.flyView.reset();
     this.civilians.reset();
     this.projectileView.reset();
     this.previous = undefined;
@@ -132,6 +136,7 @@ export class ActorView {
       this.camera,
       (x, z) => this.terrain.sample(x, z),
     );
+    this.flyView.update(snap, previous, alpha, camera.position, renderDistance);
     this.ensureMonsterMeshes(snap.monsters.length);
     this.monsterFragmentView.begin();
     this.nearMonsterView.begin();
@@ -300,6 +305,7 @@ export class ActorView {
   dispose(resources: ResourceDisposal) {
     this.reset();
     for (const group of [
+      this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
       this.nearMonsterView.group,
