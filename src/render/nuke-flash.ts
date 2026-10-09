@@ -31,8 +31,8 @@ export class NukeFlash {
     const height = e.profile?.cloudHeight ?? 120;
     this.pulses.push({
       age: 0,
-      duration: THREE.MathUtils.clamp(4.5 + height / 200, 5.1, 8),
-      hold: THREE.MathUtils.clamp(0.35 + height / 1200, 0.45, 0.9),
+      duration: THREE.MathUtils.clamp(1.8 + height * 0.003, 2.16, 3),
+      hold: 0.8 * THREE.MathUtils.clamp(0.35 + height / 1200, 0.45, 0.9),
     });
     if (this.pulses.length > 8) this.pulses.shift();
   }
