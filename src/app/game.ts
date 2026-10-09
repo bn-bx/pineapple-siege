@@ -28,6 +28,8 @@ import * as input_controller from "./input-controller";
 import * as island_coordinator from "./island-coordinator";
 import * as save_coordinator from "./save-coordinator";
 import * as settings from "./settings";
+import { bindMenu } from "./menu";
+const menu = bindMenu();
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("world"),
@@ -145,6 +147,7 @@ function pause() {
   send({ type: "pause", paused: true });
   audio.pause();
   if (everEntered) {
+    const openingMenu = $("overlay").hidden;
     $("overlay").hidden = false;
     $("flightHUD").hidden = true;
     $("pauseButton").hidden = true;
@@ -153,6 +156,7 @@ function pause() {
       ? "World changes are saved in this browser."
       : "World changes are not being saved.";
     $("enterLabel").textContent = "Resume";
+    if (openingMenu) menu.home();
     $("newWorld").hidden = false;
     $<HTMLInputElement>("time").value = String(snapshot?.hour || 15.5);
     saveNow();
@@ -407,6 +411,7 @@ $("pauseButton").onclick = pause;
 document.querySelector(".brand")!.addEventListener("click", (e) => {
   e.preventDefault();
   pause();
+  menu.home();
 });
 $("newWorld").onclick = () => void newIsland();
 $("createIsland").onclick = () => void newIsland();

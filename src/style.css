@@ -90,80 +90,6 @@ header {
   padding-left: 12px;
   color: #efefcba0;
 }
-#overlay {
-  position: fixed;
-  inset: 0;
-  overflow-y: auto;
-  background: #10282ff5;
-  z-index: 4;
-  padding: 82px 4vw 32px;
-  scrollbar-width: thin;
-}
-.menu {
-  width: 100%;
-  max-width: 1680px;
-  margin: 0 auto;
-}
-.menu-heading,
-.settings-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-}
-.menu-heading .actions {
-  display: flex;
-  gap: 12px;
-}
-.menu-heading .primary {
-  min-width: 200px;
-  gap: 24px;
-}
-.menu h1 {
-  font-size: clamp(32px, 3vw, 48px);
-  letter-spacing: -1px;
-  line-height: 1.1;
-  margin: 0;
-}
-.menu .intro {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.menu .controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  margin: 20px 0;
-  padding: 14px 0;
-}
-.settings-heading {
-  margin-bottom: 16px;
-}
-.settings-heading h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 500;
-}
-#settings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: "flight graphics" "audio world";
-  gap: 16px;
-  align-items: start;
-}
-.settings-flight {
-  grid-area: flight;
-}
-.settings-graphics {
-  grid-area: graphics;
-}
-.settings-audio {
-  grid-area: audio;
-}
-.settings-world {
-  grid-area: world;
-}
 .eyebrow {
   color: #edc472;
   font-size: 10px;
@@ -596,31 +522,6 @@ dialog > div {
   width: 100%;
 }
 
-.settings-section {
-  border: 1px solid #ffffff20;
-  border-radius: 6px;
-  padding: 20px;
-  background: #19343ac4;
-  min-width: 0;
-}
-.settings-section .settings-grid {
-  margin-top: 20px;
-  grid-template-columns: 1fr;
-  font-size: 13px;
-  gap: 20px;
-}
-.settings-grid label {
-  min-width: 0;
-}
-.settings-grid .check {
-  gap: 12px;
-}
-.settings-grid .check input {
-  flex-shrink: 0;
-}
-.settings-grid button {
-  align-self: end;
-}
 #saveStatus {
   transition: opacity 0.4s;
 }
@@ -723,24 +624,6 @@ body.photo #perf {
   }
   .telemetry strong {
     font-size: 22px;
-  }
-  #overlay {
-    padding: 72px 20px 32px;
-  }
-  .menu-heading {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .menu-heading .actions {
-    flex-wrap: wrap;
-  }
-  .settings-heading {
-    gap: 12px;
-  }
-  #settings {
-    grid-template-columns: 1fr;
-    grid-template-areas: "flight" "graphics" "audio" "world";
   }
 }
 
@@ -1055,25 +938,6 @@ body.cinematic #ceilingWarning {
   display: none;
 }
 
-/* Stable menu geometry keeps scrolling titles below the fixed identity bar. */
-body:has(#overlay:not([hidden])) header {
-  background: #102024f5;
-  inset: 0 0 auto;
-  padding: 20px 30px;
-  min-height: 76px;
-  border-bottom: 1px solid #d9c49326;
-}
-#overlay {
-  padding-top: 102px;
-  background:
-    radial-gradient(ellipse at 90% 0%, #34464b70, transparent 55%), #102024f5;
-}
-.menu-heading h1,
-.menu-heading h2 {
-  font-family: Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.035em;
-}
 button,
 input,
 select {
@@ -1097,14 +961,6 @@ select:focus-visible {
   background: #15252eef;
   border: 1px solid #ffd08390;
 }
-@media (max-width: 650px) {
-  body:has(#overlay:not([hidden])) header {
-    padding: 16px 20px;
-  }
-  #overlay {
-    padding-top: 100px;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   button,
   input,
@@ -1113,41 +969,327 @@ select:focus-visible {
   }
 }
 
-/* Native disclosures keep settings usable with keyboard, mouse, and touch. */
-.settings-section {
-  margin-top: 0;
+/* Focused menu surfaces. Gameplay HUD and photo controls keep their own styles. */
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  overflow-y: auto;
+  padding: max(100px, 12vh) 24px 32px;
+  background: linear-gradient(90deg, #0d1c24b8, #0d1c2450);
+  scrollbar-width: thin;
 }
-.settings-section summary {
-  cursor: pointer;
-  font-size: 16px;
-  letter-spacing: 0;
+body:has(#overlay:not([hidden])) header {
+  inset: 0 0 auto;
+  padding: 20px 30px;
+  min-height: 76px;
+  background: #101e26e6;
+  border-bottom: 1px solid #ffffff12;
+}
+#menuHome,
+.menu-view {
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px;
+  border: 1px solid #ffffff20;
+  border-radius: 16px;
+  background: #14242cf2;
+  box-shadow: 0 16px 60px #0003;
+}
+#menuHome {
+  max-width: 440px;
+}
+.menu-view {
+  max-width: 900px;
+}
+.help-view {
+  max-width: 600px;
+}
+#overlay h1,
+#overlay h2,
+#overlay h3,
+dialog h2,
+#fatal h2 {
+  font-family: inherit;
+  letter-spacing: -0.035em;
   font-weight: 600;
-  color: #f0cd7b;
-  padding: 8px 0;
+  line-height: 1.2;
 }
-.settings-section > summary::after,
-.advanced > summary::after {
-  content: "+";
-  font-size: 20px;
-  margin-left: 12px;
+#overlay h1 {
+  font-size: clamp(28px, 4vw, 36px);
+  margin: 0;
 }
-.settings-section[open] > summary::after,
-.advanced[open] > summary::after {
-  content: "−";
+#overlay h2 {
+  font-size: 26px;
+  margin: 0;
 }
-.settings-section:not([open]) {
-  padding-bottom: 8px;
+#overlay h3 {
+  font-size: 18px;
+  margin: 0 0 24px;
 }
-.advanced {
-  grid-column: 1 / -1;
+#overlay .intro,
+.help-intro,
+.help-note {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #b8c6cc;
+  margin: 12px 0 28px;
 }
-.advanced summary {
-  font-size: 12px;
+.menu-heading .actions {
+  display: grid;
+  gap: 10px;
+}
+#overlay button,
+dialog button,
+#fatal button {
+  min-height: 44px;
+  border: 1px solid #ffffff26;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  letter-spacing: 0;
+  color: #e6edf0;
+  background: #ffffff06;
+}
+#overlay button:hover,
+dialog button:hover {
+  background: #ffffff10;
+}
+#overlay .primary,
+dialog .primary,
+#fatal .primary {
+  background: #edc777;
+  border-color: #edc777;
+  color: #19252b;
+  font-weight: 600;
+}
+#overlay .primary:hover,
+dialog .primary:hover {
+  background: #f4d698;
+}
+#enter {
+  width: 100%;
+  min-height: 52px;
+}
+#overlay .danger,
+dialog .danger {
+  color: #edc777;
+  border-color: #edc77766;
+}
+.home-links {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+.home-links button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home-links span {
+  color: #9aacb4;
+}
+#overlay .menu-back {
+  border: 0;
+  padding-left: 0;
+  margin: -8px 0 20px;
+  color: #b8c6cc;
+}
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 28px;
+}
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-tabs button {
+  text-align: left;
+}
+#overlay .settings-tabs [aria-selected="true"] {
+  background: #edc77716;
+  border-color: #edc77760;
+  color: #edc777;
+}
+#settings {
+  min-width: 0;
+}
+.settings-section {
+  min-width: 0;
+  padding: 4px 0 0 28px;
+  border-left: 1px solid #ffffff16;
+}
+.settings-section .settings-grid {
+  grid-template-columns: 1fr;
+  margin-top: 0;
+  gap: 20px;
+  font-size: 14px;
+}
+.settings-grid .check,
+.rapid-fire {
+  gap: 12px;
+  min-height: 44px;
 }
 .rapid-fire {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  font-size: 14px;
   margin-bottom: 20px;
-  font-size: 13px;
+}
+#overlay select,
+#overlay input:not([type="checkbox"]),
+dialog input {
+  min-height: 44px;
+}
+#overlay select,
+.island-sharing input,
+.island-seed-form input {
+  border: 1px solid #ffffff30;
+  border-radius: 8px;
+  background: #101e26;
+  color: #e6edf0;
+  font-size: 14px;
+}
+#overlay input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+#overlay label.check {
+  cursor: pointer;
+}
+#overlay .advanced {
+  margin-top: 0;
+}
+#overlay .advanced summary {
+  min-height: 44px;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+#overlay .advanced summary::after {
+  content: "+";
+}
+#overlay .advanced[open] summary::after {
+  content: "−";
+}
+#overlay .controls {
+  margin: 0;
+  padding: 20px 0;
+  grid-template-columns: 1fr;
+  font-size: 14px;
+}
+#overlay .controls span {
+  justify-content: space-between;
+}
+#overlay kbd {
+  font-size: 11px;
+  padding: 8px;
+  min-width: 130px;
+}
+#overlay .controls .touch-help {
+  display: block;
+  line-height: 1.6;
+  color: #b8c6cc;
+}
+.help-note {
+  margin: 20px 0 0;
+}
+.menu-footer {
+  max-width: 900px;
+  margin: 20px auto 0;
+  text-align: center;
+}
+#overlay[data-view="home"] .menu-footer {
+  max-width: 440px;
+}
+#status {
+  color: #c1ccd1;
+  margin: 10px 0 0;
+}
+.asset-credits {
+  margin: 0;
+  font-size: 12px;
+}
+.asset-credits a {
+  color: #a6b6be;
+}
+dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  background: #14242c;
+  color: #e6edf0;
+  padding: 28px;
+}
+dialog::backdrop {
+  background: #0b1726b8;
+  backdrop-filter: none;
+}
+dialog h2,
+#fatal h2 {
+  font-size: 26px;
+}
+dialog > div {
+  flex-wrap: wrap;
+}
+dialog p:not(.eyebrow) {
+  color: #b8c6cc;
+}
+#fatal > div {
+  background: #14242c;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  width: calc(100% - 32px);
+}
+#islandPreview .island-preview-actions {
+  background: #14242c;
+}
+@media (max-width: 650px) {
+  body:has(#overlay:not([hidden])) header {
+    padding: 16px 20px;
+  }
+  #overlay {
+    padding: 96px 16px 24px;
+  }
+  #menuHome,
+  .menu-view {
+    padding: 24px;
+  }
+  .settings-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .settings-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .settings-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  #overlay .settings-tabs button {
+    flex: 1 0 40%;
+    text-align: center;
+  }
+  .settings-section {
+    padding: 20px 0 0;
+    border-left: 0;
+    border-top: 1px solid #ffffff16;
+  }
+  #overlay .controls span {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }

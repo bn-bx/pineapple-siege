@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`faster-combat-2026-10-08` raises cannon launch speed to 420 m/s plus aircraft speed, reduces its cooldown to 0.25 seconds, and raises jet top speeds to 180 m/s normally and 240 m/s with boost. Enemy spikes now have bright orange shells, pale cores, and short luminous tails rendered in three shared batches. Aircraft boundary assistance accounts for speed, and enemy-shot collisions account for jet movement. The six giant flies remain included. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`focused-menu-2026-10-09` replaces the long menu with a focused Play/Resume screen, category-based Settings, and optional Controls help. The island remains visible behind translucent panels. Menu dialogs share the minimal styling; keyboard navigation, focus restoration, and mobile layouts are supported. Existing island replacement/reset confirmations and settings persistence remain intact. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

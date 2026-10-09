@@ -25,7 +25,7 @@
       </div>
     </header>
     <main id="overlay">
-      <section class="menu">
+      <section class="menu" id="menuHome" aria-labelledby="title">
         <div class="menu-heading">
           <div>
             <h1 id="title">Pineapple Siege</h1>
@@ -39,8 +39,255 @@
             ><button class="secondary" id="newWorld" hidden>New island</button>
           </div>
         </div>
+        <nav class="home-links" aria-label="Menu">
+          <button id="openSettings">
+            Settings <span aria-hidden="true">→</span>
+          </button>
+          <button id="openControls">
+            Controls <span aria-hidden="true">→</span>
+          </button>
+        </nav>
+      </section>
+      <section
+        id="menuSettings"
+        class="menu-view"
+        hidden
+        aria-labelledby="settingsTitle"
+      >
+        <button class="menu-back" id="backFromSettings">← Back to menu</button>
+        <div class="settings-heading">
+          <h2 id="settingsTitle" tabindex="-1">Settings</h2>
+          <button id="defaultSettings" class="secondary" type="button" disabled>
+            Reset settings to defaults
+          </button>
+        </div>
+        <div class="settings-layout">
+          <nav
+            class="settings-tabs"
+            role="tablist"
+            aria-label="Settings categories"
+            aria-orientation="vertical"
+          >
+            <button
+              id="tab-flight"
+              role="tab"
+              aria-controls="panel-flight"
+              aria-selected="true"
+            >
+              Controls
+            </button>
+            <button
+              id="tab-graphics"
+              role="tab"
+              aria-controls="panel-graphics"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Graphics
+            </button>
+            <button
+              id="tab-audio"
+              role="tab"
+              aria-controls="panel-audio"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              Audio
+            </button>
+            <button
+              id="tab-world"
+              role="tab"
+              aria-controls="panel-world"
+              aria-selected="false"
+              tabindex="-1"
+            >
+              World
+            </button>
+          </nav>
+          <div id="settings">
+            <section
+              class="settings-section settings-flight"
+              id="panel-flight"
+              role="tabpanel"
+              aria-labelledby="tab-flight"
+              tabindex="0"
+            >
+              <h3 id="heading-flight">Controls</h3>
+              <label class="check rapid-fire"
+                >Rapid fire · 0.1 sec<input id="noCooldown" type="checkbox"
+              /></label>
+
+              <div class="settings-grid">
+                <label
+                  >Steering sensitivity<input
+                    id="sensitivity"
+                    type="range"
+                    min="0.3"
+                    max="2.5"
+                    step="0.1"
+                    value="1"
+                /></label>
+                <label class="check"
+                  >Reverse horizontal steering<input
+                    id="reverseX"
+                    type="checkbox"
+                /></label>
+                <label class="check"
+                  >Reverse vertical steering<input id="invert" type="checkbox"
+                /></label>
+                <label class="check"
+                  >Reduce camera shake<input id="reduceShake" type="checkbox"
+                /></label>
+              </div>
+            </section>
+            <section
+              class="settings-section settings-graphics"
+              id="panel-graphics"
+              role="tabpanel"
+              aria-labelledby="tab-graphics"
+              tabindex="0"
+              hidden
+            >
+              <h3 id="heading-graphics">Graphics</h3>
+              <div class="settings-grid">
+                <label
+                  >Render quality<select id="quality">
+                    <option value="auto">Auto</option>
+                    <option value="720">Balanced · 720p</option>
+                    <option value="1080">High · 1080p</option>
+                    <option value="1440">Ultra · 1440p</option>
+                  </select></label
+                >
+                <label
+                  >CRT filter<select id="crtMode">
+                    <option value="off">Off</option>
+                    <option value="subtle" selected>Subtle</option>
+                    <option value="retro">Retro TV</option>
+                  </select></label
+                >
+                <label
+                  >Detail distance
+                  <output id="renderDistanceValue" for="renderDistance"
+                    >1,200 m</output
+                  >
+                  <input
+                    id="renderDistance"
+                    type="range"
+                    min="600"
+                    max="3000"
+                    step="100"
+                    value="1200"
+                    aria-describedby="renderDistanceHelp"
+                  />
+                  <small id="renderDistanceHelp"
+                    >The whole island stays visible. Higher distances add more
+                    nearby detail and may reduce FPS.</small
+                  >
+                </label>
+                <label class="check"
+                  >Reduce effects<input id="reduceEffects" type="checkbox"
+                /></label>
+                <details class="advanced">
+                  <summary>Advanced</summary>
+                  <label class="check"
+                    >Show performance<input id="showPerf" type="checkbox"
+                  /></label>
+                </details>
+              </div>
+            </section>
+            <section
+              class="settings-section settings-audio"
+              id="panel-audio"
+              role="tabpanel"
+              aria-labelledby="tab-audio"
+              tabindex="0"
+              hidden
+            >
+              <h3 id="heading-audio">Audio</h3>
+              <div class="settings-grid">
+                <label
+                  >Sound volume<input
+                    id="volume"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="0.35"
+                /></label>
+                <label class="check"
+                  >Mute<input id="mute" type="checkbox"
+                /></label>
+              </div>
+            </section>
+            <section
+              class="settings-section settings-world"
+              id="panel-world"
+              role="tabpanel"
+              aria-labelledby="tab-world"
+              tabindex="0"
+              hidden
+            >
+              <h3 id="heading-world">World</h3>
+              <div class="island-sharing">
+                <label
+                  >Island seed<input
+                    id="currentSeed"
+                    readonly
+                    aria-label="Current island seed"
+                /></label>
+                <div>
+                  <button id="copySeed">Copy seed</button
+                  ><button id="copyIslandLink">Copy island link</button>
+                </div>
+                <input
+                  id="shareFallback"
+                  readonly
+                  hidden
+                  aria-label="Select and copy this island code or link"
+                />
+                <p id="islandShareStatus" role="status"></p>
+                <button id="createIsland" class="primary">New island</button>
+              </div>
+              <div class="settings-grid">
+                <label
+                  >Pineapple monsters
+                  <output id="monsterCountValue" for="monsterCount">120</output
+                  ><input
+                    id="monsterCount"
+                    type="range"
+                    min="0"
+                    max="400"
+                    step="1"
+                    value="120"
+                /></label>
+                <label
+                  >Time of day<input
+                    id="time"
+                    type="range"
+                    min="0"
+                    max="23.99"
+                    step="0.1"
+                    value="15.5"
+                /></label>
+                <label class="check"
+                  >Hold time<input id="holdTime" type="checkbox" /></label
+                ><button id="reset" class="danger">Reset world</button>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+      <section
+        id="menuControls"
+        class="menu-view help-view"
+        hidden
+        aria-labelledby="controlsTitle"
+      >
+        <button class="menu-back" id="backFromControls">← Back to menu</button>
+        <h2 id="controlsTitle" tabindex="-1">Controls</h2>
+        <p class="help-intro">Everything you need to take flight.</p>
         <div class="controls">
-          <span><kbd>MOUSE</kbd> Steer</span
+          <span><kbd>MOUSE / A, D</kbd> Steer</span
           ><span><kbd>W / S</kbd> Throttle</span
           ><span><kbd>CLICK / SPACE</kbd> Fire</span
           ><span><kbd>1 / 2 / 3</kbd> Select weapon</span
@@ -52,178 +299,19 @@
             weapon to select it</span
           >
         </div>
-        <label class="check rapid-fire"
-          >Rapid fire · 0.1 sec<input id="noCooldown" type="checkbox"
-        /></label>
-        <div class="settings-heading">
-          <h2>Settings</h2>
-          <button id="defaultSettings" class="secondary" type="button" disabled>
-            Reset settings to defaults
-          </button>
-        </div>
-        <div id="settings">
-          <details
-            class="settings-section settings-flight"
-            open
-            aria-labelledby="heading-flight"
-          >
-            <summary id="heading-flight">Controls</summary>
-            <div class="settings-grid">
-              <label
-                >Steering sensitivity<input
-                  id="sensitivity"
-                  type="range"
-                  min="0.3"
-                  max="2.5"
-                  step="0.1"
-                  value="1"
-              /></label>
-              <label class="check"
-                >Reverse horizontal steering<input
-                  id="reverseX"
-                  type="checkbox"
-              /></label>
-              <label class="check"
-                >Reverse vertical steering<input id="invert" type="checkbox"
-              /></label>
-              <label class="check"
-                >Reduce camera shake<input id="reduceShake" type="checkbox"
-              /></label>
-            </div>
-          </details>
-          <details
-            class="settings-section settings-graphics"
-            open
-            aria-labelledby="heading-graphics"
-          >
-            <summary id="heading-graphics">Graphics</summary>
-            <div class="settings-grid">
-              <label
-                >Render quality<select id="quality">
-                  <option value="auto">Auto</option>
-                  <option value="720">Balanced · 720p</option>
-                  <option value="1080">High · 1080p</option>
-                  <option value="1440">Ultra · 1440p</option>
-                </select></label
-              >
-              <label
-                >CRT filter<select id="crtMode">
-                  <option value="off">Off</option>
-                  <option value="subtle" selected>Subtle</option>
-                  <option value="retro">Retro TV</option>
-                </select></label
-              >
-              <label
-                >Detail distance
-                <output id="renderDistanceValue" for="renderDistance"
-                  >1,200 m</output
-                >
-                <input
-                  id="renderDistance"
-                  type="range"
-                  min="600"
-                  max="3000"
-                  step="100"
-                  value="1200"
-                  aria-describedby="renderDistanceHelp"
-                />
-                <small id="renderDistanceHelp"
-                  >The whole island stays visible. Higher distances add more
-                  nearby detail and may reduce FPS.</small
-                >
-              </label>
-              <label class="check"
-                >Reduce effects<input id="reduceEffects" type="checkbox"
-              /></label>
-              <details class="advanced">
-                <summary>Advanced</summary>
-                <label class="check"
-                  >Show performance<input id="showPerf" type="checkbox"
-                /></label>
-              </details>
-            </div>
-          </details>
-          <details
-            class="settings-section settings-audio"
-            open
-            aria-labelledby="heading-audio"
-          >
-            <summary id="heading-audio">Audio</summary>
-            <div class="settings-grid">
-              <label
-                >Sound volume<input
-                  id="volume"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value="0.35"
-              /></label>
-              <label class="check"
-                >Mute<input id="mute" type="checkbox"
-              /></label>
-            </div>
-          </details>
-          <details
-            class="settings-section settings-world"
-            open
-            aria-labelledby="heading-world"
-          >
-            <summary id="heading-world">World</summary>
-            <div class="island-sharing">
-              <label
-                >Island seed<input
-                  id="currentSeed"
-                  readonly
-                  aria-label="Current island seed"
-              /></label>
-              <div>
-                <button id="copySeed">Copy seed</button
-                ><button id="copyIslandLink">Copy island link</button>
-              </div>
-              <input
-                id="shareFallback"
-                readonly
-                hidden
-                aria-label="Select and copy this island code or link"
-              />
-              <p id="islandShareStatus" role="status"></p>
-              <button id="createIsland" class="primary">New island</button>
-            </div>
-            <div class="settings-grid">
-              <label
-                >Pineapple monsters
-                <output id="monsterCountValue" for="monsterCount">120</output
-                ><input
-                  id="monsterCount"
-                  type="range"
-                  min="0"
-                  max="400"
-                  step="1"
-                  value="120"
-              /></label>
-              <label
-                >Time of day<input
-                  id="time"
-                  type="range"
-                  min="0"
-                  max="23.99"
-                  step="0.1"
-                  value="15.5"
-              /></label>
-              <label class="check"
-                >Hold time<input id="holdTime" type="checkbox" /></label
-              ><button id="reset" class="danger">Reset world</button>
-            </div>
-          </details>
-        </div>
+        <p class="help-note">
+          Without mouse capture, drag to steer and use Space to fire.
+          Double-click to center steering.
+        </p>
+      </section>
+      <footer class="menu-footer">
         <p class="asset-credits">
           <a href="/assets/CREDITS.md" target="_blank" rel="noopener"
             >Sound and asset credits</a
           >
         </p>
         <p id="status" role="status">Loading world…</p>
-      </section>
+      </footer>
     </main>
     <div id="flightHUD" hidden>
       <div id="reticle"><i></i></div>
@@ -397,9 +485,9 @@
         </div>
       </section>
     </dialog>
-    <dialog id="confirm">
+    <dialog id="confirm" aria-labelledby="resetTitle">
       <p class="eyebrow">RESET WORLD</p>
-      <h2>Reset this world?</h2>
+      <h2 id="resetTitle">Reset this world?</h2>
       <p>
         This resets the craters, ruins, and saved destruction in this browser.
       </p>

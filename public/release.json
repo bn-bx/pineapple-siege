@@ -1,5 +1,5 @@
 {
-  "release": "faster-combat-2026-10-08",
+  "release": "focused-menu-2026-10-09",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
   "preferenceRevision": 5,
@@ -10,6 +10,7 @@
     "session-renderer-simulation-modules",
     "crt-presets-photo-export",
     "giant-fly-airborne-combat",
-    "faster-cannon-jet-bright-enemy-shots"
+    "faster-cannon-jet-bright-enemy-shots",
+    "focused-menu-category-settings-controls-help"
   ]
 }
