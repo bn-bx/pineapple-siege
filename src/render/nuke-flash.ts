@@ -17,10 +17,14 @@ export class NukeFlash {
     }),
   );
   private pulses: {
+    p: THREE.Vector3;
     age: number;
     duration: number;
     hold: number;
   }[] = [];
+  private direction = new THREE.Vector3();
+  private cameraPosition = new THREE.Vector3();
+  private offset = new THREE.Vector3();
   constructor() {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 10000;
@@ -30,13 +34,16 @@ export class NukeFlash {
     if (e.kind !== "nuke") return;
     const height = e.profile?.cloudHeight ?? 120;
     this.pulses.push({
+      p: new THREE.Vector3(...e.p),
       age: 0,
       duration: THREE.MathUtils.clamp(1.2 + height * 0.002, 1.8, 2),
       hold: THREE.MathUtils.clamp(0.2 + height / 2400, 0.25, 0.5),
     });
     if (this.pulses.length > 8) this.pulses.shift();
   }
-  update(dt: number, _camera: THREE.Camera, reduced: boolean) {
+  update(dt: number, camera: THREE.Camera, reduced: boolean) {
+    camera.getWorldDirection(this.direction);
+    camera.getWorldPosition(this.cameraPosition);
     let opacity = 0;
     for (const pulse of this.pulses) {
       pulse.age += dt;
@@ -45,7 +52,14 @@ export class NukeFlash {
       const hold = reduced ? 0.08 : pulse.hold;
       const t = Math.max(0, (pulse.age - hold) / (duration - hold));
       const envelope = Math.pow(Math.max(0, 1 - t), 1.6);
-      opacity = Math.max(opacity, envelope);
+      this.offset.copy(pulse.p).sub(this.cameraPosition);
+      const facing =
+        this.offset.lengthSq() < 1
+          ? 1
+          : this.offset.normalize().dot(this.direction);
+      const view = THREE.MathUtils.smoothstep(facing, -0.25, 0.7);
+      // Keep a global floor even when looking away; distance does not dim it.
+      opacity = Math.max(opacity, envelope * (0.45 + 0.55 * view));
     }
     this.pulses = this.pulses.filter((p) => p.age < p.duration);
     this.mesh.material.uniforms.opacity.value = Math.min(

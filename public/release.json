@@ -1,5 +1,5 @@
 {
-  "release": "two-second-nuke-flash-2026-10-09",
+  "release": "directional-nuke-flash-2026-10-09",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
   "preferenceRevision": 5,
@@ -14,6 +14,7 @@
     "fullscreen-settings-island-map-controls-help",
     "global-nuke-flash-eight-clouds-500m-excavation",
     "ultra-first-auto-quality-independent-nuke-flash",
-    "two-second-nuke-flash"
+    "two-second-nuke-flash",
+    "directional-nuke-flash-global-floor"
   ]
 }

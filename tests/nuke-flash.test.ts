@@ -21,7 +21,7 @@ function dispose(f: NukeFlash) {
 }
 
 it.each([false, true])(
-  "has global brightness regardless of camera position or facing (reduced=%s)",
+  "is brighter facing the blast but remains global without distance attenuation (reduced=%s)",
   (reduced) => {
     const flash = new NukeFlash(),
       camera = new THREE.PerspectiveCamera();
@@ -36,21 +36,44 @@ it.each([false, true])(
         [0, -500, 0],
       ]) {
         camera.position.fromArray(position);
-        for (const target of [
-          [0, 0, 0],
-          [10000, 5000, 10000],
-          [-10000, -5000, -10000],
-        ]) {
-          camera.lookAt(...(target as [number, number, number]));
-          flash.update(0, camera, reduced);
-          expect(opacity(flash)).toBe(initial);
-        }
+        camera.lookAt(0, 0, 0);
+        flash.update(0, camera, reduced);
+        expect(opacity(flash)).toBeCloseTo(initial, 10);
+        camera.lookAt(camera.position.clone().multiplyScalar(2));
+        flash.update(0, camera, reduced);
+        expect(opacity(flash)).toBeCloseTo(initial * 0.45, 10);
+        expect(flash.mesh.visible).toBe(true);
       }
+      camera.position.set(0, 0, 1000);
+      camera.lookAt(1000, 0, 1000);
+      flash.update(0, camera, reduced);
+      expect(opacity(flash)).toBeGreaterThan(initial * 0.45);
+      expect(opacity(flash)).toBeLessThan(initial);
     } finally {
       dispose(flash);
     }
   },
 );
+
+it("uses each blast direction when combining overlapping flashes", () => {
+  const flash = new NukeFlash(),
+    camera = new THREE.PerspectiveCamera();
+  try {
+    camera.position.set(0, 0, 1000);
+    camera.lookAt(0, 0, 0);
+    flash.trigger(blast);
+    flash.update(0, camera, false);
+    expect(opacity(flash)).toBe(0.98);
+    camera.lookAt(0, 0, 2000);
+    flash.update(0, camera, false);
+    expect(opacity(flash)).toBeCloseTo(1.15 * 0.45, 10);
+    flash.trigger({ ...blast, p: [0, 0, 2000] });
+    flash.update(0, camera, false);
+    expect(opacity(flash)).toBe(0.98);
+  } finally {
+    dispose(flash);
+  }
+});
 
 it("preserves yield-dependent fades and uses the strongest overlapping pulse", () => {
   const flash = new NukeFlash(),
