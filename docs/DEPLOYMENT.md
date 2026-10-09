@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`three-second-nuke-flash-2026-10-09` shortens the normal Valley nuke flash to three seconds while preserving its global brightness and explicit reduced-effects behavior. Ultra-first Auto quality, eight pineapple clouds, and the 500 m excavation floor remain active. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`two-second-nuke-flash-2026-10-09` shortens the normal Valley nuke flash to two seconds while preserving its global brightness and explicit reduced-effects behavior. Ultra-first Auto quality, eight pineapple clouds, and the 500 m excavation floor remain active. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

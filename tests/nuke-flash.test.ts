@@ -57,12 +57,12 @@ it("preserves yield-dependent fades and uses the strongest overlapping pulse", (
     camera = new THREE.PerspectiveCamera();
   try {
     flash.trigger({ ...blast, profile: NUKE_PROFILES.local });
-    flash.update(2.2, camera, false);
+    flash.update(1.9, camera, false);
     expect(opacity(flash)).toBe(0);
     flash.trigger(blast);
-    flash.update(2.2, camera, false);
+    flash.update(1.9, camera, false);
     expect(opacity(flash)).toBeGreaterThan(0);
-    flash.update(0.8, camera, false);
+    flash.update(0.1, camera, false);
     expect(opacity(flash)).toBe(0);
     expect(flash.mesh.visible).toBe(false);
     flash.trigger(blast);
