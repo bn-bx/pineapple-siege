@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`global-nukes-deeper-craters-2026-10-09` makes nuke flashes equally bright from every camera position and direction, retains up to eight pineapple clouds for 20 seconds, and doubles Valley excavation to 100 m per ground-level strike with a cumulative floor 500 m below original terrain. Cloud pooling, reduced effects, flooding, and save persistence remain active. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`ultra-first-auto-quality-2026-10-09` starts Auto at Ultra / 1440p, waits through startup spikes, reduces graphics only for sustained rendering pressure, and restores quality after five healthy seconds. Simulation-worker stalls alone no longer reduce graphics. Global nuke flash brightness follows only the explicit Reduce effects checkbox. The previous eight-cloud limit and 500 m excavation floor remain active. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

@@ -1,3 +1,5 @@
+import { qualityProfile } from "./quality-profile";
+
 export interface QualityPressure {
   frameMS: number;
   cpuMS: number;
@@ -5,21 +7,20 @@ export interface QualityPressure {
   workerMS: number;
   lagMS: number;
 }
-/** Fast reductions and slow recovery avoid oscillation during sustained destruction. */
+/** Start at Ultra and reduce only for sustained rendering pressure. */
 export class AutoQuality {
   level: number;
-  constructor(initialLevel = 1) {
+  constructor(initialLevel = 0) {
     this.level = Math.max(0, Math.min(4, initialLevel));
   }
-  private overload = 0;
   private overloadDebt = 0;
   private previousSample?: number;
+  private settlingUntil?: number;
   private headroom = 0;
   private changed = -Infinity;
   resume() {
-    this.overload = this.headroom = 0;
-    this.overloadDebt = 0;
-    this.previousSample = undefined;
+    this.headroom = this.overloadDebt = 0;
+    this.previousSample = this.settlingUntil = undefined;
   }
   update(now: number, p: QualityPressure) {
     const elapsed =
@@ -27,56 +28,56 @@ export class AutoQuality {
         ? 0
         : Math.max(0, Math.min(100, now - this.previousSample));
     this.previousSample = now;
+    this.settlingUntil ??= now + 3000;
+    if (now < this.settlingUntil) return false;
+
+    // Worker stalls alone do not improve when graphics are reduced. Require
+    // missed frame budget plus renderer pressure; use frames as a fallback
+    // when GPU timers are unavailable and simulation is keeping up.
     const overloaded =
-      p.frameMS > 18 ||
-      p.cpuMS > 4 ||
-      p.gpuMS > 13 ||
-      p.workerMS > 8 ||
-      p.lagMS > 85;
+      p.frameMS > 20 &&
+      (p.cpuMS > 12 ||
+        p.gpuMS > 16 ||
+        (!(p.gpuMS > 0) && p.workerMS < 12 && p.lagMS < 85));
     const comfortable =
-      p.frameMS < 17.4 &&
-      p.cpuMS < 3.2 &&
-      (!p.gpuMS || p.gpuMS < 10) &&
-      p.workerMS < 5 &&
-      p.lagMS < 50;
+      p.frameMS < 18 && p.cpuMS < 10 && (!(p.gpuMS > 0) || p.gpuMS < 14);
     if (overloaded) {
-      // Recurring expensive passes must not be erased by one quieter frame.
-      this.overloadDebt = Math.min(450, this.overloadDebt + elapsed);
       this.headroom = 0;
-      if (!this.overload) this.overload = now;
+      this.overloadDebt = Math.min(2000, this.overloadDebt + elapsed);
+      const severe = p.frameMS > 35 && (p.cpuMS > 24 || p.gpuMS > 25);
       if (
-        (now - this.overload >= 450 || this.overloadDebt >= 450) &&
-        now - this.changed >= 500 &&
+        this.overloadDebt >= (severe ? 750 : 2000) &&
+        now - this.changed >= 3000 &&
         this.level < 4
       ) {
         this.level++;
         this.changed = now;
-        this.overload = 0;
         this.overloadDebt = 0;
         return true;
       }
     } else {
-      this.overloadDebt = Math.max(0, this.overloadDebt - elapsed * 0.25);
-      this.overload = 0;
-      if (comfortable) {
-        if (!this.headroom) this.headroom = now;
-        if (now - this.headroom >= 15000 && this.level > 0) {
-          this.level--;
-          this.changed = now;
-          this.headroom = 0;
-          return true;
-        }
-      } else this.headroom = 0;
+      this.overloadDebt = Math.max(0, this.overloadDebt - elapsed * 2);
+      this.headroom = comfortable ? this.headroom + elapsed : 0;
+      if (
+        this.headroom >= 5000 &&
+        now - this.changed >= 5000 &&
+        this.level > 0
+      ) {
+        this.level--;
+        this.changed = now;
+        this.headroom = this.overloadDebt = 0;
+        return true;
+      }
     }
     return false;
   }
   get height() {
-    return this.level === 0 ? 1080 : this.level < 4 ? 900 : 720;
+    return qualityProfile("auto", this.level).height;
   }
   get shadowSize() {
-    return this.level < 2 ? 2048 : 1024;
+    return qualityProfile("auto", this.level).shadowSize;
   }
   get shadowInterval() {
-    return this.level < 2 ? 1 / 24 : 1 / 12;
+    return qualityProfile("auto", this.level).shadowInterval;
   }
 }

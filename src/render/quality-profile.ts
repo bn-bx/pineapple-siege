@@ -14,7 +14,7 @@ export const VISUAL_BUDGET = Object.freeze({
 /** Presentation budgets never change simulation or saved damage. */
 export function qualityProfile(
   selection = "auto",
-  pressure = 1,
+  pressure = 0,
 ): RenderQualityProfile {
   const level =
     selection === "auto"
@@ -28,11 +28,7 @@ export function qualityProfile(
     name: ["Ultra", "High", "Balanced", "Performance", "Recovery"][level],
     height:
       selection === "auto"
-        ? level === 0
-          ? 1080
-          : level === 4
-            ? 720
-            : 900
+        ? [1440, 1080, 900, 720, 720][level]
         : Number(selection) || 900,
     shadowSize: level < 2 ? 2048 : 1024,
     shadowInterval: level < 2 ? 1 / 24 : level === 4 ? 1 / 8 : 1 / 12,

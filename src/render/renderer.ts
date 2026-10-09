@@ -112,7 +112,7 @@ export class GameRenderer {
   private warming?: Promise<void>;
   private disposed = false;
   private graphicsLost = false;
-  private auto = new AutoQuality(2);
+  private auto = new AutoQuality();
   private presentation: Presentation;
   private cadence = new SimulationCadence();
   private nextResources = 0;
@@ -212,7 +212,7 @@ export class GameRenderer {
   private lastLOD = 0;
   private quality = "auto";
   private renderDistance = DEFAULT_RENDER_DISTANCE;
-  private targetHeight = 900;
+  private targetHeight = this.auto.height;
   private lowSince = 0;
   private highSince = 0;
   private qualityChanged = 0;
@@ -593,7 +593,10 @@ export class GameRenderer {
       value || (this.quality === "auto" && this.auto.level >= 2);
   }
   setQuality(q: string) {
+    if (q === "auto" && this.quality !== "auto") this.auto = new AutoQuality();
+    if (q !== this.quality) this.auto.resume();
     this.quality = q;
+    this.setReducedEffects(this.reducedEffects);
     this.targetHeight = q === "auto" ? this.auto.height : Number(q);
     this.qualityChanged = performance.now();
     const size = this.visualProfile.shadowSize;
@@ -608,7 +611,7 @@ export class GameRenderer {
   }
   /** Independent certification cases begin with the same startup quality. */
   resetAutoQuality() {
-    this.auto = new AutoQuality(2);
+    this.auto = new AutoQuality();
     this.setQuality("auto");
   }
   setRenderDistance(value: number) {
@@ -1627,7 +1630,7 @@ export class GameRenderer {
     this.effects.nukeFlash.update(
       active ? dt : 0,
       this.camera,
-      this.effects.reduced,
+      this.reducedEffects,
     );
     this.performance.record("prepare", performance.now() - workStarted);
     // Thousands of alpha-tested falling leaf cards must not dominate the

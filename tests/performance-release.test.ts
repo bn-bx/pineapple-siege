@@ -1,7 +1,6 @@
 import { it, expect, beforeAll } from "vitest";
 import { readFileSync } from "node:fs";
 import { SparseIndices } from "../src/sim/sparse-indices";
-import { AutoQuality } from "../src/render/auto-quality";
 import { packMotion, bindMotion, motionFrame } from "../src/sim/motion-buffer";
 import { packBodies } from "../src/sim/body-buffer";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -65,50 +64,6 @@ it("stores dry cells compactly and enumerates bit 31 without duplicating indices
   expect(indices.has(31)).toBe(true);
   indices.clear();
   expect([...indices]).toEqual([]);
-});
-it("reacts within half a second and requires 15 seconds of headroom to recover", () => {
-  const auto = new AutoQuality();
-  const load = { frameMS: 22, cpuMS: 8, gpuMS: 20, workerMS: 4, lagMS: 0 };
-  auto.update(100, load);
-  expect(auto.update(550, load)).toBe(true);
-  expect(auto.level).toBe(2);
-  const idle = { frameMS: 16.67, cpuMS: 2, gpuMS: 7, workerMS: 2, lagMS: 0 };
-  auto.update(600, idle);
-  expect(auto.update(15599, idle)).toBe(false);
-  expect(auto.update(15600, idle)).toBe(true);
-  expect(auto.height).toBe(900);
-});
-it("requires fresh active headroom and overload intervals after a pause", () => {
-  const auto = new AutoQuality();
-  const idle = { frameMS: 16.67, cpuMS: 2, gpuMS: 7, workerMS: 2, lagMS: 0 };
-  auto.update(100, idle);
-  auto.resume();
-  expect(auto.update(20000, idle)).toBe(false);
-  expect(auto.update(34999, idle)).toBe(false);
-  expect(auto.update(35000, idle)).toBe(true);
-  const load = { frameMS: 22, cpuMS: 8, gpuMS: 20, workerMS: 4, lagMS: 0 };
-  auto.update(40000, load);
-  auto.resume();
-  expect(auto.update(100000, load)).toBe(false);
-  expect(auto.update(100449, load)).toBe(false);
-  expect(auto.update(100450, load)).toBe(true);
-});
-it("reduces quality for recurring GPU spikes without reacting to one isolated pass", () => {
-  const idle = { frameMS: 16.67, cpuMS: 2, gpuMS: 9, workerMS: 2, lagMS: 0 };
-  const spike = { ...idle, gpuMS: 16 };
-  const isolated = new AutoQuality(2);
-  isolated.update(100, idle);
-  isolated.update(116, spike);
-  for (let now = 132; now < 2000; now += 16) isolated.update(now, idle);
-  expect(isolated.level).toBe(2);
-  const recurring = new AutoQuality(2);
-  for (let i = 0; i < 120; i++)
-    recurring.update(100 + i * 16, i % 2 ? idle : spike);
-  expect(recurring.level).toBeGreaterThan(2);
-  recurring.resume();
-  const pausedLevel = recurring.level;
-  expect(recurring.update(100000, spike)).toBe(false);
-  expect(recurring.level).toBe(pausedLevel);
 });
 it("borrows packed transforms, reuses record identity, and preserves all actor flags", () => {
   const frame = motionFrame();

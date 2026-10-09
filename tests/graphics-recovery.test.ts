@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GPUTimer, PerformanceMonitor } from "../src/performance";
+import { AutoQuality } from "../src/render/auto-quality";
 import { GameRenderer } from "../src/render/renderer";
 
 it("abandons old context queries without GL calls and reacquires timing support", () => {
@@ -140,4 +141,23 @@ it("warms the mapped non-instanced terrain shadow layout before tiles arrive", a
   await view.prewarm();
   expect(proxy?.parent).toBeNull();
   expect(disposed).toHaveBeenCalledOnce();
+});
+
+it("retries Ultra when selecting Auto and clears automatic reduced effects when selecting manual quality", () => {
+  const view = Object.create(GameRenderer.prototype) as any;
+  view.auto = new AutoQuality(4);
+  view.quality = "auto";
+  view.reducedEffects = false;
+  view.effects = { reduced: true };
+  view.environment = { sun: new THREE.DirectionalLight() };
+  view.renderer = { shadowMap: {} };
+  view.resize = vi.fn();
+  view.setQuality("1440");
+  expect(view.effects.reduced).toBe(false);
+  view.setQuality("auto");
+  expect(view.auto.level).toBe(0);
+  expect(view.targetHeight).toBe(1440);
+  view.setReducedEffects(true);
+  view.setQuality("1080");
+  expect(view.effects.reduced).toBe(true);
 });
