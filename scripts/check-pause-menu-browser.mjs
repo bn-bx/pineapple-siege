@@ -59,7 +59,7 @@ try {
     await page.locator("#keepIsland").click();
     await page.waitForFunction(() => window.lanternVale?.state.ready);
     assert.equal(await page.locator("#menuHome").isVisible(), true);
-    assert.equal(await page.locator("#menuSettings").isVisible(), false);
+    assert.equal(await page.locator("#menuSettings").isVisible(), true);
     await page.locator("#enter").click();
     await page.waitForFunction(() => lanternVale.state.active);
     await page.keyboard.press("Escape");
@@ -73,16 +73,15 @@ try {
     await page.keyboard.press("Escape");
     assert.equal(
       await page
-        .locator("#openControls")
+        .locator("#openSettings")
         .evaluate((e) => e === document.activeElement),
       true,
     );
     await page.locator("#openSettings").click();
     for (const group of ["flight", "graphics", "audio", "world"]) {
-      await page.locator("#tab-" + group).click();
       assert.equal(
         await page.locator("#settings > section:not([hidden])").count(),
-        1,
+        4,
       );
       const panel = page.locator("#panel-" + group);
       for (const id of ids) {
@@ -107,21 +106,32 @@ try {
       }
       await page.screenshot({ path: `${output}/${label}-${group}.png` });
     }
-    await page.locator("#tab-flight").click();
-    await page.locator("#tab-flight").focus();
+    await page.locator("#openSettings").focus();
     await page.keyboard.press("ArrowRight");
-    assert.equal(
-      await page.locator("#tab-graphics").getAttribute("aria-selected"),
-      "true",
+    assert.equal(await page.locator("#menuMap").isVisible(), true);
+    assert.equal(await page.locator("#menuSettings").isVisible(), false);
+    assert.ok(
+      (await page.locator("#mapPosition").textContent()).includes("Aircraft:"),
     );
+    assert.equal(
+      await page
+        .locator("#pauseMap")
+        .evaluate(
+          (canvas) =>
+            canvas.getContext("2d").getImageData(384, 384, 1, 1).data[3],
+        ),
+      255,
+    );
+    const mapBox = await page.locator("#pauseMap").boundingBox();
+    assert.ok(mapBox.x >= 0 && mapBox.x + mapBox.width <= viewport.width + 1);
+    await page.screenshot({ path: `${output}/${label}-map.png` });
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#menuSettings").isVisible(), true);
     const advanced = page.locator(".advanced > summary");
     await advanced.click();
     assert.equal(await page.locator("#showPerf").isVisible(), true);
-    await page.locator("#tab-audio").click();
     await page.locator("#mute").check();
-    await page.locator("#tab-flight").click();
     await page.locator("#noCooldown").check();
-    await page.locator("#tab-world").click();
     await page.locator("#copySeed").click();
     await page.waitForFunction(
       () => document.querySelector("#islandShareStatus").textContent.length > 0,
@@ -142,7 +152,6 @@ try {
     assert.equal(await page.locator("#islandReplacePrompt").isVisible(), true);
     await page.locator("#backToIsland").click();
     await page.locator("#cancelIsland").click();
-    await page.locator("#backFromSettings").click();
     await page.locator("#enter").click();
     await page.waitForFunction(() => lanternVale.state.active);
     await page.keyboard.press("Escape");
@@ -154,16 +163,14 @@ try {
     await page.locator("#openSettings").click();
     assert.equal(await page.locator("#panel-flight").isVisible(), true);
     assert.equal(await page.locator("#noCooldown").isChecked(), true);
-    await page.locator("#tab-audio").click();
     assert.equal(await page.locator("#mute").isChecked(), true);
     await page.locator("#defaultSettings").click();
     assert.equal(await page.locator("#mute").isChecked(), false);
-    await page.locator("#tab-flight").click();
     assert.equal(await page.locator("#noCooldown").isChecked(), false);
     assert.deepEqual(errors, []);
     await context.close();
     console.log(
-      `${label}: category navigation, help, keyboard, dialogs, Advanced, resume/pause, and retained settings pass`,
+      `${label}: all settings visible, map, help, keyboard, dialogs, resume/pause, and persistent settings pass`,
     );
   }
 } finally {

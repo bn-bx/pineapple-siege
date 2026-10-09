@@ -969,14 +969,14 @@ select:focus-visible {
   }
 }
 
-/* Focused menu surfaces. Gameplay HUD and photo controls keep their own styles. */
+/* Full-screen menu surfaces. Gameplay HUD and photo controls keep their own styles. */
 #overlay {
   position: fixed;
   inset: 0;
   z-index: 4;
   overflow-y: auto;
-  padding: max(100px, 12vh) 24px 32px;
-  background: linear-gradient(90deg, #0d1c24b8, #0d1c2450);
+  padding: 100px 4vw 32px;
+  background: #101e26f5;
   scrollbar-width: thin;
 }
 body:has(#overlay:not([hidden])) header {
@@ -987,23 +987,45 @@ body:has(#overlay:not([hidden])) header {
   border-bottom: 1px solid #ffffff12;
 }
 #menuHome,
-.menu-view {
+.menu-view,
+.menu-tabs,
+.menu-footer {
   width: 100%;
+  max-width: 1680px;
   margin: 0 auto;
-  padding: 32px;
-  border: 1px solid #ffffff20;
-  border-radius: 16px;
-  background: #14242cf2;
-  box-shadow: 0 16px 60px #0003;
 }
-#menuHome {
-  max-width: 440px;
+.menu-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
 }
-.menu-view {
-  max-width: 900px;
+.menu-heading .intro {
+  margin-bottom: 0;
 }
-.help-view {
-  max-width: 600px;
+.menu-heading .actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+#enter {
+  min-width: 200px;
+  gap: 32px;
+}
+.menu-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 20px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ffffff16;
+}
+.menu-tabs button {
+  min-width: 120px;
+}
+#overlay .menu-tabs [aria-selected="true"] {
+  background: #edc77716;
+  border-color: #edc77760;
+  color: #edc777;
 }
 #overlay h1,
 #overlay h2,
@@ -1025,7 +1047,7 @@ dialog h2,
 }
 #overlay h3 {
   font-size: 18px;
-  margin: 0 0 24px;
+  margin: 0 0 16px;
 }
 #overlay .intro,
 .help-intro,
@@ -1033,11 +1055,7 @@ dialog h2,
   font-size: 14px;
   line-height: 1.6;
   color: #b8c6cc;
-  margin: 12px 0 28px;
-}
-.menu-heading .actions {
-  display: grid;
-  gap: 10px;
+  margin: 12px 0 20px;
 }
 #overlay button,
 dialog button,
@@ -1068,26 +1086,12 @@ dialog .primary:hover {
   background: #f4d698;
 }
 #enter {
-  width: 100%;
   min-height: 52px;
 }
 #overlay .danger,
 dialog .danger {
   color: #edc777;
   border-color: #edc77766;
-}
-.home-links {
-  display: grid;
-  gap: 8px;
-  margin-top: 24px;
-}
-.home-links button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.home-links span {
-  color: #9aacb4;
 }
 #overlay .menu-back {
   border: 0;
@@ -1100,38 +1104,46 @@ dialog .danger {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 24px;
-}
-.settings-layout {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 28px;
-}
-.settings-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.settings-tabs button {
-  text-align: left;
-}
-#overlay .settings-tabs [aria-selected="true"] {
-  background: #edc77716;
-  border-color: #edc77760;
-  color: #edc777;
+  margin-bottom: 16px;
 }
 #settings {
-  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
 }
 .settings-section {
   min-width: 0;
-  padding: 4px 0 0 28px;
-  border-left: 1px solid #ffffff16;
+  padding: 24px;
+  background: #ffffff04;
+  border: 1px solid #ffffff18;
+  border-radius: 12px;
+}
+.settings-flight {
+  grid-area: flight;
+}
+.settings-graphics {
+  grid-area: graphics;
+}
+.settings-audio {
+  grid-area: audio;
+}
+.settings-world {
+  grid-area: world;
+}
+#settings {
+  grid-template-areas: "flight graphics" "audio world";
+}
+@media (min-width: 1100px) {
+  #settings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: "flight graphics world" "audio graphics world";
+  }
 }
 .settings-section .settings-grid {
   grid-template-columns: 1fr;
   margin-top: 0;
-  gap: 20px;
+  gap: 12px;
   font-size: 14px;
 }
 .settings-grid .check,
@@ -1185,7 +1197,7 @@ dialog input {
 #overlay .controls {
   margin: 0;
   padding: 20px 0;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   font-size: 14px;
 }
 #overlay .controls span {
@@ -1205,12 +1217,38 @@ dialog input {
   margin: 20px 0 0;
 }
 .menu-footer {
-  max-width: 900px;
-  margin: 20px auto 0;
+  margin: 24px auto 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.map-heading {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+.map-description,
+.map-legend,
+#mapPosition {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #b8c6cc;
+}
+#pauseMap {
+  display: block;
+  width: min(100%, 768px);
+  height: auto;
+  margin: 24px auto;
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+}
+.map-legend {
   text-align: center;
 }
-#overlay[data-view="home"] .menu-footer {
-  max-width: 440px;
+#overlay .touch-help {
+  grid-column: 1 / -1;
 }
 #status {
   color: #c1ccd1;
@@ -1256,40 +1294,59 @@ dialog p:not(.eyebrow) {
 #islandPreview .island-preview-actions {
   background: #14242c;
 }
+@media (max-width: 1000px) {
+  #overlay .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 650px) {
   body:has(#overlay:not([hidden])) header {
     padding: 16px 20px;
   }
   #overlay {
-    padding: 96px 16px 24px;
+    padding: 96px 20px 24px;
   }
-  #menuHome,
-  .menu-view {
-    padding: 24px;
+  .menu-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+  .menu-heading .actions {
+    flex-wrap: wrap;
+  }
+  #enter {
+    flex: 1;
+  }
+  .menu-tabs {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #overlay .menu-tabs button {
+    min-width: 0;
+    flex: 1;
+    padding: 12px 10px;
   }
   .settings-heading {
     align-items: flex-start;
     flex-direction: column;
   }
-  .settings-layout {
+  #settings {
     grid-template-columns: 1fr;
-    gap: 20px;
-  }
-  .settings-tabs {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  #overlay .settings-tabs button {
-    flex: 1 0 40%;
-    text-align: center;
+    grid-template-areas: "flight" "graphics" "audio" "world";
   }
   .settings-section {
-    padding: 20px 0 0;
-    border-left: 0;
-    border-top: 1px solid #ffffff16;
+    padding: 20px;
+  }
+  #overlay .controls {
+    grid-template-columns: 1fr;
   }
   #overlay .controls span {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .map-heading,
+  .menu-footer {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

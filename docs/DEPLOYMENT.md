@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`focused-menu-2026-10-09` replaces the long menu with a focused Play/Resume screen, category-based Settings, and optional Controls help. The island remains visible behind translucent panels. Menu dialogs share the minimal styling; keyboard navigation, focus restoration, and mobile layouts are supported. Existing island replacement/reset confirmations and settings persistence remain intact. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`fullscreen-menu-map-2026-10-09` restores a full-screen pause menu with Controls, Graphics, Audio, and World settings visible together. Play/Resume remains prominent. The Map tab shows original island terrain, roads, rivers, landmarks, and the aircraft position when opened; Controls guide provides input help. Existing settings persistence and island replacement/reset confirmations remain intact. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

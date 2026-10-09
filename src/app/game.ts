@@ -29,7 +29,7 @@ import * as island_coordinator from "./island-coordinator";
 import * as save_coordinator from "./save-coordinator";
 import * as settings from "./settings";
 import { bindMenu } from "./menu";
-const menu = bindMenu();
+const menu = bindMenu(() => snapshot?.plane.p);
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("world"),
@@ -349,6 +349,8 @@ function consumeIslandLink(): void {
   return island_coordinator.consumeIslandLink(context);
 }
 function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot): void {
+  menu.setIsland(baseline);
+  menu.home();
   return island_coordinator.initializeWorld(context, baseline, save);
 }
 function replaceIsland(
