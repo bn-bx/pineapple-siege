@@ -42,7 +42,7 @@ The full-screen pause menu keeps Play/Resume at the top and all four settings gr
 
 All weapons have unlimited ammunition. Cannon shots launch at 420 m/s plus aircraft speed, with a 0.25-second cooldown; nuke cooldown is 10 seconds. The jet reaches 180 m/s at full throttle and 240 m/s with boost. Enemy spikes have bright orange cores and short luminous trails. Rapid fire replaces weapon cooldowns with 0.1 seconds and preserves the laser's charge/beam sequence. Nukes use fixed Valley strength; lasers use fixed 380 m diameter and 500 m excavation depth. Already-launched strikes retain saved parameters. Pause and photo mode freeze simulation, cooldowns, effects, and audio. Photo mode supports camera movement, focus, and PNG export.
 
-Crashes, water, intact structures, and substantial rubble remain physical. Automatic respawn, boundary assistance, collapse physics, craters, flooding, rubble collision, and wreckage cleanup remain active. Terrain and casualties persist until reset. Destruction uses bounded moving-body and cosmetic pools.
+Crashes, water, intact structures, and substantial rubble remain physical. Automatic respawn, boundary assistance, collapse physics, craters, flooding, rubble collision, and wreckage cleanup remain active. Nukes excavate up to 48 / 80 / 100 m per ground-level Local / Castle / Valley strike at the crater center; repeated blasts stop 500 m below the original terrain. Terrain and casualties persist until reset. Destruction uses bounded moving-body and cosmetic pools.
 
 ## Island and progress
 

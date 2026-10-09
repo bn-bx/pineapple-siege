@@ -145,8 +145,12 @@ it("attenuates airborne excavation and preserves bedrock across irregular sectio
   s.detonateNuke([p[0], p[1] + 200, p[2]], "local");
   while (s.pendingJobs.length) s.processDestruction(50);
   expect(s.terrain.changed.size).toBe(0);
-  for (let i = 0; i < 3; i++) {
-    s.detonateNuke(p, "valley");
+  for (
+    let i = 0;
+    i < Math.ceil(CONFIG.bedrock / NUKE_PROFILES.valley.depth) + 1;
+    i++
+  ) {
+    s.detonateNuke([p[0], s.terrain.sample(p[0], p[2]), p[2]], "valley");
     while (s.pendingJobs.length) s.processDestruction(50);
   }
   expect(s.terrain.sample(p[0], p[2])).toBeCloseTo(p[1] - CONFIG.bedrock, 3);

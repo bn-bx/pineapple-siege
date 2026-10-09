@@ -6,6 +6,7 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { DEFAULT_DESTRUCTION, nukeProfile } from "../src/destruction-settings";
 import { unpackBodies } from "../src/sim/body-buffer";
 import { bindMotion, motionFrame } from "../src/sim/motion-buffer";
+import { CONFIG } from "../src/config";
 import { Terrain } from "../src/sim/terrain";
 import { terrainScarColor } from "../src/render/terrain-colors";
 import type { BodyView, WorldData } from "../src/types";
@@ -171,7 +172,7 @@ it("enlarges nuke craters and chars their exposed terrain", () => {
   );
 });
 
-it("excavates a 50-meter valley crater across chunk edges and preserves depth on reload", () => {
+it("excavates a 100-meter valley crater across chunk edges and preserves depth on reload", () => {
   const terrain = new Terrain(base);
   const x = 1088,
     z = 1024;
@@ -179,10 +180,21 @@ it("excavates a 50-meter valley crater across chunk edges and preserves depth on
   const profile = nukeProfile("valley", DEFAULT_DESTRUCTION);
   const patch = terrain.crater(x, z, profile.craterRadius, profile.depth);
   expect(patch.chunks.length).toBeGreaterThan(4);
-  expect(terrain.sample(x, z)).toBeCloseTo(original - 50, 3);
+  expect(terrain.sample(x, z)).toBeCloseTo(original - 100, 3);
   const restored = new Terrain(base);
   restored.restore([...terrain.changed]);
-  expect(restored.sample(x, z)).toBeCloseTo(original - 50, 3);
+  expect(restored.sample(x, z)).toBeCloseTo(original - 100, 3);
+  for (let strike = 0; strike < 6; strike++)
+    terrain.crater(x, z, profile.craterRadius, profile.depth);
+  expect(terrain.sample(x, z)).toBeCloseTo(original - 500, 3);
+  for (const [index, height] of terrain.changed)
+    expect(height).toBeGreaterThanOrEqual(
+      base[index] - CONFIG.bedrock - 0.0001,
+    );
+  restored.restore([...terrain.changed]);
+  expect(restored.sample(x, z)).toBeCloseTo(original - 500, 3);
+  restored.crater(x, z, profile.craterRadius, profile.depth);
+  expect(restored.sample(x, z)).toBeCloseTo(original - 500, 3);
 });
 
 it("gives cosmetic wreckage six seconds of motion and one second of shrinking", () => {

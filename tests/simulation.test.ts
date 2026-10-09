@@ -24,7 +24,8 @@ describe("terrain authority", () => {
     const patch = t.crater(x, z);
     expect(patch.chunks.length).toBeGreaterThanOrEqual(4);
     expect(t.sample(x, z)).toBeCloseTo(base[i] - 5, 3);
-    for (let n = 0; n < 20; n++) t.crater(x, z);
+    for (let n = 0; n < Math.ceil(CONFIG.bedrock / CONFIG.craterDepth); n++)
+      t.crater(x, z);
     expect(t.sample(x, z)).toBeCloseTo(base[i] - CONFIG.bedrock, 3);
     expect([...t.changed.values()].every(Number.isFinite)).toBe(true);
   });

@@ -171,29 +171,15 @@ export class Effects {
     if (e.kind === "nuke") {
       this.nukeFlash.trigger(e);
       const reduced = this.reduced || scale < 1;
-      const overlap =
-        reduced &&
-        this.clouds.find(
-          (c) =>
-            c.reduced === reduced &&
-            c.age < 12 &&
-            !c.ending &&
-            c.event.water === e.water &&
-            (c.event.p[0] - e.p[0]) ** 2 + (c.event.p[2] - e.p[2]) ** 2 <
-              (e.profile!.damageRadius * 0.65) ** 2,
-        );
-      if (!overlap) {
-        if (this.clouds.length >= 3) {
-          const oldest = this.clouds.shift()!;
-          this.group.remove(oldest.group);
-          this.cloudsPool.push(oldest);
-        }
-        if (this.clouds.length >= 2) this.clouds[0].fade();
-        const cloud = this.takeCloud(e, reduced);
-        cloud.restart(e);
-        this.clouds.push(cloud);
-        this.group.add(cloud.group);
+      if (this.clouds.length >= 8) {
+        const oldest = this.clouds.shift()!;
+        this.group.remove(oldest.group);
+        this.cloudsPool.push(oldest);
       }
+      const cloud = this.takeCloud(e, reduced);
+      cloud.restart(e);
+      this.clouds.push(cloud);
+      this.group.add(cloud.group);
       this.shake = 1;
     }
     const count = Math.round((e.kind === "collapse" ? 140 : 420) * scale);

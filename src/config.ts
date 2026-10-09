@@ -22,7 +22,7 @@ export const CONFIG = {
   projectileLifetime: 8,
   craterRadius: 12,
   craterDepth: 5,
-  bedrock: 50,
+  bedrock: 500,
   laserBedrock: 500,
   damageRadius: 24,
   maxBodies: 256,
@@ -58,7 +58,7 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   local: {
     damageRadius: 70,
     craterRadius: 52.5,
-    depth: 24,
+    depth: 48,
     cloudHeight: 120,
     bodyLimit: 128,
     scatterMin: 50,
@@ -68,7 +68,7 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   castle: {
     damageRadius: 180,
     craterRadius: 105,
-    depth: 40,
+    depth: 80,
     cloudHeight: 240,
     bodyLimit: 128,
     scatterMin: 60,
@@ -78,7 +78,7 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   valley: {
     damageRadius: 420,
     craterRadius: 240,
-    depth: 50,
+    depth: 100,
     cloudHeight: 400,
     bodyLimit: 128,
     scatterMin: 70,

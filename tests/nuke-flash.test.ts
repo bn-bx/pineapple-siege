@@ -20,19 +20,54 @@ function dispose(f: NukeFlash) {
   f.mesh.material.dispose();
 }
 
-it("lights the view across the map, including when the blast is behind the camera", () => {
+it.each([false, true])(
+  "has global brightness regardless of camera position or facing (reduced=%s)",
+  (reduced) => {
+    const flash = new NukeFlash(),
+      camera = new THREE.PerspectiveCamera();
+    try {
+      flash.trigger(blast);
+      flash.update(1, camera, reduced);
+      const initial = opacity(flash);
+      expect(initial).toBeGreaterThan(0);
+      for (const position of [
+        [0, 0, 2800],
+        [6000, 2000, 6000],
+        [0, -500, 0],
+      ]) {
+        camera.position.fromArray(position);
+        for (const target of [
+          [0, 0, 0],
+          [10000, 5000, 10000],
+          [-10000, -5000, -10000],
+        ]) {
+          camera.lookAt(...(target as [number, number, number]));
+          flash.update(0, camera, reduced);
+          expect(opacity(flash)).toBe(initial);
+        }
+      }
+    } finally {
+      dispose(flash);
+    }
+  },
+);
+
+it("preserves yield-dependent fades and uses the strongest overlapping pulse", () => {
   const flash = new NukeFlash(),
     camera = new THREE.PerspectiveCamera();
   try {
-    camera.position.set(0, 0, 2800);
+    flash.trigger({ ...blast, profile: NUKE_PROFILES.local });
+    flash.update(5.2, camera, false);
+    expect(opacity(flash)).toBe(0);
+    flash.trigger(blast);
+    flash.update(5.2, camera, false);
+    expect(opacity(flash)).toBeGreaterThan(0);
     flash.trigger(blast);
     flash.update(0, camera, false);
-    const toward = opacity(flash);
-    expect(toward).toBeGreaterThan(0.7);
-    camera.lookAt(0, 0, 5000);
+    expect(opacity(flash)).toBe(0.98);
+    flash.trigger(blast);
     flash.update(0, camera, false);
-    expect(opacity(flash)).toBeGreaterThan(0.3);
-    expect(opacity(flash)).toBeLessThan(toward);
+    expect(opacity(flash)).toBe(0.98);
   } finally {
     dispose(flash);
   }

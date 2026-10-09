@@ -58,7 +58,7 @@ it("migrates absent preferences and bounds experimental values", () => {
   ).toMatchObject({ bodies: 4, fragments: 0, cosmetics: 1, nukeScale: 1 });
   expect(
     nukeProfile("valley", { ...DEFAULT_DESTRUCTION, nukeScale: 3 }),
-  ).toMatchObject({ damageRadius: 1260, craterRadius: 720, depth: 50 });
+  ).toMatchObject({ damageRadius: 1260, craterRadius: 720, depth: 300 });
 });
 
 it("uses 0.1-second rapid fire without projectile admission limits and captures strength at release", () => {
@@ -154,7 +154,7 @@ it("bounds visual output, preserves amplified pending jobs and bedrock", () => {
       .reduce((n, e) => n + e.count, 0),
   ).toBeGreaterThan(0);
   for (const [i, height] of s.terrain.changed)
-    expect(height).toBeGreaterThanOrEqual(base[i] - 50.001);
+    expect(height).toBeGreaterThanOrEqual(base[i] - 500.001);
   s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 0 });
   const trimTicks = Math.ceil((s.moving.size - 64) / 16) + 120;
   for (let i = 0; i < trimTicks && s.moving.size > 64; i++) s.step();

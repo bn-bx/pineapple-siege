@@ -1,5 +1,5 @@
 {
-  "release": "fullscreen-menu-map-2026-10-09",
+  "release": "global-nukes-deeper-craters-2026-10-09",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
   "preferenceRevision": 5,
@@ -11,6 +11,7 @@
     "crt-presets-photo-export",
     "giant-fly-airborne-combat",
     "faster-cannon-jet-bright-enemy-shots",
-    "fullscreen-settings-island-map-controls-help"
+    "fullscreen-settings-island-map-controls-help",
+    "global-nuke-flash-eight-clouds-500m-excavation"
   ]
 }

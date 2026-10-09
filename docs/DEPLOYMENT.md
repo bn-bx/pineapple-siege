@@ -27,4 +27,4 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`fullscreen-menu-map-2026-10-09` restores a full-screen pause menu with Controls, Graphics, Audio, and World settings visible together. Play/Resume remains prominent. The Map tab shows original island terrain, roads, rivers, landmarks, and the aircraft position when opened; Controls guide provides input help. Existing settings persistence and island replacement/reset confirmations remain intact. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`global-nukes-deeper-craters-2026-10-09` makes nuke flashes equally bright from every camera position and direction, retains up to eight pineapple clouds for 20 seconds, and doubles Valley excavation to 100 m per ground-level strike with a cumulative floor 500 m below original terrain. Cloud pooling, reduced effects, flooding, and save persistence remain active. World version 8, save compatibility 9, and preference revision 5 remain unchanged.

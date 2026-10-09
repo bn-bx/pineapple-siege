@@ -17,14 +17,10 @@ export class NukeFlash {
     }),
   );
   private pulses: {
-    p: THREE.Vector3;
     age: number;
     duration: number;
     hold: number;
-    reach: number;
   }[] = [];
-  private direction = new THREE.Vector3();
-  private offset = new THREE.Vector3();
   constructor() {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 10000;
@@ -34,17 +30,13 @@ export class NukeFlash {
     if (e.kind !== "nuke") return;
     const height = e.profile?.cloudHeight ?? 120;
     this.pulses.push({
-      p: new THREE.Vector3(...e.p),
       age: 0,
       duration: THREE.MathUtils.clamp(4.5 + height / 200, 5.1, 8),
       hold: THREE.MathUtils.clamp(0.35 + height / 1200, 0.45, 0.9),
-      // Atmospheric exposure reaches across the valley, beyond the fireball.
-      reach: THREE.MathUtils.clamp(height * 10, 2200, 6000),
     });
     if (this.pulses.length > 8) this.pulses.shift();
   }
-  update(dt: number, camera: THREE.Camera, reduced: boolean) {
-    camera.getWorldDirection(this.direction);
+  update(dt: number, _camera: THREE.Camera, reduced: boolean) {
     let opacity = 0;
     for (const pulse of this.pulses) {
       pulse.age += dt;
@@ -53,18 +45,7 @@ export class NukeFlash {
       const hold = reduced ? 0.08 : pulse.hold;
       const t = Math.max(0, (pulse.age - hold) / (duration - hold));
       const envelope = Math.pow(Math.max(0, 1 - t), 1.6);
-      this.offset.copy(pulse.p).sub(camera.position);
-      const distance = this.offset.length();
-      const facing =
-        distance < 1
-          ? 1
-          : this.offset.divideScalar(distance).dot(this.direction);
-      const view = THREE.MathUtils.smoothstep(facing, -0.25, 0.7);
-      const attenuation = 1 / (1 + Math.pow(distance / pulse.reach, 2));
-      opacity = Math.max(
-        opacity,
-        envelope * attenuation * (0.45 + 0.55 * view),
-      );
+      opacity = Math.max(opacity, envelope);
     }
     this.pulses = this.pulses.filter((p) => p.age < p.duration);
     this.mesh.material.uniforms.opacity.value = Math.min(
