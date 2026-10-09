@@ -155,13 +155,17 @@ export class Flies {
       : null;
   }
   damage(p: Vec3, radius: number, amount: number, column = false) {
-    const hit: FlyState[] = [];
-    for (const f of this.states) {
-      if (f.defeated) continue;
+    return this.damageMatching(f => {
       const separation = column
         ? Math.hypot(f.p[0] - p[0], f.p[2] - p[2])
         : distance(f.p, p);
-      if (separation > radius + 21) continue;
+      return separation <= radius + 21;
+    }, amount);
+  }
+  damageMatching(touches: (fly: FlyState) => boolean, amount: number) {
+    const hit: FlyState[] = [];
+    for (const f of this.states) {
+      if (f.defeated || !touches(f)) continue;
       f.health = Math.max(0, f.health - amount);
       f.defeated = f.health === 0;
       if (f.defeated) f.deathAge = 0;

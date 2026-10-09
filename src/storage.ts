@@ -1,3 +1,4 @@
+import { FIRE_LIMIT, FIRE_LIFETIME } from "./sim/nuclear-fire";
 import { unpackBodies } from "./sim/body-buffer";
 import { consolidateRubble } from "./sim/rubble";
 import { isRoof, roofClearance } from "./debris-shape";
@@ -418,6 +419,7 @@ export function compatible(
   if (!save || typeof save !== "object") return false;
   const s = save as SaveSnapshot;
   return (
+    validNuclearFire(s.nuclearFire) &&
     (s.version === CONFIG.version || s.version === 8) &&
     s.worldVersion === worldVersion &&
     s.seed === seed &&
@@ -632,6 +634,67 @@ export function compatible(
         r.q.every(Number.isFinite),
     )
   );
+}
+function validNuclearFire(f: SaveSnapshot["nuclearFire"]) {
+  if (f === undefined) return true;
+  if (
+    !f ||
+    !Number.isFinite(f.clock) ||
+    f.clock < 0 ||
+    !Number.isFinite(f.creatureClock) ||
+    f.creatureClock < 0 ||
+    f.creatureClock >= 1 ||
+    !Array.isArray(f.patches) ||
+    f.patches.length > FIRE_LIMIT ||
+    !Array.isArray(f.exposures) ||
+    f.exposures.length > 100000
+  )
+    return false;
+  const ids = new Set<number>();
+  for (const p of f.patches) {
+    if (
+      !p ||
+      !Number.isSafeInteger(p.id) ||
+      p.id < 1 ||
+      ids.has(p.id) ||
+      !validPoint(p.p) ||
+      p.p[0] < 0 ||
+      p.p[2] < 0 ||
+      p.p[0] > CONFIG.worldSize ||
+      p.p[2] > CONFIG.worldSize ||
+      !Number.isFinite(p.radius) ||
+      p.radius < 12 ||
+      p.radius > 24 ||
+      !Number.isFinite(p.height) ||
+      p.height < 6 ||
+      p.height > 12 ||
+      !Number.isFinite(p.age) ||
+      p.age < 0 ||
+      p.age >= FIRE_LIFETIME ||
+      !Number.isFinite(p.seed)
+    )
+      return false;
+    ids.add(p.id);
+  }
+  const entities = new Set<number>();
+  return f.exposures.every((e) => {
+    if (
+      !Array.isArray(e) ||
+      e.length !== 3 ||
+      !Number.isSafeInteger(e[0]) ||
+      e[0] < 0 ||
+      entities.has(e[0]) ||
+      !Number.isFinite(e[1]) ||
+      e[1] < 0 ||
+      e[1] > 5 ||
+      !Number.isFinite(e[2]) ||
+      e[2] < 0 ||
+      e[2] > f.clock
+    )
+      return false;
+    entities.add(e[0]);
+    return true;
+  });
 }
 function validPoint(p: unknown): boolean {
   return (

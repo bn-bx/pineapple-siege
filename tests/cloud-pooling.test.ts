@@ -1,10 +1,12 @@
 import { expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { ResourceDisposal } from "../src/render/resource-disposal";
+import { NuclearFireView } from "../src/render/nuclear-fire";
 import { Effects } from "../src/render/effects";
 import type { Explosion } from "../src/types";
 it("prewarms both cloud qualities and reuses the requested presentation without pool growth", () => {
   const effects = Object.create(Effects.prototype) as any;
+  effects.fire = new NuclearFireView();
   effects.flashPool = [];
   effects.cloudsPool = [];
   effects.clouds = [];

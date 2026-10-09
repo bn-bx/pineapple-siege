@@ -1,3 +1,4 @@
+import { NuclearFireView } from "./nuclear-fire";
 import * as THREE from "three";
 import type { Explosion,FragmentEffect } from "../types";
 import { GroundDust } from "./dust";
@@ -11,6 +12,7 @@ import { NukeFlash } from "./nuke-flash";
 import type { ResourceDisposal } from "./resource-disposal";
 import { SpaceLaser } from "./space-laser";
 export class Effects {
+  readonly fire = new NuclearFireView();
   readonly laser = new SpaceLaser();
   readonly dust = new GroundDust();
   readonly group = new THREE.Group();
@@ -101,6 +103,7 @@ export class Effects {
     );
     this.points.frustumCulled = false;
     this.group.add(
+      this.fire.group,
       this.laser.group,
       this.points,
       this.fragments.mesh,
@@ -170,6 +173,7 @@ export class Effects {
     this.dust.emit(e, this.reduced || scale < 1, this.ground);
     if (e.kind === "nuke") {
       this.nukeFlash.trigger(e);
+      this.fire.trigger(e);
       const reduced = this.reduced || scale < 1;
       if (this.clouds.length >= 8) {
         const oldest = this.clouds.shift()!;
@@ -342,6 +346,7 @@ export class Effects {
     this.shake *= Math.exp(-dt * 5);
   }
   reset() {
+    this.fire.reset();
     this.laser.reset();
     this.dust.reset();
     this.nukeFlash.reset();
@@ -373,6 +378,7 @@ export class Effects {
   dispose(resources: ResourceDisposal) {
     this.reset();
     resources.collect(this.group);
+    this.fire.collectResources(resources);
     for (const object of this.prewarmMeshes) resources.collect(object);
     resources.geometries.add(this.flashGeometry);
     this.flashPool.length = 0;

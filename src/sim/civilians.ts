@@ -217,6 +217,11 @@ export class Civilians {
       )
         this.react(s.id, "sad");
   }
+  burn(touches: (p: Vec3, size: Vec3) => boolean) {
+    for (const c of this.states)
+      if (c.alive && touches([c.p[0], c.p[1] + 2, c.p[2]], [1, 2, 1]))
+        this.kill(c);
+  }
   blast(p: Vec3, radius: number, column = false) {
     for (const c of this.near(p, p, radius, radius)) {
       const d = column

@@ -1,3 +1,4 @@
+import { NuclearFire } from "./nuclear-fire";
 import { Flies } from "./flies";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { civilianPopulation } from "../civilian-morale";
@@ -67,7 +68,7 @@ import { BodyPoseCache, DebrisMap } from "./body-pose-cache";
 import { Civilians } from "./civilians";
 import { DestructionDriver } from "./destruction-driver";
 import { MonsterRagdolls } from "./monster-ragdolls";
-import { MONSTER_BODY_HEIGHT, Monsters } from "./monsters";
+import { MONSTER_BODY_HEIGHT, MONSTER_BODY_RADIUS, Monsters } from "./monsters";
 import { packMotion } from "./motion-buffer";
 import { consolidateRubble } from "./rubble";
 import { SparseIndices } from "./sparse-indices";
@@ -325,6 +326,7 @@ export class Simulation {
   }
 
   cooldowns = { cannon: 0, nuke: 0, laser: 0 };
+  readonly fires = new NuclearFire();
   readonly lasers: LaserStrike[] = [];
   readonly laserWork = new Map<number, LaserWork>();
   readonly laserSupport = new Set<string>();
@@ -379,6 +381,7 @@ export class Simulation {
     physics: 0,
     ballistic: 0,
     lasers: 0,
+    nuclearFire: 0,
     colliders: 0,
   };
   private nextBody = 100000;
@@ -425,6 +428,7 @@ export class Simulation {
     if (save) {
       this.destruction = normalizeDestruction(save.destruction);
       this.terrain.restore(save.terrain, save.laserDry);
+      this.fires.restore(save.nuclearFire);
       this.lasers.push(
         ...structuredClone(save.lasers).map((l) => ({
           ...l,
@@ -1448,6 +1452,19 @@ export class Simulation {
       );
     }
     job.fragments = budget.n;
+    this.fires.ignite(
+      p,
+      profile,
+      this.tick,
+      job.excavation,
+      {
+        ground: (x, z) => this.terrain.sample(x, z),
+        water: (x, z) => this.terrain.water(x, z),
+      },
+      this.nearbyEntities(p, profile.damageRadius * 1.2)
+        .filter((id) => !this.removed.has(id))
+        .map((id) => this.world.entities[id]),
+    );
   }
   processDestruction(budgetMS = 2): void {
     const sim = this;
@@ -2025,6 +2042,67 @@ export class Simulation {
     }
     this.civilians.defeats(before, this.monsters.active());
   }
+  private updateNuclearFire(dt: number) {
+    if (dt > 0 && this.fires.patches.length) this.bump();
+    this.fires.step(dt, {
+      ground: (x, z) => this.terrain.sample(x, z),
+      water: (x, z) => this.terrain.water(x, z),
+      ids: (cell) => this.entityCells.get(cell) ?? [],
+      entity: (id) => this.world.entities[id],
+      removed: (id) => this.removed.has(id),
+      burn: (entity) => {
+        this.fragment(entity, entity.p, 4, { n: 0, limit: 4 });
+        this.bump();
+        for (const name of this.dirtyAssemblies)
+          this.supportJobs.push({
+            name,
+            origin: [...entity.p],
+            coarse: 7,
+            budget: 4,
+            phase: "foundations",
+            cursor: 0,
+            alive: [],
+            connected: [],
+            clusters: [],
+          });
+        this.dirtyAssemblies.clear();
+      },
+      actors: (touches, damage) => {
+        this.civilians.burn(touches);
+        if (!damage) return;
+        const before = this.monsters.active();
+        for (const m of before) {
+          if (
+            !touches(
+              [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]],
+              [MONSTER_BODY_RADIUS, MONSTER_BODY_HEIGHT, MONSTER_BODY_RADIUS],
+            ) ||
+            !this.monsters.damage(m, 1)
+          )
+            continue;
+          if (m.defeated) this.monsterRagdolls.start(m, m.p);
+          this.bump();
+          this.emit({
+            type: "monsterEvent",
+            p: [...m.p],
+            kind: m.defeated ? "defeat" : "hit",
+          });
+        }
+        for (const f of this.flies.damageMatching(
+          (f) => touches(f.p, [21, 12, 21]),
+          1,
+        )) {
+          this.bump();
+          this.emit({
+            type: "monsterEvent",
+            p: [...f.p],
+            kind: f.defeated ? "defeat" : "hit",
+          });
+        }
+        this.civilians.defeats(before, this.monsters.active());
+      },
+    });
+  }
   private laserAim(): Vec3 | null {
     const p = this.plane,
       f: Vec3 = [
@@ -2441,8 +2519,22 @@ export class Simulation {
       for (const z of this.burnZones)
         this.damageMonsters(z.p, z.radius, 1, true);
     this.processDestruction(Math.max(0.25, 2 - laserMS));
-    this.destructionMS += laserMS;
     this.stageMS.destruction = performance.now() - destructionStarted;
+    const fireStarted = performance.now();
+    this.updateNuclearFire(dt);
+    if (this.plane.crashed <= 0) {
+      const hit = this.fires.sweep(
+        wasCrashed ? this.plane.p : previousPlanePosition,
+        this.plane.p,
+      );
+      if (hit) {
+        this.plane.p = hit;
+        this.plane.crashed = CONFIG.respawnDelay;
+        this.explode(hit, 0.65, "crash");
+      }
+    }
+    this.stageMS.nuclearFire = performance.now() - fireStarted;
+    this.destructionMS += laserMS;
     const terrainStarted = performance.now();
     if (this.tick % 20 === 0) this.ensureTerrain();
     this.stageMS.terrainMaintenance = performance.now() - terrainStarted;
@@ -2504,6 +2596,7 @@ export class Simulation {
         (this.stageMS.flight +
           this.stageMS.monsters +
           this.stageMS.lasers +
+          this.stageMS.nuclearFire +
           this.stageMS.projectiles +
           this.stageMS.destruction +
           this.stageMS.residency +
@@ -2541,6 +2634,7 @@ export class Simulation {
       weapon: this.weapon,
       nukeYield: this.nukeYield,
       cooldowns: { ...this.cooldowns },
+      fires: structuredClone(this.fires.patches),
       lasers: structuredClone(this.lasers),
       projectiles: packed
         ? []
@@ -2633,6 +2727,7 @@ export class Simulation {
       incremental: true,
       revision: startRevision,
       hour: this.hour,
+      nuclearFire: this.fires.save(),
       destruction: { ...this.destruction },
       terrain: new Float32Array(),
       laserDry: new Uint32Array(),
@@ -2834,6 +2929,7 @@ export class Simulation {
       terrain[offset++] = height;
     });
     return {
+      nuclearFire: this.fires.save(),
       destruction: { ...this.destruction },
       version: CONFIG.version,
       worldVersion: this.world.version,
@@ -2859,6 +2955,7 @@ export class Simulation {
     };
   }
   dispose() {
+    this.fires.reset();
     this.moving.clear();
     this.ballistic.clear();
     this.cleanupRemains.clear();

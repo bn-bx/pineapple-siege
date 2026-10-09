@@ -19,6 +19,20 @@ export interface LaserWork {
   section: number;
   targets: { p: Vec3; progress: number; radius?: number; depth?: number }[];
 }
+export interface FirePatch {
+  id: number;
+  p: Vec3;
+  radius: number;
+  height: number;
+  age: number;
+  seed: number;
+}
+export interface NuclearFireState {
+  patches: FirePatch[];
+  clock: number;
+  creatureClock: number;
+  exposures: [number, number, number][];
+}
 export type NukeYield = "local" | "castle" | "valley";
 export interface DestructionSettings {
   bodies: number;
@@ -292,6 +306,7 @@ export interface FragmentEffect {
   spread: number;
 }
 export interface SimulationSnapshot {
+  fires?: FirePatch[];
   epoch?: number;
   slot?: number;
   packedMotion?: PackedMotion;
@@ -376,6 +391,7 @@ export interface SaveSection {
   removedRuins: number[];
 }
 export interface SaveSnapshot {
+  nuclearFire?: NuclearFireState;
   moving?: PackedBodies;
   incremental?: boolean;
   capture?: number;

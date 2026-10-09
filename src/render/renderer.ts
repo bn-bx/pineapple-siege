@@ -1616,6 +1616,7 @@ export class GameRenderer {
       this.camera,
     );
     this.effects.update(active ? dt : 0);
+    this.effects.fire.update(snap.fires ?? [], active ? dt : 0, this.effects.reduced, snap.time);
     this.performance.record("effects", performance.now() - effectsStarted);
     this.effects.laser.reduced = this.effects.reduced;
     this.effects.laser.update(
