@@ -209,7 +209,7 @@ export class IslandPreview {
         for (const height of this.candidate.heights)
           peak = Math.max(peak, height);
         get("islandLandmarks").textContent =
-          `3 castles · 2 harbors · 2 lighthouses · ${message.world.rivers.length} rivers · 664 residents · Highest peak ${Math.round(peak)} m`;
+          `${(message.world.size / 1000).toFixed(1)} km across · ${message.world.landscapeProfile} · ${message.world.castles.length} castles · ${message.world.sites.filter((s: { kind: string }) => s.kind === "harbor").length} harbors · ${message.world.rivers.length} rivers · ${message.world.civilians.length} residents · Highest peak ${Math.round(peak)} m`;
         this.status(
           `Your island is ready. Highest peak: ${Math.round(peak)} m. Reroll, enter another seed, or keep this one.`,
         );

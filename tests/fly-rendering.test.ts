@@ -28,8 +28,8 @@ it("shares fly resources and renders approximately three jet lengths and wingspa
   expect(size.z).toBeLessThan(48);
   expect(size.x).toBeGreaterThan(38);
   expect(size.x).toBeLessThan(48);
-  expect((view.models[0].children[0] as THREE.Mesh).geometry).toBe(
-    (view.models[1].children[0] as THREE.Mesh).geometry,
+  expect((view.models[0].children[0].children[0] as THREE.Mesh).geometry).toBe(
+    (view.models[1].children[0].children[0] as THREE.Mesh).geometry,
   );
   const resources = new ResourceDisposal();
   resources.collect(view.group);
@@ -86,4 +86,30 @@ it("interpolates poses and wrapped angles, animates wings, culls, and resets", (
   expect(model.visible).toBe(false);
   view.reset();
   expect(view.models.every((m) => !m.visible)).toBe(true);
+});
+
+it("separates into three sections on defeat and restores the intact model after reset", () => {
+  const view = new FlyView(() => 0),
+    f = state();
+  view.update(snap(f), undefined, 1, new THREE.Vector3(0, 100, 0), 1200);
+  const sections = view.models[0].children;
+  expect(sections.map((s) => s.name)).toEqual(["abdomen", "thorax", "head"]);
+  const original = sections.map((s) => s.position.clone());
+  f.defeated = true;
+  f.deathAge = 1;
+  view.update(snap(f), undefined, 1, new THREE.Vector3(0, 100, 0), 1200);
+  expect(sections[0].position.distanceTo(original[0])).toBeGreaterThan(10);
+  expect(sections[2].position.distanceTo(original[2])).toBeGreaterThan(10);
+  expect(sections[0].quaternion.equals(sections[2].quaternion)).toBe(false);
+  view.reset();
+  f.defeated = false;
+  f.deathAge = 0;
+  view.update(snap(f), undefined, 1, new THREE.Vector3(0, 100, 0), 1200);
+  sections.forEach((s, i) => {
+    expect(s.position.equals(original[i])).toBe(true);
+    expect(s.quaternion.equals(new THREE.Quaternion())).toBe(true);
+  });
+  const resources = new ResourceDisposal();
+  resources.collect(view.group);
+  resources.dispose();
 });

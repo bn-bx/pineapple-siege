@@ -1,9 +1,9 @@
 import { createMountainLayout, mountainRelief } from "./mountains.mjs";
 import { createArchitecture } from "./architecture.mjs";
 import { VERTICAL_LIMITS } from "./vertical-limits.mjs";
-export const GENERATOR_VERSION = 2;
-export const WORLD_VERSION = 8;
-export const SIZE = 6144;
+export const GENERATOR_VERSION = 3;
+export const WORLD_VERSION = 9;
+export const SIZE = 9216;
 export const STEP = 2;
 export const GRID = SIZE / STEP + 1;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -18,9 +18,11 @@ export function seedCode(seed, revision = GENERATOR_VERSION) {
 }
 export function parseSeedCode(code) {
   const match = /^PS(\d+)-([\da-f]{8})$/i.exec(code.trim());
-  if (!match) throw Error("Enter a seed code such as PS2-0000A301.");
-  if (![1, GENERATOR_VERSION].includes(Number(match[1])))
-    throw Error("This seed uses an unsupported island generator version.");
+  if (!match) throw Error("Enter a seed code such as PS3-0000A301.");
+  if (Number(match[1]) !== GENERATOR_VERSION)
+    throw Error(
+      "This seed uses an older or unsupported island layout. Start a new island with a PS3 seed code.",
+    );
   return parseInt(match[2], 16) >>> 0;
 }
 export function islandLink(code, base) {
@@ -160,28 +162,40 @@ function generateCandidate(seed, report, attempt) {
     noise(x * 2.03 + 19, z * 2.03 + 9) * 0.28 +
     noise(x * 4.07, z * 4.07) * 0.14;
   report("Shaping coastline and mountain ridges", 0.02);
-  const cx = 3072 + (hash(1, 1) - 0.5) * 100,
-    cz = 3072 + (hash(1, 2) - 0.5) * 100,
+  const cx = SIZE / 2 + (hash(1, 1) - 0.5) * 100,
+    cz = SIZE / 2 + (hash(1, 2) - 0.5) * 100,
     rotation = hash(2, 2) * Math.PI * 2,
     cos = Math.cos(rotation),
     sin = Math.sin(rotation);
   // Leave a wider ocean margin while scaling mountains and saddles with the coast.
-  const islandScale = 0.94;
+  const islandScale = 1.41;
+  const landscapeProfile = ["mountainous", "rolling woodland", "broad lowland"][
+    Math.floor(hash(9, 411) * 3)
+  ];
   const local = (x, z) => [
     ((x - cx) * cos + (z - cz) * sin) / islandScale,
     (-(x - cx) * sin + (z - cz) * cos) / islandScale,
   ];
   // Overlapping lobes give one large island; bays warp its broad silhouette.
-  const lobes = [
-    [0, 0, 2480, 2550],
-    [-650, -180, 2050 + hash(3, 401) * 180, 2050],
-    [700, 240, 2100, 2100 + hash(4, 401) * 180],
-  ];
-  const bays = Array.from({ length: 3 }, (_, i) => ({
-    angle: hash(i, 402) * Math.PI * 2,
-    depth: 180 + hash(i, 403) * 300,
-    width: 0.16 + hash(i, 404) * 0.12,
-  }));
+  const lobes = [[0, 0, 2430 + hash(3, 401) * 120, 2430 + hash(4, 401) * 160]];
+  for (let i = 0, count = 2 + Math.floor(hash(8, 401) * 3); i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + hash(i, 405) * 0.5;
+    const distance = 350 + hash(i, 406) * 450;
+    lobes.push([
+      Math.cos(angle) * distance,
+      Math.sin(angle) * distance,
+      1870 + hash(i, 407) * 300,
+      1870 + hash(i, 408) * 300,
+    ]);
+  }
+  const bays = Array.from(
+    { length: 3 + Math.floor(hash(8, 402) * 3) },
+    (_, i) => ({
+      angle: hash(i, 402) * Math.PI * 2,
+      depth: 160 + hash(i, 403) * 280,
+      width: 0.14 + hash(i, 404) * 0.14,
+    }),
+  );
   const mountainLayout = createMountainLayout(hash);
   const passes = mountainLayout.passes.map((pass) => ({
     p: [
@@ -191,7 +205,7 @@ function generateCandidate(seed, report, attempt) {
     ],
     radius: 180 * islandScale,
   }));
-  const coarseGrid = 385,
+  const coarseGrid = SIZE / 16 + 1,
     coarse = new Float32Array(coarseGrid ** 2),
     mountain = new Float32Array(coarse.length);
   let highestMountain = 0;
@@ -224,7 +238,12 @@ function generateCandidate(seed, report, attempt) {
         smooth(1.035, 0.955, r) *
         smooth(70, 220, Math.min(wx, wz, SIZE - wx, SIZE - wz));
       const relief =
-        mountainRelief(mountainLayout, lx, lz) *
+        mountainRelief(mountainLayout, lx, lz) **
+          (landscapeProfile === "mountainous"
+            ? 0.85
+            : landscapeProfile === "broad lowland"
+              ? 2.2
+              : 1.35) *
         (0.84 +
           0.16 * (1 - Math.abs(2 * noise(wx / 290 + 31, wz / 290 + 37) - 1)));
       const hills =
@@ -250,8 +269,8 @@ function generateCandidate(seed, report, attempt) {
       coarse[i] + (mountain[i] / highestMountain) * targetPeak * reliefScale,
     );
   const raw = (x, z) => {
-    const gx = clamp(x / 16, 0, 383.9999),
-      gz = clamp(z / 16, 0, 383.9999),
+    const gx = clamp(x / 16, 0, coarseGrid - 1.0001),
+      gz = clamp(z / 16, 0, coarseGrid - 1.0001),
       ix = Math.floor(gx),
       iz = Math.floor(gz),
       i = iz * coarseGrid + ix;
@@ -269,7 +288,7 @@ function generateCandidate(seed, report, attempt) {
   }
   const sample = (x, z) => sampleHeight(heights, x, z);
   // Priority-flood drainage supplies a deterministic route from every ridge to sea.
-  const R = 97,
+  const R = SIZE / 64 + 1,
     N = R * R,
     level = new Float64Array(N).fill(Infinity),
     parent = new Int32Array(N).fill(-1),
@@ -351,7 +370,7 @@ function generateCandidate(seed, report, attempt) {
   }
   const rivers = [],
     used = new Set(),
-    riverCount = 2 + Math.floor(hash(3, 3) * 3);
+    riverCount = 4 + Math.floor(hash(3, 3) * 3);
   for (let r = 0; r < riverCount; r++) {
     let source = -1,
       best = -Infinity;
@@ -485,7 +504,7 @@ function generateCandidate(seed, report, attempt) {
     castles = [];
   const site = (kind, x, z, radius, extra = {}) => {
     const id =
-      kind === "castle"
+      kind === "castle" && !sites.some((s) => s.id === "castle")
         ? "castle"
         : `${kind}-${sites.filter((s) => s.kind === kind).length + 1}`;
     const s = {
@@ -506,10 +525,27 @@ function generateCandidate(seed, report, attempt) {
     );
   function inlandSite(kind, radius, number, castle = false) {
     for (let a = 0; a < 6000; a++) {
-      const x = 400 + hash(a + number * 9101, 101) * (SIZE - 800),
-        z = 400 + hash(a + number * 9101, 102) * (SIZE - 800),
+      const anchor =
+        !castle &&
+        a < 800 &&
+        castles.length &&
+        ["hamlet", "farm"].includes(kind)
+          ? castles[number % castles.length]
+          : undefined;
+      const angle = hash(a + number * 9101, 103) * Math.PI * 2;
+      const range = 700 + hash(a + number * 9101, 104) * 1700;
+      const x = anchor
+          ? anchor.p[0] + Math.cos(angle) * range
+          : 400 + hash(a + number * 9101, 101) * (SIZE - 800),
+        z = anchor
+          ? anchor.p[2] + Math.sin(angle) * range
+          : 400 + hash(a + number * 9101, 102) * (SIZE - 800),
         h = sample(x, z);
       if (
+        x < 400 ||
+        z < 400 ||
+        x > SIZE - 400 ||
+        z > SIZE - 400 ||
         h < 14 ||
         h > (castle ? 135 : 150) ||
         occupied(x, z, radius) ||
@@ -534,8 +570,8 @@ function generateCandidate(seed, report, attempt) {
     throw Error(`Could not place ${kind} on safe land. Try another seed.`);
   }
   report("Placing fortresses and settlements", 0.27);
-  for (let k = 0; k < 3; k++) {
-    const grand = k === 0,
+  for (let k = 0; k < 5; k++) {
+    const grand = k < 2,
       s = inlandSite(
         grand ? "castle" : "small-castle",
         grand ? 335 : 205,
@@ -569,14 +605,18 @@ function generateCandidate(seed, report, attempt) {
   }
   let serial = 0;
   for (const [kind, count, radius] of [
-    ["hamlet", 12, 65],
-    ["farm", 7, 52],
-    ["windmill", 5, 24],
-    ["watchtower", 4, 20],
-    ["logging", 2, 36],
-    ["quarry", 1, 52],
+    ["hamlet", 24, 65],
+    ["farm", 14, 52],
+    ["windmill", 8, 24],
+    ["watchtower", 8, 20],
+    ["logging", 4, 36],
+    ["quarry", 2, 52],
   ])
-    for (let i = 0; i < count; i++) inlandSite(kind, radius, serial++);
+    for (let i = 0; i < count; i++) {
+      const town = kind === "hamlet" && i < 6;
+      const placed = inlandSite(kind, town ? 145 : radius, serial++);
+      placed.town = town;
+    }
   function coastalSite(kind, number) {
     let best;
     for (let a = 0; a < 18000; a++) {
@@ -625,7 +665,8 @@ function generateCandidate(seed, report, attempt) {
     throw Error(`Could not place ${kind} on the coast. Try another seed.`);
   }
   for (const kind of ["harbor", "lighthouse", "coastal-ruin"])
-    for (let k = 0; k < 2; k++) coastalSite(kind, k + serial++);
+    for (let k = 0; k < (kind === "coastal-ruin" ? 2 : 3); k++)
+      coastalSite(kind, k + serial++);
   // Cardinal structures can cross oblique reaches using measured bank spans.
   function riverSite(kind, index) {
     for (let a = 0; a < 4000; a++) {
@@ -684,8 +725,8 @@ function generateCandidate(seed, report, attempt) {
     }
     throw Error(`Could not place ${kind} beside a river. Try another seed.`);
   }
-  for (let k = 0; k < 2; k++) riverSite("watermill", k);
-  for (let k = 0; k < 5; k++) riverSite(k === 0 ? "bridge" : "crossing", k);
+  for (let k = 0; k < 4; k++) riverSite("watermill", k);
+  for (let k = 0; k < 9; k++) riverSite(k === 0 ? "bridge" : "crossing", k);
   // Blend stable site terraces into the landscape without damming river channels.
   for (const s of sites) {
     if (s.kind === "crossing" || s.kind === "bridge") continue;
@@ -921,6 +962,18 @@ function generateCandidate(seed, report, attempt) {
     out.push(path.at(-1));
     return out;
   });
+  for (const s of sites.filter((s) => s.town)) {
+    for (const offset of [-63, -21, 21, 63])
+      paths.push([
+        [s.p[0] + offset, s.p[2] - 105],
+        [s.p[0] + offset, s.p[2] + 105],
+      ]);
+    for (const offset of [-44, 0, 44])
+      paths.push([
+        [s.p[0] - 110, s.p[2] + offset],
+        [s.p[0] + 110, s.p[2] + offset],
+      ]);
+  }
   const bridges = sites.filter(
     (s) => s.kind === "bridge" || s.kind === "crossing",
   );
@@ -1013,11 +1066,11 @@ function generateCandidate(seed, report, attempt) {
     s.assemblies = c.assemblies;
   }
   const distanceToRoad = pathIndex(paths),
-    maxTrees = 14000;
+    maxTrees = 30000;
   report("Planting varied forests", 0.65);
   const treeCandidates = [];
-  for (let z = 50; z < SIZE - 50; z += 30)
-    for (let x = 50; x < SIZE - 50; x += 30) {
+  for (let z = 50; z < SIZE - 50; z += 24)
+    for (let x = 50; x < SIZE - 50; x += 24) {
       const px = x + (hash(x, z) - 0.5) * 19,
         pz = z + (hash(x + 5, z + 7) - 0.5) * 19,
         h = sample(px, pz),
@@ -1080,7 +1133,7 @@ function generateCandidate(seed, report, attempt) {
     .sort((a, b) => a.p[2] - b.p[2] || a.p[0] - b.p[0]);
   for (const { priority, ...tree } of forest)
     entities.push({ ...tree, id: entities.length });
-  for (let i = 0; i < 510; i++) {
+  for (let i = 0; i < 1148; i++) {
     const x = 200 + hash(i, 301) * (SIZE - 400),
       z = 200 + hash(i, 302) * (SIZE - 400),
       h = sample(x, z);
@@ -1158,6 +1211,7 @@ function generateCandidate(seed, report, attempt) {
     version: WORLD_VERSION,
     generatorVersion: GENERATOR_VERSION,
     seed,
+    landscapeProfile,
     size: SIZE,
     step: STEP,
     grid: GRID,
@@ -1184,16 +1238,15 @@ function generateCandidate(seed, report, attempt) {
     entities,
   };
   const { landFraction } = validateIsland(world, heights);
-  // Newly generated islands use the smaller footprint; older stored PS2 baselines
-  // retain their original coastlines and remain valid when reloaded.
-  if (landFraction < 0.53 || landFraction > 0.62)
+  // Reject layouts with too little usable land or insufficient surrounding ocean.
+  if (landFraction < 0.45 || landFraction > 0.68)
     throw Error("Island footprint failed generation validation.");
   report("Island ready", 1);
   return { world, heights };
 }
 function validateConnectedLand(heights) {
   // Flood-fill a coarse land mask before accepting content on disconnected land.
-  const side = 193,
+  const side = SIZE / 32 + 1,
     mask = new Uint8Array(side * side),
     queue = [];
   for (let z = 0; z < side; z++)
@@ -1229,14 +1282,18 @@ function validateConnectedLand(heights) {
 export function validateIsland(world, heights) {
   if (
     heights.length !== GRID ** 2 ||
+    world.size !== SIZE ||
+    world.grid !== GRID ||
+    world.step !== STEP ||
+    world.chunkSize !== 64 ||
     world.version !== WORLD_VERSION ||
-    ![1, GENERATOR_VERSION].includes(world.generatorVersion)
+    world.generatorVersion !== GENERATOR_VERSION
   )
     throw Error("Island baseline is incomplete.");
   if (
-    world.castles.length !== 3 ||
-    world.civilians.length !== 664 ||
-    world.structureCount > 16000
+    world.castles.length !== 5 ||
+    !world.civilians.length ||
+    world.structureCount > 48000
   )
     throw Error("Island content failed validation.");
   let peak = -Infinity,
@@ -1253,7 +1310,7 @@ export function validateIsland(world, heights) {
     if (h > 0) land++;
   }
   if (
-    land / heights.length < (world.generatorVersion === 1 ? 0.57 : 0.53) ||
+    land / heights.length < 0.45 ||
     land / heights.length > 0.72 ||
     peak < (world.generatorVersion === 1 ? 250 : VERTICAL_LIMITS.minPeak) ||
     peak > (world.generatorVersion === 1 ? 350 : VERTICAL_LIMITS.maxPeak)

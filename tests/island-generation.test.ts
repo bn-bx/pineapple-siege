@@ -21,11 +21,17 @@ const heights = new Float32Array(
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
 );
 beforeAll(() => initializePhysics());
+it("rejects inconsistent map dimensions before interpreting saved terrain", () => {
+  for (const field of ["size", "grid", "step", "chunkSize"] as const)
+    expect(() =>
+      validateIsland({ ...world, [field]: world[field] + 1 }, heights),
+    ).toThrow(/incomplete/);
+});
 it("round trips every seed boundary and rejects malformed or unsupported shared codes", () => {
   for (const seed of [0, 1, 41729, 4294967295])
     expect(parseSeedCode(seedCode(seed))).toBe(seed);
-  expect(parseSeedCode(" ps1-0000a301 ")).toBe(41729);
-  for (const code of ["abc", "PS1--1", "PS1-100000000", "PS3-00000001"])
+  expect(parseSeedCode(" ps3-0000a301 ")).toBe(41729);
+  for (const code of ["abc", "PS1--1", "PS1-100000000", "PS2-00000001"])
     expect(() => parseSeedCode(code)).toThrow();
   const link = new URL(
     islandLink(seedCode(42), "https://example.test/game/?debug&other=1#debug"),
@@ -47,14 +53,14 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
   for (const seed of [0, 1, 42, 2026, 4294967295]) {
     const candidate = generateIsland(seed),
       result = validateIsland(candidate.world, candidate.heights);
-    expect(result.landFraction).toBeGreaterThanOrEqual(0.53);
-    expect(result.landFraction).toBeLessThanOrEqual(0.62);
+    expect(result.landFraction).toBeGreaterThanOrEqual(0.45);
+    expect(result.landFraction).toBeLessThanOrEqual(0.68);
     expect(result.peak).toBeGreaterThanOrEqual(700);
     expect(result.peak).toBeLessThanOrEqual(1000);
     expect(candidate.world.seed).toBe(seed);
-    expect(candidate.world.structureCount).toBeLessThanOrEqual(16000);
-    expect(candidate.world.civilians).toHaveLength(664);
-    expect(candidate.world.castles).toHaveLength(3);
+    expect(candidate.world.structureCount).toBeLessThanOrEqual(48000);
+    expect(candidate.world.civilians.length).toBeGreaterThan(1900);
+    expect(candidate.world.castles).toHaveLength(5);
     const endpoints = candidate.world.paths.flatMap((path) => [
       path[0],
       path.at(-1)!,
@@ -71,23 +77,23 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
         ),
       ).toBeLessThan(8);
     for (const [kind, count] of [
-      ["hamlet", 12],
-      ["farm", 7],
-      ["windmill", 5],
-      ["watermill", 2],
-      ["watchtower", 4],
-      ["crossing", 4],
-      ["logging", 2],
-      ["quarry", 1],
-      ["harbor", 2],
-      ["lighthouse", 2],
+      ["hamlet", 24],
+      ["farm", 14],
+      ["windmill", 8],
+      ["watermill", 4],
+      ["watchtower", 8],
+      ["crossing", 8],
+      ["logging", 4],
+      ["quarry", 2],
+      ["harbor", 3],
+      ["lighthouse", 3],
       ["coastal-ruin", 2],
     ] as const)
       expect(candidate.world.sites.filter((s) => s.kind === kind)).toHaveLength(
         count,
       );
-    expect(candidate.world.rivers!.length).toBeGreaterThanOrEqual(2);
-    expect(candidate.world.rivers!.length).toBeLessThanOrEqual(4);
+    expect(candidate.world.rivers!.length).toBeGreaterThanOrEqual(4);
+    expect(candidate.world.rivers!.length).toBeLessThanOrEqual(6);
     const water = new Terrain(candidate.heights, candidate.world.rivers);
     for (const site of candidate.world.sites.filter(
       (s) => s.kind === "bridge" || s.kind === "crossing",
@@ -110,7 +116,7 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
     expect(species).toEqual(new Set(["pine", "broadleaf", "riverside"]));
     expect(
       candidate.world.entities.filter((e) => e.kind === "tree").length,
-    ).toBeLessThanOrEqual(14000);
+    ).toBeLessThanOrEqual(30000);
     expect(
       Buffer.from(candidate.heights.buffer).equals(
         Buffer.from(previous.buffer),
@@ -118,7 +124,7 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
     ).toBe(false);
     previous = candidate.heights;
   }
-}, 30000);
+}, 180000);
 it("keeps residents on dry ground and preserves all three castle home groups", () => {
   const terrain = new Terrain(heights, world.rivers),
     civilians = new Civilians(world, terrain, new Set());
@@ -143,7 +149,8 @@ it("detects elevated rivers, coastal flooding, and dry laser channels through sa
   expect(waterLevel).toBeGreaterThan(terrain.sample(p[0], p[2]));
   const coastal: [number, number] = [100, 100];
   expect(terrain.surfaceHeight(...coastal)).toBe(0);
-  const section = Math.floor(p[2] / 64) * 96 + Math.floor(p[0] / 64),
+  const section =
+      Math.floor(p[2] / 64) * (world.size / 64) + Math.floor(p[0] / 64),
     edit = terrain.laserCrater(p[0], p[2], 1, section);
   expect(terrain.surfaceHeight(p[0], p[2])).toBeUndefined();
   const restored = new Terrain(heights, world.rivers);

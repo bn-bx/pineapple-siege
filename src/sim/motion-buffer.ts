@@ -56,7 +56,8 @@ export function packMotion(
     data[offset + 6] = +m.defeated;
     data[offset + 7] = m.phase;
     data[offset + 8] = m.windup;
-    data[offset + 9] = m.stagger;
+    // Defeated actors no longer stagger; reuse this slot for their death animation.
+    data[offset + 9] = m.defeated ? (m.cleanupAge ?? 0) : m.stagger;
     data[offset + 14] = m.ragdoll ? 1 : 0;
     data[offset + 15] = m.cleanupScale ?? 1;
     for (let k = 0; k < 4; k++) data[offset + 10 + k] = m.ragdoll?.[k] ?? 0;
@@ -197,7 +198,8 @@ export function bindMotion(
         v.defeated = !!data[offset + 6];
         v.phase = data[offset + 7];
         v.windup = data[offset + 8];
-        v.stagger = data[offset + 9];
+        v.stagger = v.defeated ? 0 : data[offset + 9];
+        v.cleanupAge = v.defeated ? data[offset + 9] : undefined;
         v.cleanupScale = data[offset + 15];
         v.cleared = v.defeated && v.cleanupScale === 0;
         v.fragments = undefined;

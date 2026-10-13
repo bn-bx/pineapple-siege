@@ -27,4 +27,6 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`steel-ball-2026-10-13` adds the fourth weapon: 120 m steel balls that inherit aircraft momentum, crush structures and actors, roll downhill, and leave shallow terrain dents and tracks. Drops replace the oldest ball at the 20-ball cap. Slow balls fade below 10 m/s; terrain edits and destruction persist in saves. Adaptive terrain colliders reduce ball physics cost while retaining detailed collision geometry for sharp features. Nuclear ground flames have triple their original visual size and sprite density. World version 8, save compatibility 9, and preference revision 5 remain unchanged.
+`larger-islands-2026-10-13` expands new islands to 9,216 m across, adds three landscape profiles, five castles, six larger towns, more settlements and forests, and map zoom/pan with landmark waypoints. GPU terrain textures use small array pages; terrain and obstacle loading predicts aircraft movement. Pineapple monsters break into four body quarters plus detached arms and crown, and flies separate into three sections.
+
+The generator is PS3, world version 9, and save compatibility 10. Players need a fresh island; older stored data remains protected until they explicitly replace it, and temporary play is available. Preference revision 5 remains unchanged. Existing weapons, the twenty-ball cap, and nuclear flames retain their settings. See [larger-island verification](LARGER_ISLANDS_QA.md) for checks and performance measurements.

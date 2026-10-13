@@ -1,5 +1,6 @@
 import { terrainSurfaceColor, terrainScarColor } from "./terrain-colors";
 import { TerrainMesher, type SectionData } from "./terrain-mesher";
+import { TerrainPages } from "./terrain-pages";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
 import { WaterSurfaceLookup } from "./waterline-lookup";
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
@@ -22,6 +23,8 @@ export class TerrainView {
   readonly flood: Uint8Array;
   readonly floodTexture: THREE.DataTexture;
   readonly heightTexture: THREE.DataTexture;
+  readonly heightPages: TerrainPages;
+  readonly floodPages: TerrainPages;
   readonly base: Float32Array;
   readonly material: THREE.MeshStandardMaterial;
   private mesher: TerrainMesher;
@@ -81,6 +84,7 @@ export class TerrainView {
     readonly world: WorldData,
     public heights: Float32Array,
     grass: THREE.Texture,
+    immutableBaseline?: Float32Array,
   ) {
     this.mesher = new TerrainMesher(world);
     this.waterSurfaceLookup = new WaterSurfaceLookup(
@@ -148,7 +152,7 @@ export class TerrainView {
       Math.min(...points.map((p) => p[1])) - 6,
       Math.max(...points.map((p) => p[1])) + 6,
     ];
-    this.base = heights.slice();
+    this.base = immutableBaseline ?? heights.slice();
     this.flood = new Uint8Array(CONFIG.grid * CONFIG.grid);
     this.floodTexture = new THREE.DataTexture(
       this.flood,
@@ -165,6 +169,14 @@ export class TerrainView {
       THREE.FloatType,
     );
     this.heightTexture.needsUpdate = true;
+    this.heightPages = new TerrainPages(this.heightTexture, CONFIG.grid);
+    this.floodPages = new TerrainPages(this.floodTexture, CONFIG.grid);
+    this.heightPages.texture.onUpdate = () => {
+      this.fullHeightUpload = false;
+    };
+    this.floodPages.texture.onUpdate = () => {
+      this.fullFloodUpload = false;
+    };
     this.heightTexture.onUpdate = () => {
       this.fullHeightUpload = false;
     };
@@ -333,6 +345,7 @@ export class TerrainView {
     renderDistance = DEFAULT_RENDER_DISTANCE,
     budgetMS = 2,
     detailScale = 1,
+    velocity?: readonly number[],
   ) {
     const coarseStarted = performance.now();
     this.refreshCoarse(
@@ -341,7 +354,18 @@ export class TerrainView {
     );
     budgetMS = Math.max(0, budgetMS - (performance.now() - coarseStarted));
     if (this.worker) {
-      this.updateAsync(camera, renderDistance, budgetMS, detailScale);
+      this.preloadPosition.copy(camera);
+      if (velocity) {
+        this.preloadPosition.x += velocity[0] * 0.65;
+        this.preloadPosition.z += velocity[2] * 0.65;
+      }
+      this.updateAsync(
+        camera,
+        renderDistance,
+        budgetMS,
+        detailScale,
+        this.preloadPosition,
+      );
       return;
     }
     let rebuilt = 0;
@@ -384,14 +408,18 @@ export class TerrainView {
     this.batch(visible.filter(({ d }) => d < renderDistance + 64));
   }
 
+  private preloadPosition = new THREE.Vector3();
   private updateAsync(
     camera: THREE.Vector3,
     distance: number,
     budgetMS: number,
     detailScale: number,
+    predicted = camera,
   ) {
     const started = performance.now(),
-      cell = Math.floor(camera.x / 32) + Math.floor(camera.z / 32) * 192;
+      cell =
+        Math.floor(camera.x / 32) +
+        Math.floor(camera.z / 32) * (CONFIG.worldSize / 32);
     // Mandatory presentation can exhaust the shared frame allowance. One
     // bounded tile operation still progresses; extra operations use headroom.
     let progressed = false;
@@ -406,29 +434,33 @@ export class TerrainView {
       const next = new Set<number>(),
         tilesPerRow = CHUNKS / 4;
       const x0 = clamp(
-          Math.floor((camera.x - distance - 160) / 256),
+          Math.floor((Math.min(camera.x, predicted.x) - distance - 160) / 256),
           0,
           tilesPerRow - 1,
         ),
         x1 = clamp(
-          Math.floor((camera.x + distance + 160) / 256),
+          Math.floor((Math.max(camera.x, predicted.x) + distance + 160) / 256),
           0,
           tilesPerRow - 1,
         );
       const z0 = clamp(
-          Math.floor((camera.z - distance - 160) / 256),
+          Math.floor((Math.min(camera.z, predicted.z) - distance - 160) / 256),
           0,
           tilesPerRow - 1,
         ),
         z1 = clamp(
-          Math.floor((camera.z + distance + 160) / 256),
+          Math.floor((Math.max(camera.z, predicted.z) + distance + 160) / 256),
           0,
           tilesPerRow - 1,
         );
       for (let z = z0; z <= z1; z++)
         for (let x = x0; x <= x1; x++) {
           if (
-            (x * 256 + 128 - camera.x) ** 2 + (z * 256 + 128 - camera.z) ** 2 >
+            Math.min(
+              (x * 256 + 128 - camera.x) ** 2 + (z * 256 + 128 - camera.z) ** 2,
+              (x * 256 + 128 - predicted.x) ** 2 +
+                (z * 256 + 128 - predicted.z) ** 2,
+            ) >
             (distance + 320) ** 2
           )
             continue;
@@ -827,6 +859,10 @@ export class TerrainView {
     indices: Uint32Array,
     full: boolean,
   ) {
+    const pages =
+      texture === this.heightTexture ? this.heightPages : this.floodPages;
+    pages.update(indices, !this.textureUploads && !full);
+    if (full) pages.refresh();
     if (this.textureUploads && !full) {
       this.textureUploads.queue(texture, indices);
       return;
@@ -848,6 +884,8 @@ export class TerrainView {
     texture.needsUpdate = true;
   }
   fullTextureUpload() {
+    this.heightPages.refresh();
+    this.floodPages.refresh();
     this.textureUploads?.reset();
     this.fullHeightUpload = this.fullFloodUpload = true;
     this.heightTexture.clearUpdateRanges();
@@ -857,6 +895,7 @@ export class TerrainView {
   setFlood(indices: Uint32Array, reset = false) {
     if (reset) {
       this.flood.fill(0);
+      this.floodPages.refresh();
       this.fullFloodUpload = true;
       this.floodTexture.clearUpdateRanges();
       this.floodTexture.needsUpdate = true;
@@ -866,6 +905,7 @@ export class TerrainView {
   }
   setWaterMask(mask: Uint8Array) {
     this.flood.set(mask);
+    this.floodPages.refresh();
     this.fullFloodUpload = true;
     this.floodTexture.clearUpdateRanges();
     this.floodTexture.needsUpdate = true;
@@ -877,6 +917,7 @@ export class TerrainView {
   restore(h: Float32Array) {
     this.textureUploads?.reset();
     this.heights.set(h);
+    this.heightPages.refresh();
     this.refreshCoarse();
     this.epoch++;
     this.inFlight.clear();

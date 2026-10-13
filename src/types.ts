@@ -199,6 +199,7 @@ export interface RiverData {
   points: Vec3[];
 }
 export interface WorldData {
+  landscapeProfile?: "mountainous" | "rolling woodland" | "broad lowland";
   passes?: { p: Vec3; radius: number }[];
   generatorVersion?: number;
   castles?: CastleSite[];
@@ -229,6 +230,7 @@ export interface WorldData {
     radius: number;
     bounds: { min: [number, number]; max: [number, number] };
     assemblies: string[];
+    town?: boolean;
   }[];
   entities: Entity[];
 }

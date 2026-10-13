@@ -1,3 +1,4 @@
+import type { TerrainPages } from "./terrain-pages";
 import * as THREE from "three";
 import { CONFIG, CHUNKS } from "../config";
 
@@ -91,24 +92,67 @@ export class TerrainTextureUploads {
         strip = wet ? this.wetStrip : this.heightStrip;
       const data = source.image.data as Float32Array | Uint8Array,
         target = strip.image.data as Float32Array | Uint8Array;
-      for (let row = 0; row < height; row++) {
-        const start = (z + row) * CONFIG.grid + x;
-        target.set(data.subarray(start, start + width), row * width);
+      const pages = source.userData.terrainPages as TerrainPages | undefined;
+      const side = pages?.side ?? CONFIG.grid;
+      for (let dz = 0; dz < height; ) {
+        const rows = Math.min(height - dz, side - ((z + dz) % side));
+        for (let dx = 0; dx < width; ) {
+          const columns = Math.min(width - dx, side - ((x + dx) % side));
+          for (let row = 0; row < rows; row++) {
+            const start = (z + dz + row) * CONFIG.grid + x + dx;
+            target.set(data.subarray(start, start + columns), row * columns);
+          }
+          strip.image.width = columns;
+          strip.image.height = rows;
+          this.position.set(x + dx, z + dz);
+          if (pages && "getContext" in renderer) {
+            const r = renderer as THREE.WebGLRenderer;
+            r.initTexture(pages.texture);
+            const gl = r.getContext() as WebGL2RenderingContext;
+            const handle = (
+              r.properties.get(pages.texture) as {
+                __webglTexture: WebGLTexture;
+              }
+            ).__webglTexture;
+            r.state.bindTexture(gl.TEXTURE_2D_ARRAY, handle);
+            gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+            gl.pixelStorei(gl.UNPACK_IMAGE_HEIGHT, 0);
+            gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+            gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+            gl.pixelStorei(gl.UNPACK_SKIP_IMAGES, 0);
+            const address = pages.address(x + dx, z + dz);
+            gl.texSubImage3D(
+              gl.TEXTURE_2D_ARRAY,
+              0,
+              address.x,
+              address.z,
+              address.layer,
+              columns,
+              rows,
+              1,
+              gl.RED,
+              source.type === THREE.FloatType ? gl.FLOAT : gl.UNSIGNED_BYTE,
+              target,
+            );
+          } else if ("getContext" in renderer) {
+            copyTerrainSection(
+              renderer as THREE.WebGLRenderer,
+              strip,
+              source,
+              this.position,
+            );
+          } else
+            renderer.copyTextureToTexture(strip, source, null, this.position);
+          this.lastCalls++;
+          this.lastBytes += columns * rows * target.BYTES_PER_ELEMENT;
+          dx += columns;
+        }
+        dz += rows;
       }
-      strip.image.width = width;
-      strip.image.height = height;
-      this.position.set(x, z);
-      if ("getContext" in renderer)
-        copyTerrainSection(
-          renderer as THREE.WebGLRenderer,
-          strip,
-          source,
-          this.position,
-        );
-      else renderer.copyTextureToTexture(strip, source, null, this.position);
       dirty.delete(id);
-      this.lastCalls++;
-      this.lastBytes += width * height * target.BYTES_PER_ELEMENT;
     }
     return performance.now() - started;
   }

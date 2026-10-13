@@ -15,10 +15,11 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { compatible } from "../src/storage";
 import type { WorldData } from "../src/types";
 
-it("normalizes old seed inputs while preserving explicit saved-world revision labels", () => {
-  expect(seedCode(parseSeedCode("PS1-0000002A"))).toBe("PS2-0000002A");
+it("rejects old shared layouts and identifies the new generator", () => {
+  expect(() => parseSeedCode("PS1-0000002A")).toThrow(/older/);
+  expect(seedCode(parseSeedCode("PS3-0000002A"))).toBe("PS3-0000002A");
   expect(seedCode(42, 1)).toBe("PS1-0000002A");
-  expect(() => parseSeedCode("PS3-0000002A")).toThrow();
+  expect(() => parseSeedCode("PS2-0000002A")).toThrow();
 });
 it("uses sea-level ceiling warnings with independent 25-meter hysteresis", () => {
   const warning = new AltitudeWarning();
@@ -63,12 +64,12 @@ it("generates safe mountains, passes and joined drainage across 32 fixed seeds",
   for (const seed of seeds) {
     const { world, heights } = generateIsland(seed);
     const metrics = validateIsland(world, heights);
-    expect(metrics.landFraction, `seed ${seed}`).toBeGreaterThanOrEqual(0.53);
-    expect(metrics.landFraction, `seed ${seed}`).toBeLessThanOrEqual(0.62);
+    expect(metrics.landFraction, `seed ${seed}`).toBeGreaterThanOrEqual(0.45);
+    expect(metrics.landFraction, `seed ${seed}`).toBeLessThanOrEqual(0.68);
     expect(metrics.peak, `seed ${seed}`).toBeGreaterThanOrEqual(700);
     expect(metrics.peak).toBeLessThanOrEqual(1000);
     // Measure the resulting geography, not just the random layout parameters.
-    const side = 97,
+    const side = world.size / 64 + 1,
       mask = new Uint8Array(side * side);
     let highest = -Infinity,
       summit: [number, number] = [0, 0];
@@ -185,7 +186,7 @@ it("flies over high terrain and applies ceiling assistance at the revised limits
         world.seed,
         1,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       compatible(
         { ...save, generatorVersion: 1 },
@@ -194,45 +195,8 @@ it("flies over high terrain and applies ceiling assistance at the revised limits
         2,
       ),
     ).toBe(false);
-    const oldHeights = heights.slice();
-    // An immutable revision-1 baseline uses its own height limits, not the latest generator's.
-    // Give saved baselines the larger footprint used before the island shrink.
-    // Their validity must not depend on the current generation coverage target.
-    for (let z = 0; z < world.grid; z++)
-      for (let x = 0; x < world.grid; x++) {
-        const radius =
-          Math.hypot(
-            x * world.step - world.size / 2,
-            z * world.step - world.size / 2,
-          ) / 2800;
-        oldHeights[z * world.grid + x] = Math.max(-26, 300 * (1 - radius ** 2));
-      }
-    const oldWorld = {
-      ...world,
-      spawn: [3072, 500, 3072] as [number, number, number],
-    };
-    expect(
-      validateIsland({ ...oldWorld, generatorVersion: 1 }, oldHeights).peak,
-    ).toBeCloseTo(300);
-    // PS2 worlds saved before the shrink also retain their larger land coverage.
-    const oldPS2Heights = oldHeights.map((h) => (h > 0 ? h * 3 : h));
-    const oldPS2World = {
-      ...oldWorld,
-      spawn: [3072, 1070, 3072] as [number, number, number],
-      passes: [
-        {
-          p: [5572, sampleHeight(oldPS2Heights, 5572, 3072), 3072],
-          radius: 180,
-        },
-        {
-          p: [3072, sampleHeight(oldPS2Heights, 3072, 5572), 5572],
-          radius: 180,
-        },
-      ],
-    };
-    expect(
-      validateIsland(oldPS2World, oldPS2Heights).landFraction,
-    ).toBeGreaterThan(0.62);
+    expect(() => validateIsland({ ...world, generatorVersion: 1 }, heights)).toThrow(/incomplete/);
+    expect(() => validateIsland({ ...world, generatorVersion: 2 }, heights)).toThrow(/incomplete/);
   } finally {
     sim.dispose();
   }

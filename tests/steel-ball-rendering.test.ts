@@ -31,11 +31,11 @@ it("interpolates steel ball positions, rotations, fade and reusable slots", () =
   expect(model.children.length).toBeGreaterThan(1);
   expect(view.group.children.filter((m) => m.visible)).toHaveLength(1);
   view.update(
-    Array.from({ length: 12 }, (_, id) => ({ ...old, id })),
+    Array.from({ length: 20 }, (_, id) => ({ ...old, id })),
     [],
     1,
   );
-  expect(view.group.children.filter((m) => m.visible)).toHaveLength(12);
+  expect(view.group.children.filter((m) => m.visible)).toHaveLength(20);
   view.reset();
   expect(view.group.children.some((m) => m.visible)).toBe(false);
 });

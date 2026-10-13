@@ -37,7 +37,11 @@ it("merges river reaches into spatial batches while retaining original elevation
   (
     (group.children[0] as THREE.Mesh).material as THREE.Material
   ).onBeforeCompile(shader, {} as any);
-  expect(shader.fragmentShader).toContain("texture2D(prepassWet,wetUV).r<.5");
-  expect(shader.fragmentShader).toContain("texture2D(prepassHeight,wetUV).r>=prepassWaterWorld.y");
+  expect(shader.fragmentShader).toContain(
+    "texture2D(prepassWet,sampleUV).r<.5",
+  );
+  expect(shader.fragmentShader).toContain(
+    "texture2D(prepassHeight,sampleUV).r>=prepassWaterWorld.y",
+  );
   for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
 });

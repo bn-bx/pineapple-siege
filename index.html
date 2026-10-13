@@ -285,6 +285,14 @@
           Terrain and landmarks of your island. Damage and enemies are not
           shown.
         </p>
+        <div class="map-tools">
+          <button id="zoomMapIn" type="button" aria-label="Zoom in">+</button>
+          <button id="zoomMapOut" type="button" aria-label="Zoom out">−</button>
+          <button id="resetMap" type="button">Fit island</button>
+          <label>Landmark <select id="mapLandmark"><option value="">Choose a landmark…</option></select></label>
+          <button id="clearWaypoint" type="button">Clear waypoint</button>
+        </div>
+        <p id="mapWaypoint" role="status">Select a landmark to set a waypoint.</p>
         <canvas
           id="pauseMap"
           width="768"
@@ -293,8 +301,8 @@
           aria-label="Island terrain, roads, rivers, landmarks, and aircraft position"
         ></canvas>
         <p class="map-legend">
-          Gold dot: your aircraft · White arrow: flight start · Gold squares:
-          castles · Cyan dots: harbors · Ivory dots: landmarks
+          Gold arrow: your aircraft · White arrow: flight start · Gold squares:
+          castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring: waypoint. Scroll to zoom; drag to pan.
         </p>
       </section>
       <footer class="menu-footer">
@@ -307,6 +315,7 @@
       </footer>
     </main>
     <div id="flightHUD" hidden>
+      <div id="navigationStatus" role="status"></div>
       <div id="reticle"><i></i></div>
       <div class="telemetry">
         <div><strong id="speed">62</strong><span>M / S</span></div>
@@ -427,7 +436,7 @@
           autocomplete="off"
           spellcheck="false"
           maxlength="32"
-          placeholder="PS2-0000A301"
+          placeholder="PS3-0000A301"
         />
         <button type="submit">Preview seed</button>
       </form>
@@ -450,7 +459,7 @@
         hidden
       ></canvas>
       <p class="island-map-legend">
-        Gold squares: castles · Cyan dots: harbors · Ivory dots: landmarks ·
+        Gold squares: castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring: waypoint. Scroll to zoom; drag to pan. ·
         White arrow: flight start
       </p>
       <p id="islandLandmarks"></p>

@@ -52,24 +52,28 @@ export class Civilians {
     return cached;
   }
   private membership = new Map<number, number>();
-  private cellCeilings = new Float64Array(96 * 96).fill(-Infinity);
-  private monsterHeads = new Int32Array(32 * 32).fill(-1);
+  private cellCeilings = new Float64Array((CONFIG.worldSize / 64) ** 2).fill(
+    -Infinity,
+  );
+  private monsterHeads = new Int32Array((CONFIG.worldSize / 192) ** 2).fill(-1);
   private monsterNext = new Int32Array(0);
   private indexedMonsters: MonsterState[] = [];
   private settlementById = new Map<string, SettlementState>();
   private nearbyMonster(p: Vec3, radius: number) {
     for (
       let z = Math.max(0, Math.floor((p[2] - radius) / 192));
-      z <= Math.min(31, Math.floor((p[2] + radius) / 192));
+      z <=
+      Math.min(CONFIG.worldSize / 192 - 1, Math.floor((p[2] + radius) / 192));
       z++
     )
       for (
         let x = Math.max(0, Math.floor((p[0] - radius) / 192));
-        x <= Math.min(31, Math.floor((p[0] + radius) / 192));
+        x <=
+        Math.min(CONFIG.worldSize / 192 - 1, Math.floor((p[0] + radius) / 192));
         x++
       )
         for (
-          let i = this.monsterHeads[z * 32 + x];
+          let i = this.monsterHeads[z * (CONFIG.worldSize / 192) + x];
           i !== -1;
           i = this.monsterNext[i]
         ) {
@@ -138,7 +142,9 @@ export class Civilians {
     for (const c of this.states) this.reindex(c);
   }
   private reindex(c: CivilianState) {
-    const key = Math.floor(c.p[2] / 64) * 96 + Math.floor(c.p[0] / 64),
+    const key =
+        Math.floor(c.p[2] / 64) * (CONFIG.worldSize / 64) +
+        Math.floor(c.p[0] / 64),
       old = this.membership.get(c.id);
     if (c.alive)
       this.cellCeilings[key] = Math.max(this.cellCeilings[key], c.p[1] + 4);
@@ -172,7 +178,7 @@ export class Civilians {
         );
         x++
       )
-        yield* this.cells.get(z * 96 + x) ?? [];
+        yield* this.cells.get(z * (CONFIG.worldSize / 64) + x) ?? [];
   }
   private react(id: string, kind: "cheer" | "sad") {
     const s = this.settlements.find((s) => s.id === id);
@@ -235,17 +241,24 @@ export class Civilians {
         0,
         Math.floor((Math.min(a[0], b[0]) - radius - 1) / 64),
       ),
-      x1 = Math.min(95, Math.floor((Math.max(a[0], b[0]) + radius + 1) / 64));
+      x1 = Math.min(
+        CONFIG.worldSize / 64 - 1,
+        Math.floor((Math.max(a[0], b[0]) + radius + 1) / 64),
+      );
     const z0 = Math.max(
         0,
         Math.floor((Math.min(a[2], b[2]) - radius - 1) / 64),
       ),
-      z1 = Math.min(95, Math.floor((Math.max(a[2], b[2]) + radius + 1) / 64));
+      z1 = Math.min(
+        CONFIG.worldSize / 64 - 1,
+        Math.floor((Math.max(a[2], b[2]) + radius + 1) / 64),
+      );
     for (let z = z0; z <= z1; z++)
       for (let x = x0; x <= x1; x++)
         if (
-          this.cellCeilings[z * 96 + x] >= Math.min(a[1], b[1]) - radius &&
-          this.cells.get(z * 96 + x)?.size
+          this.cellCeilings[z * (CONFIG.worldSize / 64) + x] >=
+            Math.min(a[1], b[1]) - radius &&
+          this.cells.get(z * (CONFIG.worldSize / 64) + x)?.size
         )
           return true;
     return false;
@@ -324,7 +337,9 @@ export class Civilians {
       );
     for (let i = monsters.length - 1; i >= 0; i--) {
       const m = monsters[i];
-      const key = Math.floor(m.p[2] / 192) * 32 + Math.floor(m.p[0] / 192);
+      const key =
+        Math.floor(m.p[2] / 192) * (CONFIG.worldSize / 192) +
+        Math.floor(m.p[0] / 192);
       this.monsterNext[i] = this.monsterHeads[key];
       this.monsterHeads[key] = i;
     }

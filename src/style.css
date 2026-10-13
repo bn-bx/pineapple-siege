@@ -1350,3 +1350,9 @@ dialog p:not(.eyebrow) {
     align-items: flex-start;
   }
 }
+
+.map-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.map-tools button, .map-tools select { padding: 8px 12px; }
+#pauseMap { touch-action: none; cursor: grab; }
+#pauseMap:active { cursor: grabbing; }
+#navigationStatus { position: absolute; top: 92px; left: 20px; color: #f3d291; font-size: 14px; text-shadow: 0 1px 3px #000; }

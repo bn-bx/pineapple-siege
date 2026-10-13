@@ -1,4 +1,9 @@
 import { MonsterProjectileView } from "./monster-projectiles";
+import { DeathPiecePose } from "./death-pieces";
+import {
+  MONSTER_DEFEAT_PARTS,
+  MONSTER_FRAGMENT_CENTERS,
+} from "../monster-fragments";
 import { FlyView } from "./fly";
 import * as THREE from "three";
 import {
@@ -19,8 +24,33 @@ import { SteelBallView } from "./steel-balls";
 import { ProjectileView } from "./projectiles";
 import type { ResourceDisposal } from "./resource-disposal";
 import type { TerrainView } from "./terrain-view";
+const MONSTER_DEATH_SCATTER = [
+  [0, 0, 0],
+  [8, 20, -8],
+  [-18, 10, 6],
+  [18, 12, -6],
+  [-18, 18, -14],
+  [18, 20, -12],
+  [-16, 6, 14],
+  [16, 8, 16],
+];
+const MONSTER_DEATH_SIZES = [
+  [12, 15, 10],
+  [12, 12, 12],
+  [8, 10, 6],
+  [8, 10, 6],
+  [5, 7, 10],
+  [5, 7, 10],
+  [8, 9, 10],
+  [8, 9, 10],
+];
 export class ActorView {
-  readonly flyView = new FlyView();
+  readonly flyView: FlyView;
+  private deathGround = (x: number, z: number) => this.terrain.sample(x, z);
+  private deathPiecePose = new DeathPiecePose();
+  private deathPosition = new THREE.Vector3();
+  private deathRotation = new THREE.Quaternion();
+  private deathPreviousRotation = new THREE.Quaternion();
   readonly civilians: CivilianView;
   readonly steelBallView = new SteelBallView();
   readonly projectileView = new ProjectileView();
@@ -47,6 +77,7 @@ export class ActorView {
     private terrain: TerrainView,
     private effects: Effects,
   ) {
+    this.flyView = new FlyView(this.deathGround);
     this.civilians = new CivilianView(world.civilians?.length ?? 0);
     this.scene.add(
       this.flyView.group,
@@ -136,6 +167,53 @@ export class ActorView {
       );
       mesh.visible = distant.visible =
         !!m && !m.cleared && (!m.defeated || !!m.ragdoll);
+      if (m?.defeated && m.ragdoll && !m.fragments?.length && !m.cleared) {
+        mesh.visible = distant.visible = false;
+        if (mesh.parent) this.scene.remove(mesh);
+        if (distant.parent) this.scene.remove(distant);
+        const old = this.previous?.monsters[m.id];
+        this.deathPosition.fromArray(m.p);
+        this.deathRotation.fromArray(m.ragdoll);
+        if (old?.defeated) {
+          this.deathPosition.set(
+            ...(m.p.map((v, k) => THREE.MathUtils.lerp(old.p[k], v, alpha)) as [
+              number,
+              number,
+              number,
+            ]),
+          );
+          if (old.ragdoll)
+            this.deathRotation.slerpQuaternions(
+              this.deathPreviousRotation.fromArray(old.ragdoll),
+              this.monsterFragmentQuaternion.fromArray(m.ragdoll),
+              alpha,
+            );
+        }
+        if (
+          this.deathPosition.distanceToSquared(this.camera.position) >
+          (this.renderDistance + 100) ** 2
+        )
+          continue;
+        const age = old?.defeated
+          ? THREE.MathUtils.lerp(old.cleanupAge ?? 0, m.cleanupAge ?? 0, alpha)
+          : (m.cleanupAge ?? 0);
+        for (const part of MONSTER_DEFEAT_PARTS) {
+          this.deathPiecePose.apply(
+            this.monsterFragmentRoot,
+            this.deathPosition,
+            this.deathRotation,
+            MONSTER_FRAGMENT_CENTERS[part],
+            MONSTER_DEATH_SCATTER[part],
+            age,
+            part,
+            MONSTER_SCALE * wreckageScale,
+            MONSTER_DEATH_SIZES[part],
+            this.deathGround,
+          );
+          this.monsterFragmentView.add(part, this.monsterFragmentRoot);
+        }
+        continue;
+      }
       if (m?.fragments?.length && !m.cleared) {
         const previous = this.previous?.monsters[m.id]?.fragments;
         const root = this.monsterFragmentRoot;

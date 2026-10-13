@@ -14,6 +14,8 @@ import type {
   WorldData,
 } from "../types";
 import {
+  GENERATOR_VERSION,
+  SIZE,
   islandLink,
   parseSeedCode,
   seedCode,
@@ -115,6 +117,7 @@ export function initializeWorld(
           [s.packedBodies.buffer, s.packedMotion.buffer],
         );
     },
+    baseline.heights,
   );
   ctx.view.setQuality(ctx.extras.quality!);
   ctx.view.setCRTMode(ctx.extras.crtMode!);
@@ -256,6 +259,8 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
     let save: SaveSnapshot | undefined;
     if (
       baseline &&
+      baseline.world.generatorVersion === GENERATOR_VERSION &&
+      baseline.world.size === SIZE &&
       (!stored ||
         compatible(
           stored,

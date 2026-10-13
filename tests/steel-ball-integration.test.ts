@@ -45,7 +45,11 @@ it("crushes a swept path, defeats actors, shoves rubble, and saves only the resu
   );
   try {
     sim.plane.p = [2000, 400, 2000];
-    sim.steelBalls.drop({ ...sim.plane, p: [1000, 126, 1000], v: [3000, 0, 0] });
+    sim.steelBalls.drop({
+      ...sim.plane,
+      p: [1000, 126, 1000],
+      v: [3000, 0, 0],
+    });
     const monster = sim.monsters.states[0];
     monster.p = [1035, 0, 1000];
     monster.defeated = false;
@@ -196,6 +200,32 @@ it("keeps ball terrain separate from exact projectile queries and releases it af
     sim.steelBalls.reset();
     (sim as any).ensureTerrain();
     expect(map.size).toBe(0);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("loads ball collision coverage and destroys targets in the expanded far corner", () => {
+  const events: WorkerMessage[] = [];
+  const sim = new Simulation(
+    { ...world, entities: [entity(0, [8515, 60, 8500])], civilians: [] },
+    flat,
+    (e) => events.push(e),
+    undefined,
+    true,
+  );
+  try {
+    sim.plane.p = [1000, 500, 1000];
+    sim.steelBalls.drop({ ...sim.plane, p: [8500, 126, 8500], v: [120, 0, 0] });
+    sim.step();
+    expect(sim.removed.has(0)).toBe(true);
+    expect(sim.terrainColliders.size).toBeGreaterThan(0);
+    expect(
+      [...sim.terrainColliders.keys()].some(
+        (id) => Math.floor(id / (CONFIG.worldSize / 64)) > 128,
+      ),
+    ).toBe(true);
+    expect(sim.steelBalls.snapshot()).toHaveLength(1);
   } finally {
     sim.dispose();
   }

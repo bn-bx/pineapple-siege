@@ -1,6 +1,6 @@
-// Fixed version-7 baseline for historical gameplay regression tests.
+// Historical architecture on the current grid for gameplay regression tests.
 import { mkdirSync, writeFileSync } from "node:fs";
-const SIZE = 6144,
+const SIZE = 9216,
   STEP = 2,
   GRID = SIZE / STEP + 1,
   OFFSET = 768,

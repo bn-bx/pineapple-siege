@@ -1,12 +1,12 @@
 import { VERTICAL_LIMITS } from "./world/vertical-limits.mjs";
 import type { BlastProfile, NukeYield } from "./types";
-export const WORLD_SIZE = 6144;
+export const WORLD_SIZE = 9216;
 export const TERRAIN_SPACING = 2;
 export const CHUNK_SIZE = 64;
 export const CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 export const CHUNK_SAMPLES = CHUNK_SIZE / TERRAIN_SPACING;
 export const CONFIG = {
-  version: 9,
+  version: 10,
   dt: 1 / 60,
   debrisGravity: 21.6,
   minSpeed: 35,

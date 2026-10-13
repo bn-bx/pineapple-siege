@@ -1,9 +1,10 @@
-import type { Vec3 } from "../types";
+import { MapNavigation } from "./map-navigation";
+import type { PlaneState, Vec3 } from "../types";
 import type { IslandBaseline } from "../world/generator.mjs";
 import { drawIslandPreview } from "../world/preview";
 
 /** Menu state and its reference map never alter gameplay or saved preferences. */
-export function bindMenu(position: () => Vec3 | undefined) {
+export function bindMenu(plane: () => PlaneState | undefined) {
   const element = (id: string) => document.getElementById(id)!;
   const overlay = element("overlay");
   const entries = [
@@ -15,23 +16,64 @@ export function bindMenu(position: () => Vec3 | undefined) {
   let current: View = "home";
   let mapSize = 0;
   let spawn: Vec3 | undefined;
+  const navigation = new MapNavigation();
   const baseMap = document.createElement("canvas");
   function renderMap() {
     if (!mapSize) return;
     const canvas = element("pauseMap") as HTMLCanvasElement;
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    const scale = navigation.zoom;
+    ctx.translate(
+      canvas.width * (0.5 - navigation.center[0] * scale),
+      canvas.height * (0.5 - navigation.center[1] * scale),
+    );
+    ctx.scale(scale, scale);
     ctx.drawImage(baseMap, 0, 0);
-    const p = position() ?? spawn!;
-    const x = (p[0] / mapSize) * canvas.width;
-    const y = (p[2] / mapSize) * canvas.height;
+    ctx.restore();
+    const aircraft = plane();
+    const p = aircraft?.p ?? spawn!;
+    const point = navigation.screen(p);
+    const x = point[0] * canvas.width,
+      y = point[1] * canvas.height;
     ctx.beginPath();
-    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.PI - (aircraft?.yaw ?? 0));
+    ctx.moveTo(0, -12);
+    ctx.lineTo(8, 10);
+    ctx.lineTo(0, 6);
+    ctx.lineTo(-8, 10);
+    ctx.closePath();
     ctx.fillStyle = "#edc777";
     ctx.fill();
     ctx.lineWidth = 3;
     ctx.strokeStyle = "#14242c";
     ctx.stroke();
+    ctx.restore();
+    ctx.font = "15px sans-serif";
+    for (const landmark of navigation.landmarks) {
+      const [u, v] = navigation.screen(landmark.p);
+      if (u < 0 || v < 0 || u > 1 || v > 1) continue;
+      if (navigation.zoom >= 2 || navigation.waypoint?.id === landmark.id) {
+        ctx.fillStyle = "#14242c";
+        ctx.fillText(
+          landmark.name,
+          u * canvas.width + 10,
+          v * canvas.height - 8,
+        );
+      }
+      if (navigation.waypoint?.id === landmark.id) {
+        ctx.beginPath();
+        ctx.arc(u * canvas.width, v * canvas.height, 15, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ff6846";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+    element("mapWaypoint").textContent =
+      navigation.guidance(p) || "Select a landmark to set a waypoint.";
     element("mapPosition").textContent =
       `Aircraft: ${Math.round(p[0])} m east · ${Math.round(p[2])} m south`;
     canvas.setAttribute(
@@ -88,8 +130,87 @@ export function bindMenu(position: () => Vec3 | undefined) {
     },
     true,
   );
+  const map = element("pauseMap") as HTMLCanvasElement;
+  const landmarkSelect = element("mapLandmark") as HTMLSelectElement;
+  const updateWaypoint = () => {
+    landmarkSelect.value = navigation.waypoint?.id ?? "";
+    renderMap();
+    element("navigationStatus").textContent = navigation.guidance(
+      plane()?.p ?? spawn!,
+    );
+  };
+  landmarkSelect.onchange = () => {
+    navigation.waypoint = navigation.landmarks.find(
+      (l) => l.id === landmarkSelect.value,
+    );
+    updateWaypoint();
+  };
+  element("clearWaypoint").onclick = () => {
+    navigation.waypoint = undefined;
+    updateWaypoint();
+  };
+  element("zoomMapIn").onclick = () => {
+    navigation.setZoom(navigation.zoom * 1.5);
+    renderMap();
+  };
+  element("zoomMapOut").onclick = () => {
+    navigation.setZoom(navigation.zoom / 1.5);
+    renderMap();
+  };
+  element("resetMap").onclick = () => {
+    navigation.reset();
+    renderMap();
+  };
+  map.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      navigation.setZoom(navigation.zoom * (event.deltaY < 0 ? 1.2 : 1 / 1.2));
+      renderMap();
+    },
+    { passive: false },
+  );
+  let drag: { x: number; y: number; moved: boolean } | undefined;
+  map.onpointerdown = (event) => {
+    drag = { x: event.clientX, y: event.clientY, moved: false };
+    map.setPointerCapture(event.pointerId);
+  };
+  map.onpointermove = (event) => {
+    if (!drag) return;
+    const rect = map.getBoundingClientRect(),
+      dx = event.clientX - drag.x,
+      dy = event.clientY - drag.y;
+    if (Math.hypot(dx, dy) > 3 || drag.moved) {
+      drag.moved = true;
+      navigation.pan(dx / rect.width, dy / rect.height);
+      renderMap();
+    }
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+  };
+  map.onpointerup = (event) => {
+    if (drag && !drag.moved) {
+      const r = map.getBoundingClientRect();
+      navigation.selectAt(
+        (event.clientX - r.left) / r.width,
+        (event.clientY - r.top) / r.height,
+        0.03,
+      );
+      updateWaypoint();
+    }
+    drag = undefined;
+  };
+  map.onpointercancel = () => {
+    drag = undefined;
+  };
   show("home", false);
   return {
+    update() {
+      if (!spawn) return;
+      const label = element("navigationStatus"),
+        guidance = navigation.guidance(plane()?.p ?? spawn);
+      if (label.textContent !== guidance) label.textContent = guidance;
+    },
     home() {
       show("home", false);
       ((element("enter") as HTMLButtonElement).disabled
@@ -100,6 +221,12 @@ export function bindMenu(position: () => Vec3 | undefined) {
     setIsland(baseline: IslandBaseline) {
       // Cache only the small raster; do not retain another terrain array or regenerate.
       drawIslandPreview(baseMap, baseline);
+      navigation.setIsland(baseline.world);
+      landmarkSelect.replaceChildren(
+        new Option("Choose a landmark…", ""),
+        ...navigation.landmarks.map((l) => new Option(l.name, l.id)),
+      );
+      element("navigationStatus").textContent = "";
       mapSize = baseline.world.size;
       spawn = baseline.world.spawn;
       (element("openMap") as HTMLButtonElement).disabled = false;

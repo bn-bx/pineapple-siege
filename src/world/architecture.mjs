@@ -603,11 +603,11 @@ export function createArchitecture(layout, sample, hash) {
     const [x, y, z] = s.p,
       begin = entities.length;
     if (s.kind === "hamlet")
-      for (let i = 0; i < 5; i++)
+      for (let i = 0; i < (s.town ? 20 : 5); i++)
         building(
           `${s.id}-house-${i}`,
-          x + ((i % 3) - 1) * 33,
-          z + (Math.floor(i / 3) - 0.5) * 40,
+          x + ((i % (s.town ? 5 : 3)) - (s.town ? 2 : 1)) * (s.town ? 42 : 33),
+          z + (Math.floor(i / (s.town ? 5 : 3)) - (s.town ? 1.5 : 0.5)) * 44,
           14 + (i % 2) * 4,
           20,
           12 + (i % 3) * 3,
@@ -856,7 +856,7 @@ export function createArchitecture(layout, sample, hash) {
     s.assemblies = [...new Set(entities.slice(begin).map((e) => e.assembly))];
   }
 
-  if (entities.length > 16000)
+  if (entities.length > 48000)
     throw Error(`Structure budget exceeded: ${entities.length}`);
   const groups = new Map();
   for (const e of entities) {

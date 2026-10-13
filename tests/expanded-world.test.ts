@@ -18,10 +18,10 @@ const base = new Float32Array(
 beforeAll(() => initializePhysics());
 it("generates the expanded terrain and populated settlements at the requested density", () => {
   expect(world.civilians).toHaveLength(600);
-  expect(world.size).toBe(6144);
-  expect(world.grid).toBe(3073);
+  expect(world.size).toBe(9216);
+  expect(world.grid).toBe(4609);
   expect(base.length).toBe(world.grid ** 2);
-  expect(CHUNKS).toBe(96);
+  expect(CHUNKS).toBe(144);
   expect(world.sites.filter((s) => s.kind === "hamlet")).toHaveLength(12);
   expect(world.sites.filter((s) => s.kind === "farm")).toHaveLength(7);
   expect(world.sites.filter((s) => s.kind === "windmill")).toHaveLength(5);
@@ -54,9 +54,9 @@ it("edits and restores all four corners, distant section edges, and laser dry sa
   const t = new Terrain(base);
   for (const [x, z] of [
     [0, 0],
-    [6144, 0],
-    [0, 6144],
-    [6144, 6144],
+    [9216, 0],
+    [0, 9216],
+    [9216, 9216],
     [4096, 4096],
   ]) {
     const old = t.sample(x, z);

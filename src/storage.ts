@@ -113,6 +113,8 @@ export class SaveStore {
       get(objects.getAll(IDBKeyRange.bound("section:", "section;"))),
     ])) as [SaveSnapshot | undefined, SaveSection[]];
     if (!save) return;
+    // Recovery owns incompatible records; never decode their sections on this grid.
+    if (save.version !== CONFIG.version) return save;
     if (save.sectioned) {
       if (!sections.every(validSection))
         throw Error(
@@ -420,10 +422,12 @@ export function compatible(
   const s = save as SaveSnapshot;
   return (
     validNuclearFire(s.nuclearFire) &&
-    (s.version === CONFIG.version || s.version === 8) &&
+    s.version === CONFIG.version &&
     s.worldVersion === worldVersion &&
     s.seed === seed &&
-    (worldVersion < 8 || s.generatorVersion === generatorVersion) &&
+    (worldVersion < 9 ||
+      (s.generatorVersion === GENERATOR_VERSION &&
+        generatorVersion === GENERATOR_VERSION)) &&
     (s.supportJobs === undefined ||
       (Array.isArray(s.supportJobs) &&
         s.supportJobs.every(
@@ -462,7 +466,7 @@ export function compatible(
     s.laserDry.every((i) => i < CONFIG.grid * CONFIG.grid) &&
     (s.civilians === undefined ||
       (Array.isArray(s.civilians) &&
-        s.civilians.length <= 1000 &&
+        s.civilians.length <= 4096 &&
         s.civilians.every(
           (c, id) =>
             c &&

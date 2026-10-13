@@ -658,6 +658,7 @@ export class Simulation {
           wanted.add(z * CHUNKS + x);
     };
     near(this.plane.p, 85);
+    near(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 85);
     for (const s of this.projectiles) near(s.p, 12);
     for (const { p, radius } of this.steelBalls.coverage()) {
       near(p, radius);
@@ -744,6 +745,7 @@ export class Simulation {
         }
     };
     add(this.plane.p, 110);
+    add(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 110);
     for (const { p, radius } of this.steelBalls.coverage()) add(p, radius);
     for (const [key, range] of cells) {
       for (const id of this.entityCells.get(key) || []) {

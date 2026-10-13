@@ -1,7 +1,23 @@
+import { DeathPiecePose } from "./death-pieces";
 import * as THREE from "three";
 import type { SimulationSnapshot } from "../types";
 import { FLY_COUNT } from "../config";
 
+const FLY_CENTERS = [
+  [0, 0, -7],
+  [0, 0, 5],
+  [0, 1, 14],
+];
+const FLY_SCATTER = [
+  [-24, 8, -28],
+  [0, 2, 0],
+  [28, 14, 32],
+];
+const FLY_SIZES = [
+  [13, 12, 14],
+  [21, 12, 14],
+  [8, 8, 9],
+];
 const turn = (a: number, b: number, alpha: number) =>
   a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * alpha;
 
@@ -9,6 +25,12 @@ const turn = (a: number, b: number, alpha: number) =>
 export class FlyView {
   readonly group = new THREE.Group();
   readonly models: THREE.Group[] = [];
+  private sections: THREE.Group[][] = [];
+  private deathPose = new DeathPiecePose();
+  private poseRoot = new THREE.Object3D();
+  private inverseRoot = new THREE.Matrix4();
+  private worldPosition = new THREE.Vector3();
+  private worldRotation = new THREE.Quaternion();
   private wings: THREE.Group[][] = [];
   private sphere = new THREE.SphereGeometry(1, 12, 8);
   private leg = new THREE.CylinderGeometry(0.3, 0.45, 1, 5);
@@ -35,34 +57,49 @@ export class FlyView {
     depthWrite: false,
     roughness: 0.25,
   });
-  constructor() {
+  constructor(private ground?: (x: number, z: number) => number) {
     this.group.name = "giant-flies";
     for (let id = 0; id < FLY_COUNT; id++) {
       const model = new THREE.Group();
       model.name = `giant-fly-${id}`;
+      const centers = FLY_CENTERS;
+      const sections = centers.map((center, i) => {
+        const section = new THREE.Group();
+        section.name = ["abdomen", "thorax", "head"][i];
+        section.position.fromArray(center);
+        model.add(section);
+        return section;
+      });
+      this.sections.push(sections);
       const add = (
         geometry: THREE.BufferGeometry,
         material: THREE.Material,
         p: number[],
         scale: number[],
+        section = 1,
       ) => {
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(p[0], p[1], p[2]);
+        mesh.position.set(
+          p[0] - centers[section][0],
+          p[1] - centers[section][1],
+          p[2] - centers[section][2],
+        );
         mesh.scale.set(scale[0], scale[1], scale[2]);
         mesh.castShadow = material !== this.membrane;
-        model.add(mesh);
+        sections[section].add(mesh);
         return mesh;
       };
-      add(this.sphere, this.body, [0, 0, -7], [7, 6, 14]);
+      add(this.sphere, this.body, [0, 0, -7], [7, 6, 14], 0);
       add(this.sphere, this.stripe, [0, 0, 5], [8, 7, 8]);
-      add(this.sphere, this.body, [0, 1, 14], [6, 5.5, 7]);
+      add(this.sphere, this.body, [0, 1, 14], [6, 5.5, 7], 2);
       for (const side of [-1, 1]) {
-        add(this.sphere, this.eye, [side * 4.4, 2, 16], [3.4, 4.3, 4.2]);
+        add(this.sphere, this.eye, [side * 4.4, 2, 16], [3.4, 4.3, 4.2], 2);
         const antenna = add(
           this.leg,
           this.body,
           [side * 2.2, 4, 21],
           [0.65, 4, 0.65],
+          2,
         );
         antenna.rotation.x = -0.8;
         for (let leg = 0; leg < 3; leg++) {
@@ -75,11 +112,13 @@ export class FlyView {
           ]) {
             const delta = b.clone().sub(a),
               center = a.clone().add(b).multiplyScalar(0.5);
-            const mesh = add(this.leg, this.body, center.toArray(), [
-              1,
-              delta.length(),
-              1,
-            ]);
+            const mesh = add(
+              this.leg,
+              this.body,
+              center.toArray(),
+              [1, delta.length(), 1],
+              leg === 2 ? 0 : 1,
+            );
             mesh.quaternion.setFromUnitVectors(
               new THREE.Vector3(0, 1, 0),
               delta.normalize(),
@@ -91,7 +130,7 @@ export class FlyView {
       for (const side of [-1, 1]) {
         const hinge = new THREE.Group();
         hinge.name = side < 0 ? "left-wing" : "right-wing";
-        hinge.position.set(side * 4, 5, 3);
+        hinge.position.set(side * 4, 5, 3 - centers[1][2]);
         const membrane = new THREE.Mesh(this.wing, this.membrane);
         membrane.position.set(side * 7, 0, -4);
         membrane.scale.set(8, 1, 12);
@@ -106,7 +145,7 @@ export class FlyView {
           mesh.rotation.z = side * (0.1 + vein * 0.2);
           hinge.add(mesh);
         }
-        model.add(hinge);
+        sections[1].add(hinge);
         wings.push(hinge);
       }
       model.visible = false;
@@ -162,6 +201,47 @@ export class FlyView {
           )
         : 1;
       model.scale.setScalar(scale);
+      const centers = FLY_CENTERS;
+      const age = f.defeated
+        ? THREE.MathUtils.lerp(
+            old.defeated ? old.deathAge : 0,
+            f.deathAge,
+            alpha,
+          )
+        : 0;
+      if (f.defeated) {
+        this.worldPosition.copy(model.position);
+        this.worldRotation.copy(model.quaternion);
+        model.updateWorldMatrix(true, false);
+        this.inverseRoot.copy(model.matrixWorld).invert();
+      }
+      for (let part = 0; part < 3; part++) {
+        const section = this.sections[id][part];
+        if (f.defeated) {
+          this.deathPose.apply(
+            this.poseRoot,
+            this.worldPosition,
+            this.worldRotation,
+            centers[part],
+            FLY_SCATTER[part],
+            age,
+            part,
+            scale,
+            FLY_SIZES[part],
+            this.ground,
+          );
+          section.position
+            .copy(this.poseRoot.position)
+            .applyMatrix4(this.inverseRoot);
+          section.quaternion
+            .copy(this.worldRotation)
+            .invert()
+            .multiply(this.poseRoot.quaternion);
+        } else {
+          section.position.fromArray(centers[part]);
+          section.quaternion.identity();
+        }
+      }
       const phase = THREE.MathUtils.lerp(old.phase, f.phase, alpha);
       for (let side = 0; side < 2; side++)
         this.wings[id][side].rotation.z =

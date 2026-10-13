@@ -69,6 +69,7 @@ it("transfers corpse orientations and clears them when a packet slot is reused",
     windup: 0,
     stagger: 0,
     ragdoll: [0.5, 0, 0, Math.sqrt(0.75)],
+    cleanupAge: 1.25,
     fragments: [{ part: 1, p: [10, 20, 30], q: [0, 0, 0, 1] }],
   };
   const frame = motionFrame();
@@ -78,6 +79,8 @@ it("transfers corpse orientations and clears them when a packet slot is reused",
   bindMotion(snapshot, frame);
   expect(snapshot.monsters[0].fragments).toEqual(monster.fragments);
   expect(snapshot.monsters[0].ragdoll![0]).toBe(0.5);
+  expect(snapshot.monsters[0].cleanupAge).toBe(1.25);
+  expect(snapshot.monsters[0].stagger).toBe(0);
   expect(snapshot.monsters[0].ragdoll![3]).toBeCloseTo(Math.sqrt(0.75));
   const next = {
     packedMotion: packMotion(
@@ -86,6 +89,7 @@ it("transfers corpse orientations and clears them when a packet slot is reused",
         {
           ...monster,
           defeated: false,
+          stagger: 0.45,
           ragdoll: undefined,
           fragments: undefined,
         },
@@ -98,6 +102,8 @@ it("transfers corpse orientations and clears them when a packet slot is reused",
   bindMotion(next, frame);
   expect(next.monsters[0].ragdoll).toBeUndefined();
   expect(next.monsters[0].fragments).toBeUndefined();
+  expect(next.monsters[0].cleanupAge).toBeUndefined();
+  expect(next.monsters[0].stagger).toBeCloseTo(0.45);
 });
 
 it("bounds mass defeats without allocating native bodies and suppresses cleared corpses", () => {

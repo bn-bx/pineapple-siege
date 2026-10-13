@@ -537,6 +537,11 @@ it("scaled aircraft collision matches the captured beam and ignores brightness",
   expect(
     s["laserPlaneHit"]([1400, 300, 1024], [1401, 300, 1024]),
   ).not.toBeNull();
-  expect(s["laserPlaneHit"]([2400, 300, 1024], [2401, 300, 1024])).toBeNull();
+  const outside =
+    1024 +
+    laserProfile({ ...DEFAULT_DESTRUCTION, laserSize: 100 }).beamRadius * 1.2;
+  expect(
+    s["laserPlaneHit"]([outside, 300, 1024], [outside + 1, 300, 1024]),
+  ).toBeNull();
   s.dispose();
 });

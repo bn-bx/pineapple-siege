@@ -1,3 +1,4 @@
+import { terrainGPUTexture } from "./terrain-pages";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
@@ -243,6 +244,7 @@ export class GameRenderer {
     readonly world: WorldData,
     heights: Float32Array,
     private recycle?: (s: SimulationSnapshot) => void,
+    immutableBaseline?: Float32Array,
   ) {
     for (const e of world.entities) {
       if (e.kind === "tree") continue;
@@ -316,7 +318,7 @@ export class GameRenderer {
     const assets = createMaterials();
     this.materials = assets.materials;
     this.fragmentMaterials = fractureMaterials(this.materials);
-    this.terrain = new TerrainView(world, heights, assets.grass);
+    this.terrain = new TerrainView(world, heights, assets.grass, immutableBaseline);
     this.terrain.enableStreamingUploads();
     this.environment = new EnvironmentView(
       this.scene,
@@ -413,8 +415,8 @@ export class GameRenderer {
       this.warmupStages[name] = now - stageStarted;
       stageStarted = now;
     };
-    this.renderer.initTexture(this.terrain.heightTexture);
-    this.renderer.initTexture(this.terrain.floodTexture);
+    this.renderer.initTexture(terrainGPUTexture(this.terrain.heightTexture));
+    this.renderer.initTexture(terrainGPUTexture(this.terrain.floodTexture));
     this.fallenCanopy("broadleaf");
     this.fallenCanopy("riverside");
     this.effects.prewarm();
@@ -1413,7 +1415,7 @@ export class GameRenderer {
       const box = this.cameraBox,
         candidates = this.cameraCandidates;
       const cell =
-        Math.floor(position.x / 32) + Math.floor(position.z / 32) * 192;
+        Math.floor(position.x / 32) + Math.floor(position.z / 32) * (CONFIG.worldSize / 32);
       if (cell !== this.cameraCell) {
         this.cameraCell = cell;
         candidates.clear();
@@ -1582,6 +1584,7 @@ export class GameRenderer {
       this.renderDistance,
       Math.max(0, optionalDeadline - performance.now()),
       this.quality === "auto" && this.auto.level >= 3 ? 0.75 : 1,
+      snap.plane.v,
     );
     this.performance.record("terrain", performance.now() - terrainStarted);
     this.performance.record("terrainWorker", this.terrain.workerMS);

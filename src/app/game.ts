@@ -29,7 +29,7 @@ import * as island_coordinator from "./island-coordinator";
 import * as save_coordinator from "./save-coordinator";
 import * as settings from "./settings";
 import { bindMenu } from "./menu";
-const menu = bindMenu(() => snapshot?.plane.p);
+const menu = bindMenu(() => snapshot?.plane);
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("world"),
@@ -407,6 +407,7 @@ function frame(now: number) {
   }
   audio.syncLasers(snapshot.lasers, view.camera.position.toArray() as Vec3);
   updateHUD(context, now);
+  menu.update();
 }
 $("enter").onclick = enter;
 $("pauseButton").onclick = pause;
