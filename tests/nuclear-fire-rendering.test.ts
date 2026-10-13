@@ -30,13 +30,17 @@ it("uses fixed sprite pools and reduces particle counts without modifying author
   try {
     const before = structuredClone(patches);
     fire.update(patches, 0, false, 2);
-    expect(fire.flames.count).toBe(FIRE_LIMIT * 8);
+    expect(fire.flames.count).toBe(FIRE_LIMIT * 24);
     expect(fire.smoke.count).toBe(FIRE_LIMIT * 8);
     fire.flames.getMatrixAt(0, matrix);
     expect(matrix.elements[13]).toBeGreaterThan(10);
-    expect(matrix.elements[13]).toBeLessThan(20);
+    expect(matrix.elements[13]).toBeLessThan(40);
+    expect(matrix.elements[0]).toBeCloseTo(18 * 0.65 * 3);
+    const flicker = 0.85 + Math.sin(2 * 5) * 0.15;
+    expect(matrix.elements[5]).toBeCloseTo(10 * flicker * 3);
+    expect(matrix.elements[13] - matrix.elements[5] / 2).toBeCloseTo(10);
     fire.update(patches, 0, true, 2);
-    expect(fire.flames.count).toBe(FIRE_LIMIT * 4);
+    expect(fire.flames.count).toBe(FIRE_LIMIT * 12);
     expect(fire.smoke.count).toBe(FIRE_LIMIT * 4);
     expect(patches).toEqual(before);
     fire.update([{ ...patches[0], age: 59 }], 0, false, 59);

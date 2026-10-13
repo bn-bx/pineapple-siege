@@ -15,12 +15,14 @@ import {
   NearMonsterView,
   monsterCombatPose,
 } from "./monster";
+import { SteelBallView } from "./steel-balls";
 import { ProjectileView } from "./projectiles";
 import type { ResourceDisposal } from "./resource-disposal";
 import type { TerrainView } from "./terrain-view";
 export class ActorView {
   readonly flyView = new FlyView();
   readonly civilians: CivilianView;
+  readonly steelBallView = new SteelBallView();
   readonly projectileView = new ProjectileView();
   readonly monsterProjectileView = new MonsterProjectileView();
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
@@ -50,6 +52,7 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
+      this.steelBallView.group,
       this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,
@@ -72,6 +75,7 @@ export class ActorView {
     this.flyView.reset();
     this.civilians.reset();
     this.projectileView.reset();
+    this.steelBallView.reset();
     this.monsterProjectileView.reset();
     this.previous = undefined;
     this.previousProjectiles.clear();
@@ -247,6 +251,11 @@ export class ActorView {
       previous?.monsterSpikes,
       alpha,
     );
+    this.steelBallView.update(
+      snap.steelBalls ?? [],
+      previous?.steelBalls,
+      alpha,
+    );
     this.projectileView.update(
       snap.projectiles,
       this.previousProjectiles,
@@ -257,7 +266,7 @@ export class ActorView {
         if (shot.weapon === "cannon") this.effects.trail(shot.p, shot.v);
   }
   get projectileCount() {
-    return this.projectileView.count;
+    return this.projectileView.count + this.steelBallView.count;
   }
 
   dispose(resources: ResourceDisposal) {
@@ -266,6 +275,7 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
+      this.steelBallView.group,
       this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,

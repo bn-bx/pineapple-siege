@@ -1,5 +1,5 @@
 {
-  "release": "nuclear-fire-2026-10-09",
+  "release": "steel-ball-2026-10-13",
   "worldVersion": 8,
   "saveCompatibilityVersion": 9,
   "preferenceRevision": 5,
@@ -16,6 +16,10 @@
     "ultra-first-auto-quality-independent-nuke-flash",
     "two-second-nuke-flash",
     "directional-nuke-flash-global-floor",
-    "nuclear-fire-lasting-damage-saved-hazards"
+    "nuclear-fire-lasting-damage-saved-hazards",
+    "steel-ball-120m-oldest-replacement-20-ball-cap",
+    "shallow-ball-terrain-damage-and-slow-speed-cleanup",
+    "adaptive-ball-terrain-collisions",
+    "triple-size-and-density-nuclear-flames"
   ]
 }

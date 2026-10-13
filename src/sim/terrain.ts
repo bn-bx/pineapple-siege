@@ -322,6 +322,78 @@ export class Terrain {
       revision,
     };
   }
+  /** Baseline-relative shallow capsule: overlapping passes never dig repeatedly. */
+  steelBallTrack(
+    a: readonly number[],
+    b: readonly number[],
+    radius: number,
+    depth: number,
+  ): TerrainPatch {
+    const indices: number[] = [],
+      values: number[] = [],
+      chunks = new Set<number>();
+    const dx = b[0] - a[0],
+      dz = b[2] - a[2],
+      lengthSq = dx * dx + dz * dz;
+    const x0 = clamp(
+      Math.floor((Math.min(a[0], b[0]) - radius) / 2),
+      0,
+      CONFIG.grid - 1,
+    );
+    const x1 = clamp(
+      Math.ceil((Math.max(a[0], b[0]) + radius) / 2),
+      0,
+      CONFIG.grid - 1,
+    );
+    const z0 = clamp(
+      Math.floor((Math.min(a[2], b[2]) - radius) / 2),
+      0,
+      CONFIG.grid - 1,
+    );
+    const z1 = clamp(
+      Math.ceil((Math.max(a[2], b[2]) + radius) / 2),
+      0,
+      CONFIG.grid - 1,
+    );
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        const px = x * 2 - a[0],
+          pz = z * 2 - a[2];
+        const t = lengthSq ? clamp((px * dx + pz * dz) / lengthSq, 0, 1) : 0;
+        const d2 =
+          ((px - t * dx) ** 2 + (pz - t * dz) ** 2) / (radius * radius);
+        if (d2 >= 1) continue;
+        const i = z * CONFIG.grid + x;
+        const value = Math.min(
+          this.heights[i],
+          Math.fround(this.base[i] - depth * (1 - d2) ** 2),
+        );
+        if (value === this.heights[i]) continue;
+        this.heights[i] = value;
+        this.changed.set(i, value);
+        if (this.trackDirty) this.dirtySamples.set(i, value);
+        indices.push(i);
+        values.push(value);
+        for (
+          let cz = clamp(Math.floor((z * 2 - 2) / 64), 0, CHUNKS - 1);
+          cz <= clamp(Math.floor((z * 2 + 2) / 64), 0, CHUNKS - 1);
+          cz++
+        )
+          for (
+            let cx = clamp(Math.floor((x * 2 - 2) / 64), 0, CHUNKS - 1);
+            cx <= clamp(Math.floor((x * 2 + 2) / 64), 0, CHUNKS - 1);
+            cx++
+          )
+            chunks.add(cz * CHUNKS + cx);
+      }
+    for (const id of chunks) this.sectionVersions[id]++;
+    return {
+      indices: Uint32Array.from(indices),
+      values: Float32Array.from(values),
+      chunks: [...chunks],
+      revision: 0,
+    };
+  }
   /** Absolute monotonic excavation, safe to coalesce/replay without extra digging. */
   laserCrater(
     x: number,

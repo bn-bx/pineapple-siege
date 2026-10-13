@@ -13,6 +13,8 @@ const smoke = `uniform float time;varying vec2 vUv;varying vec3 vColor;
 void main(){vec2 p=vUv*2.-1.;float n=sin(p.x*9.+time*.7+vColor.g)*sin(p.y*8.-time*.5)*.08;
 float a=smoothstep(1.,.15,length(p)+n)*vColor.r*.32;if(a<.01)discard;
 gl_FragColor=vec4(vec3(.12+.05*vUv.y),a);}`;
+export const NUKE_FLAME_SCALE = 3;
+export const NUKE_FLAMES_PER_PATCH = 24;
 const dummy = new THREE.Object3D();
 const color = new THREE.Color();
 
@@ -32,7 +34,11 @@ export class NuclearFireView {
   >[] = [];
   private ballGeometry = new THREE.SphereGeometry(1, 16, 10);
   constructor() {
-    const make = (fragmentShader: string, additive: boolean) => {
+    const make = (
+      fragmentShader: string,
+      additive: boolean,
+      perPatch: number,
+    ) => {
       const mesh = new THREE.InstancedMesh(
         new THREE.PlaneGeometry(1, 1),
         new THREE.ShaderMaterial({
@@ -44,7 +50,7 @@ export class NuclearFireView {
           toneMapped: false,
           blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
         }),
-        FIRE_LIMIT * 8,
+        FIRE_LIMIT * perPatch,
       );
       mesh.count = 0;
       mesh.frustumCulled = false;
@@ -53,8 +59,8 @@ export class NuclearFireView {
       mesh.instanceColor!.setUsage(THREE.DynamicDrawUsage);
       return mesh;
     };
-    this.flames = make(flame, true);
-    this.smoke = make(smoke, false);
+    this.flames = make(flame, true, NUKE_FLAMES_PER_PATCH);
+    this.smoke = make(smoke, false, 8);
     this.group.add(this.flames, this.smoke);
   }
   trigger(e: Explosion) {
@@ -109,33 +115,56 @@ export class NuclearFireView {
         Math.sin(Math.min(1, ball.age / 2) * Math.PI) * (reduced ? 0.18 : 0.5);
     }
     const count = reduced ? 4 : 8;
+    const flameCount = reduced
+      ? NUKE_FLAMES_PER_PATCH / 2
+      : NUKE_FLAMES_PER_PATCH;
     let index = 0;
+    let smokeIndex = 0;
     for (const f of patches.slice(0, FIRE_LIMIT)) {
       const fade = Math.min(1, Math.max(0, (FIRE_LIFETIME - f.age) / 8));
+      for (let i = 0; i < flameCount; i++) {
+        const phase = (f.seed + i * 2.399) % (Math.PI * 2);
+        const r = f.radius * Math.sqrt((i + 0.5) / flameCount) * 0.75;
+        const x = f.p[0] + Math.cos(phase) * r,
+          z = f.p[2] + Math.sin(phase) * r;
+        const flicker = 0.85 + Math.sin(time * 5 + phase) * 0.15;
+        dummy.position.set(
+          x,
+          f.p[1] + f.height * NUKE_FLAME_SCALE * flicker * 0.5,
+          z,
+        );
+        dummy.scale.set(
+          f.radius * 0.65 * NUKE_FLAME_SCALE,
+          f.height * flicker * NUKE_FLAME_SCALE,
+          1,
+        );
+        dummy.updateMatrix();
+        this.flames.setMatrixAt(index, dummy.matrix);
+        color.setRGB(fade, phase, 0);
+        this.flames.setColorAt(index++, color);
+      }
       for (let i = 0; i < count; i++) {
         const phase = (f.seed + i * 2.399) % (Math.PI * 2);
         const r = f.radius * Math.sqrt((i + 0.5) / count) * 0.75;
         const x = f.p[0] + Math.cos(phase) * r,
           z = f.p[2] + Math.sin(phase) * r;
-        const flicker = 0.85 + Math.sin(time * 5 + phase) * 0.15;
-        dummy.position.set(x, f.p[1] + f.height * flicker * 0.5, z);
-        dummy.scale.set(f.radius * 0.65, f.height * flicker, 1);
-        dummy.updateMatrix();
-        this.flames.setMatrixAt(index, dummy.matrix);
-        color.setRGB(fade, phase, 0);
-        this.flames.setColorAt(index, color);
         const rise = (f.age * 0.13 + i / count) % 1;
-        dummy.position.set(x, f.p[1] + f.height + rise * f.height * 5, z);
+        dummy.position.set(
+          x,
+          f.p[1] + f.height * NUKE_FLAME_SCALE + rise * f.height * 5,
+          z,
+        );
         dummy.scale.setScalar(f.radius * (0.6 + rise * 0.8));
         dummy.updateMatrix();
-        this.smoke.setMatrixAt(index, dummy.matrix);
+        this.smoke.setMatrixAt(smokeIndex, dummy.matrix);
         color.setRGB(fade * (1 - rise), phase, 0);
-        this.smoke.setColorAt(index++, color);
+        this.smoke.setColorAt(smokeIndex++, color);
       }
     }
+    this.flames.count = index;
+    this.smoke.count = smokeIndex;
     for (const mesh of [this.flames, this.smoke]) {
-      mesh.count = index;
-      mesh.visible = index > 0;
+      mesh.visible = mesh.count > 0;
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor!.needsUpdate = true;
       (mesh.material as THREE.ShaderMaterial).uniforms.time.value = time;

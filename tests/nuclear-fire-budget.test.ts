@@ -41,7 +41,7 @@ it("bounds rapid-strike simulation and rendering work without growing sprite buf
       view.update(fire.patches, 1 / 60, false, tick / 60);
       samples.push(performance.now() - start);
       expect(fire.patches.length).toBeLessThanOrEqual(FIRE_LIMIT);
-      expect(view.flames.count).toBeLessThanOrEqual(FIRE_LIMIT * 8);
+      expect(view.flames.count).toBeLessThanOrEqual(FIRE_LIMIT * 24);
     }
     samples.sort((a, b) => a - b);
     console.info(

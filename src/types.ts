@@ -1,6 +1,12 @@
 import type { CivilianPopulation } from "./civilian-morale";
 export type ProjectileWeapon = "cannon" | "nuke";
-export type WeaponId = ProjectileWeapon | "laser";
+export type WeaponId = ProjectileWeapon | "laser" | "steelBall";
+export interface SteelBallState {
+  id: number;
+  p: Vec3;
+  q: Quat;
+  fade: number;
+}
 export interface LaserProfile {
   radius: number;
   depth: number;
@@ -320,6 +326,7 @@ export interface SimulationSnapshot {
   nukeYield: NukeYield;
   cooldowns: Record<WeaponId, number>;
   lasers: LaserStrike[];
+  steelBalls?: SteelBallState[];
   projectiles: {
     id: number;
     p: Vec3;
@@ -460,7 +467,7 @@ export interface ContactSound {
   p: Vec3;
   material: Material;
   energy: number;
-  action: "fracture" | "impact" | "settle";
+  action: "fracture" | "impact" | "settle" | "roll";
 }
 export type WorkerMessage =
   | { type: "settlementEvent"; p: Vec3; kind: "cheer" | "sad" }

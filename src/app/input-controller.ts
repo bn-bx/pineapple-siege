@@ -155,7 +155,7 @@ export function bind(ctx: InputControllerContext): void {
       }
     },
   );
-  for (const weapon of ["cannon", "nuke", "laser"] as const)
+  for (const weapon of ["cannon", "nuke", "laser", "steelBall"] as const)
     ctx.$("select-" + weapon).onclick = () => {
       if (ctx.session.active) ctx.send({ type: "weapon", weapon });
     };
@@ -186,7 +186,12 @@ export function bind(ctx: InputControllerContext): void {
       ctx.cinematic();
       return;
     }
-    if (e.code === "Digit1" || e.code === "Digit2" || e.code === "Digit3") {
+    if (
+      e.code === "Digit1" ||
+      e.code === "Digit2" ||
+      e.code === "Digit3" ||
+      e.code === "Digit4"
+    ) {
       e.preventDefault();
       ctx.send({
         type: "weapon",
@@ -195,7 +200,9 @@ export function bind(ctx: InputControllerContext): void {
             ? "cannon"
             : e.code === "Digit2"
               ? "nuke"
-              : "laser",
+              : e.code === "Digit3"
+                ? "laser"
+                : "steelBall",
       });
       return;
     }

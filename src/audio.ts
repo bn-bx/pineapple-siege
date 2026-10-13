@@ -279,6 +279,10 @@ export class GameAudio {
   }
   contact(e: ContactSound) {
     if (e.action === "settle") return;
+    if (e.action === "roll") {
+      this.noise(e.p, 0.36, 0.035 * e.energy, 240);
+      return;
+    }
     this.noise(e.p, 0.3, 0.06 * Math.min(2, Math.max(0, e.energy)), 1800);
   }
   monster(p: Vec3, kind: "hit" | "defeat" | "throw" | "swipe") {
@@ -389,6 +393,10 @@ export class GameAudio {
   }
 
   explosion(e: Explosion) {
+    if (e.kind === "impact" && !e.water) {
+      this.noise(e.p, 0.5, 0.12 * Math.min(2, e.power), 320);
+      return;
+    }
     if (e.kind !== "nuke" && e.water) {
       // A river ambience excerpt sounds like a loop fragment when fired as an
       // impact. Use a compact low splash body plus a lighter spray layer; both
