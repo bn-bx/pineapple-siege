@@ -1,8 +1,19 @@
+import { DeathCamera } from "./death-camera";
 import * as THREE from "three";
 import { CONFIG } from "../config";
 import type { CameraMode } from "../types";
 export class CameraRig {
   mode: CameraMode = "chase";
+  deathShot?: DeathCamera;
+  beginDeath(
+    position: THREE.Vector3,
+    camera: THREE.PerspectiveCamera,
+    surface: number,
+  ) {
+    if (this.mode === "death") return;
+    this.deathShot = new DeathCamera(position, camera, surface);
+    this.mode = "death";
+  }
   previousMode: "chase" | "cinematic" = "chase";
   elapsed = 0;
   private photoPosition = new THREE.Vector3();
@@ -22,16 +33,19 @@ export class CameraRig {
     if (ready) desired.lerp(previous, Math.exp(-Math.max(0, dt) * 6));
   }
   toggle() {
+    if (this.mode === "death") return;
     this.mode = this.mode === "cinematic" ? "chase" : "cinematic";
     this.elapsed = 0;
     this.shot = -1;
   }
   chase() {
+    this.deathShot = undefined;
     this.mode = "chase";
     this.fov = 64;
     this.shot = -1;
   }
   photo(camera: THREE.PerspectiveCamera) {
+    if (this.mode === "death") return;
     this.previousMode = this.mode === "cinematic" ? "cinematic" : "chase";
     this.mode = "photo";
     this.photoPosition.copy(camera.position);

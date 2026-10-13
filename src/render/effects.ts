@@ -1,10 +1,11 @@
+import { CrashFuelView } from "./crash-fuel";
 import { NuclearFireView } from "./nuclear-fire";
 import * as THREE from "three";
-import type { Explosion,FragmentEffect } from "../types";
+import type { Explosion, FragmentEffect } from "../types";
 import { GroundDust } from "./dust";
 import {
-explosionFlashStyle,
-explosionParticleTint,
+  explosionFlashStyle,
+  explosionParticleTint,
 } from "./explosion-palette";
 import { Fragments } from "./fragments";
 import { NukeCloud } from "./nuke-cloud";
@@ -13,6 +14,7 @@ import type { ResourceDisposal } from "./resource-disposal";
 import { SpaceLaser } from "./space-laser";
 export class Effects {
   readonly fire = new NuclearFireView();
+  readonly fuel = new CrashFuelView();
   readonly laser = new SpaceLaser();
   readonly dust = new GroundDust();
   readonly group = new THREE.Group();
@@ -104,6 +106,7 @@ export class Effects {
     this.points.frustumCulled = false;
     this.group.add(
       this.fire.group,
+      this.fuel.mesh,
       this.laser.group,
       this.points,
       this.fragments.mesh,
@@ -171,6 +174,7 @@ export class Effects {
   }
   explosion(e: Explosion, scale = 1) {
     this.dust.emit(e, this.reduced || scale < 1, this.ground);
+    if (e.kind === "fuel") this.fire.trigger(e);
     if (e.kind === "nuke") {
       this.nukeFlash.trigger(e);
       this.fire.trigger(e);
@@ -186,7 +190,9 @@ export class Effects {
       this.group.add(cloud.group);
       this.shake = 1;
     }
-    const count = Math.round((e.kind === "collapse" ? 140 : 420) * scale);
+    const count = Math.round(
+      (e.kind === "fuel" ? 1000 : e.kind === "collapse" ? 140 : 420) * scale,
+    );
     for (let j = 0; j < count; j++) {
       const i = this.next++ % this.capacity,
         a = Math.random() * Math.PI * 2,
@@ -245,8 +251,8 @@ export class Effects {
       this.group.add(mesh);
       this.flashes.push({
         mesh,
-        life: e.kind === "nuke" ? 4.5 : 0.55,
-        duration: e.kind === "nuke" ? 4.5 : 0.55,
+        life: e.kind === "nuke" ? 4.5 : e.kind === "fuel" ? 2.5 : 0.55,
+        duration: e.kind === "nuke" ? 4.5 : e.kind === "fuel" ? 2.5 : 0.55,
         nuke: e.kind === "nuke",
         water: e.water,
         radius: flashStyle.radius,
@@ -347,6 +353,7 @@ export class Effects {
   }
   reset() {
     this.fire.reset();
+    this.fuel.reset();
     this.laser.reset();
     this.dust.reset();
     this.nukeFlash.reset();

@@ -61,7 +61,7 @@ export interface BlastProfile {
   scatterMax: number;
   ejecta: number;
 }
-export type CameraMode = "chase" | "cinematic" | "photo";
+export type CameraMode = "chase" | "cinematic" | "photo" | "death";
 export type CRTMode = "off" | "subtle" | "retro";
 
 export interface Preferences {
@@ -249,6 +249,7 @@ export interface PlaneState {
   pitch: number;
   roll: number;
   speed: number;
+  /** Positive while awaiting manual respawn; zero while flying. */
   crashed: number;
   boundary: boolean;
 }
@@ -299,7 +300,7 @@ export interface Explosion {
   water: boolean;
   power: number;
   seed: number;
-  kind: "blast" | "crash" | "collapse" | "impact" | "nuke";
+  kind: "blast" | "crash" | "collapse" | "impact" | "nuke" | "fuel";
   profile?: BlastProfile;
   yield?: NukeYield;
 }
@@ -315,6 +316,7 @@ export interface FragmentEffect {
 }
 export interface SimulationSnapshot {
   fires?: FirePatch[];
+  fuel?: import("./sim/crash-fuel").FuelDrop[];
   epoch?: number;
   slot?: number;
   packedMotion?: PackedMotion;

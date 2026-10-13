@@ -27,6 +27,8 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`larger-islands-2026-10-13` expands new islands to 9,216 m across, adds three landscape profiles, five castles, six larger towns, more settlements and forests, and map zoom/pan with landmark waypoints. GPU terrain textures use small array pages; terrain and obstacle loading predicts aircraft movement. Pineapple monsters break into four body quarters plus detached arms and crown, and flies separate into three sections.
+`cinematic-crash-fuel-2026-10-13` adds a cinematic pullback on aircraft death with manual respawn, continuing world simulation, and a stationary death-area view. Respawn uses the button or a fresh Enter, Space, or R press. Crashes spray visible fuel, ignite on dry ground, and produce a delayed large secondary explosion. A scorched aircraft wreck remains for one minute, including after respawn; visual wreck and fuel pools stay bounded.
 
-The generator is PS3, world version 9, and save compatibility 10. Players need a fresh island; older stored data remains protected until they explicitly replace it, and temporary play is available. Preference revision 5 remains unchanged. Existing weapons, the twenty-ball cap, and nuclear flames retain their settings. See [larger-island verification](LARGER_ISLANDS_QA.md) for checks and performance measurements.
+The generator remains PS3, world version 9, save compatibility 10, and preference revision 5. This release does not require a new island. Crash-camera state, fuel droplets, and aircraft wrecks are transient; destruction and fire hazards continue through the existing save system.
+
+The preceding larger-islands release expanded new islands to 9,216 m across with varied landscapes, busier settlements, paged GPU terrain textures, predictive streaming, and map waypoints. See [larger-island verification](LARGER_ISLANDS_QA.md) for those checks and performance measurements.

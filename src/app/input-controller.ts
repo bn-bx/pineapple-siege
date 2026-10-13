@@ -4,8 +4,9 @@ import { pointerSteering } from "../input";
 import { createPhotoSaveAction } from "../photo-save";
 import { GameRenderer } from "../render/renderer";
 import { SessionState } from "../session-state";
-import type { GameCommand, Preferences } from "../types";
+import type { GameCommand, Preferences, SimulationSnapshot } from "../types";
 export interface InputControllerContext {
+  snapshot?: SimulationSnapshot;
   touch: {
     keys: Set<string>;
     steering: { x: number; y: number };
@@ -35,6 +36,42 @@ export interface InputControllerContext {
   cinematic: () => void;
   preferences: () => Preferences;
 }
+const deathControls = new WeakMap<
+  InputControllerContext,
+  { shown: boolean; pending: boolean }
+>();
+const dead = (ctx: InputControllerContext) =>
+  (ctx.snapshot?.plane.crashed ?? 0) > 0;
+const deathState = (ctx: InputControllerContext) => {
+  let state = deathControls.get(ctx);
+  if (!state)
+    deathControls.set(ctx, (state = { shown: false, pending: false }));
+  return state;
+};
+export function resetDeathControls(ctx: InputControllerContext) {
+  deathControls.delete(ctx);
+  ctx.$("deathOverlay").hidden = true;
+  ctx.$<HTMLButtonElement>("deathRespawn").disabled = false;
+}
+export function syncDeathControls(ctx: InputControllerContext) {
+  const state = deathState(ctx),
+    crashed = dead(ctx);
+  if (crashed && !state.shown) {
+    state.shown = true;
+    ctx.clearInput();
+    document.body.classList.remove("cinematic");
+    ctx.$("hint").hidden = true;
+    if (document.pointerLockElement === ctx.canvas) document.exitPointerLock();
+  } else if (!crashed) {
+    state.shown = state.pending = false;
+  }
+  ctx.$("deathOverlay").hidden = !ctx.session.active || !crashed;
+  ctx.$<HTMLButtonElement>("deathRespawn").disabled = state.pending;
+  if (ctx.session.active) {
+    ctx.$("flightHUD").hidden = crashed;
+    ctx.touchControls.hidden = crashed;
+  }
+}
 export function clearInput(ctx: InputControllerContext): void {
   ctx.touch.reset();
   ctx.debugInput = undefined;
@@ -48,6 +85,13 @@ export function clearInput(ctx: InputControllerContext): void {
   });
 }
 export function input(ctx: InputControllerContext): void {
+  if (dead(ctx)) {
+    ctx.send({
+      type: "input",
+      input: { x: 0, y: 0, throttle: 0, bank: 0, boost: false, fire: false },
+    });
+    return;
+  }
   if (ctx.debug && ctx.debugInput) {
     ctx.send({ type: "input", input: ctx.debugInput });
     return;
@@ -68,7 +112,7 @@ export function input(ctx: InputControllerContext): void {
   });
 }
 export function cinematic(ctx: InputControllerContext): void {
-  if (!ctx.session.active) return;
+  if (!ctx.session.active || dead(ctx)) return;
   ctx.view.toggleCinematic();
   document.body.classList.toggle(
     "cinematic",
@@ -83,6 +127,7 @@ export function cinematic(ctx: InputControllerContext): void {
   setTimeout(() => (ctx.$("hint").style.opacity = "0"), 2500);
 }
 export function togglePhoto(ctx: InputControllerContext): void {
+  if (dead(ctx)) return;
   if (ctx.session.photoPending) return;
   if (ctx.session.photoMode) {
     ctx.session.pause();
@@ -124,10 +169,19 @@ export function togglePhoto(ctx: InputControllerContext): void {
 }
 export function respawn(ctx: InputControllerContext): void {
   if (!ctx.session.active) return;
+  const state = deathState(ctx);
+  if (state.pending) return;
+  state.pending = dead(ctx);
   ctx.clearInput();
-  ctx.view.setChase();
+  if (!dead(ctx)) ctx.view.setChase();
+  ctx.$<HTMLButtonElement>("deathRespawn").disabled = state.pending;
+  ctx.$("deathRespawn").blur();
   document.body.classList.remove("cinematic");
   ctx.send({ type: "respawn" });
+  if (!ctx.pointerFallback && document.pointerLockElement !== ctx.canvas)
+    ctx.canvas.requestPointerLock().catch(() => {
+      ctx.pointerFallback = true;
+    });
 }
 
 export function bind(ctx: InputControllerContext): void {
@@ -160,9 +214,24 @@ export function bind(ctx: InputControllerContext): void {
       if (ctx.session.active) ctx.send({ type: "weapon", weapon });
     };
   ctx.$("touchRespawn").onclick = ctx.respawn;
+  ctx.$("deathRespawn").onclick = ctx.respawn;
   window.addEventListener("keydown", (e) => {
     if (e.code === "Escape") {
       ctx.pause();
+      return;
+    }
+    if (dead(ctx) && ctx.session.active) {
+      e.preventDefault();
+      if (!e.repeat && ["Enter", "Space", "KeyR"].includes(e.code))
+        ctx.respawn();
+      return;
+    }
+    if (
+      e.repeat &&
+      ["Enter", "Space", "KeyR"].includes(e.code) &&
+      !ctx.keys.has(e.code)
+    ) {
+      e.preventDefault();
       return;
     }
     if (e.repeat && ["KeyP", "KeyC", "KeyH"].includes(e.code)) return;
@@ -232,7 +301,7 @@ export function bind(ctx: InputControllerContext): void {
       ctx.canvas.setPointerCapture(e.pointerId);
       return;
     }
-    if (!ctx.session.active) return;
+    if (!ctx.session.active || dead(ctx)) return;
     ctx.dragging = true;
     if (document.pointerLockElement !== ctx.canvas)
       ctx.canvas.setPointerCapture(e.pointerId);
@@ -254,6 +323,7 @@ export function bind(ctx: InputControllerContext): void {
     }
     if (
       !ctx.session.active ||
+      dead(ctx) ||
       (document.pointerLockElement !== ctx.canvas && !ctx.dragging)
     )
       return;
@@ -274,6 +344,7 @@ export function bind(ctx: InputControllerContext): void {
     if (
       document.pointerLockElement !== ctx.canvas &&
       ctx.session.active &&
+      !dead(ctx) &&
       !ctx.pointerFallback
     )
       ctx.pause();

@@ -389,8 +389,10 @@ it("the active laser destroys the aircraft once and allows the normal respawn", 
   s.step();
   expect(s.plane.crashed).toBe(2);
   for (let i = 0; i < 60; i++) s.step();
-  expect(s.plane.crashed).toBeCloseTo(1);
+  expect(s.plane.crashed).toBe(2);
   for (let i = 0; i < 61; i++) s.step();
+  expect(s.plane.crashed).toBe(2);
+  s.respawn();
   expect(s.plane.crashed).toBe(0);
   expect(s.plane.p[0]).toBeGreaterThan(1000);
   expect(s.lasers[0].phase).toBe("burning");

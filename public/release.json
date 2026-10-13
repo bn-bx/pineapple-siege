@@ -1,5 +1,5 @@
 {
-  "release": "larger-islands-2026-10-13",
+  "release": "cinematic-crash-fuel-2026-10-13",
   "worldVersion": 9,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -24,7 +24,10 @@
     "enemy-death-body-chunks",
     "larger-procedural-islands-busier-towns",
     "paged-terrain-textures-predictive-streaming",
-    "map-landmark-waypoints-zoom-pan"
+    "map-landmark-waypoints-zoom-pan",
+    "cinematic-death-camera-manual-respawn",
+    "persistent-aircraft-wreck-crash-fuel-spill",
+    "large-secondary-fuel-explosion"
   ],
   "generatorVersion": 3,
   "mapSizeMeters": 9216

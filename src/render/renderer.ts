@@ -1,3 +1,5 @@
+import { CrashWreckView } from "./crash-wreck";
+import { clearDeathCamera } from "./death-camera";
 import { terrainGPUTexture } from "./terrain-pages";
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -104,6 +106,7 @@ export class GameRenderer {
   readonly terrain: TerrainView;
   readonly effects = new Effects();
   readonly jet = makeJet();
+  readonly crashWrecks = new CrashWreckView(this.jet);
   readonly performance = new PerformanceMonitor(4096);
   warmupStages: Record<string, number> = {};
   get assetLoadingStages() {
@@ -318,7 +321,12 @@ export class GameRenderer {
     const assets = createMaterials();
     this.materials = assets.materials;
     this.fragmentMaterials = fractureMaterials(this.materials);
-    this.terrain = new TerrainView(world, heights, assets.grass, immutableBaseline);
+    this.terrain = new TerrainView(
+      world,
+      heights,
+      assets.grass,
+      immutableBaseline,
+    );
     this.terrain.enableStreamingUploads();
     this.environment = new EnvironmentView(
       this.scene,
@@ -327,7 +335,12 @@ export class GameRenderer {
       this.materials,
       this.visualProfile.shadowSize,
     );
-    this.scene.add(this.terrain.group, this.effects.group, this.jet);
+    this.scene.add(
+      this.terrain.group,
+      this.effects.group,
+      this.jet,
+      this.crashWrecks.group,
+    );
     this.worldView = new WorldBatches(this.scene, world, this.materials);
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
     this.fallenPines = new THREE.InstancedMesh(
@@ -692,6 +705,7 @@ export class GameRenderer {
     this.worldView.restore(removed);
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
+    this.crashWrecks.reset();
     this.actors.reset();
     this.readyCamera = false;
     this.motionFrames.clear();
@@ -1298,6 +1312,82 @@ export class GameRenderer {
       }
     }
   }
+  private *deathObstacles(
+    previous: THREE.Vector3,
+    desired: THREE.Vector3,
+    snap: SimulationSnapshot,
+  ) {
+    const box = this.cameraBox,
+      seen = new Set<number>(),
+      ruins = new Set<number>();
+    const x0 = clamp(
+        Math.floor((Math.min(previous.x, desired.x) - 3) / 64),
+        0,
+        CHUNKS - 1,
+      ),
+      x1 = clamp(
+        Math.floor((Math.max(previous.x, desired.x) + 3) / 64),
+        0,
+        CHUNKS - 1,
+      ),
+      z0 = clamp(
+        Math.floor((Math.min(previous.z, desired.z) - 3) / 64),
+        0,
+        CHUNKS - 1,
+      ),
+      z1 = clamp(
+        Math.floor((Math.max(previous.z, desired.z) + 3) / 64),
+        0,
+        CHUNKS - 1,
+      );
+    for (let z = z0; z <= z1; z++)
+      for (let x = x0; x <= x1; x++) {
+        for (const e of this.cameraCells.get(z * CHUNKS + x) ?? []) {
+          if (e.kind === "tree" || seen.has(e.id) || this.removed.has(e.id))
+            continue;
+          seen.add(e.id);
+          box.min.set(
+            e.p[0] - e.s[0] - 3,
+            e.p[1] - e.s[1] - 3,
+            e.p[2] - e.s[2] - 3,
+          );
+          box.max.set(
+            e.p[0] + e.s[0] + 3,
+            e.p[1] + e.s[1] + 3,
+            e.p[2] + e.s[2] + 3,
+          );
+          yield box;
+        }
+        for (const id of this.ruinCells.get(z * CHUNKS + x) ?? [])
+          ruins.add(id);
+      }
+    const wreckBox = (r: BodyView | Ruin) => {
+      if (Math.max(...r.s) < 5) return false;
+      box.min.set(-r.s[0], -r.s[1], -r.s[2]);
+      box.max.fromArray(r.s);
+      box
+        .applyMatrix4(
+          this.wreckTransform.compose(
+            this.wreckPosition.fromArray(r.p),
+            this.wreckRotation.fromArray(r.q),
+            this.unitScale,
+          ),
+        )
+        .expandByScalar(3);
+      return true;
+    };
+    for (const id of ruins) {
+      const r = this.ruins.get(id);
+      if (r && wreckBox(r)) yield box;
+    }
+    if (snap.packedBodies) {
+      this.bodyReader.bind(snap.packedBodies);
+      for (let i = 0; i < snap.packedBodies.count; i++) {
+        const r = this.bodyReader.read(i, this.bodyScratch);
+        if (wreckBox(r)) yield box;
+      }
+    } else for (const r of snap.bodies) if (wreckBox(r)) yield box;
+  }
   render(dt: number, active: boolean, frameTime = performance.now()) {
     if (active && !this.wasActive) {
       this.averageMS = 1000 / 60;
@@ -1362,10 +1452,21 @@ export class GameRenderer {
       p,
       alpha,
     );
-    if (discontinuity) this.readyCamera = false;
+    if (p.crashed > 0)
+      this.rig.beginDeath(
+        position,
+        this.camera,
+        Math.max(
+          this.terrain.sample(position.x, position.z),
+          this.terrain.waterSurface(position.x, position.z) ?? -Infinity,
+        ),
+      );
+    else if (this.rig.mode === "death") this.setChase();
+    if (discontinuity && this.rig.mode !== "death") this.readyCamera = false;
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);
     this.jet.visible = p.crashed <= 0;
+    this.crashWrecks.update(p, snap.time, (x, z) => this.terrain.sample(x, z));
     const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);
     for (const flame of this.jet.children) {
       if (flame.name === "flame") {
@@ -1391,8 +1492,29 @@ export class GameRenderer {
       desired.copy(shot.position);
       target.copy(shot.target);
     }
-    const fov =
-      this.rig.mode === "photo"
+    const deathShot =
+      this.rig.mode === "death"
+        ? this.rig.deathShot!.frame(active ? dt : 0, (point, previous) =>
+            clearDeathCamera(
+              point,
+              previous,
+              CONFIG.worldSize,
+              (x, z) =>
+                Math.max(
+                  this.terrain.sample(x, z),
+                  this.terrain.waterSurface(x, z) ?? -Infinity,
+                ),
+              this.deathObstacles(previous, point, snap),
+            ),
+          )
+        : undefined;
+    if (deathShot) {
+      desired.copy(deathShot.position);
+      target.copy(deathShot.target);
+    }
+    const fov = deathShot
+      ? deathShot.fov
+      : this.rig.mode === "photo"
         ? this.rig.fov
         : this.rig.mode === "cinematic"
           ? 72
@@ -1401,13 +1523,14 @@ export class GameRenderer {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
-    this.rig.prepareBoom(desired, this.cameraPosition, dt, this.readyCamera);
+    if (!deathShot)
+      this.rig.prepareBoom(desired, this.cameraPosition, dt, this.readyCamera);
     desired.y = Math.max(
       desired.y,
       this.terrain.sample(desired.x, desired.z) + 5,
     );
     // Shorten the camera boom against surviving structure boxes and major rubble.
-    if (!this.inspect && this.rig.mode !== "photo") {
+    if (!deathShot && !this.inspect && this.rig.mode !== "photo") {
       const ray = desired.clone().sub(position),
         len = ray.length();
       this.cameraRay.set(position, ray.normalize());
@@ -1415,7 +1538,8 @@ export class GameRenderer {
       const box = this.cameraBox,
         candidates = this.cameraCandidates;
       const cell =
-        Math.floor(position.x / 32) + Math.floor(position.z / 32) * (CONFIG.worldSize / 32);
+        Math.floor(position.x / 32) +
+        Math.floor(position.z / 32) * (CONFIG.worldSize / 32);
       if (cell !== this.cameraCell) {
         this.cameraCell = cell;
         candidates.clear();
@@ -1502,7 +1626,7 @@ export class GameRenderer {
       }
       if (limit < len) desired.copy(position).addScaledVector(ray, limit);
     }
-    if (!this.readyCamera) {
+    if (deathShot || !this.readyCamera) {
       this.cameraPosition.copy(desired);
       this.cameraTarget.copy(target);
       this.readyCamera = true;
@@ -1512,8 +1636,8 @@ export class GameRenderer {
       this.cameraTarget.lerp(target, 1 - Math.exp(-dt * 10));
     }
     this.camera.position.copy(this.cameraPosition);
-    this.camera.up.copy(up);
-    if (this.shakeEnabled && active) {
+    this.camera.up.copy(deathShot?.up ?? up);
+    if (!deathShot && this.shakeEnabled && active) {
       let shake = this.effects.shake * 0.4;
       this.camera.position.add(
         new THREE.Vector3(
@@ -1524,7 +1648,7 @@ export class GameRenderer {
       );
     }
     this.camera.lookAt(this.cameraTarget);
-    if (this.inspect) {
+    if (this.inspect && !deathShot) {
       this.camera.position.copy(this.inspect.p);
       this.camera.lookAt(this.inspect.target);
     }
@@ -1619,7 +1743,13 @@ export class GameRenderer {
       this.camera,
     );
     this.effects.update(active ? dt : 0);
-    this.effects.fire.update(snap.fires ?? [], active ? dt : 0, this.effects.reduced, snap.time);
+    this.effects.fuel.update(snap.fuel ?? []);
+    this.effects.fire.update(
+      snap.fires ?? [],
+      active ? dt : 0,
+      this.effects.reduced,
+      snap.time,
+    );
     this.performance.record("effects", performance.now() - effectsStarted);
     this.effects.laser.reduced = this.effects.reduced;
     this.effects.laser.update(
@@ -1725,6 +1855,7 @@ export class GameRenderer {
   }
 
   dispose() {
+    this.rig?.chase();
     this.disposed = true;
     this.presentation?.dispose();
     this.timeline.reset();

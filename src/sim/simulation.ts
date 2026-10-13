@@ -1,3 +1,4 @@
+import { CrashFuel } from "./crash-fuel";
 import { NuclearFire } from "./nuclear-fire";
 import { Flies } from "./flies";
 import RAPIER from "@dimforge/rapier3d-compat";
@@ -338,6 +339,7 @@ export class Simulation {
 
   cooldowns = { cannon: 0, nuke: 0, laser: 0, steelBall: 0 };
   readonly fires = new NuclearFire();
+  readonly crashFuel = new CrashFuel();
   readonly lasers: LaserStrike[] = [];
   readonly laserWork = new Map<number, LaserWork>();
   readonly laserSupport = new Set<string>();
@@ -1623,7 +1625,7 @@ export class Simulation {
   }
   explode(p: Vec3, power = 1, kind: Explosion["kind"] = "blast") {
     this.bump();
-    if (kind === "blast")
+    if (kind === "blast" || kind === "fuel")
       this.damageMonsters(p, CONFIG.damageRadius * power, 1);
     const water =
       this.terrain.water(p[0], p[2]) &&
@@ -1964,11 +1966,7 @@ export class Simulation {
   }
   private fly(dt: number) {
     const p = this.plane;
-    if (p.crashed > 0) {
-      p.crashed -= dt;
-      if (p.crashed <= 0) this.respawn();
-      return;
-    }
+    if (p.crashed > 0) return;
     this.throttle = clamp(
       this.throttle + this.input.throttle * dt * 0.35,
       0,
@@ -2019,8 +2017,7 @@ export class Simulation {
     const hit = this.sweep(p.p, next, 2.2);
     if (hit) {
       p.p = hit;
-      p.crashed = CONFIG.respawnDelay;
-      this.explode(hit, 0.65, "crash");
+      this.crash(hit);
       return;
     }
     p.p = next;
@@ -2253,7 +2250,19 @@ export class Simulation {
     }
     return hits;
   }
+  private crash(p: Vec3) {
+    if (this.plane.crashed > 0) return;
+    this.plane.crashed = CONFIG.respawnDelay;
+    this.crashFuel.spill(p, this.plane.v);
+    this.explode(p, 0.65, "crash");
+  }
   private updateNuclearFire(dt: number) {
+    this.crashFuel.step(dt, {
+      ground: (x, z) => this.terrain.sample(x, z),
+      water: (x, z) => this.terrain.water(x, z),
+      ignite: (p) => this.fires.igniteFuel(p),
+      explode: (p) => this.explode(p, 4, "fuel"),
+    });
     if (dt > 0 && this.fires.patches.length) this.bump();
     this.fires.step(dt, {
       ground: (x, z) => this.terrain.sample(x, z),
@@ -2692,8 +2701,7 @@ export class Simulation {
         this.civilians.defeats(before, this.monsters.active());
         this.plane.p = bodyHit.p;
       }
-      this.plane.crashed = CONFIG.respawnDelay;
-      this.explode(this.plane.p, 0.65, "crash");
+      this.crash(this.plane.p);
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
     }
     const flyHit = this.flies.step(
@@ -2706,8 +2714,7 @@ export class Simulation {
     );
     if (flyHit && this.plane.crashed <= 0) {
       this.plane.p = flyHit;
-      this.plane.crashed = CONFIG.respawnDelay;
-      this.explode(flyHit, 0.65, "crash");
+      this.crash(flyHit);
     }
     if (this.tick % 60 === 0 && this.monsterCount) this.bump();
     const lasersStarted = performance.now();
@@ -2720,8 +2727,7 @@ export class Simulation {
       );
       if (hit) {
         this.plane.p = hit;
-        this.plane.crashed = CONFIG.respawnDelay;
-        this.explode(hit, 0.65, "crash");
+        this.crash(hit);
       }
     }
     const projectilesStarted = performance.now();
@@ -2744,8 +2750,7 @@ export class Simulation {
       );
       if (hit) {
         this.plane.p = hit;
-        this.plane.crashed = CONFIG.respawnDelay;
-        this.explode(hit, 0.65, "crash");
+        this.crash(hit);
       }
     }
     this.stageMS.nuclearFire = performance.now() - fireStarted;
@@ -2864,6 +2869,7 @@ export class Simulation {
       cooldowns: { ...this.cooldowns },
       steelBalls: this.steelBalls.snapshot(),
       fires: structuredClone(this.fires.patches),
+      fuel: this.crashFuel.snapshot(),
       lasers: structuredClone(this.lasers),
       projectiles: packed
         ? []
@@ -3186,6 +3192,7 @@ export class Simulation {
   dispose() {
     this.steelBalls.reset();
     this.fires.reset();
+    this.crashFuel.reset();
     this.moving.clear();
     this.ballistic.clear();
     this.cleanupRemains.clear();

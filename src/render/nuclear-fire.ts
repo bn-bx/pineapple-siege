@@ -64,7 +64,7 @@ export class NuclearFireView {
     this.group.add(this.flames, this.smoke);
   }
   trigger(e: Explosion) {
-    if (e.kind !== "nuke" || !e.profile) return;
+    if (e.kind !== "fuel" && (e.kind !== "nuke" || !e.profile)) return;
     if (this.fireballs.length >= 8) {
       const old = this.fireballs.shift()!;
       this.group.remove(old.mesh);
@@ -89,7 +89,8 @@ export class NuclearFireView {
     this.fireballs.push({
       mesh,
       age: 0,
-      radius: Math.min(150, e.profile.craterRadius * 0.65),
+      radius:
+        e.kind === "fuel" ? 75 : Math.min(150, e.profile!.craterRadius * 0.65),
     });
     this.group.add(mesh);
   }

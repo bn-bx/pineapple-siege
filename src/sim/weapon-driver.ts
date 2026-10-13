@@ -66,6 +66,7 @@ export interface WeaponDriverContext {
 export class WeaponDriver {
   constructor(private host: WeaponDriverContext) {}
   fire(p: PlaneState, f: Vec3): void {
+    if (p.crashed > 0) return;
     const weapon = this.host.weapon;
     if (weapon === "steelBall") {
       if (

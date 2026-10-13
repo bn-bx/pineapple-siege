@@ -70,6 +70,8 @@ describe("destruction authority", () => {
       10,
       world.landmarks.towers[0][2],
     ]);
+    // Keep aircraft damage out of this rubble-cleanup test.
+    sim.plane.crashed = 1;
     sim.plane.p = [900, 300, 900];
     // Faster wreckage can trigger delayed neighboring collapses; allow those fragments to settle too.
     for (let i = 0; i < 1800; i++) {
@@ -182,6 +184,8 @@ it("preserves supported neighbors, breaches bridge collision, and clears old wre
   const breached = bridge.filter((e) => sim.removed.has(e.id));
   expect(breached.length).toBeGreaterThan(5);
   expect(breached.every((e) => !sim.entityColliders.has(e.id))).toBe(true);
+  // Keep aircraft damage out of this rubble-cleanup test.
+  sim.plane.crashed = 1;
   sim.plane.p = [900, 300, 900];
   // Faster wreckage can trigger delayed neighboring collapses; allow those fragments to settle too.
   for (let i = 0; i < 1800; i++) {

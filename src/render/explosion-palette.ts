@@ -17,6 +17,7 @@ export function explosionFlashStyle(
   water: boolean,
   craterRadius = 80,
 ): ExplosionFlashStyle {
+  if (kind === "fuel") return { color: "#ffae38", intensity: 1, radius: 80 };
   if (kind === "nuke")
     return {
       color: "#ffffff",
@@ -29,12 +30,10 @@ export function explosionFlashStyle(
       intensity: kind === "collapse" ? 0.5 : 0.65,
       radius: kind === "crash" ? 9 : kind === "collapse" ? 10 : 12,
     };
-  if (kind === "crash")
-    return { color: "#fff0dc", intensity: 0.68, radius: 9 };
+  if (kind === "crash") return { color: "#fff0dc", intensity: 0.68, radius: 9 };
   if (kind === "collapse")
     return { color: "#d0c5b2", intensity: 0.38, radius: 8 };
-  if (kind === "impact")
-    return { color: "#e2c9a0", intensity: 0.4, radius: 7 };
+  if (kind === "impact") return { color: "#e2c9a0", intensity: 0.4, radius: 7 };
   return { color: "#ffe198", intensity: 0.7, radius: 12 };
 }
 

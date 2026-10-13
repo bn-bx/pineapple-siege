@@ -94,7 +94,7 @@ const touchControls = $("touchControls");
 const touchDevice = matchMedia("(any-pointer: coarse)");
 const touch = bindTouchControls(
   touchControls,
-  () => session.active,
+  () => session.active && (snapshot?.plane.crashed ?? 0) <= 0,
   preferences,
 );
 const held = (key: string) => keys.has(key) || touch.keys.has(key);
@@ -139,7 +139,8 @@ function clearInput(): void {
 function pause() {
   touchControls.hidden = true;
   session.pause();
-  view?.setChase();
+  if (view?.rig.mode !== "death") view?.setChase();
+  $("deathOverlay").hidden = true;
   document.body.classList.remove("cinematic", "photo");
   $("photoToolbar").hidden = true;
   $("ceilingWarning").hidden = true;
@@ -180,7 +181,8 @@ async function enter(event?: Event) {
   $("overlay").hidden = true;
   $("flightHUD").hidden = false;
   $("pauseButton").hidden = false;
-  touchControls.hidden = false;
+  touchControls.hidden = (snapshot?.plane.crashed ?? 0) > 0;
+  input_controller.syncDeathControls(context);
   $("hint").hidden = guideSeen;
   $("hint").style.opacity = "1";
   if (!guideSeen) {
@@ -204,6 +206,7 @@ async function enter(event?: Event) {
         "Left pad steers · hold Fire or Boost · +/− throttle";
       return;
     }
+    if ((snapshot?.plane.crashed ?? 0) > 0) return;
     await canvas.requestPointerLock();
     pointerFallback = false;
   } catch {
@@ -245,7 +248,12 @@ async function handle(message: WorkerMessage) {
     case "paused":
       snapshot = message.snapshot;
       view.receive(message.snapshot);
-      if (session.photoPending) {
+      if (session.photoPending && snapshot.plane.crashed > 0) {
+        session.play();
+        clearInput();
+        send({ type: "pause", paused: false });
+        $("photoToolbar").hidden = true;
+      } else if (session.photoPending) {
         session.photoReady();
         snapshot = message.snapshot;
         view.rig.photo(view.camera);
@@ -276,6 +284,8 @@ async function handle(message: WorkerMessage) {
         });
       break;
     case "ready":
+      snapshot = undefined;
+      input_controller.resetDeathControls(context);
       audio.reset();
       resetFrameStats();
       view.reset(
@@ -349,6 +359,7 @@ function consumeIslandLink(): void {
   return island_coordinator.consumeIslandLink(context);
 }
 function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot): void {
+  input_controller.resetDeathControls(context);
   menu.setIsland(baseline);
   menu.home();
   return island_coordinator.initializeWorld(context, baseline, save);
@@ -379,6 +390,7 @@ function frame(now: number) {
   const renderDT = lastDraw ? Math.min((now - lastDraw) / 1000, 0.1) : dt;
   lastDraw = now;
   avgFrame = avgFrame * 0.96 + raw * 0.04;
+  input_controller.syncDeathControls(context);
   if (session.active) {
     input();
     if (debug || extras.showPerf) {
@@ -396,15 +408,11 @@ function frame(now: number) {
   if (!snapshot) return;
   const p = snapshot.plane;
   audio.update(
-    p.speed,
+    p.crashed > 0 ? 0 : p.speed,
     view.camera.position.toArray() as Vec3,
     view.cameraDirection(),
     held("ShiftLeft") || held("ShiftRight"),
   );
-  if (p.crashed > 0 && view.rig.mode === "cinematic") {
-    view.setChase();
-    document.body.classList.remove("cinematic");
-  }
   audio.syncLasers(snapshot.lasers, view.camera.position.toArray() as Vec3);
   updateHUD(context, now);
   menu.update();

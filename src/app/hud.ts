@@ -132,13 +132,10 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("populationTotal").textContent = String(population.alive);
     ctx.$("happinessValue").textContent = `${population.happiness} / 100`;
     ctx.$("warning").hidden =
-      !ctx.session.active || (!p.boundary && p.crashed <= 0);
-    ctx.$("warning").textContent =
-      p.crashed > 0
-        ? "CRASHED · RESPAWNING"
-        : p.boundary
-          ? "MAP BOUNDARY · TURNING BACK"
-          : "";
+      !ctx.session.active || p.crashed > 0 || !p.boundary;
+    ctx.$("warning").textContent = p.boundary
+      ? "MAP BOUNDARY · TURNING BACK"
+      : "";
     if (
       (ctx.debug || ctx.extras.showPerf) &&
       now - ctx.lastPerfSummary > 1000 &&

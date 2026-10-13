@@ -98,6 +98,27 @@ export class NuclearFire {
     this.scan = undefined;
     this.nextScan = this.clock;
   }
+  igniteFuel(p: Vec3) {
+    const existing = this.patches.find(
+      (f) => Math.hypot(f.p[0] - p[0], f.p[2] - p[2]) < 8,
+    );
+    if (existing) existing.age = 0;
+    else {
+      if (this.patches.length >= FIRE_LIMIT) this.patches.shift();
+      const id = this.nextId++;
+      this.patches.push({
+        id,
+        p: [...p],
+        radius: 8,
+        height: 5,
+        age: 0,
+        seed: id * 97,
+      });
+    }
+    this.index();
+    this.scan = undefined;
+    this.nextScan = this.clock;
+  }
   private index() {
     this.cells.clear();
     for (const patch of this.patches) {
