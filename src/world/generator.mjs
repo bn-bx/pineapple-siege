@@ -1,8 +1,9 @@
 import { createMountainLayout, mountainRelief } from "./mountains.mjs";
 import { createArchitecture } from "./architecture.mjs";
 import { VERTICAL_LIMITS } from "./vertical-limits.mjs";
-export const GENERATOR_VERSION = 3;
-export const WORLD_VERSION = 9;
+import { buildPineappleGod } from "./pineapple-god.mjs";
+export const GENERATOR_VERSION = 4;
+export const WORLD_VERSION = 10;
 export const SIZE = 9216;
 export const STEP = 2;
 export const GRID = SIZE / STEP + 1;
@@ -18,10 +19,10 @@ export function seedCode(seed, revision = GENERATOR_VERSION) {
 }
 export function parseSeedCode(code) {
   const match = /^PS(\d+)-([\da-f]{8})$/i.exec(code.trim());
-  if (!match) throw Error("Enter a seed code such as PS3-0000A301.");
+  if (!match) throw Error("Enter a seed code such as PS4-0000A301.");
   if (Number(match[1]) !== GENERATOR_VERSION)
     throw Error(
-      "This seed uses an older or unsupported island layout. Start a new island with a PS3 seed code.",
+      "This seed uses an older or unsupported island layout. Start a new island with a PS4 seed code.",
     );
   return parseInt(match[2], 16) >>> 0;
 }
@@ -523,6 +524,31 @@ function generateCandidate(seed, report, attempt) {
     sites.some(
       (s) => Math.hypot(x - s.p[0], z - s.p[2]) < radius + s.radius + 100,
     );
+  // Reserve the god's terrace before any settlement or forest can occupy it.
+  let godCandidate,
+    godScore = -Infinity;
+  for (let a = 0; a < 10000; a++) {
+    const x = 1200 + hash(a, 881) * (SIZE - 2400),
+      z = 1200 + hash(a, 882) * (SIZE - 2400),
+      h = sample(x, z);
+    if (h < 100 || h > 330) continue;
+    const corners = [-760, 0, 760].flatMap((dx) =>
+      [-760, 0, 760].map((dz) => sample(x + dx, z + dz)),
+    );
+    if (Math.min(...corners) < 12 || Math.max(...corners) > 650) continue;
+    const rd = riverDistance(x, z);
+    if (rd < 160) continue;
+    const score = Math.min(rd, 1100) * 2 + h + Math.max(...corners) * 0.3;
+    if (score > godScore) {
+      godScore = score;
+      godCandidate = { x, z, h };
+    }
+  }
+  if (!godCandidate)
+    throw Error(
+      "Could not reserve the pineapple god's mountain terrace. Try another seed.",
+    );
+  const god = site("pineapple-god", godCandidate.x, godCandidate.z, 760);
   function inlandSite(kind, radius, number, castle = false) {
     for (let a = 0; a < 6000; a++) {
       const anchor =
@@ -604,6 +630,7 @@ function generateCandidate(seed, report, attempt) {
     });
   }
   let serial = 0;
+  god.yaw = Math.atan2(castles[0].p[0] - god.p[0], castles[0].p[2] - god.p[2]);
   for (const [kind, count, radius] of [
     ["hamlet", 24, 65],
     ["farm", 14, 52],
@@ -732,8 +759,16 @@ function generateCandidate(seed, report, attempt) {
     if (s.kind === "crossing" || s.kind === "bridge") continue;
     const [x, y, z] = s.p,
       castle = castles.find((c) => c.id === s.id);
-    const hx = castle ? (s.bounds.max[0] - s.bounds.min[0]) / 2 : s.radius,
-      hz = castle ? (s.bounds.max[1] - s.bounds.min[1]) / 2 : s.radius;
+    const hx = castle
+        ? (s.bounds.max[0] - s.bounds.min[0]) / 2
+        : s.kind === "pineapple-god"
+          ? 420
+          : s.radius,
+      hz = castle
+        ? (s.bounds.max[1] - s.bounds.min[1]) / 2
+        : s.kind === "pineapple-god"
+          ? 420
+          : s.radius;
     const edgeRelief = Math.max(
       ...[
         [-hx, -hz],
@@ -865,8 +900,9 @@ function generateCandidate(seed, report, attempt) {
       }
     return best;
   };
-  const network = [sites[0]];
-  for (const s of sites.slice(1)) {
+  const roadSites = sites.filter((s) => s.kind !== "pineapple-god");
+  const network = [roadSites[0]];
+  for (const s of roadSites.slice(1)) {
     const target = network.reduce((a, b) =>
       Math.hypot(a.p[0] - s.p[0], a.p[2] - s.p[2]) <
       Math.hypot(b.p[0] - s.p[0], b.p[2] - s.p[2])
@@ -1032,14 +1068,27 @@ function generateCandidate(seed, report, attempt) {
   for (const s of sites)
     if (!["crossing", "bridge", "watermill"].includes(s.kind)) {
       const c = castles.find((c) => c.id === s.id),
-        hx = c ? (s.bounds.max[0] - s.bounds.min[0]) / 2 : s.radius,
-        hz = c ? (s.bounds.max[1] - s.bounds.min[1]) / 2 : s.radius;
+        hx = c
+          ? (s.bounds.max[0] - s.bounds.min[0]) / 2
+          : s.kind === "pineapple-god"
+            ? 420
+            : s.radius,
+        hz = c
+          ? (s.bounds.max[1] - s.bounds.min[1]) / 2
+          : s.kind === "pineapple-god"
+            ? 420
+            : s.radius;
       eachRect(
         s.p[0] - hx,
         s.p[2] - hz,
         s.p[0] + hx,
         s.p[2] + hz,
         (x, z, i) => {
+          if (
+            s.kind === "pineapple-god" &&
+            riverDistance(x, z) < Math.max(...rivers.map((r) => r.width)) + 3
+          )
+            return;
           if (Math.abs(x - s.p[0]) <= hx && Math.abs(z - s.p[2]) <= hz)
             heights[i] = s.p[1];
         },
@@ -1061,6 +1110,10 @@ function generateCandidate(seed, report, attempt) {
   report("Building breakable castles and coastal landmarks", 0.5);
   const architecture = createArchitecture({ sites, castles }, sample, hash),
     { entities, homes } = architecture;
+  buildPineappleGod(god, entities, hash, sample);
+  architecture.structureCount = entities.length;
+  if (entities.length > 48000)
+    throw Error(`Structure budget exceeded: ${entities.length}`);
   for (const c of castles) {
     const s = sites.find((s) => s.id === c.id);
     s.assemblies = c.assemblies;
@@ -1350,7 +1403,7 @@ export function validateIsland(world, heights) {
         reached.add(a);
         reached.add(b);
       }
-  if (world.sites.some((s) => !reached.has(s.id)))
+  if (world.sites.some((s) => s.kind !== "pineapple-god" && !reached.has(s.id)))
     throw Error("Road network is disconnected.");
   for (const s of world.sites)
     if (s.kind === "bridge" || s.kind === "crossing") {
@@ -1374,6 +1427,15 @@ export function validateIsland(world, heights) {
       e.supports.some((id) => id < 0 || id >= world.structureCount)
     )
       throw Error("Invalid structural identity or geometry.");
+    if (
+      e.visual &&
+      (e.p[1] + e.s[1] >= VERTICAL_LIMITS.ceiling ||
+        (e.foundation &&
+          sampleHeight(heights, e.p[0], e.p[2]) < e.p[1] - e.s[1] - 1.4))
+    )
+      throw Error(
+        "The pineapple god lacks grounded foundations or flight clearance.",
+      );
   }
   // Every structural module must reach an anchored foundation through its support graph.
   const grounded = new Uint8Array(world.structureCount),

@@ -1,4 +1,5 @@
 import { CrashWreckView } from "./crash-wreck";
+import { AircraftFireView } from "./aircraft-fire";
 import { clearDeathCamera } from "./death-camera";
 import { terrainGPUTexture } from "./terrain-pages";
 import * as THREE from "three";
@@ -107,6 +108,7 @@ export class GameRenderer {
   readonly effects = new Effects();
   readonly jet = makeJet();
   readonly crashWrecks = new CrashWreckView(this.jet);
+  readonly aircraftFire = new AircraftFireView();
   readonly performance = new PerformanceMonitor(4096);
   warmupStages: Record<string, number> = {};
   get assetLoadingStages() {
@@ -340,6 +342,7 @@ export class GameRenderer {
       this.effects.group,
       this.jet,
       this.crashWrecks.group,
+      this.aircraftFire.group,
     );
     this.worldView = new WorldBatches(this.scene, world, this.materials);
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
@@ -706,6 +709,7 @@ export class GameRenderer {
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
     this.crashWrecks.reset();
+    this.aircraftFire.reset();
     this.actors.reset();
     this.readyCamera = false;
     this.motionFrames.clear();
@@ -1414,6 +1418,7 @@ export class GameRenderer {
     const playback = this.timeline.sample(frameTime, active);
     if (!playback) return;
     const snap = playback.current;
+    this.worldView.setStatueReaction(snap.statueReaction);
     this.performance.queues.packetPoolBusy = snap.stats.packetPoolBusy ?? 0;
     this.performance.queues.packetPoolBytes = snap.stats.packetPoolBytes ?? 0;
     this.performance.queues.activeBodies = snap.stats.bodies;
@@ -1452,7 +1457,7 @@ export class GameRenderer {
       p,
       alpha,
     );
-    if (p.crashed > 0)
+    if (p.crashed > 0 && !p.falling)
       this.rig.beginDeath(
         position,
         this.camera,
@@ -1465,10 +1470,13 @@ export class GameRenderer {
     if (discontinuity && this.rig.mode !== "death") this.readyCamera = false;
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);
-    this.jet.visible = p.crashed <= 0;
+    this.jet.visible = p.crashed <= 0 || !!p.falling;
+    this.aircraftFire.update(!!p.falling, position, rotation, snap.time);
     this.crashWrecks.update(p, snap.time, (x, z) => this.terrain.sample(x, z));
     const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);
     for (const flame of this.jet.children) {
+      if (flame.name === "flame" || flame.name === "flame-core")
+        flame.visible = !p.falling;
       if (flame.name === "flame") {
         flame.scale.y = exhaust.outerLength;
         const material = (flame as THREE.Mesh)
@@ -1491,6 +1499,14 @@ export class GameRenderer {
       const shot = this.rig.cinematic(position, f, active ? dt : 0);
       desired.copy(shot.position);
       target.copy(shot.target);
+    }
+    if (p.falling) {
+      target.copy(position);
+      desired
+        .copy(position)
+        .add(
+          new THREE.Vector3(-Math.sin(p.yaw) * 65, 28, -Math.cos(p.yaw) * 65),
+        );
     }
     const deathShot =
       this.rig.mode === "death"
@@ -1636,7 +1652,9 @@ export class GameRenderer {
       this.cameraTarget.lerp(target, 1 - Math.exp(-dt * 10));
     }
     this.camera.position.copy(this.cameraPosition);
-    this.camera.up.copy(deathShot?.up ?? up);
+    this.camera.up.copy(
+      deathShot?.up ?? (p.falling ? new THREE.Vector3(0, 1, 0) : up),
+    );
     if (!deathShot && this.shakeEnabled && active) {
       let shake = this.effects.shake * 0.4;
       this.camera.position.add(

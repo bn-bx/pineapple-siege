@@ -1,4 +1,6 @@
 import { CrashFuel } from "./crash-fuel";
+import { restoreStatueReaction, statueRole } from "../statue-reaction";
+import { fractureStatueBox } from "./statue-fracture";
 import { NuclearFire } from "./nuclear-fire";
 import { Flies } from "./flies";
 import RAPIER from "@dimforge/rapier3d-compat";
@@ -407,6 +409,10 @@ export class Simulation {
   private changedRubbleRemoved: number[] = [];
   private aim: Vec3 | null = null;
   private dirtyAssemblies = new Set<string>();
+  private statueQuotas = new Map<number, number>();
+  private fracturedStatue = new Set<number>();
+  readonly statueReaction = restoreStatueReaction();
+  private statueRageNoticeRemaining = 0;
   constructor(
     readonly world: WorldData,
     heights: Float32Array,
@@ -415,9 +421,44 @@ export class Simulation {
     incremental = false,
   ) {
     this.streamedStatics = incremental;
+    Object.assign(
+      this.statueReaction,
+      restoreStatueReaction(save?.statueReaction),
+    );
+    const statue = world.entities.filter((e) => e.visual);
+    const weight = (e: Entity) =>
+      e.s[0] * e.s[1] + e.s[1] * e.s[2] + e.s[2] * e.s[0];
+    const total = statue.reduce((n, e) => n + weight(e), 0);
+    for (const e of statue)
+      this.statueQuotas.set(
+        e.id,
+        1 +
+          Math.floor(
+            ((BLAST_DEBRIS_LIMIT - statue.length) * weight(e)) / total,
+          ),
+      );
     this.queryMarks = new Uint32Array(world.entities.length);
     this.terrain = new Terrain(heights, world.rivers, incremental);
-    this.monsters = new Monsters(world, this.terrain, save?.monsters);
+    if (save) this.terrain.restore(save.terrain, save.laserDry);
+    const oldRemoved = new Set(save?.removed ?? []);
+    const initialRage =
+      this.statueReaction.enraged ||
+      (!save?.statueReaction &&
+        world.entities.some(
+          (e) =>
+            oldRemoved.has(e.id) &&
+            ["figure", "eye"].includes(statueRole(e, world) ?? ""),
+        ));
+    this.monsters = new Monsters(
+      world,
+      this.terrain,
+      save?.monsters,
+      () => {
+        this.statueReaction.eyeGlowRemaining = 10;
+        this.bump();
+      },
+      initialRage,
+    );
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
     this.steelBalls = new SteelBalls(
       this.physics,
@@ -455,11 +496,11 @@ export class Simulation {
       roll: 0,
       speed: 62,
       crashed: 0,
+      falling: false,
       boundary: false,
     };
     if (save) {
       this.destruction = normalizeDestruction(save.destruction);
-      this.terrain.restore(save.terrain, save.laserDry);
       this.fires.restore(save.nuclearFire);
       this.lasers.push(
         ...structuredClone(save.lasers).map((l) => ({
@@ -496,6 +537,8 @@ export class Simulation {
       }
     }
     this.clearingOldRubble = this.ruins.size > 0;
+    if (!save?.statueReaction && initialRage) this.enrageStatue();
+    this.monsters.enraged = this.statueReaction.enraged;
     this.civilians = new Civilians(world, this.terrain, this.removed, save);
     for (const e of world.entities) {
       this.maxEntityExtent = Math.max(this.maxEntityExtent, e.s[0], e.s[2]);
@@ -798,7 +841,10 @@ export class Simulation {
       !this.changedRubbleRemoved.length
     )
       return;
-    if (terrain) terrain.revision = this.revision;
+    if (terrain) {
+      terrain.revision = this.revision;
+      if (terrain.indices.length) this.monsters.navigationRevision++;
+    }
     this.emit({
       type: "delta",
       revision: this.revision,
@@ -813,8 +859,20 @@ export class Simulation {
       dry,
     });
   }
+  private enrageStatue() {
+    if (this.statueReaction.enraged) return;
+    this.statueReaction.enraged = true;
+    this.monsters.enraged = true;
+    this.statueRageNoticeRemaining = 8;
+    this.bump();
+    const site = this.world.sites.find((s) => s.kind === "pineapple-god");
+    if (site) this.emit({ type: "statueRage", p: [...site.p] });
+  }
   private removeEntity(e: Entity) {
     if (this.removed.has(e.id)) return;
+    const role = statueRole(e, this.world);
+    if (role === "figure" || role === "eye") this.enrageStatue();
+    this.monsters.navigationRevision++;
     this.removed.add(e.id);
     this.staticShapes.delete(e.id);
     this.civilians.structureRemoved(e);
@@ -825,6 +883,37 @@ export class Simulation {
       this.entityColliders.delete(e.id);
     }
     if (e.assembly) this.dirtyAssemblies.add(e.assembly);
+  }
+  private fragmentStatue(e: Entity, origin: Vec3, force: number) {
+    if (this.fracturedStatue.has(e.id) || this.vaporized.has(e.id)) return;
+    const free = BLAST_DEBRIS_LIMIT - this.bodyPoses.size;
+    if (free <= 0) return;
+    // Reserve one piece for every other section, rather than deleting the late parts of a collapse.
+    const reserve = Math.max(
+      0,
+      this.statueQuotas.size - this.fracturedStatue.size - 1,
+    );
+    const count = Math.min(
+      64,
+      this.statueQuotas.get(e.id) ?? 1,
+      Math.max(1, free - reserve),
+    );
+    this.fracturedStatue.add(e.id);
+    for (const [i, part] of fractureStatueBox(e.p, e.s, count).entries()) {
+      this.spawnBody(
+        part.p,
+        part.s,
+        e.material,
+        e.id,
+        "chunk",
+        this.scatterVelocity(
+          part.p,
+          origin,
+          force * (0.85 + rand(e.id * 13 + i) * 0.15),
+          e.id + i,
+        ),
+      );
+    }
   }
   private spawnBody(
     p: Vec3,
@@ -884,6 +973,10 @@ export class Simulation {
     if (this.vaporized.has(e.id)) return;
     this.removeEntity(e);
     this.contact(e.p, e.material, 1, "fracture");
+    if (e.visual) {
+      this.fragmentStatue(e, origin, force);
+      return;
+    }
     const limit = budget.limit ?? this.fragmentLimit;
     if (isRoof(e.material)) {
       this.fragmentRoof(e, origin, force, budget);
@@ -967,6 +1060,10 @@ export class Simulation {
     }
   }
   private staticFragment(e: Entity, origin?: Vec3, force = 0) {
+    if (e.visual) {
+      this.fragmentStatue(e, origin ?? e.p, force);
+      return;
+    }
     if (this.vaporized.has(e.id) || this.bodyPoses.size >= BLAST_DEBRIS_LIMIT)
       return;
     if (origin && force > 0) {
@@ -1274,6 +1371,10 @@ export class Simulation {
         continue;
       }
       for (const group of ordered) {
+        if (group[0].visual) {
+          for (const e of group) this.fragmentStatue(e, origin, 25);
+          continue;
+        }
         if (isRoof(group[0].material)) {
           const budget = { n: 0, limit: Math.max(0, dynamicBudget) };
           this.fragmentRoof(group[0], origin, 25, budget);
@@ -1412,6 +1513,11 @@ export class Simulation {
           continue;
         }
         const first = this.world.entities[group[0]];
+        if (first.visual) {
+          for (const id of group)
+            this.fragmentStatue(this.world.entities[id], job.origin, 25);
+          continue;
+        }
         if (isRoof(first.material)) {
           const budget = { n: 0, limit: Math.max(0, job.budget) };
           this.fragmentRoof(first, job.origin, 25, budget);
@@ -1914,6 +2020,7 @@ export class Simulation {
       roll: 0,
       speed: 62,
       crashed: 0,
+      falling: false,
       boundary: false,
     });
     this.throttle =
@@ -1966,7 +2073,10 @@ export class Simulation {
   }
   private fly(dt: number) {
     const p = this.plane;
-    if (p.crashed > 0) return;
+    if (p.crashed > 0) {
+      if (p.falling) this.fall(dt);
+      return;
+    }
     this.throttle = clamp(
       this.throttle + this.input.throttle * dt * 0.35,
       0,
@@ -2017,7 +2127,7 @@ export class Simulation {
     const hit = this.sweep(p.p, next, 2.2);
     if (hit) {
       p.p = hit;
-      this.crash(hit);
+      this.crash(hit, false);
       return;
     }
     p.p = next;
@@ -2250,9 +2360,39 @@ export class Simulation {
     }
     return hits;
   }
-  private crash(p: Vec3) {
+  private fall(dt: number) {
+    const p = this.plane;
+    // Retain momentum while a failed wing pulls the aircraft into a rolling dive.
+    const turn = 0.32 * dt;
+    const vx = p.v[0],
+      vz = p.v[2];
+    const drag = Math.exp(-0.12 * dt);
+    p.v[0] = (vx * Math.cos(turn) + vz * Math.sin(turn)) * drag;
+    p.v[2] = (vz * Math.cos(turn) - vx * Math.sin(turn)) * drag;
+    p.v[1] = Math.max(-180, p.v[1] - 32 * dt);
+    p.speed = Math.hypot(...p.v);
+    p.yaw = Math.atan2(p.v[0], p.v[2]);
+    p.pitch = lerp(
+      p.pitch,
+      Math.atan2(p.v[1], Math.hypot(p.v[0], p.v[2])),
+      1 - Math.exp(-dt * 3),
+    );
+    p.roll += 1.8 * dt;
+    const next = p.p.map((value, i) => value + p.v[i] * dt) as Vec3;
+    next[0] = clamp(next[0], 1, CONFIG.worldSize - 1);
+    next[2] = clamp(next[2], 1, CONFIG.worldSize - 1);
+    const hit = this.sweep(p.p, next, 2.2);
+    p.p = hit ?? next;
+    if (hit) this.impact(hit);
+  }
+  private crash(p: Vec3, airborne = true) {
     if (this.plane.crashed > 0) return;
     this.plane.crashed = CONFIG.respawnDelay;
+    this.plane.falling = airborne;
+    if (!airborne) this.impact(p);
+  }
+  private impact(p: Vec3) {
+    this.plane.falling = false;
     this.crashFuel.spill(p, this.plane.v);
     this.explode(p, 0.65, "crash");
   }
@@ -2652,6 +2792,14 @@ export class Simulation {
   step() {
     const stepStarted = performance.now();
     const dt = CONFIG.dt;
+    const beforeGlow = this.statueReaction.eyeGlowRemaining;
+    this.statueReaction.eyeGlowRemaining = Math.max(0, beforeGlow - dt);
+    if (beforeGlow > 0 && this.statueReaction.eyeGlowRemaining === 0)
+      this.bump();
+    this.statueRageNoticeRemaining = Math.max(
+      0,
+      this.statueRageNoticeRemaining - dt,
+    );
     this.tick++;
     this.time += dt;
     this.updateCleanup(dt);
@@ -2701,7 +2849,7 @@ export class Simulation {
         this.civilians.defeats(before, this.monsters.active());
         this.plane.p = bodyHit.p;
       }
-      this.crash(this.plane.p);
+      this.crash(this.plane.p, !bodyHit);
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
     }
     const flyHit = this.flies.step(
@@ -2858,6 +3006,8 @@ export class Simulation {
       terrainHeightJournalDataBytes += journal.terrain.byteLength;
     return {
       type: "snapshot",
+      statueReaction: { ...this.statueReaction },
+      statueRageNoticeRemaining: this.statueRageNoticeRemaining,
       population: civilianPopulation(this.civilians.states),
       tick: this.tick,
       time: this.time,
@@ -2954,6 +3104,7 @@ export class Simulation {
     this.captures.set(capture, { terrain, dry, ruins });
     const startRevision = this.revision;
     const metadata: SaveSnapshot = {
+      statueReaction: { ...this.statueReaction },
       version: CONFIG.version,
       worldVersion: this.world.version,
       generatorVersion: this.world.generatorVersion,
@@ -3165,6 +3316,7 @@ export class Simulation {
     });
     return {
       nuclearFire: this.fires.save(),
+      statueReaction: { ...this.statueReaction },
       destruction: { ...this.destruction },
       version: CONFIG.version,
       worldVersion: this.world.version,

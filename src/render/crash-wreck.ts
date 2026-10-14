@@ -22,7 +22,8 @@ export class CrashWreckView {
     time: number,
     ground: (x: number, z: number) => number,
   ) {
-    if (plane.crashed > 0 && !this.crashed) {
+    const impacted = plane.crashed > 0 && !plane.falling;
+    if (impacted && !this.crashed) {
       let hulk = this.hulks[this.cursor];
       if (!hulk) {
         const mesh = this.aircraft.clone(true);
@@ -64,7 +65,7 @@ export class CrashWreckView {
       hulk.mesh.visible = true;
       this.cursor = (this.cursor + 1) % 8;
     }
-    this.crashed = plane.crashed > 0;
+    this.crashed = impacted;
     for (const h of this.hulks) {
       const age = Math.max(0, time - h.born);
       if (age >= 60) {

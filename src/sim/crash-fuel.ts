@@ -38,9 +38,9 @@ export class CrashFuel {
           landed: false,
           burning: false,
           v: [
-            velocity[0] * 0.35 + Math.cos(angle) * (14 + i * 0.65),
-            Math.min(10, velocity[1] * 0.2) + 6 + (i % 4),
-            velocity[2] * 0.35 + Math.sin(angle) * (14 + i * 0.65),
+            velocity[0] + Math.cos(angle) * (14 + i * 0.65),
+            velocity[1] + 6 + (i % 4),
+            velocity[2] + Math.sin(angle) * (14 + i * 0.65),
           ] as Vec3,
         };
       }),
@@ -56,14 +56,16 @@ export class CrashFuel {
           continue;
         }
         d.v[1] -= 22 * dt;
-        d.v[0] *= Math.exp(-0.8 * dt);
-        d.v[2] *= Math.exp(-0.8 * dt);
+        d.v[0] *= Math.exp(-0.18 * dt);
+        d.v[2] *= Math.exp(-0.18 * dt);
         for (let i = 0; i < 3; i++) d.p[i] += d.v[i] * dt;
         d.p[0] = clamp(d.p[0], 1, CONFIG.worldSize - 1);
         d.p[2] = clamp(d.p[2], 1, CONFIG.worldSize - 1);
         const ground = host.ground(d.p[0], d.p[2]);
         if (d.p[1] <= ground + 0.2) {
           d.landed = true;
+          // Momentum carries the airborne spray; ground contact absorbs it.
+          d.v = [0, 0, 0];
           d.p[1] = ground + 0.2;
           if (!spill.impact && !host.water(d.p[0], d.p[2])) {
             spill.impact = [...d.p];
@@ -80,12 +82,12 @@ export class CrashFuel {
         for (const d of spill.drops) {
           if (d.burning || !d.landed || host.water(d.p[0], d.p[2])) continue;
           d.burning = true;
-          host.ignite(d.p);
+          host.ignite([...d.p]);
         }
       }
       if (!spill.exploded && elapsed >= 2.5) {
         spill.exploded = true;
-        host.explode(spill.impact);
+        host.explode([...spill.impact]);
       }
     }
     this.spills = this.spills.filter(

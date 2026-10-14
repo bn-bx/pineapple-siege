@@ -27,8 +27,8 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`cinematic-crash-fuel-2026-10-13` adds a cinematic pullback on aircraft death with manual respawn, continuing world simulation, and a stationary death-area view. Respawn uses the button or a fresh Enter, Space, or R press. Crashes spray visible fuel, ignite on dry ground, and produce a delayed large secondary explosion. A scorched aircraft wreck remains for one minute, including after respawn; visual wreck and fuel pools stay bounded.
+`pineapple-god-awakening-2026-10-13` adds a giant destructible pineapple god to each new PS4 island, red eye flashes after ground monster kills, and permanent monster rage after figure damage. Enraged monsters pursue the current player position at 21 m/s, with a 1.68-second attack cooldown and 750 m horizontal attack range. Rage persists through death and save/reload. Existing PS4 islands receive the reaction behavior without regeneration.
 
-The generator remains PS3, world version 9, save compatibility 10, and preference revision 5. This release does not require a new island. Crash-camera state, fuel droplets, and aircraft wrecks are transient; destruction and fire hazards continue through the existing save system.
+The generator is PS4, world version 10, save compatibility 10, and preference revision 5. Earlier PS3 layouts use the existing incompatible-save flow rather than migrating destruction onto the new statue layout. Crash-camera state, fuel droplets, and aircraft wrecks are transient; destruction, statue rage, and fire hazards continue through the existing save system.
 
 The preceding larger-islands release expanded new islands to 9,216 m across with varied landscapes, busier settlements, paged GPU terrain textures, predictive streaming, and map waypoints. See [larger-island verification](LARGER_ISLANDS_QA.md) for those checks and performance measurements.

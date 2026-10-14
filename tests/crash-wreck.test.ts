@@ -45,3 +45,13 @@ it("reuses a bounded wreck pool across repeated respawns and clears on reset", (
   view.reset();
   expect(view.group.children.every((c) => !c.visible)).toBe(true);
 });
+it("waits for the burning aircraft to impact before creating a wreck", () => {
+  const view = new CrashWreckView(new THREE.Group());
+  const falling = { ...plane(1), falling: true };
+  view.update(falling, 0, () => 10);
+  view.update(falling, 1, () => 10);
+  expect(view.group.children).toHaveLength(0);
+  view.update({ ...falling, falling: false }, 2, () => 10);
+  view.update({ ...falling, falling: false }, 3, () => 10);
+  expect(view.group.children).toHaveLength(1);
+});

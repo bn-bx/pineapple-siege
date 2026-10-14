@@ -131,11 +131,14 @@ export function updateHUD(ctx: HudContext, now: number): void {
     const population = snapshot.population;
     ctx.$("populationTotal").textContent = String(population.alive);
     ctx.$("happinessValue").textContent = `${population.happiness} / 100`;
+    const rageNotice = (snapshot.statueRageNoticeRemaining ?? 0) > 0;
     ctx.$("warning").hidden =
-      !ctx.session.active || p.crashed > 0 || !p.boundary;
-    ctx.$("warning").textContent = p.boundary
-      ? "MAP BOUNDARY · TURNING BACK"
-      : "";
+      !ctx.session.active || p.crashed > 0 || (!p.boundary && !rageNotice);
+    ctx.$("warning").textContent = rageNotice
+      ? "Pineapple God angered — monsters are pursuing you"
+      : p.boundary
+        ? "MAP BOUNDARY · TURNING BACK"
+        : "";
     if (
       (ctx.debug || ctx.extras.showPerf) &&
       now - ctx.lastPerfSummary > 1000 &&

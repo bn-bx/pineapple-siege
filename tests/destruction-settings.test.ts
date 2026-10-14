@@ -1,4 +1,5 @@
 import { beforeAll, expect, it } from "vitest";
+import { BLAST_DEBRIS_LIMIT } from "../src/config";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import {
@@ -146,7 +147,7 @@ it("bounds visual output, preserves amplified pending jobs and bedrock", () => {
   expect([...restored.removed].sort()).toEqual([...s.removed].sort());
   expect(s.moving.size).toBe(0);
   expect(s.ballistic.size).toBeGreaterThan(256);
-  expect(s.snapshot().bodies.length).toBeLessThanOrEqual(512);
+  expect(s.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
   expect(s.moving.size).toBeLessThanOrEqual(s.bodyLimit);
   expect(
     events

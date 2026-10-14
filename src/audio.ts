@@ -44,6 +44,7 @@ export class GameAudio {
   private muted = false;
   private lastNuke = -Infinity;
   private lastNukePosition: Vec3 = [0, 0, 0];
+  private pendingStatueRage = false;
   async start() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
@@ -92,6 +93,7 @@ export class GameAudio {
       });
     }
     await this.ctx.resume();
+    if (this.pendingStatueRage) this.statueRage();
   }
   setVolume(v: number) {
     this.volume = v;
@@ -324,6 +326,14 @@ export class GameAudio {
       "tone" in profile ? profile.tone : undefined,
     );
   }
+  statueRage() {
+    if (!this.ctx || this.ctx.state !== "running") {
+      this.pendingStatueRage = true;
+      return;
+    }
+    this.pendingStatueRage = false;
+    this.monster(this.listenerPosition, "defeat");
+  }
   settlement(p: Vec3, kind: "cheer" | "sad") {
     if (kind === "cheer" && this.recording("cheer", p, 0.2, 2.5)) return;
     if (!this.ctx || this.ctx.state !== "running") return;
@@ -377,6 +387,7 @@ export class GameAudio {
     this.voices.push({ stop, p: [...p], gain: 0.06, priority: 0.7 });
   }
   reset() {
+    this.pendingStatueRage = false;
     this.lastNuke = -Infinity;
     for (const voice of this.laserVoices.values()) voice.stop();
     this.laserVoices.clear();

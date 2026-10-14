@@ -81,6 +81,16 @@ function fixture() {
     );
   return { ctx, $, document, window, key };
 }
+it("keeps the crash visible during descent and reveals respawn controls on impact", () => {
+  const { ctx, $ } = fixture();
+  ctx.snapshot!.plane.falling = true;
+  syncDeathControls(ctx);
+  expect($("deathOverlay").hidden).toBe(true);
+  expect($("flightHUD").hidden).toBe(true);
+  ctx.snapshot!.plane.falling = false;
+  syncDeathControls(ctx);
+  expect($("deathOverlay").hidden).toBe(false);
+});
 it("unlocks mouse capture without pausing, hides controls and suppresses dead aircraft input", () => {
   const { ctx, $, document, key } = fixture();
   ctx.keys.add("Space");

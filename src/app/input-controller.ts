@@ -65,7 +65,8 @@ export function syncDeathControls(ctx: InputControllerContext) {
   } else if (!crashed) {
     state.shown = state.pending = false;
   }
-  ctx.$("deathOverlay").hidden = !ctx.session.active || !crashed;
+  ctx.$("deathOverlay").hidden =
+    !ctx.session.active || !crashed || !!ctx.snapshot?.plane.falling;
   ctx.$<HTMLButtonElement>("deathRespawn").disabled = state.pending;
   if (ctx.session.active) {
     ctx.$("flightHUD").hidden = crashed;

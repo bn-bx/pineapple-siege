@@ -1,6 +1,6 @@
 {
-  "release": "cinematic-crash-fuel-2026-10-13",
-  "worldVersion": 9,
+  "release": "pineapple-god-awakening-2026-10-13",
+  "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
   "includes": [
@@ -27,8 +27,11 @@
     "map-landmark-waypoints-zoom-pan",
     "cinematic-death-camera-manual-respawn",
     "persistent-aircraft-wreck-crash-fuel-spill",
-    "large-secondary-fuel-explosion"
+    "large-secondary-fuel-explosion",
+    "giant-destructible-pineapple-god",
+    "ps4-mountain-statue-map-landmark",
+    "pineapple-god-red-eyes-persistent-monster-rage"
   ],
-  "generatorVersion": 3,
+  "generatorVersion": 4,
   "mapSizeMeters": 9216
 }

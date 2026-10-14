@@ -1,4 +1,4 @@
-import { CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import * as THREE from "three";
 import { readFileSync } from "node:fs";
@@ -111,7 +111,7 @@ it("makes detached snapshots without changing live physics or save records", () 
   }
 });
 
-it("caps visual wreckage at 512 and rejects excess pieces without native allocations", () => {
+it("allows 8192 visual wreckage pieces and rejects excess without native allocations", () => {
   const sim = new Simulation({ ...world, entities: [] }, base, () => {});
   try {
     sim.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 4, rubble: 4 });
@@ -126,15 +126,18 @@ it("caps visual wreckage at 512 and rejects excess pieces without native allocat
       );
     const first = spawn();
     for (let i = 1; i < MAX_BODY_LIMIT; i++) spawn();
-    expect(sim.ballistic.size).toBe(512);
+    expect(BLAST_DEBRIS_LIMIT).toBe(8192);
+    expect(sim.ballistic.size).toBe(BLAST_DEBRIS_LIMIT);
     expect(sim.physics.bodies.len()).toBe(0);
     const last = spawn();
-    expect(sim.ballistic.size).toBe(512);
+    expect(sim.ballistic.size).toBe(BLAST_DEBRIS_LIMIT);
     expect(sim.ballistic.has(first)).toBe(true);
     expect(last).toBe(-1);
     expect(sim.ruins.has(first)).toBe(false);
     expect(sim.ballistic.get(first)!.view.p).toEqual([600, 300, 600]);
-    expect(unpackBodies(sim.snapshot(true).packedBodies!)).toHaveLength(512);
+    expect(unpackBodies(sim.snapshot(true).packedBodies!)).toHaveLength(
+      BLAST_DEBRIS_LIMIT,
+    );
   } finally {
     sim.dispose();
   }
@@ -214,7 +217,9 @@ it("keeps repeated explosions bounded and clears all visual wreckage", () => {
   try {
     sim.setMonsterCount(0);
     for (let i = 0; i < 20; i++) sim.explode([600, 200, 600]);
-    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(512);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(
+      BLAST_DEBRIS_LIMIT,
+    );
     expect(sim.physics.bodies.len()).toBe(0);
     for (let i = 0; i < 421; i++) sim.step();
     expect(sim.snapshot().bodies).toHaveLength(0);

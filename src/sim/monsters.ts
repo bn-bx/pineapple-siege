@@ -9,6 +9,7 @@ import {
 } from "../config";
 import type { MonsterSpike, MonsterState, Vec3, WorldData } from "../types";
 import { Terrain } from "./terrain";
+import { PursuitField } from "./pursuit-field";
 
 const hash = (n: number) => {
   n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
@@ -20,6 +21,19 @@ export const MONSTER_BODY_HEIGHT = 14 * MONSTER_SCALE;
 export const MONSTER_BODY_RADIUS = 12 * MONSTER_SCALE;
 
 export class Monsters {
+  private rage = false;
+  get enraged() {
+    return this.rage;
+  }
+  set enraged(value: boolean) {
+    if (value && !this.rage)
+      for (let i = 0; i < this.cooldowns.length; i++)
+        this.cooldowns[i] = Math.min(this.cooldowns[i], 1.68);
+    this.rage = value;
+  }
+  navigationRevision = 0;
+  private navigation?: PursuitField;
+  private navigationTime = 0;
   private tick = 0;
   private castleBounds: WorldData["castleBounds"][];
   private settlementCenters: Vec3[];
@@ -35,7 +49,10 @@ export class Monsters {
     private world: WorldData,
     private terrain: Terrain,
     saved?: MonsterState[],
+    private onDefeat?: () => void,
+    enraged = false,
   ) {
+    this.rage = enraged;
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
       world.castleBounds,
     ];
@@ -92,10 +109,11 @@ export class Monsters {
         ? 115
         : MONSTER_BODY_RADIUS * 2 + 16;
     const clear = (x: number, z: number) =>
-      this.walkable(x, z) &&
-      this.states.every(
-        (m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= separation,
-      );
+      this.walkable(x, z, this.enraged) &&
+      (this.enraged ||
+        this.states.every(
+          (m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= separation,
+        ));
     if (clear(saved[0], saved[2]))
       return [saved[0], this.terrain.sample(saved[0], saved[2]), saved[2]];
     for (let radius = 40; radius <= 320; radius += 40)
@@ -144,7 +162,7 @@ export class Monsters {
     const z = clamp(this.world.spawn[2], 75, CONFIG.worldSize - 75);
     return [x, this.terrain.sample(x, z), z];
   }
-  private walkable(x: number, z: number): boolean {
+  private walkable(x: number, z: number, pursuing = false): boolean {
     if (
       x < 75 ||
       x > CONFIG.worldSize - 75 ||
@@ -167,6 +185,7 @@ export class Monsters {
       )
         return false;
     if (
+      !pursuing &&
       this.castleBounds.some(
         (b) =>
           x > b.min[0] - 75 &&
@@ -176,9 +195,13 @@ export class Monsters {
       )
     )
       return false;
-    if (distanceXZ([x, h, z], this.world.spawn) < 120) return false;
-    return !this.world.sites.some(
-      (s) => Math.hypot(s.p[0] - x, s.p[2] - z) < s.radius + 60,
+    if (!pursuing && distanceXZ([x, h, z], this.world.spawn) < 120)
+      return false;
+    return (
+      pursuing ||
+      !this.world.sites.some(
+        (s) => Math.hypot(s.p[0] - x, s.p[2] - z) < s.radius + 60,
+      )
     );
   }
   setCount(value: number) {
@@ -196,7 +219,10 @@ export class Monsters {
     m.stagger = 0.45;
     m.windup = 0;
     this.bursts.delete(m.id);
-    if (m.health === 0) m.defeated = true;
+    if (m.health === 0) {
+      m.defeated = true;
+      this.onDefeat?.();
+    }
     return true;
   }
   blast(p: Vec3, radius: number, amount: number) {
@@ -252,13 +278,31 @@ export class Monsters {
     previousPlane: Vec3 = plane,
   ) {
     this.tick++;
+    this.navigationTime += dt;
+    const active = this.active();
+    if (this.enraged && active.length) {
+      this.navigation ??= new PursuitField(
+        this.world.size,
+        (x, z) => {
+          const p: Vec3 = [x, this.terrain.sample(x, z), z];
+          return this.walkable(x, z, true) && !obstacle(p, p);
+        },
+        (x, z) => this.terrain.sample(x, z),
+        (a, b) => !obstacle(a, b),
+      );
+      this.navigation.advance(
+        plane,
+        this.navigationTime,
+        this.navigationRevision,
+      );
+    }
     let swipe = false;
     this.throws.length = 0;
     if (disco || crashed) {
       this.spikes.length = 0;
       this.bursts.clear();
     }
-    for (const m of this.active()) {
+    for (const m of active) {
       m.p[1] = this.terrain.sample(m.p[0], m.p[2]);
       m.stagger = Math.max(0, m.stagger - dt);
       this.cooldowns[m.id] = Math.max(0, this.cooldowns[m.id] - dt);
@@ -273,10 +317,13 @@ export class Monsters {
         if (m.windup <= 0 && !crashed && !m.stagger) {
           const horizontal = distanceXZ(m.p, plane);
           if (horizontal < 54 && plane[1] - m.p[1] < 68) swipe = true;
-          else if (horizontal < 500 && plane[1] - m.p[1] < 350) {
+          else if (
+            horizontal < (this.enraged ? 750 : 500) &&
+            plane[1] - m.p[1] < 350
+          ) {
             this.bursts.set(m.id, { remaining: 3, timer: 0 });
           }
-          this.cooldowns[m.id] = 2.4;
+          this.cooldowns[m.id] = this.enraged ? 1.68 : 2.4;
         }
       }
       const burst = this.bursts.get(m.id);
@@ -300,7 +347,10 @@ export class Monsters {
                     (-dv + Math.sqrt(discriminant)) / (2 * vv),
                   ]
                 : [];
-          const flight = Math.min(4, ...roots.filter((t) => t > 0));
+          const flight = Math.min(
+            this.enraged ? 7 : 4,
+            ...roots.filter((t) => t > 0),
+          );
           const lead = Number.isFinite(flight)
             ? flight
             : Math.hypot(...delta) / 125;
@@ -325,7 +375,9 @@ export class Monsters {
       }
       if (m.stagger > 0 || m.windup > 0) continue;
       const near =
-        !crashed && distanceXZ(m.p, plane) < 500 && plane[1] - m.p[1] < 350;
+        !crashed &&
+        distanceXZ(m.p, plane) < (this.enraged ? 750 : 500) &&
+        plane[1] - m.p[1] < 350;
       if (near && this.cooldowns[m.id] <= 0) {
         m.windup = 0.75;
         continue;
@@ -333,24 +385,62 @@ export class Monsters {
       const range = distanceXZ(m.p, plane),
         period = near ? 1 : range < 900 ? 2 : 6;
       if ((this.tick + m.id) % period) {
-        m.phase += dt * 4.5;
+        m.phase += dt * (this.enraged ? 21 : 4.5);
         continue;
       }
       const navDT = dt * period;
-      const desired = near
-        ? Math.atan2(plane[0] - m.p[0], plane[2] - m.p[2])
-        : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;
+      let target = plane;
+      if (this.enraged) {
+        const middle: Vec3 = [
+          (plane[0] + m.p[0]) / 2,
+          0,
+          (plane[2] + m.p[2]) / 2,
+        ];
+        middle[1] = this.terrain.sample(middle[0], middle[2]);
+        const direct =
+          range < 128 &&
+          this.walkable(plane[0], plane[2], true) &&
+          this.walkable(middle[0], middle[2], true) &&
+          !obstacle(m.p, plane);
+        if (!direct) target = this.navigation?.target(m.p) ?? plane;
+        if (distanceXZ(m.p, target) < 2) {
+          m.phase += dt * 4.5;
+          continue;
+        }
+      }
+      const desired =
+        near || this.enraged
+          ? Math.atan2(target[0] - m.p[0], target[2] - m.p[2])
+          : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;
       const turn = Math.atan2(
         Math.sin(desired - m.yaw),
         Math.cos(desired - m.yaw),
       );
       m.yaw += clamp(turn, -navDT * 1.1, navDT * 1.1);
-      const speed = near ? 14 : 4.5;
+      const speed = this.enraged ? 21 : near ? 14 : 4.5;
       const x = m.p[0] + Math.sin(m.yaw) * speed * navDT;
       const z = m.p[2] + Math.cos(m.yaw) * speed * navDT;
       const next: Vec3 = [x, this.terrain.sample(x, z), z];
-      if (this.walkable(x, z) && !obstacle(m.p, next)) m.p = next;
+      if (this.walkable(x, z, this.enraged) && !obstacle(m.p, next)) m.p = next;
       else {
+        if (this.enraged) {
+          for (const offset of [
+            Math.PI / 4,
+            -Math.PI / 4,
+            Math.PI / 2,
+            -Math.PI / 2,
+          ]) {
+            const angle = desired + offset,
+              px = m.p[0] + Math.sin(angle) * speed * navDT,
+              pz = m.p[2] + Math.cos(angle) * speed * navDT;
+            const candidate: Vec3 = [px, this.terrain.sample(px, pz), pz];
+            if (this.walkable(px, pz, true) && !obstacle(m.p, candidate)) {
+              m.p = candidate;
+              m.yaw = angle;
+              break;
+            }
+          }
+        }
         this.wander[m.id] += 1.7;
         m.yaw += dt * 2;
       }

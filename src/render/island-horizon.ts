@@ -1,6 +1,14 @@
 import * as THREE from "three";
+import { statueRole } from "../statue-reaction";
 import type { Entity, Material, WorldData } from "../types";
 import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
+import {
+  statueGeometry,
+  statueGeometryKey,
+  setEntityTransform,
+  setEntityColor,
+  finishEntityTransform,
+} from "./statue-geometry";
 
 interface Coverage {
   allIds: number[];
@@ -11,6 +19,7 @@ interface Coverage {
 }
 /** Whole-island silhouettes are derived views of the same destructible owners. */
 export class IslandHorizon {
+  private eyeMaterials: THREE.MeshStandardMaterial[] = [];
   readonly group = new THREE.Group();
   private camera = { value: new THREE.Vector2() };
   private detail = { value: 1200 };
@@ -32,8 +41,9 @@ export class IslandHorizon {
     const lists = new Map<string, Entity[]>();
     for (const entity of world.entities) {
       if (!owners.has(entity.id) || entity.material === "window") continue;
-      const key =
-        entity.kind === "tree"
+      const key = entity.visual
+        ? `statue:${statueGeometryKey(entity)}:${entity.visual.color}:${statueRole(entity, world) === "eye"}`
+        : entity.kind === "tree"
           ? `tree:${entity.treeSpecies ?? "pine"}`
           : entity.kind === "rock"
             ? `rock:${entity.material}`
@@ -48,18 +58,26 @@ export class IslandHorizon {
       const forest = key.startsWith("tree:");
       const species = key.slice(5);
       const source = materials[entities[0].material];
-      const geometry = key.startsWith("rock:")
-        ? new THREE.DodecahedronGeometry(1, 0)
-        : forest
-          ? new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0)
-          : key === "roof" || key === "slate"
-            ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)
-            : new THREE.BoxGeometry(2, 2, 2);
+      const statue = !!entities[0].visual;
+      const eye = statueRole(entities[0], world) === "eye";
+      const geometry = statue
+        ? statueGeometry(entities[0])
+        : key.startsWith("rock:")
+          ? new THREE.DodecahedronGeometry(1, 0)
+          : forest
+            ? new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0)
+            : key === "roof" || key === "slate"
+              ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)
+              : new THREE.BoxGeometry(2, 2, 2);
       const material = new THREE.MeshStandardMaterial({
-        color: source.color,
-        map: source.map,
+        color: statue ? "white" : source.color,
+        map: statue ? null : source.map,
         roughness: 1,
+        side: statue ? THREE.DoubleSide : THREE.FrontSide,
+        emissive: eye ? "#ff1010" : "black",
+        emissiveIntensity: 0,
       });
+      if (eye) this.eyeMaterials.push(material);
       const bounds = new Float32Array(entities.length * 3);
       geometry.setAttribute(
         "horizonCoverage",
@@ -100,24 +118,18 @@ export class IslandHorizon {
       entities.forEach((entity, index) => {
         const batch = owners.get(entity.id)!;
         bounds.set([batch.x, batch.z, batch.radius], index * 3);
-        dummy.position.fromArray(entity.p);
-        dummy.scale.fromArray(entity.s);
-        dummy.rotation.set(
-          0,
-          entity.kind === "block" ? 0 : entity.variant * 6.28,
-          0,
-        );
+        setEntityTransform(dummy, entity);
         if (forest) {
           dummy.position.y -= entity.s[1];
           dummy.scale.fromArray(treeCanopyScale(entity));
         }
-        dummy.updateMatrix();
+        finishEntityTransform(dummy, entity);
         mesh.setMatrixAt(index, dummy.matrix);
         mesh.setColorAt(
           index,
           forest
             ? setTreeCanopyColor(canopyColor, entity)
-            : canopyColor.setHSL(0.12, 0.06, 0.77 + entity.variant * 0.16),
+            : setEntityColor(canopyColor, entity),
         );
         this.refs.set(entity.id, { mesh, index });
       });
@@ -132,6 +144,10 @@ export class IslandHorizon {
   setView(camera: THREE.Vector3, detailDistance: number) {
     this.camera.value.set(camera.x, camera.z);
     this.detail.value = detailDistance;
+  }
+  setEyeGlow(intensity: number) {
+    for (const material of this.eyeMaterials)
+      material.emissiveIntensity = intensity;
   }
   remove(id: number) {
     const ref = this.refs.get(id);

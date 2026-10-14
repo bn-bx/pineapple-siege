@@ -218,6 +218,7 @@ async function enter(event?: Event) {
       "Mouse capture is unavailable. Hold and drag to steer.";
   }
 }
+let rageCuePlayed = false;
 function input(): void {
   return input_controller.input(context);
 }
@@ -269,6 +270,10 @@ async function handle(message: WorkerMessage) {
     case "settlementEvent":
       audio.settlement(message.p, message.kind);
       break;
+    case "statueRage":
+      audio.statueRage();
+      rageCuePlayed = true;
+      break;
     case "monsterEvent":
       audio.monster(message.p, message.kind);
       if (message.kind === "defeat")
@@ -285,6 +290,7 @@ async function handle(message: WorkerMessage) {
       break;
     case "ready":
       snapshot = undefined;
+      rageCuePlayed = false;
       input_controller.resetDeathControls(context);
       audio.reset();
       resetFrameStats();
@@ -316,6 +322,10 @@ async function handle(message: WorkerMessage) {
       while (pendingReady.length) pendingReady.shift()!();
       break;
     case "snapshot":
+      if ((message.statueRageNoticeRemaining ?? 0) > 0 && !rageCuePlayed) {
+        audio.statueRage();
+        rageCuePlayed = true;
+      }
       snapshot = message;
       view.receive(message);
       if (message.stats.shots > lastShots) {

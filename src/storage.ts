@@ -1,4 +1,5 @@
 import { FIRE_LIMIT, FIRE_LIFETIME } from "./sim/nuclear-fire";
+import { validStatueReaction } from "./statue-reaction";
 import { unpackBodies } from "./sim/body-buffer";
 import { consolidateRubble } from "./sim/rubble";
 import { isRoof, roofClearance } from "./debris-shape";
@@ -422,6 +423,7 @@ export function compatible(
   const s = save as SaveSnapshot;
   return (
     validNuclearFire(s.nuclearFire) &&
+    validStatueReaction(s.statueReaction) &&
     s.version === CONFIG.version &&
     s.worldVersion === worldVersion &&
     s.seed === seed &&

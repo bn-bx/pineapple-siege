@@ -88,15 +88,24 @@ export function drawIslandPreview(
   for (const s of world.sites) {
     const x = s.p[0] / scale,
       z = s.p[2] / scale;
-    ctx.fillStyle = s.kind.includes("castle")
-      ? "#f4d680"
-      : s.kind === "harbor"
-        ? "#91e1e1"
-        : "#ece5d0";
+    ctx.fillStyle =
+      s.kind === "pineapple-god"
+        ? "#ffd65b"
+        : s.kind.includes("castle")
+          ? "#f4d680"
+          : s.kind === "harbor"
+            ? "#91e1e1"
+            : "#ece5d0";
     ctx.strokeStyle = "#263d36";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    if (s.kind.includes("castle")) ctx.rect(x - 5, z - 5, 10, 10);
+    if (s.kind === "pineapple-god") {
+      ctx.moveTo(x, z - 9);
+      ctx.lineTo(x + 7, z);
+      ctx.lineTo(x, z + 9);
+      ctx.lineTo(x - 7, z);
+      ctx.closePath();
+    } else if (s.kind.includes("castle")) ctx.rect(x - 5, z - 5, 10, 10);
     else ctx.arc(x, z, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();

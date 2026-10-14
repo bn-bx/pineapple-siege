@@ -15,7 +15,10 @@ export class MapNavigation {
     this.landmarks = world.sites.map((s) => ({
       id: s.id,
       p: s.p,
-      name: `${s.town ? "Town" : s.kind.replaceAll("-", " ").replace(/^./, (c) => c.toUpperCase())} ${s.id === "castle" ? "1" : s.id.split("-").at(-1)}`,
+      name:
+        s.kind === "pineapple-god"
+          ? "Pineapple God"
+          : `${s.town ? "Town" : s.kind.replaceAll("-", " ").replace(/^./, (c) => c.toUpperCase())} ${s.id === "castle" ? "1" : s.id.split("-").at(-1)}`,
     }));
     this.waypoint = undefined;
     this.reset();

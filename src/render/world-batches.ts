@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { statueRole } from "../statue-reaction";
+import type { StatueReaction } from "../types";
 import { isRoof } from "../debris-shape";
 import type { Entity, Material, WorldData } from "../types";
 import {
@@ -10,6 +12,13 @@ import {
 import { IslandHorizon } from "./island-horizon";
 import type { ResourceDisposal } from "./resource-disposal";
 import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
+import {
+  statueGeometry,
+  statueGeometryKey,
+  setEntityTransform,
+  setEntityColor,
+  finishEntityTransform,
+} from "./statue-geometry";
 export interface Batch {
   mesh: THREE.InstancedMesh;
   low?: THREE.InstancedMesh;
@@ -22,6 +31,7 @@ export interface Batch {
 }
 const dummy = new THREE.Object3D();
 export class WorldBatches {
+  private eyeMaterials = new Set<THREE.MeshStandardMaterial>();
   readonly batches: Batch[] = [];
   readonly refs = new Map<number, { batch: Batch; index: number }[]>();
   readonly removed = new Set<number>();
@@ -47,6 +57,8 @@ export class WorldBatches {
   }
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
+    const statueGeometries = new Map<string, THREE.BufferGeometry>();
+    const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
     for (const e of this.world.entities) {
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
@@ -55,7 +67,9 @@ export class WorldBatches {
       // batch-derived distant-coverage boundary are rebuilt together.
       const size = 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
-      const key = e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
+      const key = e.visual
+        ? `statue:${statueGeometryKey(e)}:${e.visual.color}:${statueRole(e, this.world) === "eye"}:${cell}`
+        : e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
       if (e.kind === "tree") {
         const trunkKey = "trunk" + cell;
         let trunks = grouped.get(trunkKey);
@@ -100,9 +114,7 @@ export class WorldBatches {
           this.scene.add(batch.low);
         }
         list.forEach((e, i) => {
-          dummy.position.fromArray(e.p);
-          dummy.rotation.set(0, e.kind === "block" ? 0 : e.variant * 6.28, 0);
-          dummy.scale.fromArray(e.s);
+          setEntityTransform(dummy, e);
           if (kind === "pine") {
             dummy.position.y -= e.s[1];
             dummy.scale.fromArray(treeCanopyScale(e));
@@ -111,13 +123,13 @@ export class WorldBatches {
             dummy.position.y -= e.s[1] * 0.4;
             dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
           }
-          dummy.updateMatrix();
+          finishEntityTransform(dummy, e);
           mesh.setMatrixAt(i, dummy.matrix);
           batch.low?.setMatrixAt(i, dummy.matrix);
           const color =
             kind === "pine"
               ? setTreeCanopyColor(new THREE.Color(), e)
-              : new THREE.Color().setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
+              : setEntityColor(new THREE.Color(), e);
           mesh.setColorAt(i, color);
           batch.low?.setColorAt(i, color);
           let refs = this.refs.get(e.id);
@@ -142,7 +154,32 @@ export class WorldBatches {
         add(trunk, this.materials.wood, "trunk");
         continue;
       }
-      if (e.kind === "tree") {
+      if (e.visual) {
+        const key = statueGeometryKey(e);
+        let geo = statueGeometries.get(key);
+        if (!geo) {
+          geo = statueGeometry(e);
+          statueGeometries.set(key, geo);
+          this.geometries.add(geo);
+        }
+        // Neutral base material keeps authored stone and gold instance colors intact.
+        const eye = statueRole(e, this.world) === "eye",
+          materialKey = e.visual.color + ":" + eye;
+        let mat = statueMaterials.get(materialKey);
+        if (!mat) {
+          mat = new THREE.MeshStandardMaterial({
+            color: "white",
+            roughness: 0.9,
+            metalness: e.visual.color === "#cf9e38" ? 0.2 : 0,
+            side: THREE.DoubleSide,
+            emissive: eye ? "#ff1010" : "black",
+            emissiveIntensity: 0,
+          });
+          statueMaterials.set(materialKey, mat);
+          if (eye) this.eyeMaterials.add(mat);
+        }
+        add(geo, mat, "statue");
+      } else if (e.kind === "tree") {
         const species = e.treeSpecies ?? "pine";
         add(
           species === "pine" ? pine : this.crownGeometry(species),
@@ -230,9 +267,7 @@ export class WorldBatches {
         if (!refs) this.refs.set(id, (refs = []));
         refs.push({ batch, index: i });
         const e = this.world.entities[id];
-        dummy.position.fromArray(e.p);
-        dummy.rotation.set(0, e.kind === "block" ? 0 : e.variant * 6.28, 0);
-        dummy.scale.fromArray(e.s);
+        setEntityTransform(dummy, e);
         if (batch.kind === "pine") {
           dummy.position.y -= e.s[1];
           dummy.scale.fromArray(treeCanopyScale(e));
@@ -241,13 +276,13 @@ export class WorldBatches {
           dummy.position.y -= e.s[1] * 0.4;
           dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
         }
-        dummy.updateMatrix();
+        finishEntityTransform(dummy, e);
         batch.mesh.setMatrixAt(i, dummy.matrix);
         batch.low?.setMatrixAt(i, dummy.matrix);
         const color =
           batch.kind === "pine"
             ? setTreeCanopyColor(this.fragmentColor, e)
-            : this.fragmentColor.setHSL(0.12, 0.06, 0.77 + e.variant * 0.16);
+            : setEntityColor(this.fragmentColor, e);
         batch.mesh.setColorAt(i, color);
         batch.low?.setColorAt(i, color);
         if (batch.mesh.instanceColor)
@@ -259,6 +294,12 @@ export class WorldBatches {
       });
     }
     for (const id of removed) this.remove(id);
+  }
+  setStatueReaction(state?: StatueReaction) {
+    const intensity = (state?.eyeGlowRemaining ?? 0) > 0 ? 4 : 0;
+    for (const material of this.eyeMaterials)
+      material.emissiveIntensity = intensity;
+    this.horizon.setEyeGlow(intensity);
   }
   update(
     camera: THREE.PerspectiveCamera,
@@ -302,6 +343,7 @@ export class WorldBatches {
     this.horizon.group.removeFromParent();
     this.refs.clear();
     this.removed.clear();
+    this.eyeMaterials.clear();
     this.batches.length = 0;
   }
 }

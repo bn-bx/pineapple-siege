@@ -280,6 +280,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
           sim.plane.yaw = m.yaw;
           sim.plane.pitch = m.pitch;
           sim.plane.crashed = 0;
+          sim.plane.falling = false;
           publish();
         }
         break;

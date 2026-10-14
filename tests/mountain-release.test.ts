@@ -17,9 +17,10 @@ import type { WorldData } from "../src/types";
 
 it("rejects old shared layouts and identifies the new generator", () => {
   expect(() => parseSeedCode("PS1-0000002A")).toThrow(/older/);
-  expect(seedCode(parseSeedCode("PS3-0000002A"))).toBe("PS3-0000002A");
+  expect(seedCode(parseSeedCode("PS4-0000002A"))).toBe("PS4-0000002A");
   expect(seedCode(42, 1)).toBe("PS1-0000002A");
   expect(() => parseSeedCode("PS2-0000002A")).toThrow();
+  expect(() => parseSeedCode("PS3-0000002A")).toThrow(/older/);
 });
 it("uses sea-level ceiling warnings with independent 25-meter hysteresis", () => {
   const warning = new AltitudeWarning();
@@ -49,25 +50,41 @@ it("exposes rock on steep faces and scree on elevated slopes without whitening l
   expect(scree.b).toBeGreaterThan(grass.b);
   expect(peak.b).toBeGreaterThan(scree.b);
 });
-it("generates safe mountains, passes and joined drainage across 32 fixed seeds", () => {
-  const seeds = [
-    0,
-    1,
-    42,
-    2026,
-    4294967295,
-    41729,
-    ...Array.from({ length: 26 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0),
-  ];
-  const mountainCounts = new Set<number>();
-  const summits: [number, number][] = [];
-  for (const seed of seeds) {
+const seeds = [
+  0,
+  1,
+  42,
+  2026,
+  4294967295,
+  41729,
+  ...Array.from({ length: 26 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0),
+];
+const mountainCounts = new Set<number>();
+const summits: [number, number][] = [];
+// Bound each seed independently instead of timing all 32 layouts as one test.
+it.each(seeds)(
+  "generates safe mountains and the Pineapple God for seed %i",
+  (seed) => {
     const { world, heights } = generateIsland(seed);
     const metrics = validateIsland(world, heights);
     expect(metrics.landFraction, `seed ${seed}`).toBeGreaterThanOrEqual(0.45);
     expect(metrics.landFraction, `seed ${seed}`).toBeLessThanOrEqual(0.68);
     expect(metrics.peak, `seed ${seed}`).toBeGreaterThanOrEqual(700);
     expect(metrics.peak).toBeLessThanOrEqual(1000);
+    const gods = world.sites.filter((s) => s.kind === "pineapple-god");
+    expect(gods).toHaveLength(1);
+    const god = gods[0];
+    for (const e of world.entities.filter((e) => e.visual)) {
+      expect(e.p[1] + e.s[1]).toBeLessThan(CONFIG.ceiling);
+      if (e.foundation)
+        expect(sampleHeight(heights, e.p[0], e.p[2])).toBeGreaterThanOrEqual(
+          e.p[1] - e.s[1] - 1.4,
+        );
+    }
+    for (const s of world.sites.filter((s) => s !== god))
+      expect(Math.hypot(s.p[0] - god.p[0], s.p[2] - god.p[2])).toBeGreaterThan(
+        god.radius + s.radius,
+      );
     // Measure the resulting geography, not just the random layout parameters.
     const side = world.size / 64 + 1,
       mask = new Uint8Array(side * side);
@@ -144,7 +161,10 @@ it("generates safe mountains, passes and joined drainage across 32 fixed seeds",
     }
     const trees = world.entities.filter((e) => e.kind === "tree");
     expect(trees.every((e) => e.p[1] - e.s[1] <= 650)).toBe(true);
-  }
+  },
+  60000,
+);
+it("retains varied mountain groups and summit positions across the fixed seeds", () => {
   expect(mountainCounts.size).toBeGreaterThanOrEqual(4);
   for (const axis of [0, 1]) {
     const positions = summits.map((p) => p[axis]);
@@ -152,7 +172,7 @@ it("generates safe mountains, passes and joined drainage across 32 fixed seeds",
       2000,
     );
   }
-}, 180000);
+});
 
 beforeAll(() => initializePhysics());
 it("flies over high terrain and applies ceiling assistance at the revised limits", () => {
@@ -195,8 +215,12 @@ it("flies over high terrain and applies ceiling assistance at the revised limits
         2,
       ),
     ).toBe(false);
-    expect(() => validateIsland({ ...world, generatorVersion: 1 }, heights)).toThrow(/incomplete/);
-    expect(() => validateIsland({ ...world, generatorVersion: 2 }, heights)).toThrow(/incomplete/);
+    expect(() =>
+      validateIsland({ ...world, generatorVersion: 1 }, heights),
+    ).toThrow(/incomplete/);
+    expect(() =>
+      validateIsland({ ...world, generatorVersion: 2 }, heights),
+    ).toThrow(/incomplete/);
   } finally {
     sim.dispose();
   }

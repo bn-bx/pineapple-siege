@@ -140,6 +140,11 @@ export interface DestructionJob {
 }
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
+export type StatueRole = "figure" | "eye" | "throne" | "stairs" | "rock";
+export interface StatueReaction {
+  eyeGlowRemaining: number;
+  enraged: boolean;
+}
 export type Material =
   | "stone"
   | "wood"
@@ -162,6 +167,23 @@ export interface Entity {
   supports: number[];
   variant: number;
   treeSpecies?: "pine" | "broadleaf" | "riverside";
+  visual?: {
+    shape:
+      | "box"
+      | "ellipsoid"
+      | "sector"
+      | "pineapple"
+      | "leaf"
+      | "diamond"
+      | "rock";
+    band: number;
+    azimuth: number;
+    size: Vec3;
+    rotation: Vec3;
+    offset: Vec3;
+    color: string;
+    role?: StatueRole;
+  };
 }
 export interface CivilianSpawn {
   id: number;
@@ -231,6 +253,7 @@ export interface WorldData {
     bounds: { min: [number, number]; max: [number, number] };
     assemblies: string[];
     town?: boolean;
+    yaw?: number;
   }[];
   entities: Entity[];
 }
@@ -251,6 +274,8 @@ export interface PlaneState {
   speed: number;
   /** Positive while awaiting manual respawn; zero while flying. */
   crashed: number;
+  /** Disabled and burning, but still moving toward its final impact. */
+  falling?: boolean;
   boundary: boolean;
 }
 export interface BodyView {
@@ -315,6 +340,8 @@ export interface FragmentEffect {
   spread: number;
 }
 export interface SimulationSnapshot {
+  statueReaction?: StatueReaction;
+  statueRageNoticeRemaining?: number;
   fires?: FirePatch[];
   fuel?: import("./sim/crash-fuel").FuelDrop[];
   epoch?: number;
@@ -402,6 +429,7 @@ export interface SaveSection {
   removedRuins: number[];
 }
 export interface SaveSnapshot {
+  statueReaction?: StatueReaction;
   nuclearFire?: NuclearFireState;
   moving?: PackedBodies;
   incremental?: boolean;
@@ -474,6 +502,7 @@ export interface ContactSound {
   action: "fracture" | "impact" | "settle" | "roll";
 }
 export type WorkerMessage =
+  | { type: "statueRage"; p: Vec3 }
   | { type: "settlementEvent"; p: Vec3; kind: "cheer" | "sad" }
   | { type: "vaporize"; p: Vec3; radius: number }
   | {

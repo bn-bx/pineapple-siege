@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { CrashFuel } from "../src/sim/crash-fuel";
+import { CrashFuel, type FuelHost } from "../src/sim/crash-fuel";
 import { CrashFuelView } from "../src/render/crash-fuel";
 import { NuclearFire, FIRE_LIMIT } from "../src/sim/nuclear-fire";
 const host = (water = false) => ({
@@ -10,7 +10,7 @@ const host = (water = false) => ({
 });
 const advance = (
   fuel: CrashFuel,
-  h: ReturnType<typeof host>,
+  h: FuelHost,
   seconds: number,
 ) => {
   for (let i = 0; i < seconds * 60; i++) fuel.step(1 / 60, h);
@@ -41,6 +41,49 @@ it("waits for airborne fuel to land, and pause freezes the sequence", () => {
   expect(fuel.snapshot()).toEqual(before);
   advance(fuel, h, 7);
   expect(h.explode).toHaveBeenCalledOnce();
+});
+it.each([
+  [120, 0, 0],
+  [0, 35, -120],
+  [-90, -60, 70],
+])(
+  "retains impact velocity (%s, %s, %s) in the airborne spray",
+  (vx, vy, vz) => {
+    const moving = new CrashFuel(),
+      stationary = new CrashFuel(),
+      h = host();
+    moving.spill([1000, 300, 1000], [vx, vy, vz]);
+    stationary.spill([1000, 300, 1000], [0, 0, 0]);
+    advance(moving, h, 1);
+    advance(stationary, h, 1);
+    const baseline = stationary.snapshot();
+    moving.snapshot().forEach((drop, i) => {
+      expect(drop.landed).toBe(false);
+      // Most of the forward speed survives a full second of flight.
+      expect(drop.p[0] - baseline[i].p[0]).toBeCloseTo(
+        (vx * (1 - Math.exp(-0.18))) / 0.18,
+        0,
+      );
+      expect(drop.p[1] - baseline[i].p[1]).toBeCloseTo(vy);
+      expect(drop.p[2] - baseline[i].p[2]).toBeCloseTo(
+        (vz * (1 - Math.exp(-0.18))) / 0.18,
+        0,
+      );
+    });
+  },
+);
+it("stops fuel at ground contact instead of sliding up a hill", () => {
+  const fuel = new CrashFuel(),
+    h = { ...host(), ground: (x: number) => 10 + Math.max(0, x - 1000) * 0.5 };
+  fuel.spill([1000, 12, 1000], [120, -100, 0]);
+  advance(fuel, h, 0.1);
+  expect(fuel.snapshot().every((drop) => drop.landed)).toBe(true);
+  const landing = fuel.snapshot().map((drop) => drop.p);
+  expect(landing.every((p) => p[0] > 1000 && p[0] < 1004)).toBe(true);
+  advance(fuel, h, 5);
+  expect(fuel.snapshot().map((drop) => drop.p)).toEqual(landing);
+  expect(h.explode).toHaveBeenCalledOnce();
+  expect(h.explode.mock.calls[0][0]).toEqual(landing[0]);
 });
 it("extinguishes ocean spills and bounds repeated crashes and reset", () => {
   const fuel = new CrashFuel(),

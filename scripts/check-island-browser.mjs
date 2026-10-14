@@ -134,7 +134,7 @@ try {
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
   await choose("PS2-0000002A");
-  await page.locator("#previewSeed").fill("PS3-0000002A");
+  await page.locator("#previewSeed").fill("PS4-0000002A");
   await page.locator("#previewSeedForm button").click();
   assert.match(
     await page.locator("#islandPreviewStatus").innerText(),

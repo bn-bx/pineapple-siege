@@ -30,7 +30,7 @@ it("rejects inconsistent map dimensions before interpreting saved terrain", () =
 it("round trips every seed boundary and rejects malformed or unsupported shared codes", () => {
   for (const seed of [0, 1, 41729, 4294967295])
     expect(parseSeedCode(seedCode(seed))).toBe(seed);
-  expect(parseSeedCode(" ps3-0000a301 ")).toBe(41729);
+  expect(parseSeedCode(" ps4-0000a301 ")).toBe(41729);
   for (const code of ["abc", "PS1--1", "PS1-100000000", "PS2-00000001"])
     expect(() => parseSeedCode(code)).toThrow();
   const link = new URL(
