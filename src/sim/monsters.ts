@@ -9,6 +9,7 @@ import {
 } from "../config";
 import type { MonsterSpike, MonsterState, Vec3, WorldData } from "../types";
 import { Terrain } from "./terrain";
+import { MonsterCrowd } from "./monster-crowd";
 import { PursuitField } from "./pursuit-field";
 
 const hash = (n: number) => {
@@ -35,6 +36,8 @@ export class Monsters {
   private navigation?: PursuitField;
   private navigationTime = 0;
   private tick = 0;
+  private crowd = new MonsterCrowd();
+  private crowdYielding = false;
   private stuck = new Map<
     number,
     { p: Vec3; elapsed: number; recovering: boolean }
@@ -63,7 +66,12 @@ export class Monsters {
       const next: Vec3 = [x, this.ground(x, z), z];
       if (!this.walkable(x, z, this.enraged) || obstacle(m.p, next))
         return false;
+      if (this.enraged && !this.crowd.permits(m, next)) {
+        this.crowdYielding = true;
+        return false;
+      }
       m.p = next;
+      if (this.enraged) this.crowd.update(m);
     }
     return true;
   }
@@ -312,6 +320,7 @@ export class Monsters {
     this.tick++;
     this.navigationTime += dt;
     const active = this.active();
+    this.crowd.rebuild(this.enraged ? active : []);
     if (this.enraged && active.length) {
       this.navigation ??= new PursuitField(
         this.world.size,
@@ -422,7 +431,22 @@ export class Monsters {
       }
       const navDT = dt * period;
       let target = plane;
+      let atApproach = false;
       if (this.enraged) {
+        const approach = this.crowd.approach(m, plane);
+        approach[1] = this.ground(approach[0], approach[2]);
+        const approachMiddle: Vec3 = [
+          (m.p[0] + approach[0]) / 2,
+          0,
+          (m.p[2] + approach[2]) / 2,
+        ];
+        approachMiddle[1] = this.ground(approachMiddle[0], approachMiddle[2]);
+        const approachClear =
+          range < 900 &&
+          this.walkable(approach[0], approach[2], true) &&
+          this.walkable(approachMiddle[0], approachMiddle[2], true) &&
+          !obstacle(m.p, approach);
+
         const middle: Vec3 = [
           (plane[0] + m.p[0]) / 2,
           0,
@@ -436,22 +460,30 @@ export class Monsters {
           !obstacle(m.p, plane);
         if (!direct || this.stuck.get(m.id)?.recovering)
           target = this.navigation?.target(m.p) ?? plane;
-        if (distanceXZ(m.p, target) < 2) {
-          m.phase += dt * 4.5;
-          continue;
+        if (approachClear) {
+          target = approach;
+          atApproach = distanceXZ(m.p, target) < 4;
         }
+        if (distanceXZ(m.p, target) < 2 && !approachClear) atApproach = true;
       }
+      const steering = this.enraged ? this.crowd.steer(m, target) : undefined;
+      if (atApproach && (steering?.pressure ?? 0) < 0.15) continue;
       const desired =
-        near || this.enraged
+        steering?.angle ??
+        (near || this.enraged
           ? Math.atan2(target[0] - m.p[0], target[2] - m.p[2])
-          : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6;
+          : this.wander[m.id] + Math.sin(m.phase * 0.17 + m.id) * 0.6);
       const turn = Math.atan2(
         Math.sin(desired - m.yaw),
         Math.cos(desired - m.yaw),
       );
       const turnRate = this.enraged ? 3 : 1.1;
       m.yaw += clamp(turn, -navDT * turnRate, navDT * turnRate);
-      const speed = this.enraged ? 60 : near ? 14 : 4.5;
+      const speed = this.enraged
+        ? 60 * (steering?.speed ?? 1)
+        : near
+          ? 14
+          : 4.5;
       const progress = this.stuck.get(m.id) ?? {
         p: [...m.p] as Vec3,
         elapsed: 0,
@@ -459,11 +491,14 @@ export class Monsters {
       };
       const recovering = this.enraged && progress.recovering;
       const startPosition = [...m.p] as Vec3;
+      this.crowdYielding = (steering?.speed ?? 1) < 0.99;
       const moved = this.drive(m, m.yaw, speed * navDT, obstacle);
       if (!moved && this.enraged) {
-        const base = recovering
-          ? Math.atan2(target[0] - m.p[0], target[2] - m.p[2])
-          : desired;
+        const base = this.crowdYielding
+          ? desired
+          : recovering
+            ? Math.atan2(target[0] - m.p[0], target[2] - m.p[2])
+            : desired;
         for (const offset of [
           Math.PI / 4,
           -Math.PI / 4,
@@ -491,7 +526,13 @@ export class Monsters {
         this.wander[m.id] += 1.7;
         m.yaw += dt * 2;
       }
-      if (this.enraged) {
+      if (this.enraged && this.crowdYielding) {
+        // Another monster is traffic, not a reason to rebuild the terrain route.
+        progress.p = [...m.p];
+        progress.elapsed = 0;
+        progress.recovering = false;
+        this.stuck.set(m.id, progress);
+      } else if (this.enraged) {
         progress.elapsed += navDT;
         if (distanceXZ(progress.p, m.p) >= 2) {
           progress.p = [...m.p];

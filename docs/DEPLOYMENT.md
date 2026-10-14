@@ -27,7 +27,9 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`wheeled-pineapple-rage-2026-10-14` adds growing, rotating wheels to living enraged monsters. They drive at 60 m/s, cross river surfaces, turn faster, recover from blocked routes, and produce bounded river spray. Ocean water remains blocked. Attack cooldowns remain 1.68 seconds with a 750 m horizontal range, and health and damage are unchanged. Rage and river positions survive save/reload; existing enraged saves load with fully grown wheels. No island regeneration or save migration is required.
+`wheeled-pineapple-crowd-spacing-2026-10-14` adds local crowd steering, 50 m swept body clearance, approximately 64 m preferred spacing, distinct approach positions around the player, and traffic yielding. Existing overlapping saves spread gradually through valid movement, and traffic waits do not rebuild terrain routes.
+
+The preceding `wheeled-pineapple-rage-2026-10-14` release added growing, rotating wheels to living enraged monsters. They drive at 60 m/s, cross river surfaces, turn faster, recover from blocked routes, and produce bounded river spray. Ocean water remains blocked. Attack cooldowns remain 1.68 seconds with a 750 m horizontal range, and health and damage are unchanged. Rage and river positions survive save/reload; existing enraged saves load with fully grown wheels. No island regeneration or save migration is required.
 
 The preceding `pineapple-god-awakening-2026-10-13` release added the giant destructible god, red eye flashes after ground monster kills, and permanent rage after figure damage.
 
