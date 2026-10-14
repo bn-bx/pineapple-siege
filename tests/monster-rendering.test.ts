@@ -15,7 +15,7 @@ it("renders 400 distant monsters in five shared batches, including grounding roo
   view.begin();
   for (let i = 0; i < 400; i++) view.add(root);
   view.finish();
-  expect(view.group.children).toHaveLength(5);
+  expect(view.group.children).toHaveLength(6);
   expect(view.parts.every((p) => p.count === 400)).toBe(true);
   view.parts[4].geometry.computeBoundingBox();
   expect(view.parts[4].geometry.boundingBox!.min.y).toBeLessThan(0.5);

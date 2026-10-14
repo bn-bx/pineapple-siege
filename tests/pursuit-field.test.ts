@@ -96,12 +96,12 @@ function monster() {
   m.states[0].yaw = Math.PI / 2;
   return m;
 }
-it("pursues beyond normal detection at 21 m/s, follows new targets, and keeps rage through crashes and laser dancing", () => {
+it("pursues beyond normal detection at 60 m/s, follows new targets, and keeps rage through crashes and laser dancing", () => {
   const m = monster();
   m.enraged = true;
   for (let i = 0; i < 60; i++)
     m.step(1 / 60, [3000, 500, 1024], false, () => false);
-  expect(m.states[0].p[0] - 1024).toBeCloseTo(21, 1);
+  expect(m.states[0].p[0] - 1024).toBeCloseTo(60, 1);
   const before = [...m.states[0].p];
   m.step(1 / 60, [3000, 500, 1024], false, () => false, true);
   expect(m.states[0].p).toEqual(before);
@@ -168,7 +168,7 @@ it.each([120, 400])(
     for (let i = 0; i < count; i++)
       expect(
         Math.hypot(m.states[i].p[0] - old[i][0], m.states[i].p[2] - old[i][2]),
-      ).toBeLessThanOrEqual(32);
+      ).toBeLessThanOrEqual(91);
     expect(worst).toBeLessThan(100);
   },
 );

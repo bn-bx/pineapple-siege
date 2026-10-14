@@ -1,5 +1,5 @@
 {
-  "release": "pineapple-god-awakening-2026-10-13",
+  "release": "wheeled-pineapple-rage-2026-10-14",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -30,7 +30,10 @@
     "large-secondary-fuel-explosion",
     "giant-destructible-pineapple-god",
     "ps4-mountain-statue-map-landmark",
-    "pineapple-god-red-eyes-persistent-monster-rage"
+    "pineapple-god-red-eyes-persistent-monster-rage",
+    "enraged-monster-wheels-60m-per-second",
+    "river-surface-driving-steering-stuck-recovery",
+    "instanced-monster-wheels-and-bounded-river-spray"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216

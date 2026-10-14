@@ -1,3 +1,4 @@
+import { WHEEL_RADIUS } from "./monster-wheels";
 import { MonsterProjectileView } from "./monster-projectiles";
 import { DeathPiecePose } from "./death-pieces";
 import {
@@ -71,6 +72,11 @@ export class ActorView {
   private renderDistance = 1200;
   private frame = 0;
   private elapsed = 0;
+  private rageStarted: number | undefined;
+  private wheelStates = new Map<
+    number,
+    { p: [number, number, number]; angle: number; time: number; spray: number }
+  >();
   constructor(
     private scene: THREE.Scene,
     world: WorldData,
@@ -109,6 +115,8 @@ export class ActorView {
     this.steelBallView.reset();
     this.monsterProjectileView.reset();
     this.previous = undefined;
+    this.rageStarted = undefined;
+    this.wheelStates.clear();
     this.previousProjectiles.clear();
     for (const mesh of [...this.monsterMeshes, ...this.distantMonsters])
       mesh.visible = false;
@@ -153,6 +161,17 @@ export class ActorView {
     );
     this.flyView.update(snap, previous, alpha, camera.position, renderDistance);
     this.ensureMonsterMeshes(snap.monsters.length);
+    const rage = snap.statueReaction?.enraged === true;
+    if (rage && this.rageStarted === undefined)
+      this.rageStarted =
+        previous?.statueReaction?.enraged === false ? snap.time : snap.time - 1;
+    if (!rage) {
+      this.rageStarted = undefined;
+      this.wheelStates.clear();
+    }
+    const growth = rage
+      ? THREE.MathUtils.smoothstep(snap.time - this.rageStarted!, 0, 1)
+      : 0;
     this.monsterFragmentView.begin();
     this.nearMonsterView.begin();
     this.distantMonsterView.begin();
@@ -160,6 +179,41 @@ export class ActorView {
       const mesh = this.monsterMeshes[i],
         distant = this.distantMonsters[i];
       const m = snap.monsters[i];
+      let wheelAngle = 0;
+      let traveled = 0;
+      if (m && !m.defeated && rage) {
+        const old = previous?.monsters[m.id];
+        const position = m.p.map((v, axis) =>
+          old && !old.defeated
+            ? THREE.MathUtils.lerp(old.p[axis], v, alpha)
+            : v,
+        ) as [number, number, number];
+        const renderTime = previous
+          ? THREE.MathUtils.lerp(previous.time, snap.time, alpha)
+          : snap.time;
+        const state = this.wheelStates.get(m.id) ?? {
+          p: position,
+          angle: 0,
+          time: renderTime,
+          spray: 0,
+        };
+        traveled = Math.hypot(
+          position[0] - state.p[0],
+          position[2] - state.p[2],
+        );
+        if (!dancing && !m.windup && !m.stagger && renderTime > state.time) {
+          const forward =
+            (position[0] - state.p[0]) * Math.sin(m.yaw) +
+            (position[2] - state.p[2]) * Math.cos(m.yaw);
+          state.angle +=
+            (Math.sign(forward) * traveled) / (WHEEL_RADIUS * MONSTER_SCALE);
+          state.spray += traveled;
+        }
+        state.p = position;
+        state.time = renderTime;
+        wheelAngle = state.angle;
+        this.wheelStates.set(m.id, state);
+      } else this.wheelStates.delete(i);
       const wreckageScale = THREE.MathUtils.lerp(
         this.previous?.monsters[i]?.cleanupScale ?? 1,
         m?.cleanupScale ?? 1,
@@ -298,12 +352,30 @@ export class ActorView {
       distant.rotation.z = mesh.rotation.z;
       distant.scale.setScalar(MONSTER_SCALE);
       const detail = this.camera.position.distanceTo(mesh.position) < 480;
+      const wheelState = this.wheelStates.get(m.id);
+      const water = this.terrain.waterSurface(mesh.position.x, mesh.position.z);
+      if (
+        detail &&
+        wheelState &&
+        wheelState.spray >= 8 &&
+        traveled > 0 &&
+        !m.windup &&
+        !m.stagger &&
+        !dancing &&
+        water !== undefined
+      ) {
+        this.effects.wheelSpray(
+          [mesh.position.x, water, mesh.position.z],
+          m.yaw,
+        );
+        wheelState.spray = 0;
+      }
       mesh.visible = detail;
       distant.visible = !detail;
       if (mesh.parent) this.scene.remove(mesh);
       if (distant.parent) this.scene.remove(distant);
       if (!detail) {
-        this.distantMonsterView.add(distant);
+        this.distantMonsterView.add(distant, growth, wheelAngle);
         continue;
       }
       const left = dance ? -0.65 - beat * 0.45 : pose.left,
@@ -319,6 +391,8 @@ export class ActorView {
         dance ? Math.sin(m.phase * 0.09) * 0.08 : pose.crown,
         pose.brow,
         pose.jaw,
+        growth,
+        wheelAngle,
       );
     }
     this.monsterFragmentView.finish();

@@ -35,6 +35,38 @@ export class Monsters {
   private navigation?: PursuitField;
   private navigationTime = 0;
   private tick = 0;
+  private stuck = new Map<
+    number,
+    { p: Vec3; elapsed: number; recovering: boolean }
+  >();
+  private nextRecoveryRefresh = 0;
+  private ground(x: number, z: number, driving = this.enraged) {
+    const h = this.terrain.sample(x, z);
+    return driving ? (this.terrain.riverSurface?.(x, z, h) ?? h) : h;
+  }
+  private waterBlocked(x: number, z: number, driving: boolean) {
+    return (
+      this.terrain.water(x, z) &&
+      !(driving && this.terrain.riverSurface?.(x, z) !== undefined)
+    );
+  }
+  private drive(
+    m: MonsterState,
+    angle: number,
+    distance: number,
+    obstacle: (a: Vec3, b: Vec3) => boolean,
+  ) {
+    const steps = Math.ceil(distance / 4);
+    for (let i = 0; i < steps; i++) {
+      const x = m.p[0] + (Math.sin(angle) * distance) / steps;
+      const z = m.p[2] + (Math.cos(angle) * distance) / steps;
+      const next: Vec3 = [x, this.ground(x, z), z];
+      if (!this.walkable(x, z, this.enraged) || obstacle(m.p, next))
+        return false;
+      m.p = next;
+    }
+    return true;
+  }
   private castleBounds: WorldData["castleBounds"][];
   private settlementCenters: Vec3[];
   readonly states: MonsterState[] = [];
@@ -115,13 +147,13 @@ export class Monsters {
           (m) => Math.hypot(m.p[0] - x, m.p[2] - z) >= separation,
         ));
     if (clear(saved[0], saved[2]))
-      return [saved[0], this.terrain.sample(saved[0], saved[2]), saved[2]];
+      return [saved[0], this.ground(saved[0], saved[2]), saved[2]];
     for (let radius = 40; radius <= 320; radius += 40)
       for (let i = 0; i < 16; i++) {
         const a = (i * Math.PI) / 8;
         const x = saved[0] + Math.sin(a) * radius;
         const z = saved[2] + Math.cos(a) * radius;
-        if (clear(x, z)) return [x, this.terrain.sample(x, z), z];
+        if (clear(x, z)) return [x, this.ground(x, z), z];
       }
     return fallback;
   }
@@ -170,8 +202,8 @@ export class Monsters {
       z > CONFIG.worldSize - 75
     )
       return false;
-    if (this.terrain.water(x, z)) return false;
-    const h = this.terrain.sample(x, z);
+    if (this.waterBlocked(x, z, pursuing)) return false;
+    const h = this.ground(x, z, pursuing);
     if (!Number.isFinite(h)) return false;
     for (const [dx, dz] of [
       [36, 0],
@@ -180,8 +212,8 @@ export class Monsters {
       [0, -36],
     ])
       if (
-        this.terrain.water(x + dx, z + dz) ||
-        Math.abs(this.terrain.sample(x + dx, z + dz) - h) > 12
+        this.waterBlocked(x + dx, z + dz, pursuing) ||
+        Math.abs(this.ground(x + dx, z + dz, pursuing) - h) > 12
       )
         return false;
     if (
@@ -284,10 +316,10 @@ export class Monsters {
       this.navigation ??= new PursuitField(
         this.world.size,
         (x, z) => {
-          const p: Vec3 = [x, this.terrain.sample(x, z), z];
+          const p: Vec3 = [x, this.ground(x, z), z];
           return this.walkable(x, z, true) && !obstacle(p, p);
         },
-        (x, z) => this.terrain.sample(x, z),
+        (x, z) => this.ground(x, z),
         (a, b) => !obstacle(a, b),
       );
       this.navigation.advance(
@@ -303,7 +335,7 @@ export class Monsters {
       this.bursts.clear();
     }
     for (const m of active) {
-      m.p[1] = this.terrain.sample(m.p[0], m.p[2]);
+      m.p[1] = this.ground(m.p[0], m.p[2]);
       m.stagger = Math.max(0, m.stagger - dt);
       this.cooldowns[m.id] = Math.max(0, this.cooldowns[m.id] - dt);
       if (disco) {
@@ -385,7 +417,7 @@ export class Monsters {
       const range = distanceXZ(m.p, plane),
         period = near ? 1 : range < 900 ? 2 : 6;
       if ((this.tick + m.id) % period) {
-        m.phase += dt * (this.enraged ? 21 : 4.5);
+        m.phase += dt * (this.enraged ? 60 : 4.5);
         continue;
       }
       const navDT = dt * period;
@@ -396,13 +428,14 @@ export class Monsters {
           0,
           (plane[2] + m.p[2]) / 2,
         ];
-        middle[1] = this.terrain.sample(middle[0], middle[2]);
+        middle[1] = this.ground(middle[0], middle[2]);
         const direct =
           range < 128 &&
           this.walkable(plane[0], plane[2], true) &&
           this.walkable(middle[0], middle[2], true) &&
           !obstacle(m.p, plane);
-        if (!direct) target = this.navigation?.target(m.p) ?? plane;
+        if (!direct || this.stuck.get(m.id)?.recovering)
+          target = this.navigation?.target(m.p) ?? plane;
         if (distanceXZ(m.p, target) < 2) {
           m.phase += dt * 4.5;
           continue;
@@ -416,33 +449,63 @@ export class Monsters {
         Math.sin(desired - m.yaw),
         Math.cos(desired - m.yaw),
       );
-      m.yaw += clamp(turn, -navDT * 1.1, navDT * 1.1);
-      const speed = this.enraged ? 21 : near ? 14 : 4.5;
-      const x = m.p[0] + Math.sin(m.yaw) * speed * navDT;
-      const z = m.p[2] + Math.cos(m.yaw) * speed * navDT;
-      const next: Vec3 = [x, this.terrain.sample(x, z), z];
-      if (this.walkable(x, z, this.enraged) && !obstacle(m.p, next)) m.p = next;
-      else {
-        if (this.enraged) {
-          for (const offset of [
-            Math.PI / 4,
-            -Math.PI / 4,
-            Math.PI / 2,
-            -Math.PI / 2,
-          ]) {
-            const angle = desired + offset,
-              px = m.p[0] + Math.sin(angle) * speed * navDT,
-              pz = m.p[2] + Math.cos(angle) * speed * navDT;
-            const candidate: Vec3 = [px, this.terrain.sample(px, pz), pz];
-            if (this.walkable(px, pz, true) && !obstacle(m.p, candidate)) {
-              m.p = candidate;
-              m.yaw = angle;
-              break;
-            }
+      const turnRate = this.enraged ? 3 : 1.1;
+      m.yaw += clamp(turn, -navDT * turnRate, navDT * turnRate);
+      const speed = this.enraged ? 60 : near ? 14 : 4.5;
+      const progress = this.stuck.get(m.id) ?? {
+        p: [...m.p] as Vec3,
+        elapsed: 0,
+        recovering: false,
+      };
+      const recovering = this.enraged && progress.recovering;
+      const startPosition = [...m.p] as Vec3;
+      const moved = this.drive(m, m.yaw, speed * navDT, obstacle);
+      if (!moved && this.enraged) {
+        const base = recovering
+          ? Math.atan2(target[0] - m.p[0], target[2] - m.p[2])
+          : desired;
+        for (const offset of [
+          Math.PI / 4,
+          -Math.PI / 4,
+          Math.PI / 2,
+          -Math.PI / 2,
+          ...(recovering ? [Math.PI] : []),
+        ]) {
+          const angle = base + offset;
+          const before = [...m.p] as Vec3;
+          this.drive(
+            m,
+            angle,
+            Math.min(
+              4,
+              Math.max(0, speed * navDT - distanceXZ(startPosition, m.p)),
+            ),
+            obstacle,
+          );
+          if (distanceXZ(before, m.p) > 0) {
+            m.yaw = angle;
+            break;
           }
         }
+      } else if (!moved) {
         this.wander[m.id] += 1.7;
         m.yaw += dt * 2;
+      }
+      if (this.enraged) {
+        progress.elapsed += navDT;
+        if (distanceXZ(progress.p, m.p) >= 2) {
+          progress.p = [...m.p];
+          progress.elapsed = 0;
+          progress.recovering = false;
+        } else if (progress.elapsed >= 2) {
+          progress.recovering = true;
+          progress.elapsed = 0;
+          if (this.navigationTime >= this.nextRecoveryRefresh) {
+            this.navigationRevision++;
+            this.nextRecoveryRefresh = this.navigationTime + 2;
+          }
+        }
+        this.stuck.set(m.id, progress);
       }
       m.phase += dt * speed;
     }

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MonsterWheelView } from "./monster-wheels";
 import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 import {
@@ -286,12 +287,15 @@ export function makeDistantMonster() {
 
 /** Shared distant draws for all enemies, including rooted feet and disco transforms. */
 export class DistantMonsterView {
+  readonly wheels: MonsterWheelView;
   readonly group = new THREE.Group();
   readonly parts: THREE.InstancedMesh[];
   private local: THREE.Matrix4[];
   private matrix = new THREE.Matrix4();
   private count = 0;
   constructor(private capacity: number) {
+    this.wheels = new MonsterWheelView(capacity);
+    this.group.add(this.wheels.group);
     const template = makeDistantMonster();
     this.local = [];
     this.parts = template.children.map((child) => {
@@ -311,18 +315,27 @@ export class DistantMonsterView {
     });
   }
   begin() {
+    this.wheels.begin();
     this.count = 0;
   }
-  add(root: THREE.Object3D) {
+  add(root: THREE.Object3D, wheelGrowth = 0, wheelRotation = 0) {
+    this.wheels.add(root, wheelGrowth, wheelRotation);
     root.updateMatrix();
-    for (let i = 0; i < this.parts.length; i++)
+    for (let i = 0; i < this.parts.length; i++) {
+      this.matrix.copy(this.local[i]);
+      if (i === 4) {
+        this.matrix.elements[13] += 6 * wheelGrowth;
+        this.matrix.scale(new THREE.Vector3().setScalar(1 - wheelGrowth));
+      }
       this.parts[i].setMatrixAt(
         this.count,
-        this.matrix.multiplyMatrices(root.matrix, this.local[i]),
+        this.matrix.premultiply(root.matrix),
       );
+    }
     this.count++;
   }
   finish() {
+    this.wheels.finish();
     for (const part of this.parts) {
       part.count = this.count;
       part.instanceMatrix.clearUpdateRanges();
@@ -334,6 +347,7 @@ export class DistantMonsterView {
 
 /** Animated material/limb batches replace hundreds of cloned render hierarchies. */
 export class NearMonsterView {
+  readonly wheels: MonsterWheelView;
   readonly group = new THREE.Group();
   readonly parts: {
     mesh: THREE.InstancedMesh;
@@ -344,6 +358,8 @@ export class NearMonsterView {
   private matrix = new THREE.Matrix4();
   private pivot = new THREE.Object3D();
   constructor(private capacity: number) {
+    this.wheels = new MonsterWheelView(capacity);
+    this.group.add(this.wheels.group);
     const template = makeMonster();
     template.updateMatrixWorld(true);
     const groups = new Map<
@@ -389,6 +405,7 @@ export class NearMonsterView {
     }
   }
   begin() {
+    this.wheels.begin();
     this.count = 0;
   }
   add(
@@ -398,11 +415,17 @@ export class NearMonsterView {
     crown: number,
     brow = 0,
     jaw = 0,
+    wheelGrowth = 0,
+    wheelRotation = 0,
   ) {
+    this.wheels.add(root, wheelGrowth, wheelRotation);
     root.updateMatrix();
     for (const part of this.parts) {
       this.pivot.matrix.copy(part.local);
-      if (part.limb === "mouth") {
+      if (part.limb === "roots") {
+        this.pivot.matrix.elements[13] += 6 * wheelGrowth;
+        this.pivot.matrix.scale(new THREE.Vector3().setScalar(1 - wheelGrowth));
+      } else if (part.limb === "mouth") {
         part.local.decompose(
           this.pivot.position,
           this.pivot.quaternion,
@@ -441,6 +464,7 @@ export class NearMonsterView {
     this.count++;
   }
   finish() {
+    this.wheels.finish();
     for (const { mesh, limb } of this.parts) {
       mesh.visible = true;
       mesh.count = this.count;

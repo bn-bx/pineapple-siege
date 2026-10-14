@@ -377,8 +377,20 @@ export class Simulation {
   private monsterBlockers = new StaticBlockerIndex(64, 30, true);
   private blockedCivilian = (p: Vec3) =>
     this.civilianBlockers.blocked(p, this.removed);
-  private blockedMonster = (_a: Vec3, p: Vec3) =>
-    this.monsterBlockers.blocked(p, this.removed);
+  private blockedMonster = (a: Vec3, p: Vec3) => {
+    const steps = Math.max(
+      1,
+      Math.ceil(Math.hypot(p[0] - a[0], p[2] - a[2]) / 4),
+    );
+    const point: Vec3 = [...a];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      for (let axis = 0; axis < 3; axis++)
+        point[axis] = a[axis] + (p[axis] - a[axis]) * t;
+      if (this.monsterBlockers.blocked(point, this.removed)) return true;
+    }
+    return false;
+  };
   shots = 0;
   physicsMS = 0;
   stepMS = 0;
@@ -836,6 +848,8 @@ export class Simulation {
   ) {
     if (
       !terrain &&
+      !flood?.length &&
+      !dry?.length &&
       !this.changedRemoved.length &&
       !this.changedSettled.length &&
       !this.changedRubbleRemoved.length
@@ -843,8 +857,9 @@ export class Simulation {
       return;
     if (terrain) {
       terrain.revision = this.revision;
-      if (terrain.indices.length) this.monsters.navigationRevision++;
     }
+    if (terrain?.indices.length || flood?.length || dry?.length)
+      this.monsters.navigationRevision++;
     this.emit({
       type: "delta",
       revision: this.revision,

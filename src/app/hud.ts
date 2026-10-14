@@ -135,7 +135,7 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("warning").hidden =
       !ctx.session.active || p.crashed > 0 || (!p.boundary && !rageNotice);
     ctx.$("warning").textContent = rageNotice
-      ? "Pineapple God angered — monsters are pursuing you"
+      ? "Pineapple God angered — wheeled monsters are racing toward you"
       : p.boundary
         ? "MAP BOUNDARY · TURNING BACK"
         : "";

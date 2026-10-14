@@ -1,3 +1,4 @@
+import { WheelSpray } from "./wheel-spray";
 import { CrashFuelView } from "./crash-fuel";
 import { NuclearFireView } from "./nuclear-fire";
 import * as THREE from "three";
@@ -13,6 +14,10 @@ import { NukeFlash } from "./nuke-flash";
 import type { ResourceDisposal } from "./resource-disposal";
 import { SpaceLaser } from "./space-laser";
 export class Effects {
+  readonly spray = new WheelSpray();
+  wheelSpray(p: [number, number, number], yaw: number) {
+    if (!this.reduced) this.spray.emit(p, yaw);
+  }
   readonly fire = new NuclearFireView();
   readonly fuel = new CrashFuelView();
   readonly laser = new SpaceLaser();
@@ -109,6 +114,7 @@ export class Effects {
       this.fuel.mesh,
       this.laser.group,
       this.points,
+      this.spray.mesh,
       this.fragments.mesh,
       this.nukeFlash.mesh,
       this.dust.mesh,
@@ -279,6 +285,8 @@ export class Effects {
     return this.clouds.length;
   }
   update(dt: number) {
+    if (this.reduced) this.spray.reset();
+    else this.spray.update(dt);
     if (this.vaporRegions.size) {
       this.fragments.vaporizeMany([...this.vaporRegions.values()]);
       this.vaporRegions.clear();
@@ -352,6 +360,7 @@ export class Effects {
     this.shake *= Math.exp(-dt * 5);
   }
   reset() {
+    this.spray.reset();
     this.fire.reset();
     this.fuel.reset();
     this.laser.reset();

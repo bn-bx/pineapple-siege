@@ -156,6 +156,14 @@ export class Terrain {
     if (river !== undefined && h < river) return river;
     return this.flooded[i] && h < 0 ? 0 : undefined;
   }
+  /** Active inland water only; ocean flooding is deliberately excluded. */
+  riverSurface(x: number, z: number, terrainHeight = this.sample(x, z)) {
+    const i = this.rivers.index(x, z);
+    const surface = this.rivers.cells.get(i);
+    return !this.laserDry[i] && surface !== undefined && terrainHeight < surface
+      ? surface
+      : undefined;
+  }
   water(x: number, z: number, terrainHeight?: number) {
     return this.surfaceHeight(x, z, terrainHeight) !== undefined;
   }

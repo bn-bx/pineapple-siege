@@ -27,7 +27,9 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`pineapple-god-awakening-2026-10-13` adds a giant destructible pineapple god to each new PS4 island, red eye flashes after ground monster kills, and permanent monster rage after figure damage. Enraged monsters pursue the current player position at 21 m/s, with a 1.68-second attack cooldown and 750 m horizontal attack range. Rage persists through death and save/reload. Existing PS4 islands receive the reaction behavior without regeneration.
+`wheeled-pineapple-rage-2026-10-14` adds growing, rotating wheels to living enraged monsters. They drive at 60 m/s, cross river surfaces, turn faster, recover from blocked routes, and produce bounded river spray. Ocean water remains blocked. Attack cooldowns remain 1.68 seconds with a 750 m horizontal range, and health and damage are unchanged. Rage and river positions survive save/reload; existing enraged saves load with fully grown wheels. No island regeneration or save migration is required.
+
+The preceding `pineapple-god-awakening-2026-10-13` release added the giant destructible god, red eye flashes after ground monster kills, and permanent rage after figure damage.
 
 The generator is PS4, world version 10, save compatibility 10, and preference revision 5. Earlier PS3 layouts use the existing incompatible-save flow rather than migrating destruction onto the new statue layout. Crash-camera state, fuel droplets, and aircraft wrecks are transient; destruction, statue rage, and fire hazards continue through the existing save system.
 
