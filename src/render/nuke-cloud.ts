@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import type { Explosion } from "../types";
+import { jetCloudPuffs, type JetCloudPart } from "./jet-cloud";
+export type CloudShape = "pineapple" | "jet";
+const jetColors = { hull: "#d0c6b4", wing: "#9faeb4", engine: "#ed995a" };
 const dummy = new THREE.Object3D();
 const vertex = `varying vec2 vUv;varying vec3 vColor;void main(){vUv=uv;vColor=instanceColor;vec4 center=modelViewMatrix*instanceMatrix*vec4(0.,0.,0.,1.);center.xy+=position.xy*vec2(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz));gl_Position=projectionMatrix*center;}`;
 const fragment = `uniform float opacity,time,daylight;uniform vec3 cloudLight;varying vec2 vUv;varying vec3 vColor;
@@ -18,6 +21,7 @@ interface Puff {
   size: number;
   phase: number;
   leaf: boolean;
+  jetPart?: JetCloudPart;
 }
 export class NukeCloud {
   readonly group = new THREE.Group();
@@ -30,6 +34,7 @@ export class NukeCloud {
   constructor(
     public event: Explosion,
     readonly reduced: boolean,
+    readonly shape: CloudShape = "pineapple",
   ) {
     this.material = new THREE.ShaderMaterial({
       vertexShader: vertex,
@@ -64,53 +69,62 @@ export class NukeCloud {
       size: number,
       c: THREE.Color,
       leaf = false,
+      jetPart?: JetCloudPart,
     ) => {
       const i = this.puffs.length;
-      this.puffs.push({ p, size, phase: rand(i + 91) * Math.PI * 2, leaf });
+      this.puffs.push({ p, size, phase: rand(i + 91) * Math.PI * 2, leaf, jetPart });
       this.smoke.setColorAt(i, c);
     };
-    for (let i = 0; i < bodyCount; i++) {
-      const y = (i + 0.5) / bodyCount,
-        angle = i * 2.399963,
-        r =
-          Math.sqrt(Math.max(0.03, 1 - Math.pow((y - 0.5) / 0.53, 2))) *
-          height *
-          0.23 *
-          (0.65 + 0.35 * rand(i));
-      const bands =
-        Math.sin(angle * 7 + y * 38) * Math.sin(angle * 7 - y * 38) > 0.25;
-      color
-        .set(event.water ? "#b9b68e" : bands ? "#8b692e" : "#e1b24c")
-        .multiplyScalar(0.85 + rand(i + 4) * 0.3);
-      add(
-        new THREE.Vector3(
-          Math.cos(angle) * r,
-          height * (0.14 + y * 0.58),
-          Math.sin(angle) * r,
-        ),
-        height * (0.07 + rand(i + 2) * 0.035),
-        color,
-      );
-    }
-    for (let leaf = 0; leaf < 7; leaf++)
-      for (let i = 0; i < leafCount; i++) {
-        const t = i / (leafCount - 1),
-          a = (leaf * Math.PI * 2) / 7,
-          r = height * 0.25 * t * t;
+    if (shape === "jet") {
+      for (const puff of jetCloudPuffs(height, bodyCount + 7 * leafCount, rand)) {
+        color.set(jetColors[puff.part]);
+        color.multiplyScalar(.85 + rand(this.puffs.length + 4) * .3);
+        add(new THREE.Vector3(...puff.p), puff.size, color, false, puff.part);
+      }
+    } else {
+      for (let i = 0; i < bodyCount; i++) {
+        const y = (i + 0.5) / bodyCount,
+          angle = i * 2.399963,
+          r =
+            Math.sqrt(Math.max(0.03, 1 - Math.pow((y - 0.5) / 0.53, 2))) *
+            height *
+            0.23 *
+            (0.65 + 0.35 * rand(i));
+        const bands =
+          Math.sin(angle * 7 + y * 38) * Math.sin(angle * 7 - y * 38) > 0.25;
         color
-          .set(event.water ? "#849d86" : "#628654")
-          .multiplyScalar(0.75 + rand(leaf * 71 + i) * 0.4);
+          .set(event.water ? "#b9b68e" : bands ? "#8b692e" : "#e1b24c")
+          .multiplyScalar(0.85 + rand(i + 4) * 0.3);
         add(
           new THREE.Vector3(
-            Math.cos(a) * r,
-            height * (0.66 + 0.34 * t),
-            Math.sin(a) * r,
+            Math.cos(angle) * r,
+            height * (0.14 + y * 0.58),
+            Math.sin(angle) * r,
           ),
-          height * (0.09 - 0.055 * t),
+          height * (0.07 + rand(i + 2) * 0.035),
           color,
-          true,
         );
       }
+      for (let leaf = 0; leaf < 7; leaf++)
+        for (let i = 0; i < leafCount; i++) {
+          const t = i / (leafCount - 1),
+            a = (leaf * Math.PI * 2) / 7,
+            r = height * 0.25 * t * t;
+          color
+            .set(event.water ? "#849d86" : "#628654")
+            .multiplyScalar(0.75 + rand(leaf * 71 + i) * 0.4);
+          add(
+            new THREE.Vector3(
+              Math.cos(a) * r,
+              height * (0.66 + 0.34 * t),
+              Math.sin(a) * r,
+            ),
+            height * (0.09 - 0.055 * t),
+            color,
+            true,
+          );
+        }
+    }
     for (let i = 0; i < 35; i++) {
       const a = i * 2.4,
         r = rand(i + 310) * height * 0.3;
@@ -154,7 +168,7 @@ export class NukeCloud {
     if (event.water !== this.event.water) {
       const color = new THREE.Color();
       for (let i = 0; i < this.puffs.length; i++) {
-        color.set(
+        color.set(this.puffs[i].jetPart ? jetColors[this.puffs[i].jetPart!]:
           this.puffs[i].leaf
             ? event.water
               ? "#849d86"
@@ -173,6 +187,7 @@ export class NukeCloud {
     this.ending = false;
     this.group.position.fromArray(event.p);
     this.group.scale.setScalar(1);
+    this.group.rotation.set(0, 0, 0);
     this.update(0);
   }
   setEnvironment(
@@ -180,6 +195,12 @@ export class NukeCloud {
     direction: THREE.Vector3,
     camera: THREE.Camera,
   ) {
+    if (this.shape === "jet") {
+      this.group.rotation.y = Math.atan2(
+        camera.position.x - this.group.position.x,
+        camera.position.z - this.group.position.z,
+      );
+    }
     this.material.uniforms.daylight.value = daylight;
     (this.material.uniforms.cloudLight.value as THREE.Vector3)
       .copy(direction)

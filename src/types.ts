@@ -221,6 +221,8 @@ export interface RiverData {
   points: Vec3[];
 }
 export interface WorldData {
+  realm?: "surface" | "hell";
+  portal?: { x: number; z: number; y: number; radius: number; ids: number[]; clearedTrees?: number[] };
   landscapeProfile?: "mountainous" | "rolling woodland" | "broad lowland";
   passes?: { p: Vec3; radius: number }[];
   generatorVersion?: number;
@@ -478,6 +480,7 @@ export type GameCommand =
   | { type: "destructionSettings"; value: DestructionSettings }
   | { type: "monsterCount"; value: number }
   | { type: "respawn" }
+  | { type: "setPlane"; plane: PlaneState; grace?: number }
   | { type: "reset" }
   | { type: "save"; request: number; port?: MessagePort }
   | { type: "saveAck"; capture: number }
@@ -502,6 +505,7 @@ export interface ContactSound {
   action: "fracture" | "impact" | "settle" | "roll";
 }
 export type WorkerMessage =
+  | { type: "portalEnter"; plane: PlaneState }
   | { type: "statueRage"; p: Vec3 }
   | { type: "settlementEvent"; p: Vec3; kind: "cheer" | "sad" }
   | { type: "vaporize"; p: Vec3; radius: number }

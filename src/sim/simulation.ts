@@ -9,6 +9,7 @@ import {
   BLAST_DEBRIS_LIMIT,
   CHUNKS,
   CONFIG,
+  HELL_LAVA_LEVEL,
   LASER,
   RAPID_FIRE_INTERVAL,
   STEEL_BALL,
@@ -208,6 +209,8 @@ export class Simulation {
   readonly physics: RAPIER.World;
   readonly monsterRagdolls: MonsterRagdolls;
   readonly removed = new Set<number>();
+  portalGrace = 0;
+  private portalEntered = false;
   readonly ruins = new Map<number, Ruin>();
   private bodyPoses = new BodyPoseCache();
   /** Compatibility counter: blast wreckage no longer owns native bodies. */
@@ -452,7 +455,8 @@ export class Simulation {
     this.queryMarks = new Uint32Array(world.entities.length);
     this.terrain = new Terrain(heights, world.rivers, incremental);
     if (save) this.terrain.restore(save.terrain, save.laserDry);
-    const oldRemoved = new Set(save?.removed ?? []);
+    for (const id of world.portal?.clearedTrees ?? []) this.removed.add(id);
+    const oldRemoved = new Set([...this.removed, ...(save?.removed ?? [])]);
     const initialRage =
       this.statueReaction.enraged ||
       (!save?.statueReaction &&
@@ -2139,7 +2143,25 @@ export class Simulation {
     ];
     p.v = f.map((v) => v * p.speed) as Vec3;
     const next = p.p.map((v, i) => v + p.v[i] * dt) as Vec3;
-    const hit = this.sweep(p.p, next, 2.2);
+    const portal = this.world.portal;
+    const throughOpening = !!portal && this.portalGrace <= 0 &&
+      portal.ids.every((id) => !this.removed.has(id)) &&
+      p.v[1] < -1 &&
+      Math.hypot(p.p[0] - portal.x, p.p[2] - portal.z) < portal.radius - 6 &&
+      Math.hypot(next[0] - portal.x, next[2] - portal.z) < portal.radius - 6 &&
+      p.p[1] < this.terrain.sample(p.p[0], p.p[2]) + 100;
+    if (
+      portal && throughOpening &&
+      next[1] <= this.terrain.sample(next[0], next[2]) + 4 &&
+      p.p[1] >= this.terrain.sample(p.p[0], p.p[2]) - 3
+    ) {
+      p.p = next;
+      this.portalGrace = 2;
+      this.portalEntered = true;
+      this.emit({ type: "portalEnter", plane: structuredClone(p) });
+      return;
+    }
+    const hit = throughOpening ? null : this.aircraftSweep(p.p, next);
     if (hit) {
       p.p = hit;
       this.crash(hit, false);
@@ -2375,6 +2397,15 @@ export class Simulation {
     }
     return hits;
   }
+  private aircraftSweep(from: Vec3, to: Vec3): Vec3 | null {
+    const hit = this.sweep(from, to, 2.2);
+    const contactLevel = HELL_LAVA_LEVEL - 2.2;
+    if (this.world.realm !== "hell" || Math.max(from[1], to[1]) < contactLevel)
+      return hit;
+    const t = from[1] >= contactLevel ? 0 : (contactLevel - from[1]) / (to[1] - from[1]);
+    const lava: Vec3 = from.map((v, i) => v + (to[i] - v) * t) as Vec3;
+    return hit && distance(from, hit) < distance(from, lava) ? hit : lava;
+  }
   private fall(dt: number) {
     const p = this.plane;
     // Retain momentum while a failed wing pulls the aircraft into a rolling dive.
@@ -2396,7 +2427,7 @@ export class Simulation {
     const next = p.p.map((value, i) => value + p.v[i] * dt) as Vec3;
     next[0] = clamp(next[0], 1, CONFIG.worldSize - 1);
     next[2] = clamp(next[2], 1, CONFIG.worldSize - 1);
-    const hit = this.sweep(p.p, next, 2.2);
+    const hit = this.aircraftSweep(p.p, next);
     p.p = hit ?? next;
     if (hit) this.impact(hit);
   }
@@ -2817,6 +2848,7 @@ export class Simulation {
     );
     this.tick++;
     this.time += dt;
+    this.portalGrace = Math.max(0, this.portalGrace - dt);
     this.updateCleanup(dt);
     if (!this.holdTime) this.hour = (this.hour + dt / 60) % 24;
     for (const weapon of ["cannon", "nuke", "laser", "steelBall"] as const)
@@ -2824,6 +2856,10 @@ export class Simulation {
     const previousPlanePosition = [...this.plane.p] as Vec3;
     const wasCrashed = this.plane.crashed > 0;
     this.fly(dt);
+    if (this.portalEntered) {
+      this.portalEntered = false;
+      return;
+    }
     if (!wasCrashed)
       this.civilians.sweep(previousPlanePosition, this.plane.p, [4, 2, 4]);
     this.stageMS.flight = performance.now() - stepStarted;
@@ -3091,7 +3127,7 @@ export class Simulation {
         bodies: this.moving.size,
         ballistic: this.ballistic.size,
         ruins: this.ruins.size,
-        removed: this.removed.size,
+        removed: this.removed.size - (this.world.portal?.clearedTrees?.length ?? 0),
         shots: this.shots,
         revision: this.revision,
         terrainHeightJournalDataBytes,

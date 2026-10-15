@@ -21,6 +21,7 @@ const color = new THREE.Color();
 /** Fixed sprite pools; all positions and lifetimes come from worker fire state. */
 export class NuclearFireView {
   readonly group = new THREE.Group();
+  inverted = false;
   readonly flames: THREE.InstancedMesh;
   readonly smoke: THREE.InstancedMesh;
   private fireballs: {
@@ -33,7 +34,7 @@ export class NuclearFireView {
     THREE.MeshBasicMaterial
   >[] = [];
   private ballGeometry = new THREE.SphereGeometry(1, 16, 10);
-  constructor() {
+  constructor(private options: { capacity?: number; flamesPerPatch?: number; smokePerPatch?: number } = {}) {
     const make = (
       fragmentShader: string,
       additive: boolean,
@@ -50,7 +51,7 @@ export class NuclearFireView {
           toneMapped: false,
           blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
         }),
-        FIRE_LIMIT * perPatch,
+        (options.capacity ?? FIRE_LIMIT) * perPatch,
       );
       mesh.count = 0;
       mesh.frustumCulled = false;
@@ -59,8 +60,8 @@ export class NuclearFireView {
       mesh.instanceColor!.setUsage(THREE.DynamicDrawUsage);
       return mesh;
     };
-    this.flames = make(flame, true, NUKE_FLAMES_PER_PATCH);
-    this.smoke = make(smoke, false, 8);
+    this.flames = make(flame, true, options.flamesPerPatch ?? NUKE_FLAMES_PER_PATCH);
+    this.smoke = make(smoke, false, options.smokePerPatch ?? 8);
     this.group.add(this.flames, this.smoke);
   }
   trigger(e: Explosion) {
@@ -115,13 +116,11 @@ export class NuclearFireView {
       ball.mesh.material.opacity =
         Math.sin(Math.min(1, ball.age / 2) * Math.PI) * (reduced ? 0.18 : 0.5);
     }
-    const count = reduced ? 4 : 8;
-    const flameCount = reduced
-      ? NUKE_FLAMES_PER_PATCH / 2
-      : NUKE_FLAMES_PER_PATCH;
+    const count = Math.max(1, Math.floor((this.options.smokePerPatch ?? 8) / (reduced ? 2 : 1)));
+    const flameCount = Math.max(1, Math.floor((this.options.flamesPerPatch ?? NUKE_FLAMES_PER_PATCH) / (reduced ? 2 : 1)));
     let index = 0;
     let smokeIndex = 0;
-    for (const f of patches.slice(0, FIRE_LIMIT)) {
+    for (const f of patches.slice(0, this.options.capacity ?? FIRE_LIMIT)) {
       const fade = Math.min(1, Math.max(0, (FIRE_LIFETIME - f.age) / 8));
       for (let i = 0; i < flameCount; i++) {
         const phase = (f.seed + i * 2.399) % (Math.PI * 2);
@@ -131,7 +130,7 @@ export class NuclearFireView {
         const flicker = 0.85 + Math.sin(time * 5 + phase) * 0.15;
         dummy.position.set(
           x,
-          f.p[1] + f.height * NUKE_FLAME_SCALE * flicker * 0.5,
+          f.p[1] + (this.inverted ? -1 : 1) * f.height * NUKE_FLAME_SCALE * flicker * 0.5,
           z,
         );
         dummy.scale.set(
@@ -152,7 +151,7 @@ export class NuclearFireView {
         const rise = (f.age * 0.13 + i / count) % 1;
         dummy.position.set(
           x,
-          f.p[1] + f.height * NUKE_FLAME_SCALE + rise * f.height * 5,
+          f.p[1] + (this.inverted ? -1 : 1) * (f.height * NUKE_FLAME_SCALE + rise * f.height * 5),
           z,
         );
         dummy.scale.setScalar(f.radius * (0.6 + rise * 0.8));

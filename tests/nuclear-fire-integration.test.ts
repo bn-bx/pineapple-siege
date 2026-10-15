@@ -125,6 +125,13 @@ it("round-trips fire state through ordinary and incremental saves and accepts ol
     expect(restored.fires.save()).toEqual(save.nuclearFire);
     const old = { ...save, nuclearFire: undefined };
     expect(compatible(old, manifest.version, manifest.seed)).toBe(true);
+    const fuelFire = {
+      ...save.nuclearFire!,
+      patches: [{ ...fireState.patches[0], radius: 8, height: 5 }],
+    };
+    expect(
+      compatible({ ...save, nuclearFire: fuelFire }, manifest.version, manifest.seed),
+    ).toBe(true);
     for (const nuclearFire of [
       { ...save.nuclearFire!, clock: NaN },
       {

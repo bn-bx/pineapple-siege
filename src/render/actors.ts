@@ -23,6 +23,7 @@ import {
 } from "./monster";
 import { SteelBallView } from "./steel-balls";
 import { ProjectileView } from "./projectiles";
+import { JetMonsterView } from "./jet-monsters";
 import type { ResourceDisposal } from "./resource-disposal";
 import type { TerrainView } from "./terrain-view";
 const MONSTER_DEATH_SCATTER = [
@@ -53,8 +54,8 @@ export class ActorView {
   private deathRotation = new THREE.Quaternion();
   private deathPreviousRotation = new THREE.Quaternion();
   readonly civilians: CivilianView;
-  readonly steelBallView = new SteelBallView();
-  readonly projectileView = new ProjectileView();
+  readonly steelBallView: SteelBallView;
+  readonly projectileView: ProjectileView;
   readonly monsterProjectileView = new MonsterProjectileView();
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
   private monsterFragmentRoot = new THREE.Object3D();
@@ -62,6 +63,7 @@ export class ActorView {
   private nearMonsterView = new NearMonsterView(MAX_MONSTER_COUNT);
   private distantMonsterView = new DistantMonsterView(MAX_MONSTER_COUNT);
   private monsterMeshes: THREE.Group[] = [];
+  private jetMonsters?: JetMonsterView;
   private distantMonsters: THREE.Group[] = [];
   private previousProjectiles = new Map<
     number,
@@ -83,6 +85,12 @@ export class ActorView {
     private terrain: TerrainView,
     private effects: Effects,
   ) {
+    this.steelBallView = new SteelBallView(world.realm === "hell");
+    this.projectileView = new ProjectileView(world.realm === "hell");
+    if (world.realm === "hell") {
+      this.jetMonsters = new JetMonsterView();
+      this.scene.add(this.jetMonsters.group);
+    }
     this.flyView = new FlyView(this.deathGround);
     this.civilians = new CivilianView(world.civilians?.length ?? 0);
     this.scene.add(
@@ -160,6 +168,7 @@ export class ActorView {
       (x, z) => this.terrain.sample(x, z),
     );
     this.flyView.update(snap, previous, alpha, camera.position, renderDistance);
+    if (!this.jetMonsters) {
     this.ensureMonsterMeshes(snap.monsters.length);
     const rage = snap.statueReaction?.enraged === true;
     if (rage && this.rageStarted === undefined)
@@ -398,6 +407,7 @@ export class ActorView {
     this.monsterFragmentView.finish();
     this.nearMonsterView.finish();
     this.distantMonsterView.finish();
+    } else this.jetMonsters.update(snap, previous, alpha);
     this.monsterProjectileView.update(
       snap.monsterSpikes,
       previous?.monsterSpikes,
@@ -423,6 +433,10 @@ export class ActorView {
 
   dispose(resources: ResourceDisposal) {
     this.reset();
+    if (this.jetMonsters) {
+      resources.collect(this.jetMonsters.group);
+      this.jetMonsters.group.removeFromParent();
+    }
     for (const group of [
       this.flyView.group,
       this.civilians.group,

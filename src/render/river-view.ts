@@ -95,7 +95,13 @@ export function riverBendReviewCamera(
 
 export function makeRivers(world: WorldData, terrain: TerrainView) {
   const group = new THREE.Group();
-  const material = makeWaterMaterial(terrain);
+  const material = world.realm === "hell"
+    ? new THREE.MeshStandardMaterial({
+      color: "#ff6422", emissive: "#fa3309", emissiveIntensity: 2.5,
+      roughness: 0.55, side: THREE.DoubleSide,
+    })
+    : makeWaterMaterial(terrain);
+  if (world.realm === "hell") material.userData.time = { value: 0 };
   group.userData.material = material;
   group.userData.time = material.userData.time;
   const riverList = world.rivers ?? [],

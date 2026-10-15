@@ -39,6 +39,7 @@ import {
   createMaterials,
   fractureGeometry,
   fractureMaterials,
+  makeFlyingPineapple,
   makeJet,
   pineGeometry,
   roofFragmentGeometry,
@@ -58,6 +59,10 @@ import { EnvironmentView } from "./environment";
 import { flightPose } from "./flight-pose";
 import { jetExhaustProfile } from "./jet-exhaust";
 import { Presentation } from "./presentation";
+import { PortalView } from "./portal";
+import { JetGodView } from "./jet-god";
+import { BuildingFireView } from "./building-fire";
+import { deadTreeGeometry, setDeadTreeColor } from "./dead-tree";
 import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
 import { sceneResources } from "./resource-budget";
 import { ResourceDisposal } from "./resource-disposal";
@@ -66,7 +71,8 @@ import { TerrainView } from "./terrain-view";
 import { WorldBatches } from "./world-batches";
 const dummy = new THREE.Object3D(),
   zero = new THREE.Matrix4().makeScale(0, 0, 0),
-  up = new THREE.Vector3(0, 1, 0);
+  up = new THREE.Vector3(0, 1, 0),
+  down = new THREE.Vector3(0, -1, 0);
 const bodyKeys = BODY_MATERIALS.map((material) =>
   Array.from({ length: 5 }, (_, part) =>
     part ? `${material}:${part}` : material,
@@ -77,6 +83,9 @@ const roofKeys = new Map(
 );
 export class GameRenderer {
   private environment: EnvironmentView;
+  private portal?: PortalView;
+  private jetGod?: JetGodView;
+  private buildingFire?: BuildingFireView;
   private get sun() {
     return this.environment.sun;
   }
@@ -106,8 +115,8 @@ export class GameRenderer {
   readonly camera = new THREE.PerspectiveCamera(64, 1, 0.5, 2800);
   readonly terrain: TerrainView;
   readonly effects = new Effects();
-  readonly jet = makeJet();
-  readonly crashWrecks = new CrashWreckView(this.jet);
+  readonly jet: THREE.Group;
+  readonly crashWrecks: CrashWreckView;
   readonly aircraftFire = new AircraftFireView();
   readonly performance = new PerformanceMonitor(4096);
   warmupStages: Record<string, number> = {};
@@ -251,6 +260,14 @@ export class GameRenderer {
     private recycle?: (s: SimulationSnapshot) => void,
     immutableBaseline?: Float32Array,
   ) {
+    this.jet = world.realm === "hell" ? makeFlyingPineapple() : makeJet();
+    if (world.realm === "hell") {
+      this.effects.cloudShape = "jet";
+      this.effects.fire.inverted = true;
+      this.buildingFire = new BuildingFireView(world);
+      this.scene.add(this.buildingFire.group);
+    }
+    this.crashWrecks = new CrashWreckView(this.jet);
     for (const e of world.entities) {
       if (e.kind === "tree") continue;
       for (
@@ -322,6 +339,16 @@ export class GameRenderer {
     this.renderer.setClearColor("#9bb7c0");
     const assets = createMaterials();
     this.materials = assets.materials;
+    if (world.realm === "hell") {
+      for (const [key, material] of Object.entries(this.materials)) {
+        if (key === "window") material.emissive.set("#ff4b17");
+        else material.color.lerp(new THREE.Color(key === "foliage" ? "#392326" : "#60312d"), 0.55);
+      }
+      this.materials.foliage.map = null;
+      this.materials.foliage.color.set("#877b6c");
+      this.materials.foliage.roughness = 1;
+      this.materials.wood.color.set("#5e5149");
+    }
     this.fragmentMaterials = fractureMaterials(this.materials);
     this.terrain = new TerrainView(
       world,
@@ -329,6 +356,11 @@ export class GameRenderer {
       assets.grass,
       immutableBaseline,
     );
+    if (world.realm === "hell") {
+      this.terrain.material.color.set("#c99691");
+      this.terrain.material.emissive.set("#3d1710");
+      this.terrain.material.emissiveIntensity = 0.22;
+    }
     this.terrain.enableStreamingUploads();
     this.environment = new EnvironmentView(
       this.scene,
@@ -345,9 +377,17 @@ export class GameRenderer {
       this.aircraftFire.group,
     );
     this.worldView = new WorldBatches(this.scene, world, this.materials);
+    if (world.realm === "hell") {
+      this.jetGod = new JetGodView(world);
+      this.scene.add(this.jetGod.group);
+    }
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
+    if (world.portal) {
+      this.portal = new PortalView(world);
+      this.scene.add(this.portal.group);
+    }
     this.fallenPines = new THREE.InstancedMesh(
-      pineGeometry(),
+      world.realm === "hell" ? this.crownGeometry("pine") : pineGeometry(),
       this.materials.foliage,
       CONFIG.maxBodies,
     );
@@ -706,6 +746,8 @@ export class GameRenderer {
     this.terrain.setFlood(flood, true);
     if (waterMask) this.terrain.setWaterMask(waterMask);
     this.worldView.restore(removed);
+    this.jetGod?.update(this.removed);
+    this.portal?.update(0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
     this.crashWrecks.reset();
@@ -724,6 +766,8 @@ export class GameRenderer {
 
   delta(d: WorldDelta) {
     for (const id of d.removed) this.worldView.remove(id);
+    if (d.removed.length) this.jetGod?.update(this.removed);
+    if (d.removed.length) this.portal?.update(this.last?.time ?? 0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
     for (const id of d.rubbleRemoved) this.removeRuin(id);
     for (const r of d.settled) this.addRuin(r);
     if (d.terrain) this.terrain.patch(d.terrain);
@@ -995,7 +1039,7 @@ export class GameRenderer {
     this.crownGeometries ??= new Map();
     let geometry = this.crownGeometries.get(species);
     if (!geometry) {
-      geometry = treeCrownGeometry(species);
+      geometry = this.world.realm === "hell" ? deadTreeGeometry(species) : treeCrownGeometry(species);
       this.crownGeometries.set(species, geometry);
     }
     return geometry;
@@ -1208,7 +1252,7 @@ export class GameRenderer {
           writeDebrisMotion(canopy, index, b, previous);
           canopy.setColorAt(
             index,
-            this.fragmentColor.setHSL(
+            this.world.realm === "hell" ? setDeadTreeColor(this.fragmentColor, e) : this.fragmentColor.setHSL(
               species === "broadleaf"
                 ? 0.2
                 : species === "riverside"
@@ -1393,6 +1437,7 @@ export class GameRenderer {
     } else for (const r of snap.bodies) if (wreckBox(r)) yield box;
   }
   render(dt: number, active: boolean, frameTime = performance.now()) {
+    this.portal?.update(this.last?.time ?? 0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
     if (active && !this.wasActive) {
       this.averageMS = 1000 / 60;
       this.cpuMS = 0;
@@ -1653,7 +1698,7 @@ export class GameRenderer {
     }
     this.camera.position.copy(this.cameraPosition);
     this.camera.up.copy(
-      deathShot?.up ?? (p.falling ? new THREE.Vector3(0, 1, 0) : up),
+      this.world.realm === "hell" ? down : deathShot?.up ?? up,
     );
     if (!deathShot && this.shakeEnabled && active) {
       let shake = this.effects.shake * 0.4;
@@ -1768,6 +1813,7 @@ export class GameRenderer {
       this.effects.reduced,
       snap.time,
     );
+    this.buildingFire?.update(this.removed, this.camera, snap.time, this.effects.reduced);
     this.performance.record("effects", performance.now() - effectsStarted);
     this.effects.laser.reduced = this.effects.reduced;
     this.effects.laser.update(
@@ -1889,6 +1935,7 @@ export class GameRenderer {
     this.actors.dispose(resources);
     this.environment.dispose(resources);
     this.effects.dispose(resources);
+    this.buildingFire?.collectResources(resources);
     for (const group of this.ruinGroups.values()) resources.collect(group);
     if (this.settledTrunkMaterial)
       resources.materials.add(this.settledTrunkMaterial);

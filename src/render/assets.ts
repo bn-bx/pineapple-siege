@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { roofParts } from "../debris-shape";
 import type { Material } from "../types";
+import { makePineappleAircraft } from "./pineapple-aircraft";
 function random(seed: number) {
   let v = Math.sin(seed * 127.1 + 43.7) * 43758.5453;
   return v - Math.floor(v);
@@ -448,6 +449,11 @@ export function makeJet() {
     core.name = "flame-core";
   }
   return g;
+}
+
+/** The fruit airframe shares the original aircraft's +Z flight direction. */
+export function makeFlyingPineapple() {
+  return makePineappleAircraft();
 }
 let pineappleTemplate: THREE.Group | undefined;
 export function makePineapple(length = 6): THREE.Group {

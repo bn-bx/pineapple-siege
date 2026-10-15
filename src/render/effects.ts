@@ -9,11 +9,12 @@ import {
   explosionParticleTint,
 } from "./explosion-palette";
 import { Fragments } from "./fragments";
-import { NukeCloud } from "./nuke-cloud";
+import { NukeCloud, type CloudShape } from "./nuke-cloud";
 import { NukeFlash } from "./nuke-flash";
 import type { ResourceDisposal } from "./resource-disposal";
 import { SpaceLaser } from "./space-laser";
 export class Effects {
+  cloudShape: CloudShape = "pineapple";
   readonly spray = new WheelSpray();
   wheelSpray(p: [number, number, number], yaw: number) {
     if (!this.reduced) this.spray.emit(p, yaw);
@@ -161,19 +162,20 @@ export class Effects {
       },
     };
     for (const reduced of [false, true]) {
+      const shape = this.cloudShape ?? "pineapple";
       const count =
-        this.cloudsPool.filter((c) => c.reduced === reduced).length +
-        this.clouds.filter((c) => c.reduced === reduced).length;
+        this.cloudsPool.filter((c) => c.reduced === reduced && c.shape === shape).length +
+        this.clouds.filter((c) => c.reduced === reduced && c.shape === shape).length;
       for (let i = count; i < 3; i++)
         this.cloudsPool.push(this.makeCloud(event, reduced));
     }
   }
   private makeCloud(event: Explosion, reduced: boolean) {
-    const cloud = new NukeCloud(event, reduced);
+    const cloud = new NukeCloud(event, reduced, this.cloudShape ?? "pineapple");
     return cloud;
   }
   private takeCloud(event: Explosion, reduced: boolean) {
-    const index = this.cloudsPool.findIndex((c) => c.reduced === reduced);
+    const index = this.cloudsPool.findIndex((c) => c.reduced === reduced && c.shape === (this.cloudShape ?? "pineapple"));
     return index < 0
       ? this.makeCloud(event, reduced)
       : this.cloudsPool.splice(index, 1)[0];

@@ -21,6 +21,7 @@ vi.mock("../src/render/assets", () => ({
   },
 }));
 import { ProjectileView } from "../src/render/projectiles";
+import { ResourceDisposal } from "../src/render/resource-disposal";
 it("renders unlimited rapid-fire pineapples in two growing batches, preserving interpolation and crowns", () => {
   const view = new ProjectileView();
   const shots = Array.from(
@@ -48,4 +49,24 @@ it("renders unlimited rapid-fire pineapples in two growing batches, preserving i
   expect(body.count).toBe(0);
   expect(leaves.count).toBe(0);
   expect(view.count).toBe(0);
+});
+
+it("grows every hell aircraft material batch together and clears every part on reset", () => {
+  const view = new ProjectileView(true);
+  const shots = Array.from({ length: 80 }, (_, id) => ({
+    id, p: [10, 20, 30], v: [0, 1, 0], weapon: "nuke", yield: "valley",
+  }) as any);
+  view.update(shots, new Map([[0, { ...shots[0], p: [0, 20, 30] }]]), .5);
+  expect(view.group.children.length).toBeLessThanOrEqual(6);
+  for (const mesh of view.group.children as THREE.InstancedMesh[]) {
+    expect(mesh.count).toBe(80);
+    const matrix = new THREE.Matrix4();
+    mesh.getMatrixAt(0, matrix);
+    expect(matrix.elements[12]).toBeCloseTo(5);
+  }
+  view.reset();
+  for (const mesh of view.group.children as THREE.InstancedMesh[]) expect(mesh.count).toBe(0);
+  const resources = new ResourceDisposal();
+  resources.collect(view.group);
+  resources.dispose();
 });

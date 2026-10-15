@@ -669,11 +669,12 @@ function validNuclearFire(f: SaveSnapshot["nuclearFire"]) {
       p.p[0] > CONFIG.worldSize ||
       p.p[2] > CONFIG.worldSize ||
       !Number.isFinite(p.radius) ||
-      p.radius < 12 ||
+      (p.radius !== 8 && p.radius < 12) ||
       p.radius > 24 ||
       !Number.isFinite(p.height) ||
-      p.height < 6 ||
+      (p.height !== 5 && p.height < 6) ||
       p.height > 12 ||
+      ((p.radius === 8) !== (p.height === 5)) ||
       !Number.isFinite(p.age) ||
       p.age < 0 ||
       p.age >= FIRE_LIFETIME ||

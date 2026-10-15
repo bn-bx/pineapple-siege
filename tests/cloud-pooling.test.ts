@@ -39,9 +39,12 @@ it("prewarms both cloud qualities and reuses the requested presentation without 
   expect(effects.cloudsPool).toHaveLength(0);
 });
 
-it.each([false, true, "mixed"] as const)(
-  "retains eight overlapping clouds for 20 seconds and recycles the oldest (%s)",
-  (quality) => {
+it.each([
+  ["pineapple", false], ["pineapple", true], ["pineapple", "mixed"],
+  ["jet", false], ["jet", true], ["jet", "mixed"],
+] as const)(
+  "retains eight overlapping %s clouds for 20 seconds and recycles the oldest (%s)",
+  (shape, quality) => {
     vi.stubGlobal("document", {
       createElement: () => ({
         getContext: () => ({
@@ -51,6 +54,7 @@ it.each([false, true, "mixed"] as const)(
       }),
     });
     const effects = new Effects();
+    effects.cloudShape = shape;
     const state = effects as any;
     const resources = new ResourceDisposal();
     try {
@@ -69,6 +73,7 @@ it.each([false, true, "mixed"] as const)(
       }
       expect(effects.cloudCount).toBe(8);
       const original = [...state.clouds];
+      expect(original.every((cloud) => cloud.shape === shape)).toBe(true);
       expect(original.every((cloud) => !cloud.ending)).toBe(true);
       expect(original[0].age).toBe(8);
       const ages = original.map((cloud) => cloud.age);

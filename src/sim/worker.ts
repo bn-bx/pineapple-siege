@@ -127,7 +127,10 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       base = new Float32Array(m.heights);
       debug = !!m.debug;
       await initializePhysics();
-      sim = new Simulation(world, base, send, m.save, true);
+      sim = new Simulation(world, base, (message) => {
+        if (message.type === "portalEnter") paused = true;
+        send(message);
+      }, m.save, true);
       sim.setMonsterCount(m.monsterCount ?? DEFAULT_MONSTER_COUNT);
       while (
         sim.supportJobs.length ||
@@ -184,6 +187,11 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         break;
       case "respawn":
         sim.respawn();
+        publish();
+        break;
+      case "setPlane":
+        sim.plane = structuredClone(m.plane);
+        sim.portalGrace = m.grace ?? 2;
         publish();
         break;
       case "hour":
@@ -251,7 +259,10 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         const settings = sim.destruction;
         const count = sim.monsterCount;
         sim.dispose();
-        sim = new Simulation(world, base, send, undefined, true);
+        sim = new Simulation(world, base, (message) => {
+          if (message.type === "portalEnter") paused = true;
+          send(message);
+        }, undefined, true);
         sim.nukeYield = "valley";
         sim.setDestruction(settings);
         sim.setMonsterCount(count);

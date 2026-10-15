@@ -1,5 +1,5 @@
 {
-  "release": "wheeled-pineapple-crowd-spacing-2026-10-14",
+  "release": "island-expansion-2026-10-15",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -36,7 +36,8 @@
     "instanced-monster-wheels-and-bounded-river-spray",
     "monster-spatial-grid-separation-and-body-clearance",
     "distributed-monster-approach-slots-and-traffic-yielding",
-    "gradual-legacy-monster-stack-recovery"
+    "gradual-legacy-monster-stack-recovery",
+    "expanded-island-gameplay-and-presentation"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216

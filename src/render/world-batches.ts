@@ -12,6 +12,7 @@ import {
 import { IslandHorizon } from "./island-horizon";
 import type { ResourceDisposal } from "./resource-disposal";
 import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
+import { deadTreeGeometry, setDeadTreeColor } from "./dead-tree";
 import {
   statueGeometry,
   statueGeometryKey,
@@ -59,7 +60,19 @@ export class WorldBatches {
     const grouped = new Map<string, Entity[]>();
     const statueGeometries = new Map<string, THREE.BufferGeometry>();
     const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
+    const deadGeometries = new Map<string, THREE.BufferGeometry>();
+    const deadGeometry = (species: "pine" | "broadleaf" | "riverside", low = false) => {
+      const key = `${species}:${low}`;
+      let geometry = deadGeometries.get(key);
+      if (!geometry) {
+        geometry = deadTreeGeometry(species, low);
+        deadGeometries.set(key, geometry);
+        this.geometries.add(geometry);
+      }
+      return geometry;
+    };
     for (const e of this.world.entities) {
+      if (this.world.realm === "hell" && e.visual && (e.visual.role === "figure" || e.visual.role === "eye")) continue;
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
       // Match construction to the existing forest/rock spatial grid. Fewer
@@ -70,7 +83,7 @@ export class WorldBatches {
       const key = e.visual
         ? `statue:${statueGeometryKey(e)}:${e.visual.color}:${statueRole(e, this.world) === "eye"}:${cell}`
         : e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
-      if (e.kind === "tree") {
+      if (e.kind === "tree" && this.world.realm !== "hell") {
         const trunkKey = "trunk" + cell;
         let trunks = grouped.get(trunkKey);
         if (!trunks) grouped.set(trunkKey, (trunks = []));
@@ -128,7 +141,7 @@ export class WorldBatches {
           batch.low?.setMatrixAt(i, dummy.matrix);
           const color =
             kind === "pine"
-              ? setTreeCanopyColor(new THREE.Color(), e)
+              ? this.world.realm === "hell" ? setDeadTreeColor(new THREE.Color(), e) : setTreeCanopyColor(new THREE.Color(), e)
               : setEntityColor(new THREE.Color(), e);
           mesh.setColorAt(i, color);
           batch.low?.setColorAt(i, color);
@@ -181,6 +194,10 @@ export class WorldBatches {
         add(geo, mat, "statue");
       } else if (e.kind === "tree") {
         const species = e.treeSpecies ?? "pine";
+        if (this.world.realm === "hell") {
+          add(deadGeometry(species), this.materials.foliage, "pine", deadGeometry(species, true));
+          continue;
+        }
         add(
           species === "pine" ? pine : this.crownGeometry(species),
           this.materials.foliage,

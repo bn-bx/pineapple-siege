@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { IslandHorizon } from "../src/render/island-horizon";
 import type { WorldData } from "../src/types";
 import { treeCanopyScale } from "../src/render/tree-appearance";
+import { WorldBatches } from "../src/render/world-batches";
+import { ResourceDisposal } from "../src/render/resource-disposal";
 
 it("keeps distant owners aligned with destruction and restored saves without modifying world entities", () => {
   const entities = [0, 1].map((id) => ({
@@ -70,4 +72,29 @@ it("carries the same species-specific crown proportions into whole-island silhou
     expect(scale.y).toBeCloseTo(expected[1]);
     expect(scale.z).toBeCloseTo(expected[2]);
   }
+});
+
+it("keeps hell trees bare through every detail level and saved destruction", () => {
+  const entities = ["pine", "broadleaf", "riverside"].map((treeSpecies, id) => ({
+    id, kind: "tree", material: "wood", treeSpecies,
+    p: [3000 + id * 20, 30, 3000], s: [3, 12, 3], variant: .5,
+  }));
+  const world = { realm: "hell", entities, banners: [] } as unknown as WorldData;
+  const scene = new THREE.Scene();
+  const materials = {
+    wood: new THREE.MeshStandardMaterial({ color: "#5e5149" }),
+    foliage: new THREE.MeshStandardMaterial({ color: "#877b6c" }),
+  };
+  const view = new WorldBatches(scene, world, materials as any);
+  for (const batch of view.batches) {
+    expect(batch.mesh.geometry.name).toMatch(/^dead-/);
+    expect(batch.low!.geometry.name).toMatch(/^dead-.*-low$/);
+  }
+  for (const mesh of view.horizon.group.children as THREE.InstancedMesh[])
+    expect(mesh.geometry.name).toMatch(/^dead-.*-low$/);
+  view.remove(0);
+  expect(view.batches.reduce((count, batch) => count + batch.ids.length, 0)).toBe(2);
+  const resources = new ResourceDisposal();
+  view.dispose(resources);
+  resources.dispose();
 });

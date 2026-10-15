@@ -27,7 +27,11 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`wheeled-pineapple-crowd-spacing-2026-10-14` adds local crowd steering, 50 m swept body clearance, approximately 64 m preferred spacing, distinct approach positions around the player, and traffic yielding. Existing overlapping saves spread gradually through valid movement, and traffic waits do not rebuild terrain routes.
+`island-expansion-2026-10-15` adds a discoverable portal and a separately saved inverted island. Travel uses a full-screen flash, either destroyed portal endpoint prevents travel, and world reset restores both realms. Existing saves start on the surface with a fresh second realm. Surface settings, map, controls, and loading text keep the discovery hidden.
+
+The inverted realm has upright pineapple flight, enlarged standing jet monsters, a destructible Jet God, jet-themed weapons and nuclear clouds, permanent building fires, bare dead trees, and a lethal lava ocean. Both portal approaches clear trees without changing entity IDs. Fuel-fire saves also accept the small fire patches produced by an aircraft crash.
+
+The preceding `wheeled-pineapple-crowd-spacing-2026-10-14` release added local crowd steering, 50 m swept body clearance, approximately 64 m preferred spacing, distinct approach positions around the player, and traffic yielding. Existing overlapping saves spread gradually through valid movement, and traffic waits do not rebuild terrain routes.
 
 The preceding `wheeled-pineapple-rage-2026-10-14` release added growing, rotating wheels to living enraged monsters. They drive at 60 m/s, cross river surfaces, turn faster, recover from blocked routes, and produce bounded river spray. Ocean water remains blocked. Attack cooldowns remain 1.68 seconds with a 750 m horizontal range, and health and damage are unchanged. Rage and river positions survive save/reload; existing enraged saves load with fully grown wheels. No island regeneration or save migration is required.
 

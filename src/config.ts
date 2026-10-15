@@ -5,6 +5,8 @@ export const TERRAIN_SPACING = 2;
 export const CHUNK_SIZE = 64;
 export const CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 export const CHUNK_SAMPLES = CHUNK_SIZE / TERRAIN_SPACING;
+// Local +Y points down into the abyss when the hell view is inverted.
+export const HELL_LAVA_LEVEL = 1450;
 export const CONFIG = {
   version: 10,
   dt: 1 / 60,

@@ -42,7 +42,10 @@ export function updateHUD(ctx: HudContext, now: number): void {
   const snapshot = ctx.snapshot;
   if (!snapshot) return;
   const p = snapshot.plane;
+  const hell = ctx.world.realm === "hell";
   if (now - ctx.lastHUD > 160) {
+    ctx.$("altitudeLabel").textContent = hell ? "CEILING CLEARANCE M" : "HEIGHT AGL M";
+    ctx.$("populationPanel").hidden = hell;
     ctx.$("speed").textContent = Math.round(p.speed).toString();
     ctx.$("altitude").textContent = Math.max(
       0,
@@ -53,7 +56,7 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("ceilingWarning").hidden =
       !ctx.session.active || p.crashed > 0 || !ceilingMessage;
     ctx.$("ceilingWarning").textContent = ceilingMessage
-      ? `${ceilingMessage} · ${Math.round(p.p[1])} M ABOVE SEA LEVEL · LIMIT ${CONFIG.ceiling} M`
+      ? `${ceilingMessage} · ${Math.round(p.p[1])} M ${hell ? "FROM CEILING" : "ABOVE SEA LEVEL"} · LIMIT ${CONFIG.ceiling} M`
       : "";
     ctx.$("throttleFill").style.height =
       clamp(((p.speed - 35) / 85) * 100, 5, 100) + "%";
@@ -64,8 +67,12 @@ export function updateHUD(ctx: HudContext, now: number): void {
       castle: "Castle-leveling",
       valley: "Valley-scale",
     }[snapshot.nukeYield];
-    ctx.$("weaponName").textContent =
-      snapshot.weapon === "nuke"
+    ctx.$("weaponName").textContent = hell
+      ? snapshot.weapon === "nuke" ? `JET NUKE · ${label}`
+        : snapshot.weapon === "laser" ? "ENGINE LASER"
+        : snapshot.weapon === "steelBall" ? "TURBINE BALL · 120 M"
+        : "JET CANNON"
+      : snapshot.weapon === "nuke"
         ? `PINEAPPLE NUKE · ${label} · ${ctx.destruction.nukeScale}×`
         : snapshot.weapon === "laser"
           ? "SPACE LASER · ORBITAL EXCAVATION"
@@ -120,6 +127,7 @@ export function updateHUD(ctx: HudContext, now: number): void {
       ? castle.grand
         ? "GRAND CASTLE"
         : "CASTLE"
+      : hell ? "ABYSS"
       : p.p[1] > 240
         ? "HIGH ALTITUDE"
         : "ISLAND";
@@ -127,7 +135,7 @@ export function updateHUD(ctx: HudContext, now: number): void {
       ? `Objects destroyed: ${snapshot.stats.removed}`
       : "Objects destroyed: 0";
     ctx.$("monstersRemaining").textContent =
-      `Monsters: ${snapshot.monsters.filter((m) => !m.defeated).length}/${snapshot.monsterCount}`;
+      `${hell ? "Jets" : "Monsters"}: ${snapshot.monsters.filter((m) => !m.defeated).length}/${snapshot.monsterCount}`;
     const population = snapshot.population;
     ctx.$("populationTotal").textContent = String(population.alive);
     ctx.$("happinessValue").textContent = `${population.happiness} / 100`;

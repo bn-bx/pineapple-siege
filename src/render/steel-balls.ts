@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { STEEL_BALL } from "../config";
 import type { SteelBallState } from "../types";
+import { makeTurbineBall } from "./turbine-ball";
 
 /** Growing pool of reusable models, with seams and rivets that make rotation legible. */
 export class SteelBallView {
@@ -9,10 +10,11 @@ export class SteelBallView {
   private models: THREE.Group[] = [];
   private oldRotation = new THREE.Quaternion();
   private currentRotation = new THREE.Quaternion();
-  private sphere: THREE.SphereGeometry;
-  private seam: THREE.TorusGeometry;
-  private rivet: THREE.SphereGeometry;
-  constructor() {
+  private sphere!: THREE.SphereGeometry;
+  private seam!: THREE.TorusGeometry;
+  private rivet!: THREE.SphereGeometry;
+  constructor(private hell = false) {
+    if (!hell) {
     this.sphere = new THREE.SphereGeometry(STEEL_BALL.radius, 32, 24);
     this.seam = new THREE.TorusGeometry(
       STEEL_BALL.radius * 1.002,
@@ -21,13 +23,21 @@ export class SteelBallView {
       64,
     );
     this.rivet = new THREE.SphereGeometry(STEEL_BALL.radius * 0.022, 6, 4);
+    }
     this.grow(1);
   }
   private grow(needed: number) {
     while (this.models.length < needed) {
+      if (this.hell) {
+        const model = makeTurbineBall(STEEL_BALL.radius);
+        model.visible = false;
+        this.models.push(model);
+        this.group.add(model);
+        continue;
+      }
       const model = new THREE.Group();
       const steel = new THREE.MeshStandardMaterial({
-        color: 0x88949d,
+        color: this.hell ? 0x32363c : 0x88949d,
         metalness: 0.8,
         roughness: 0.32,
         transparent: true,
