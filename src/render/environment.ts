@@ -3,6 +3,7 @@ import { HELL_LAVA_LEVEL, LASER } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { makeOcean } from "./ocean";
+import { oceanHorizon } from "./ocean-horizon";
 import type { ResourceDisposal } from "./resource-disposal";
 import { makeRivers } from "./river-view";
 import type { TerrainView } from "./terrain-view";
@@ -48,6 +49,10 @@ export class EnvironmentView {
           sun: { value: this.lighting.sunDirection },
           zenithColor: { value: this.lighting.zenithColor },
           horizonColor: { value: this.lighting.horizonColor },
+          waterColor: { value: this.lighting.waterColor },
+          horizonDip: { value: 0 },
+          oceanBlendEnd: { value: 7000 },
+          oceanEnabled: { value: this.hell ? 0 : 1 },
           laserDim: { value: 0 },
         },
         vertexShader:
@@ -60,7 +65,10 @@ export class EnvironmentView {
     this.scene.add(this.sky);
 
     this.scene.add(this.sun, this.sun.target, this.ambient);
-    this.water = makeOcean(this.terrain);
+    this.water = makeOcean(
+      this.terrain,
+      this.hell ? undefined : this.sky.material.uniforms,
+    );
     this.rivers = makeRivers(world, this.terrain);
     this.scene.add(this.water, this.rivers);
     if (this.hell) {
@@ -87,7 +95,8 @@ export class EnvironmentView {
           }`,
       });
       const abyss = new THREE.Mesh(
-        new THREE.PlaneGeometry(world.size * 3, world.size * 3), lava,
+        new THREE.PlaneGeometry(world.size * 3, world.size * 3),
+        lava,
       );
       abyss.rotation.x = -Math.PI / 2;
       abyss.position.set(world.size / 2, HELL_LAVA_LEVEL, world.size / 2);
@@ -103,6 +112,9 @@ export class EnvironmentView {
     reduced: boolean,
   ) {
     this.sky.position.copy(camera.position);
+    const horizon = oceanHorizon(camera.position.y);
+    this.sky.material.uniforms.horizonDip.value = horizon.dip;
+    this.sky.material.uniforms.oceanBlendEnd.value = horizon.blendEnd;
     this.lighting.update(snap.hour);
     if (this.hell) {
       this.lighting.zenithColor.set("#813728");

@@ -54,6 +54,8 @@ PS4 islands include a roughly 1 km tall seated Pineapple God in the mountains, w
 
 Rendering uses shared standard materials, simple near/distant trees, static mill machinery and banners, emissive windows, a basic sky, one directional light, and inexpensive ocean water. Weapon explosions, nuke flash/pineapple cloud, laser charge/beam, damage dust, debris, and basic exhaust remain. Decorative props, googly eyes, reflections, ambient occlusion, bloom, disco scenery/music, and layered environment audio have been removed.
 
+The normal island's ocean meets an Earth-scale curved horizon that recedes with camera altitude. Nearby water fades into the sky-rendered ocean backdrop with matching day/night colors and calmer distant ripples. Local shorelines and water physics stay at sea level; the lava environment retains its existing rendering.
+
 World version 8, save compatibility 9, generator output, entity identities, and support/collision data are unchanged. Historical saves remain protected by the recovery dialog; temporary play leaves them untouched. Save transactions remain incremental. Preference revision 5 adds the CRT selection, defaults missing or invalid modes to Subtle, and preserves supported choices. Graphics recovery can restore the renderer or reload without replacing saved progress.
 
 ## Verification

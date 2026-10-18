@@ -1,4 +1,5 @@
 import { Color, MathUtils, Vector3 } from "three";
+import { OCEAN_BACKGROUND_GLSL } from "./ocean-horizon";
 
 const palette = {
   sunDay: new Color("#ffe9c7"),
@@ -75,15 +76,11 @@ export class EnvironmentLighting {
 }
 
 export const SKY_FRAGMENT = `
-uniform vec3 sun,zenithColor,horizonColor;
-uniform float laserDim;
+${OCEAN_BACKGROUND_GLSL}
 varying vec3 vDirection;
 void main(){
   vec3 d=normalize(vDirection);
-  vec3 c=mix(zenithColor,horizonColor,pow(1.-max(d.y,0.),3.));
-  float alignment=max(dot(d,sun.y>=0.?sun:-sun),0.);
-  c+=vec3(.8,.75,.6)*smoothstep(.9999,.99998,alignment);
-  gl_FragColor=vec4(c*(1.-laserDim),1.);
+  gl_FragColor=vec4(oceanBackground(d),1.);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`;
