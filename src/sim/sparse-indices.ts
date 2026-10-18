@@ -24,6 +24,21 @@ export class SparseIndices implements Iterable<number> {
     this.pages.clear();
     this.size = 0;
   }
+  /** Write saves directly into their typed storage without a boxed iterable copy. */
+  pack() {
+    const indices = new Uint32Array(this.size);
+    let offset = 0;
+    for (const [id, page] of this.pages)
+      for (let w = 0; w < 32; w++) {
+        let bits = page[w] >>> 0;
+        while (bits) {
+          const low = bits & -bits;
+          indices[offset++] = id * 1024 + w * 32 + 31 - Math.clz32(low);
+          bits = (bits ^ low) >>> 0;
+        }
+      }
+    return indices;
+  }
   *[Symbol.iterator]() {
     for (const [id, page] of this.pages)
       for (let w = 0; w < 32; w++) {

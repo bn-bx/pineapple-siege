@@ -14,8 +14,13 @@ with sync_playwright() as p:
     page = browser.new_page(viewport={'width': 960, 'height': 600})
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    page.goto('http://127.0.0.1:5177/#debug')
+    world = json.loads(Path('public/world.json').read_text())
+    code = f"PS{world['generatorVersion']}-{world['seed']:08X}"
+    page.goto(f'http://127.0.0.1:5177/?island={code}#debug')
+    page.wait_for_function('!document.getElementById("keepIsland").disabled', timeout=90000)
+    page.locator('#keepIsland').click()
     page.wait_for_function('window.lanternVale?.state.ready', timeout=60000)
+    page.locator('.advanced').evaluate('(e) => e.open = true')
     page.locator('#showPerf').check()
     page.locator('#quality').select_option('720')
     page.evaluate('''async () => {
@@ -90,6 +95,7 @@ with sync_playwright() as p:
     page.locator('#defaultSettings').click()
     assert page.evaluate('lanternVale.state.snapshot.stats.removed') >= damaged_before
     assert page.evaluate('lanternVale.state.render.renderDistance') == 1200
+    page.locator('.advanced').evaluate('(e) => e.open = true')
     page.locator('#showPerf').check()
     page.locator('#enter').click()
     assert page.evaluate('lanternVale.samples.length') < 100

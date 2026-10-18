@@ -1,6 +1,6 @@
 import { CHUNKS } from "../src/config";
 import { CONFIG, LASER } from "../src/config";
-import { beforeAll, expect, it } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { discoActive } from "../src/disco";
@@ -84,7 +84,7 @@ it("charges exactly four seconds, burns five, vaporizes entire columns and keeps
   expect(s.terrain.sample(256, 256)).toBe(-490);
   expect(s.terrain.sample(446, 256)).toBe(10);
   expect(s.terrain.water(256, 256)).toBe(false);
-  expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.ruins.size + s.ballistic.size).toBe(0);
   expect(s.snapshot().bodies).toHaveLength(0);
   expect(s.cooldowns.laser).toBeCloseTo(15, 6);
   expect(events.some((e) => e.type === "vaporize")).toBe(true);
@@ -299,11 +299,11 @@ it("clears moving and settled debris and suppresses stale deferred fragments ins
   );
   s.startLaser([256, 10, 256]);
   for (let i = 0; i < 300; i++) s.step();
-  expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.ruins.size + s.ballistic.size).toBe(0);
   expect(s.snapshot().bodies).toHaveLength(0);
   (s as any).staticFragment(e);
   (s as any).fragment(e, e.p, 20, { n: 0 });
-  expect(s.ruins.size + s.moving.size).toBe(0);
+  expect(s.ruins.size + s.ballistic.size).toBe(0);
   expect(s.snapshot().bodies).toHaveLength(0);
   s.dispose();
 });
@@ -376,6 +376,60 @@ it("serializes final excavation acknowledgements and completes them after reload
   expect(restored.terrain.sample(256, 256)).toBe(-490);
   s.dispose();
   restored.dispose();
+});
+
+it("retains ordered unfinished sections and independent profiles across laser work slices", () => {
+  const s = Object.create(Simulation.prototype) as any;
+  const profile = laserProfile(DEFAULT_DESTRUCTION);
+  const laser = {
+    id: 1,
+    p: [256, 10, 256],
+    phase: "finishing",
+    pending: [4, 1, 7],
+    profile,
+  };
+  const other = {
+    ...laser,
+    id: 2,
+    profile: { ...profile, depth: 50 },
+    pending: [4, 1, 7],
+  };
+  let wall = 0;
+  const clock = vi.spyOn(performance, "now").mockImplementation(() => wall);
+  Object.assign(s, {
+    lasers: [laser, other],
+    laserWork: new Map([4, 1, 7].map((section) => [section, {
+      section,
+      targets: [{ p: laser.p, progress: 1, ...profile }],
+    }])),
+    laserSupport: new Set(),
+    terrainColliders: new Map(),
+    burnZones: [],
+    revision: 0,
+    bump() {},
+    flush() {},
+    clearLaser() {},
+    indexBurnZones() {},
+    terrain: {
+      laserCrater() {
+        wall++;
+        return { patch: { chunks: [] }, dry: new Uint32Array() };
+      },
+    },
+  });
+  try {
+    s.processLaserWork(1.5);
+    expect(laser.pending).toEqual([7]);
+    expect(other.pending).toEqual([4, 1, 7]);
+    expect([...s.laserWork.keys()]).toEqual([7]);
+    expect(s.lasers).toEqual([laser, other]);
+    s.processLaserWork(1.5);
+    expect(s.lasers).toEqual([other]);
+    expect(other.pending).toEqual([4, 1, 7]);
+    expect(s.laserWork.size).toBe(0);
+  } finally {
+    clock.mockRestore();
+  }
 });
 
 it("the active laser destroys the aircraft once and allows the normal respawn", () => {
@@ -505,7 +559,7 @@ it("maximum size clears all sections and water from a corner, with resumable que
   const restored = new Simulation(s.world, base, () => {}, saved);
   drain(restored);
   expect(restored.removed.size).toBe(3);
-  expect(restored.ruins.size + restored.moving.size).toBe(0);
+  expect(restored.ruins.size + restored.ballistic.size).toBe(0);
   expect(restored.terrain.flooded.some((v) => v !== 0)).toBe(false);
   expect(restored.terrain.laserDry.every((v) => v === 1)).toBe(true);
   expect(restored.terrain.sample(0, 0)).toBe(-104);

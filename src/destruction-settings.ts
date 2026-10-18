@@ -6,9 +6,6 @@ import type {
 } from "./types";
 import { CONFIG, NUKE_PROFILES, LASER } from "./config";
 
-export const LEVELS = ["Slim", "Standard", "Heavy", "Massive", "Extreme"];
-export const BODY_LIMITS = [64, 256, 1024, 4096, 8192];
-export const MAX_BODY_LIMIT = Math.max(...BODY_LIMITS);
 export const CANNON_LIMITS = [16, 64, 256, 1024, 2048];
 export const NUKE_LIMITS = [32, 128, 512, 2048, 4096];
 export const COSMETIC_LIMITS = [1024, 4096, 16384, 32768, 65536];

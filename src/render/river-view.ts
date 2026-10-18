@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { WorldData } from "../types";
 import type { TerrainView } from "./terrain-view";
-import { CONFIG } from "../config";
 import { makeWaterMaterial } from "./ocean";
 
 /** Water remains a continuous surface; procedural ripples provide its normals. */

@@ -1,3 +1,4 @@
+import { seedCode } from "../src/world/generator.mjs";
 // Isolated functional checks; this headless run is not a performance certification.
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
@@ -25,7 +26,7 @@ page.on("console", (m) => {
 try {
   await page.goto(
     (process.env.ISLAND_URL ?? "http://127.0.0.1:5177/") +
-      "?island=PS2-0000A301#debug",
+      `?island=${seedCode(41729)}#debug`,
   );
   await page.waitForFunction(
     () => !document.querySelector("#keepIsland").disabled,

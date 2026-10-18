@@ -145,10 +145,9 @@ it("bounds visual output, preserves amplified pending jobs and bedrock", () => {
   while (s.pendingJobs.length) s.processDestruction(50);
   while (restored.pendingJobs.length) restored.processDestruction(50);
   expect([...restored.removed].sort()).toEqual([...s.removed].sort());
-  expect(s.moving.size).toBe(0);
+  expect(s.physics.bodies.len()).toBe(0);
   expect(s.ballistic.size).toBeGreaterThan(256);
   expect(s.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
-  expect(s.moving.size).toBeLessThanOrEqual(s.bodyLimit);
   expect(
     events
       .filter((e) => e.type === "fragments")
@@ -156,10 +155,12 @@ it("bounds visual output, preserves amplified pending jobs and bedrock", () => {
   ).toBeGreaterThan(0);
   for (const [i, height] of s.terrain.changed)
     expect(height).toBeGreaterThanOrEqual(base[i] - 500.001);
-  s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies: 0 });
-  const trimTicks = Math.ceil((s.moving.size - 64) / 16) + 120;
-  for (let i = 0; i < trimTicks && s.moving.size > 64; i++) s.step();
-  expect(s.moving.size).toBeLessThanOrEqual(64);
+  const before = s.snapshot().bodies.map((body) => body.id);
+  for (const bodies of [0, 4]) {
+    s.setDestruction({ ...DEFAULT_DESTRUCTION, bodies });
+    expect(s.snapshot().bodies.map((body) => body.id)).toEqual(before);
+  }
+  expect(s.physics.bodies.len()).toBe(0);
   s.dispose();
   restored.dispose();
 }, 30000);

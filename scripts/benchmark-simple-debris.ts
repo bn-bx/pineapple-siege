@@ -65,7 +65,7 @@ for (let i = 0; i < 540; i++) {
         Object.entries(series).map(([k, v]) => [k, summary(v as number[])]),
       ),
       counts: {
-        moving: sim.moving.size,
+        nativeBodies: sim.physics.bodies.len(),
         ballistic: sim.ballistic.size,
         monster: sim.monsterRagdolls.moving.size,
         statics: sim.entityColliders.size,

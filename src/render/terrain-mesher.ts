@@ -28,7 +28,7 @@ export class TerrainMesher {
   private castleBounds: WorldData["castleBounds"][];
   section?: SectionData;
   constructor(
-    private world: Pick<WorldData, "paths" | "castleBounds" | "castles">,
+    world: Pick<WorldData, "paths" | "castleBounds" | "castles">,
   ) {
     this.roadDistance = pathIndex(world.paths);
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [

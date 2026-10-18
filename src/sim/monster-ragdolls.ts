@@ -1,4 +1,3 @@
-import type RAPIER from "@dimforge/rapier3d-compat";
 import {
   CORPSE_MOTION_LIMIT,
   MONSTER_SCALE,
@@ -14,10 +13,7 @@ export class MonsterRagdolls {
     number,
     BallisticDebris & { monster: MonsterState; age: number }
   >();
-  constructor(
-    _physics: RAPIER.World,
-    private terrain: Terrain,
-  ) {}
+  constructor(private terrain: Terrain) {}
   private offset(q: Quat): Vec3 {
     const [x, y, z, w] = q,
       height = 15 * MONSTER_SCALE;
@@ -65,7 +61,7 @@ export class MonsterRagdolls {
     monster.stagger = 0;
   }
   update(dt: number) {
-    for (const [id, m] of this.moving) {
+    for (const m of this.moving.values()) {
       m.age += dt;
       const resting = advanceDebris(m, this.terrain, dt);
       monsterPose(m.monster, m.view.p, m.view.q, this.offset(m.view.q));

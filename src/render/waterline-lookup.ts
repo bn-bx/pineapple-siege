@@ -48,16 +48,11 @@ export class WaterSurfaceLookup {
     terrainHeight: number,
     wet: boolean,
   ): number | undefined {
-    if (!wet) return undefined;
-    const cellX = Math.floor(x / this.cellSize),
-      cellZ = Math.floor(z / this.cellSize);
-    if (
-      cellX < 0 ||
-      cellX >= this.cellCount ||
-      cellZ < 0 ||
-      cellZ >= this.cellCount
-    )
+    if (!wet || !(x >= 0 && x <= this.worldSize && z >= 0 && z <= this.worldSize))
       return undefined;
+    // The last terrain sample belongs to the final cell even on an exact boundary.
+    const cellX = Math.min(this.cellCount - 1, Math.floor(x / this.cellSize)),
+      cellZ = Math.min(this.cellCount - 1, Math.floor(z / this.cellSize));
     let riverHeight = -Infinity;
     for (const { a, b, width } of
       this.cells.get(cellZ * this.cellCount + cellX) ?? []) {

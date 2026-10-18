@@ -7,10 +7,6 @@ export interface RenderQualityProfile {
   treeDistance: number;
   cosmetics: number;
 }
-export const VISUAL_BUDGET = Object.freeze({
-  textureBytes: 192 * 1024 ** 2,
-  targetBytes: 64 * 1024 ** 2,
-});
 /** Presentation budgets never change simulation or saved damage. */
 export function qualityProfile(
   selection = "auto",

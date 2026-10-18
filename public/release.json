@@ -1,5 +1,5 @@
 {
-  "release": "island-expansion-2026-10-15",
+  "release": "test-audit-fixes-2026-10-18",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -37,7 +37,11 @@
     "monster-spatial-grid-separation-and-body-clearance",
     "distributed-monster-approach-slots-and-traffic-yielding",
     "gradual-legacy-monster-stack-recovery",
-    "expanded-island-gameplay-and-presentation"
+    "expanded-island-gameplay-and-presentation",
+    "water-world-edge-lookup-correction",
+    "reset-autosave-retirement-ordering",
+    "temporary-island-replacement-without-storage",
+    "batched-laser-acknowledgements-direct-dry-save-packing"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216

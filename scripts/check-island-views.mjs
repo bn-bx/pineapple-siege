@@ -1,8 +1,9 @@
+import { seedCode } from "../src/world/generator.mjs";
 import { mkdir } from "node:fs/promises";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
 );
-const code = process.env.ISLAND_CODE ?? "PS2-0000A301";
+const code = process.env.ISLAND_CODE ?? seedCode(41729);
 const output = `/tmp/island-qa/${code}`;
 const browser = await chromium.launch({
   executablePath:
@@ -53,9 +54,9 @@ try {
     for (let i = 0; i < heights.length; i++)
       if (heights[i] > heights[peak]) peak = i;
     const mountain = [
-      (peak % 3073) * 2,
+      (peak % w.grid) * w.step,
       heights[peak],
-      Math.floor(peak / 3073) * 2,
+      Math.floor(peak / w.grid) * w.step,
     ];
     return [
       {

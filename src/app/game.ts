@@ -92,8 +92,7 @@ const session = new SessionState();
 let saveNoticeTimer = 0;
 let perfSummary = "",
   lastPerfSummary = 0;
-let queuedReset = false,
-  saveEpoch = 0;
+let saveEpoch = 0;
 const altitudeWarning = new AltitudeWarning();
 let islandChanging = false;
 let islandLinkError = "";
@@ -256,7 +255,7 @@ function askReset(): void {
   return save_coordinator.askReset(context);
 }
 function resetWorld(): Promise<void> {
-  return resetBothRealms();
+  return save_coordinator.resetWorld(context, resetBothRealms);
 }
 async function prepareHell() {
   if (!baseIsland || !saveEnabled) return;
@@ -368,8 +367,6 @@ async function resetBothRealms() {
     hasSave = false;
     savedRevision = -1;
     lastSavedHour = -1;
-    saveEpoch++;
-    saveCaptures.retire();
     try { localStorage.setItem("siege-active-realm-v1", "surface"); } catch {}
     const ready = waitForRealmReady();
     activeRealm = "surface";
@@ -533,7 +530,6 @@ async function handle(message: WorkerMessage) {
       );
       break;
     case "resetDone":
-      queuedReset = false;
       saveNow(true);
       enter();
       break;
@@ -543,7 +539,7 @@ async function handle(message: WorkerMessage) {
   }
 }
 function consumeIslandLink(): void {
-  return island_coordinator.consumeIslandLink(context);
+  return island_coordinator.consumeIslandLink();
 }
 function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot): void {
   baseIsland = baseline;
@@ -573,8 +569,14 @@ function replaceIsland(
   hellPreparedSeed = undefined;
   realmSaves.surface = realmSaves.hell = undefined;
   try { localStorage.setItem("siege-active-realm-v1", "surface"); } catch {}
-  return Promise.resolve(hellPreparing).then(() => hellStore.open()).then(() => hellStore.replaceBaseline(baseline))
-    .then(() => island_coordinator.replaceIsland(context, baseline, reload));
+  const prepare = saveEnabled
+    ? Promise.resolve(hellPreparing)
+        .then(() => hellStore.open())
+        .then(() => hellStore.replaceBaseline(baseline))
+    : Promise.resolve();
+  return prepare.then(() =>
+    island_coordinator.replaceIsland(context, baseline, reload),
+  );
 }
 function newIsland(seed?: number): Promise<void> {
   return island_coordinator.newIsland(context, seed);
@@ -1008,12 +1010,6 @@ const context = {
   },
   get newIsland() {
     return newIsland;
-  },
-  get queuedReset() {
-    return queuedReset;
-  },
-  set queuedReset(value) {
-    queuedReset = value;
   },
   get lastSaveAt() {
     return lastSaveAt;

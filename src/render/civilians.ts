@@ -4,12 +4,6 @@ import { DEFAULT_RENDER_DISTANCE } from "../config";
 import { discoActive } from "../disco";
 import type { SimulationSnapshot } from "../types";
 
-function boxFallback(name: string) {
-  return name === "human-head"
-    ? new THREE.SphereGeometry(0.5, 8, 6)
-    : new THREE.BoxGeometry(1, 1, 1);
-}
-
 /** Shared geometry and instanced parts keep the whole population inexpensive. */
 export class CivilianView {
   readonly group = new THREE.Group();

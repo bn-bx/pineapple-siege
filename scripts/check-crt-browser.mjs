@@ -1,3 +1,4 @@
+import { seedCode } from "../src/world/generator.mjs";
 // Isolated functional checks and short local timings, not performance certification.
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
@@ -8,6 +9,7 @@ const output = process.env.CRT_QA_OUTPUT ?? "/tmp/siege-crt";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath:
+    process.env.CHROME_PATH ??
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   headless: true,
 });
@@ -41,7 +43,7 @@ const capture = async (label) => {
 try {
   await page.goto(
     (process.env.ISLAND_URL ?? "http://127.0.0.1:5177/") +
-      "?island=PS2-0000A301#debug",
+      `?island=${seedCode(41729)}#debug`,
   );
   await page.waitForFunction(
     () => !document.querySelector("#keepIsland").disabled,

@@ -1,7 +1,6 @@
 import { SaveCaptureCoordinator } from "../save-capture";
 import { SaveWriter } from "../save-writer";
 import { SessionState } from "../session-state";
-import { SaveStore } from "../storage";
 import type { GameCommand, SaveSnapshot, SimulationSnapshot } from "../types";
 export interface SaveCoordinatorContext {
   saveCaptures: SaveCaptureCoordinator;
@@ -9,7 +8,6 @@ export interface SaveCoordinatorContext {
   session: SessionState;
   saveEnabled: boolean;
   snapshot: SimulationSnapshot | undefined;
-  queuedReset: boolean;
   islandChanging: boolean;
   savedRevision: number;
   lastSavedHour: number;
@@ -21,8 +19,6 @@ export interface SaveCoordinatorContext {
   worker: Worker;
   hasSave: boolean;
   pause: () => void;
-  enterButton: HTMLButtonElement;
-  store: SaveStore;
 }
 export function requestSave(
   ctx: SaveCoordinatorContext,
@@ -40,7 +36,6 @@ export async function saveNow(
     !ctx.saveEnabled ||
     ctx.saveCaptures.saving ||
     !ctx.snapshot ||
-    ctx.queuedReset ||
     ctx.islandChanging
   )
     return;
@@ -89,19 +84,18 @@ export function askReset(ctx: SaveCoordinatorContext): void {
   ctx.pause();
   ctx.$<HTMLDialogElement>("confirm").showModal();
 }
-export async function resetWorld(ctx: SaveCoordinatorContext): Promise<void> {
-  ctx.queuedReset = true;
+/** Retire UI ownership before storage cancellation can reject an active save. */
+export async function resetWorld(
+  ctx: SaveCoordinatorContext,
+  reset: () => Promise<void>,
+): Promise<void> {
+  if (ctx.islandChanging) return;
+  ctx.islandChanging = true;
   ctx.saveEpoch++;
   ctx.saveCaptures.retire();
-  ctx.enterButton.disabled = true;
-  ctx.$("enterLabel").textContent = "Resetting world…";
-  ctx.$<HTMLDialogElement>("confirm").close();
-  ctx.savedRevision = -1;
-  ctx.lastSavedHour = -1;
   try {
-    if (ctx.saveEnabled) await ctx.store.clear();
-  } catch {
-    ctx.saveEnabled = false;
+    await reset();
+  } finally {
+    ctx.islandChanging = false;
   }
-  ctx.send({ type: "reset" });
 }

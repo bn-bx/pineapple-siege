@@ -8,7 +8,6 @@ import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { Fragments } from "../src/render/fragments";
 import {
   DEFAULT_DESTRUCTION,
-  MAX_BODY_LIMIT,
   COSMETIC_LIMITS,
 } from "../src/destruction-settings";
 import type {
@@ -125,7 +124,7 @@ it("allows 8192 visual wreckage pieces and rejects excess without native allocat
         [0, 0, 0],
       );
     const first = spawn();
-    for (let i = 1; i < MAX_BODY_LIMIT; i++) spawn();
+    for (let i = 1; i < BLAST_DEBRIS_LIMIT; i++) spawn();
     expect(BLAST_DEBRIS_LIMIT).toBe(8192);
     expect(sim.ballistic.size).toBe(BLAST_DEBRIS_LIMIT);
     expect(sim.physics.bodies.len()).toBe(0);

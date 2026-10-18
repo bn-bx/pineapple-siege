@@ -221,25 +221,6 @@ export class SaveStore {
         sectioned: undefined,
       };
     }
-    if (
-      save.version === 8 &&
-      compatible(
-        save,
-        save.worldVersion,
-        save.seed,
-        (this.acceptedBaseline ?? (await this.baseline()))?.world
-          .generatorVersion,
-      )
-    ) {
-      const migrated = { ...save, version: CONFIG.version };
-      // Original record remains untouched if any request or commit fails.
-      try {
-        await this.write(migrated);
-        return migrated;
-      } catch {
-        return save;
-      }
-    }
     return save;
   }
   async write(save: SaveSnapshot) {

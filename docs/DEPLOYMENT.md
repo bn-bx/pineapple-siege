@@ -27,7 +27,9 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`island-expansion-2026-10-15` adds a discoverable portal and a separately saved inverted island. Travel uses a full-screen flash, either destroyed portal endpoint prevents travel, and world reset restores both realms. Existing saves start on the surface with a fresh second realm. Surface settings, map, controls, and loading text keep the discovery hidden.
+`test-audit-fixes-2026-10-18` fixes water lookup at world boundaries, prevents reset from disabling saving when an autosave is canceled, and restores temporary-island replacement when storage is unavailable. Laser completion acknowledgements and dry-cell save packing avoid large repeated allocations. Proven unused scaffolding and obsolete assertions are removed while save compatibility and meaningful regression coverage remain. All 494 tests across 98 files, strict TypeScript checks, the production build, runtime assets, and focused browser checks pass; evidence and verification limits are in [the audit report](TEST_AUDIT.md).
+
+The preceding `island-expansion-2026-10-15` release adds a discoverable portal and a separately saved inverted island. Travel uses a full-screen flash, either destroyed portal endpoint prevents travel, and world reset restores both realms. Existing saves start on the surface with a fresh second realm. Surface settings, map, controls, and loading text keep the discovery hidden.
 
 The inverted realm has upright pineapple flight, enlarged standing jet monsters, a destructible Jet God, jet-themed weapons and nuclear clouds, permanent building fires, bare dead trees, and a lethal lava ocean. Both portal approaches clear trees without changing entity IDs. Fuel-fire saves also accept the small fire patches produced by an aircraft crash.
 

@@ -1,4 +1,4 @@
-import { CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
 import { beforeAll, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -130,7 +130,8 @@ it("applies each nuke profile, limits bedrock and completes serialized pending w
       [...s.removed].sort((a, b) => a - b),
     );
     expect(restored.terrain.changed.size).toBe(s.terrain.changed.size);
-    expect(s.moving.size).toBeLessThanOrEqual(256);
+    expect(s.physics.bodies.len()).toBe(0);
+    expect(s.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
     const inner = world.entities.filter(
       (e) =>
         e.kind === "block" &&

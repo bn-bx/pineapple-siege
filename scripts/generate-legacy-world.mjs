@@ -1217,18 +1217,9 @@ const world = {
 };
 mkdirSync("tests/fixtures/legacy-world", { recursive: true });
 const terrainBytes = new Uint8Array(heights.buffer);
-// Pages permits at most 25 MiB per asset. Retain the raw file for simulation tests.
+// Regression tests consume this raw fixture directly; deployment shards belong
+// only to the production generator.
 writeFileSync("tests/fixtures/legacy-world/world.bin", terrainBytes);
-world.heightFiles = [];
-const partSize = 20 * 1024 * 1024;
-for (let offset = 0; offset < terrainBytes.length; offset += partSize) {
-  const name = `world-${world.heightFiles.length}.bin`;
-  world.heightFiles.push(name);
-  writeFileSync(
-    `tests/fixtures/legacy-world/${name}`,
-    terrainBytes.subarray(offset, offset + partSize),
-  );
-}
 writeFileSync("tests/fixtures/legacy-world/world.json", JSON.stringify(world));
 console.log(
   `World: ${GRID}² samples, ${structureCount} structure parts, ${entities.length} entities`,

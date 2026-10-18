@@ -1,4 +1,4 @@
-import { CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -149,7 +149,6 @@ it("launches visual debris without snapping and preserves its trajectory until c
       [80, 60, 0],
     );
     expect(sim.physics.bodies.len()).toBe(0);
-    expect(sim.moving.has(id)).toBe(false);
     expect(sim.ruins.has(id)).toBe(false);
     expect(sim.ballistic.get(id)!.view.p).toEqual([600, 30, 600]);
     expect(sim.ballistic.get(id)!.velocity).toEqual([80, 60, 0]);
@@ -176,6 +175,46 @@ it("reblasts ballistic pieces and vaporizes their oriented footprints", () => {
     (sim as any).clearLaser([605, 0, 600], 4);
     expect(sim.ballistic.size).toBe(0);
     expect(sim.snapshot().bodies).toEqual([]);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("shares the visual debris cap across flying and settled pieces without native bodies", () => {
+  const sim = new Simulation({ ...world, entities: [] }, flat, () => {});
+  const internal = sim as any;
+  try {
+    for (let i = 0; i < BLAST_DEBRIS_LIMIT; i++) {
+      const piece = { ...debris().view, id: 900000 + i };
+      if (i % 2) internal.insertRuin(piece);
+      else internal.addBallistic(piece, [0, 0, 0]);
+    }
+    expect(sim.ballistic.size).toBe(BLAST_DEBRIS_LIMIT / 2);
+    expect(sim.snapshot(true).packedBodies!.count).toBe(BLAST_DEBRIS_LIMIT);
+    expect(
+      internal.spawnBody(
+        [600, 30, 600],
+        [1, 1, 1],
+        "stone",
+        -1,
+        "chunk",
+        [0, 0, 0],
+      ),
+    ).toBe(-1);
+    const rejected = { ...debris().view, id: 999999 };
+    internal.addBallistic(rejected, [0, 0, 0]);
+    internal.insertRuin(rejected);
+    // Updating a live piece still works at capacity and keeps its original slot.
+    const live = sim.ballistic.get(900000)!;
+    internal.addBallistic(live.view, [10, 20, 30]);
+    expect(sim.ballistic.get(900000)!.velocity).toEqual([10, 20, 30]);
+    const packet = sim.snapshot(true);
+    expect(packet.packedBodies!.count).toBe(BLAST_DEBRIS_LIMIT);
+    expect(
+      unpackBodies(packet.packedBodies!).some((body) => body.id === rejected.id),
+    ).toBe(false);
+    expect(packet.stats.bodies).toBe(0);
+    expect(sim.physics.bodies.len()).toBe(0);
   } finally {
     sim.dispose();
   }

@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
-import { CONFIG, NUKE_PROFILES } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG, NUKE_PROFILES } from "../src/config";
 import { compatible } from "../src/storage";
 import type { WorldData, WorkerMessage } from "../src/types";
 const world: WorldData = JSON.parse(
@@ -49,13 +49,14 @@ it("breaks every landmark and leaves distant neighbors supported", () => {
       site.id,
     ).toBe(true);
   }
-  expect(s.moving.size).toBeLessThanOrEqual(256);
+  expect(s.physics.bodies.len()).toBe(0);
+  expect(s.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
   expect(
     world.entities.filter((e) => e.assembly === "keep" && s.removed.has(e.id)),
   ).toHaveLength(0);
   s.dispose();
 });
-it("partitions modules, ejects earth and respects each blast body/effect budget", () => {
+it("partitions modules, ejects earth and respects visual debris and effect budgets", () => {
   for (const weapon of ["cannon", "nuke"]) {
     const events: WorkerMessage[] = [];
     const s = new Simulation(world, base, (m) => events.push(m));
@@ -65,7 +66,8 @@ it("partitions modules, ejects earth and respects each blast body/effect budget"
       s.detonateNuke(p, "valley");
       while (s.pendingJobs.length) s.processDestruction(50);
     } else s.explode(p);
-    expect(s.moving.size).toBeLessThanOrEqual(weapon === "nuke" ? 128 : 64);
+    expect(s.physics.bodies.len()).toBe(0);
+    expect(s.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
     expect(
       [...s.ballistic.values()].some((m) => m.view.material === "earth"),
     ).toBe(true);

@@ -43,7 +43,6 @@ it("fractures roofs into matching solid wedges through visual motion, packing an
     const budget = { n: 0, limit: 2 };
     (sim as any).fragment(roofs[0], [590, 30, 600], 60, budget);
     expect(budget.n).toBe(2);
-    expect(sim.moving.size).toBe(0);
     expect(sim.ballistic.size).toBe(4);
     expect(sim.physics.bodies.len()).toBe(0);
     (sim as any).fragment(roofs[1], [590, 30, 600], 60, { n: 8, limit: 8 });

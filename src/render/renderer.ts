@@ -70,7 +70,6 @@ import { SnapshotTimeline } from "./snapshot-timeline";
 import { TerrainView } from "./terrain-view";
 import { WorldBatches } from "./world-batches";
 const dummy = new THREE.Object3D(),
-  zero = new THREE.Matrix4().makeScale(0, 0, 0),
   up = new THREE.Vector3(0, 1, 0),
   down = new THREE.Vector3(0, -1, 0);
 const bodyKeys = BODY_MATERIALS.map((material) =>
@@ -228,19 +227,14 @@ export class GameRenderer {
   private quality = "auto";
   private renderDistance = DEFAULT_RENDER_DISTANCE;
   private targetHeight = this.auto.height;
-  private lowSince = 0;
-  private highSince = 0;
-  private qualityChanged = 0;
   private averageMS = 16.7;
   private shakeEnabled = true;
   private fractureBox = fractureGeometry();
-  private roof = roofGeometry();
   private fractureRoof = fractureGeometry(roofGeometry());
   private roofFragments = new Map<number, THREE.BufferGeometry>();
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
   private settledTrunkMaterial?: THREE.Material;
   private fragmentColor = new THREE.Color();
-  private box = new THREE.BoxGeometry(2, 2, 2);
   private cameraBox = new THREE.Box3();
   private cameraHit = new THREE.Vector3();
   private cameraCandidates = new Set<Entity>();
@@ -656,7 +650,6 @@ export class GameRenderer {
     this.quality = q;
     this.setReducedEffects(this.reducedEffects);
     this.targetHeight = q === "auto" ? this.auto.height : Number(q);
-    this.qualityChanged = performance.now();
     const size = this.visualProfile.shadowSize;
     if (this.sun.shadow.mapSize.x !== size) {
       this.sun.shadow.mapSize.set(size, size);

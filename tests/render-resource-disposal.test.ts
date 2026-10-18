@@ -1,7 +1,6 @@
 import { expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { GameRenderer } from "../src/render/renderer";
-import { qualityProfile } from "../src/render/quality-profile";
 it("releases shadow targets and shared textures held in shader uniforms", () => {
   const reflection = new THREE.WebGLRenderTarget(8, 8),
     shadow = new THREE.WebGLRenderTarget(8, 8),
@@ -60,8 +59,6 @@ it("releases shadow targets and shared textures held in shader uniforms", () => 
   view.actors = { dispose: vi.fn() };
   view.worldView = { dispose: vi.fn() };
   view.ruinGroups = new Map();
-  view.eyes = { dispose: vi.fn() };
-  view.nearMonsterView = view.distantMonsterView = { disposeFaces: vi.fn() };
   view.dispose();
   expect(spikeGeometryDisposed).toHaveBeenCalledOnce();
   expect(spikeMaterialDisposed).toHaveBeenCalledOnce();

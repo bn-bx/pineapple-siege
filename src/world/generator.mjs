@@ -1355,7 +1355,7 @@ export function validateIsland(world, heights) {
     const h = heights[i];
     if (
       !Number.isFinite(h) ||
-      h > (world.generatorVersion === 1 ? 390 : VERTICAL_LIMITS.maxPeak) ||
+      h > VERTICAL_LIMITS.maxPeak ||
       h < -100
     )
       throw Error("Island terrain is invalid.");
@@ -1365,8 +1365,8 @@ export function validateIsland(world, heights) {
   if (
     land / heights.length < 0.45 ||
     land / heights.length > 0.72 ||
-    peak < (world.generatorVersion === 1 ? 250 : VERTICAL_LIMITS.minPeak) ||
-    peak > (world.generatorVersion === 1 ? 350 : VERTICAL_LIMITS.maxPeak)
+    peak < VERTICAL_LIMITS.minPeak ||
+    peak > VERTICAL_LIMITS.maxPeak
   )
     throw Error("Island coastline or mountain heights failed validation.");
   for (let i = 0; i < GRID; i++)
@@ -1377,20 +1377,18 @@ export function validateIsland(world, heights) {
       heights[i * GRID + GRID - 1] >= 0
     )
       throw Error("Island must be surrounded by ocean.");
-  if (world.generatorVersion === GENERATOR_VERSION) {
-    validateConnectedLand(heights);
-    if (
-      !world.passes ||
-      world.passes.length < 2 ||
-      world.passes.some(
-        (pass) =>
-          !Number.isFinite(pass.p[1]) ||
-          pass.p[1] <= 0 ||
-          pass.p[1] >= VERTICAL_LIMITS.passHeight,
-      )
+  validateConnectedLand(heights);
+  if (
+    !world.passes ||
+    world.passes.length < 2 ||
+    world.passes.some(
+      (pass) =>
+        !Number.isFinite(pass.p[1]) ||
+        pass.p[1] <= 0 ||
+        pass.p[1] >= VERTICAL_LIMITS.passHeight,
     )
-      throw Error("Mountain passes lack safe saddle clearance.");
-  }
+  )
+    throw Error("Mountain passes lack safe saddle clearance.");
   if (
     sampleHeight(heights, world.spawn[0], world.spawn[2]) + 100 >
     world.spawn[1]

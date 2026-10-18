@@ -1,5 +1,6 @@
+import { seedCode } from "../src/world/generator.mjs";
 // Local integration QA. PLAYWRIGHT_MODULE may point to an installed Playwright package.
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import assert from "node:assert/strict";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE ?? "playwright"
@@ -39,14 +40,19 @@ async function choose(code) {
   );
 }
 try {
-  // Historical links normalize to the new revision before acceptance.
+  // Older layouts are rejected; a current seed must be explicitly previewed.
   await page.goto(`${base}?island=PS1-0000A301#debug`);
-  await page.waitForFunction(
-    () => !document.getElementById("keepIsland").disabled,
-    {},
-    { timeout: 60000 },
+  await page.waitForFunction(() =>
+    document
+      .getElementById("islandSeedNotice")
+      .textContent.includes("unsupported"),
   );
-  assert.equal(await page.locator("#previewSeed").inputValue(), "PS2-0000A301");
+  assert(!new URL(page.url()).searchParams.has("island"));
+  await choose(seedCode(41729));
+  assert.equal(
+    await page.locator("#previewSeed").inputValue(),
+    seedCode(41729),
+  );
   await page
     .locator("#islandPreview")
     .screenshot({ path: "/tmp/island-qa/preview.png" });
@@ -97,7 +103,7 @@ try {
   });
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
-  await choose("PS2-0000002A");
+  await choose(seedCode(42));
   await page.locator("#keepIsland").click();
   assert(await page.locator("#islandReplacePrompt").isVisible());
   await page.locator("#backToIsland").click();
@@ -105,10 +111,10 @@ try {
   assert.equal(await page.evaluate(() => lanternVale.world.seed), 41729);
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
-  await page.locator("#previewSeed").fill("PS2-00000000");
+  await page.locator("#previewSeed").fill(seedCode(0));
   await page.locator("#previewSeedForm button").click();
-  await choose("PS2-00000001");
-  assert.equal(await page.locator("#previewSeed").inputValue(), "PS2-00000001");
+  await choose(seedCode(1));
+  assert.equal(await page.locator("#previewSeed").inputValue(), seedCode(1));
   await page.locator("#cancelIsland").click();
   await page.evaluate(() => {
     window.originalPut = IDBObjectStore.prototype.put;
@@ -120,7 +126,7 @@ try {
   });
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
-  await choose("PS2-0000002A");
+  await choose(seedCode(42));
   await page.locator("#keepIsland").click();
   await page.locator("#confirmIsland").click();
   await page.waitForFunction(() =>
@@ -133,14 +139,14 @@ try {
   // A malformed pasted seed does not discard the valid candidate or saved world.
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
-  await choose("PS2-0000002A");
-  await page.locator("#previewSeed").fill("PS4-0000002A");
+  await choose(seedCode(42));
+  await page.locator("#previewSeed").fill("PS999-0000002A");
   await page.locator("#previewSeedForm button").click();
   assert.match(
     await page.locator("#islandPreviewStatus").innerText(),
     /unsupported/,
   );
-  await choose("PS2-0000002A");
+  await choose(seedCode(42));
   await page.locator("#keepIsland").click();
   await page.locator("#confirmIsland").click();
   await page.waitForEvent("load");
@@ -159,7 +165,7 @@ try {
   await ready();
   assert.equal(await page.evaluate(() => lanternVale.world.seed), 42);
   // Shared links never replace a stored island without accepting its preview.
-  await page.goto(`${base}?island=PS2-00000001#debug`);
+  await page.goto(`${base}?island=${seedCode(1)}#debug`);
   await page.waitForFunction(
     () => document.getElementById("islandPreview").open,
     {},
@@ -170,7 +176,7 @@ try {
   assert.equal(await page.evaluate(() => lanternVale.world.seed), 42);
   assert(!new URL(page.url()).searchParams.has("island"));
   const screenshots = [];
-  for (const seed of ["PS2-00000000", "PS2-00000001"]) {
+  for (const seed of [seedCode(0), seedCode(1)]) {
     await page.locator(".settings-world").evaluate((e) => (e.open = true));
     await page.locator("#createIsland").click();
     await choose(seed);
@@ -182,7 +188,7 @@ try {
   await page.setViewportSize({ width: 390, height: 760 });
   await page.locator(".settings-world").evaluate((e) => (e.open = true));
   await page.locator("#createIsland").click();
-  await choose("PS2-0000002A");
+  await choose(seedCode(42));
   await page
     .locator("#islandPreview")
     .screenshot({ path: "/tmp/island-qa/preview-mobile.png" });
@@ -241,7 +247,7 @@ try {
   });
   const temporary = await temporaryContext.newPage();
   temporary.on("pageerror", (error) => errors.push(error.message));
-  await temporary.goto(`${base}?island=PS2-00000011#debug`);
+  await temporary.goto(`${base}?island=${seedCode(17)}#debug`);
   await temporary.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
     {},
@@ -262,7 +268,7 @@ try {
   });
   await temporary.locator(".settings-world").evaluate((e) => (e.open = true));
   await temporary.locator("#createIsland").click();
-  await temporary.locator("#previewSeed").fill("PS2-0000002A");
+  await temporary.locator("#previewSeed").fill(seedCode(42));
   await temporary.locator("#previewSeedForm button").click();
   await temporary.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
@@ -272,10 +278,18 @@ try {
   await temporary.locator("#keepIsland").click();
   await temporary.locator("#confirmIsland").click();
   await temporary.waitForFunction(
-    () => lanternVale.world.seed === 42 && lanternVale.state.ready,
+    () =>
+      (lanternVale.world.seed === 42 && lanternVale.state.ready) ||
+      document.getElementById("status").textContent.includes("not replaced"),
     {},
     { timeout: 90000 },
   );
+  assert.equal(
+    await temporary.evaluate(() => lanternVale.world.seed),
+    42,
+    await temporary.locator("#status").innerText(),
+  );
+  assert.equal(await temporary.evaluate(() => lanternVale.state.ready), true);
   assert.equal(
     await temporary.evaluate(() => lanternVale.state.saveEnabled),
     false,
@@ -287,7 +301,7 @@ try {
     }),
     legacyPage = await legacyContext.newPage();
   legacyPage.on("pageerror", (error) => errors.push(error.message));
-  await legacyPage.goto(`${base}?island=PS2-00000011#debug`);
+  await legacyPage.goto(`${base}?island=${seedCode(17)}#debug`);
   await legacyPage.waitForFunction(
     () => document.getElementById("islandPreview").open,
   );

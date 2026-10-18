@@ -61,7 +61,7 @@ export interface IslandCoordinatorContext {
   frame: (now: number) => void;
   newIsland: (seed?: number) => Promise<void>;
 }
-export function consumeIslandLink(ctx: IslandCoordinatorContext): void {
+export function consumeIslandLink(): void {
   const url = new URL(location.href);
   url.searchParams.delete("island");
   history.replaceState(null, "", url);

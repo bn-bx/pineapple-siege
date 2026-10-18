@@ -1,5 +1,5 @@
 import { CHUNKS } from "../src/config";
-import { CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
 import { beforeAll, describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { Terrain } from "../src/sim/terrain";
@@ -38,7 +38,7 @@ describe("terrain authority", () => {
   });
 });
 describe("destruction authority", () => {
-  it("breaks real colliders, collapses unsupported masonry and bounds active bodies", () => {
+  it("breaks real colliders, collapses unsupported masonry and bounds visual debris", () => {
     const messages: any[] = [];
     const sim = new Simulation(world, base, (m) => messages.push(m));
     const tower = world.entities.filter((e) => e.assembly === "tower--1--1");
@@ -58,7 +58,8 @@ describe("destruction authority", () => {
         10,
         1044 + Math.floor(n / 3) * 5,
       ]);
-    expect(sim.moving.size).toBeLessThanOrEqual(256);
+    expect(sim.physics.bodies.len()).toBe(0);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
     expect(sim.terrain.changed.size).toBeGreaterThan(0);
     expect(messages.some((m) => m.kind === "collapse")).toBe(true);
     sim.dispose();
@@ -79,7 +80,8 @@ describe("destruction authority", () => {
       sim.step();
     }
     const save = sim.save();
-    expect(sim.moving.size).toBeLessThan(30);
+    expect(sim.ballistic.size).toBe(0);
+    expect(sim.snapshot().bodies).toHaveLength(0);
     expect(save.ruins).toHaveLength(0);
     const other = new Simulation(world, base, () => {}, save);
     expect(other.removed.size).toBe(sim.removed.size);
@@ -168,7 +170,8 @@ describe("flight and collision", () => {
     expect(
       [...sim.ballistic.values()].some((m) => m.view.kind === "tree"),
     ).toBe(true);
-    expect(sim.moving.size).toBeLessThanOrEqual(256);
+    expect(sim.physics.bodies.len()).toBe(0);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
     sim.dispose();
   }, 20000);
 });

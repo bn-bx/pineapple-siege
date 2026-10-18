@@ -33,42 +33,39 @@ export async function checkStorage(baseline: IslandBaseline) {
     vaporized: [],
   };
   const db = (store as unknown as { db: IDBDatabase }).db;
-  const seedLegacy = () =>
+  const seedSave = (record: SaveSnapshot) =>
     new Promise<void>((resolve, reject) => {
       const tx = db.transaction("worlds", "readwrite");
-      tx.objectStore("worlds").put(save, "current");
+      tx.objectStore("worlds").put(record, "current");
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   try {
     await store.replaceBaseline(baseline);
-    await seedLegacy();
-    const originalWrite = store.write.bind(store);
-    store.write = async () => {
-      throw Error("Injected migration failure");
-    };
-    const protectedSave = await store.load();
+    await seedSave(save);
+    const historical = await store.load();
     assert(
-      protectedSave?.version === 8,
-      "Migration failure preserves version 8",
+      historical?.version === 8 &&
+        !compatible(historical, baseline.world.version, baseline.world.seed),
+      "Historical damage remains untouched for protected-save recovery",
     );
-    store.write = originalWrite;
-    const migrated = await store.load();
+    await store.write({ ...save, version: CONFIG.version });
+    const current = await store.load();
     assert(
-      migrated?.version === CONFIG.version &&
+      current?.version === CONFIG.version &&
         compatible(
-          migrated,
+          current,
           baseline.world.version,
           baseline.world.seed,
           baseline.world.generatorVersion,
         ),
-      "Version 8 migrates atomically to version 9",
+      "Current damage matches the exact accepted island",
     );
     assert(
-      migrated?.terrain instanceof Float32Array &&
-        migrated.terrain[1] === 22 &&
-        migrated.laserDry[0] === 100,
-      "Migration preserves terrain and dry cells",
+      current?.terrain instanceof Float32Array &&
+        current.terrain[1] === 22 &&
+        current.laserDry[0] === 100,
+      "Loading preserves terrain and dry cells",
     );
     const moving = packBodies(
       [
@@ -85,7 +82,7 @@ export async function checkStorage(baseline: IslandBaseline) {
       1,
     );
     await store.write({
-      ...migrated!,
+      ...current!,
       revision: 2,
       incremental: true,
       moving,

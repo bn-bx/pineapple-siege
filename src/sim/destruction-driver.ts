@@ -145,7 +145,6 @@ export class DestructionDriver {
         const queue = job.supportQueue!;
         if (queue.length) {
           const ids = queue.pop()!,
-            e = this.host.world.entities[ids[0]],
             budget = { n: job.fragments, limit: profile.bodyLimit };
           // Assembly connectivity was resolved once; consume its falling clusters incrementally.
           const id = ids.pop()!;

@@ -293,7 +293,7 @@ export class DistantMonsterView {
   private local: THREE.Matrix4[];
   private matrix = new THREE.Matrix4();
   private count = 0;
-  constructor(private capacity: number) {
+  constructor(capacity: number) {
     this.wheels = new MonsterWheelView(capacity);
     this.group.add(this.wheels.group);
     const template = makeDistantMonster();
@@ -357,7 +357,7 @@ export class NearMonsterView {
   private count = 0;
   private matrix = new THREE.Matrix4();
   private pivot = new THREE.Object3D();
-  constructor(private capacity: number) {
+  constructor(capacity: number) {
     this.wheels = new MonsterWheelView(capacity);
     this.group.add(this.wheels.group);
     const template = makeMonster();
@@ -465,7 +465,7 @@ export class NearMonsterView {
   }
   finish() {
     this.wheels.finish();
-    for (const { mesh, limb } of this.parts) {
+    for (const { mesh } of this.parts) {
       mesh.visible = true;
       mesh.count = this.count;
       mesh.instanceMatrix.clearUpdateRanges();
@@ -478,13 +478,6 @@ export class NearMonsterView {
 /** Detached body, crown and two arms share material batches across all defeats. */
 export class MonsterFragmentView {
   readonly group = new THREE.Group();
-  private faceCount = 0;
-  private faceMatrix = new THREE.Matrix4();
-  private quarterFaceLocal = new THREE.Matrix4().compose(
-    new THREE.Vector3(4, -2.5, 0),
-    new THREE.Quaternion(),
-    new THREE.Vector3(7, 5, 8.5),
-  );
   private batches: {
     mesh: THREE.InstancedMesh;
     part: number;
@@ -578,7 +571,6 @@ export class MonsterFragmentView {
     }
   }
   begin() {
-    this.faceCount = 0;
     for (const batch of this.batches) batch.count = 0;
   }
   add(part: number, root: THREE.Object3D) {

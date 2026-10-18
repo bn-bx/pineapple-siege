@@ -27,7 +27,6 @@ import {
   roofVertices,
 } from "../debris-shape";
 import {
-  BODY_LIMITS,
   CANNON_LIMITS,
   COSMETIC_SCALE,
   DEFAULT_DESTRUCTION,
@@ -213,8 +212,6 @@ export class Simulation {
   private portalEntered = false;
   readonly ruins = new Map<number, Ruin>();
   private bodyPoses = new BodyPoseCache();
-  /** Compatibility counter: blast wreckage no longer owns native bodies. */
-  readonly moving = new Map<number, never>();
   readonly ballistic = new DebrisMap<BallisticDebris>(this.bodyPoses);
   private cleanupExpiry = new Map<number, number>();
   private cleanupRemains = new DebrisMap<{
@@ -243,13 +240,9 @@ export class Simulation {
   tick = 0;
   time = 0;
   revision = 0;
-  paused = true;
   weapon: WeaponId = "cannon";
   nukeYield: NukeYield = "local";
   destruction = { ...DEFAULT_DESTRUCTION };
-  get bodyLimit() {
-    return BODY_LIMITS[this.destruction.bodies];
-  }
   get fragmentLimit() {
     return CANNON_LIMITS[this.destruction.fragments];
   }
@@ -494,7 +487,7 @@ export class Simulation {
       },
       (a, b, landing) => this.steelBallTerrainWork.push({ a, b, landing }),
     );
-    this.monsterRagdolls = new MonsterRagdolls(this.physics, this.terrain);
+    this.monsterRagdolls = new MonsterRagdolls(this.terrain);
     for (const m of this.monsters.states)
       if (
         m.defeated &&
@@ -2708,6 +2701,7 @@ export class Simulation {
   }
   processLaserWork(budgetMS = 1) {
     const start = performance.now();
+    const completed = new Map<LaserStrike, Set<number>>();
     while (this.laserWork.size && performance.now() - start < budgetMS) {
       const [section, work] = this.laserWork.entries().next().value!;
       this.laserWork.delete(section);
@@ -2741,13 +2735,20 @@ export class Simulation {
             resolvedLaserProfile(l.profile).radius ===
               (t.radius ?? LASER.radius) &&
             resolvedLaserProfile(l.profile).depth === (t.depth ?? LASER.depth)
-          )
-            l.pending = l.pending?.filter((id) => id !== section);
+          ) {
+            let sections = completed.get(l);
+            if (!sections) completed.set(l, (sections = new Set()));
+            sections.add(section);
+          }
         }
       for (const id of result.patch.chunks)
         if (this.terrainColliders.has(id)) this.invalidateTerrainCollider(id);
       this.flush(result.patch, undefined, result.dry);
     }
+    // A full-world strike acknowledges thousands of sections. Compact once
+    // per work slice so queued saves retain ordered IDs without copying for every target.
+    for (const [laser, sections] of completed)
+      laser.pending = laser.pending?.filter((id) => !sections.has(id));
     while (this.laserSupport.size && performance.now() - start < budgetMS) {
       const name = this.laserSupport.values().next().value!;
       this.laserSupport.delete(name);
@@ -3124,7 +3125,7 @@ export class Simulation {
           this.laserWork.size +
           this.laserSupport.size +
           this.supportJobs.length,
-        bodies: this.moving.size,
+        bodies: 0,
         ballistic: this.ballistic.size,
         ruins: this.ruins.size,
         removed: this.removed.size - (this.world.portal?.clearedTrees?.length ?? 0),
@@ -3384,7 +3385,7 @@ export class Simulation {
       laserWork: structuredClone([...this.laserWork.values()]),
       laserSupport: [...this.laserSupport],
       laserCooldown: this.cooldowns.laser,
-      laserDry: Uint32Array.from(this.terrain.dryIndices),
+      laserDry: this.terrain.dryIndices.pack(),
       vaporized: [...this.vaporized],
       civilians: structuredClone(this.civilians.states),
       settlements: structuredClone(this.civilians.settlements),
@@ -3396,7 +3397,6 @@ export class Simulation {
     this.steelBalls.reset();
     this.fires.reset();
     this.crashFuel.reset();
-    this.moving.clear();
     this.ballistic.clear();
     this.cleanupRemains.clear();
     this.cleanupExpiry.clear();

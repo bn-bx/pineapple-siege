@@ -1,9 +1,7 @@
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import * as THREE from "three";
 import { textureBytes, sceneResources } from "../src/render/resource-budget";
-import { qualityProfile, VISUAL_BUDGET } from "../src/render/quality-profile";
 import { SimulationCadence } from "../src/simulation-cadence";
-import { CONFIG } from "../src/config";
 it("estimates shared and detached resident resources once, including shader textures", () => {
   const texture = new THREE.DataTexture(new Uint8Array(64), 4, 4);
   texture.generateMipmaps = false;
@@ -21,7 +19,6 @@ it("estimates shared and detached resident resources once, including shader text
     64,
   );
   expect(sceneResources(scene).geometryBytes).toBeGreaterThan(0);
-  expect(VISUAL_BUDGET.targetBytes).toBe(64 * 1048576);
 });
 it("measures sustained simulation speed and discards paused/reset wall time", () => {
   const cadence = new SimulationCadence();

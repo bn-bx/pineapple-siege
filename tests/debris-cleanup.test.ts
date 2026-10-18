@@ -57,7 +57,6 @@ it("stops visual debris motion before shrinking, then removes every pose without
     expect(sim.ballistic.has(rigid)).toBe(true);
     expect(sim.snapshot().bodies).toHaveLength(3);
     ticks(sim, 40);
-    expect(sim.moving.size).toBe(0);
     expect(sim.ballistic.size).toBe(0);
     const bodies = unpackBodies(sim.snapshot(true).packedBodies!);
     expect(bodies).toHaveLength(3);

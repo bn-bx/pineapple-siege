@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { WorldBatches } from "../src/render/world-batches";
 import { ResourceDisposal } from "../src/render/resource-disposal";
@@ -140,7 +140,8 @@ it("destroys local face sections, reloads damage, and collapses a severed head w
         )
         .every((e) => sim.removed.has(e.id)),
     ).toBe(true);
-    expect(sim.moving.size).toBeLessThanOrEqual(CONFIG.maxBodies);
+    expect(sim.physics.bodies.len()).toBe(0);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
     expectCompleteStatueDebris(sim);
   } finally {
     sim.dispose();
@@ -172,7 +173,8 @@ it("removes monument sections under laser and nuclear strikes", () => {
         parts.some((e) => sim.removed.has(e.id)),
         weapon,
       ).toBe(true);
-      expect(sim.moving.size).toBeLessThanOrEqual(CONFIG.maxBodies);
+      expect(sim.physics.bodies.len()).toBe(0);
+      expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
       if (weapon === "nuke") expectCompleteStatueDebris(sim);
     } finally {
       sim.dispose();

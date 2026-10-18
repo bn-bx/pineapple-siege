@@ -35,3 +35,40 @@ it("returns older sectioned saves untouched without decoding moving rubble on th
     vi.restoreAllMocks();
   }
 });
+
+it.each([8, 9, CONFIG.version + 1])(
+  "leaves non-sectioned version %i records for recovery without rewriting them",
+  async (version) => {
+    const historical = { version, marker: "protected", terrain: [[1, 22]] };
+    const request = (result: unknown) => {
+      const r = { result, onsuccess: undefined as (() => void) | undefined };
+      queueMicrotask(() => r.onsuccess?.());
+      return r;
+    };
+    const store = new SaveStore();
+    const transaction = vi.fn(() => ({
+      objectStore: () => ({
+        get: () => request(historical),
+        getAll: () => request([]),
+      }),
+    }));
+    (store as any).db = { transaction };
+    const write = vi.spyOn(store, "write");
+    const baseline = vi.spyOn(store, "baseline");
+    vi.stubGlobal("IDBKeyRange", { bound: () => ({}) });
+    try {
+      expect(await store.load()).toBe(historical);
+      expect(historical).toEqual({
+        version,
+        marker: "protected",
+        terrain: [[1, 22]],
+      });
+      expect(write).not.toHaveBeenCalled();
+      expect(baseline).not.toHaveBeenCalled();
+      expect(transaction).toHaveBeenCalledExactlyOnceWith("worlds");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
+  },
+);

@@ -1,3 +1,4 @@
+import { seedCode } from "../src/world/generator.mjs";
 // Disposable visual QA: six seeds, terrain landmarks, and high-altitude distance extremes.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -18,12 +19,12 @@ const errors = [],
   results = [];
 try {
   for (const code of [
-    "PS2-00000000",
-    "PS2-00000003",
-    "PS2-0000002A",
-    "PS2-00000004",
-    "PS2-00000007",
-    "PS2-0000A301",
+    seedCode(0),
+    seedCode(3),
+    seedCode(42),
+    seedCode(4),
+    seedCode(7),
+    seedCode(41729),
   ]) {
     const context = await browser.newContext({
       viewport: { width: 1100, height: 760 },

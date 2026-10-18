@@ -1,9 +1,10 @@
-// Run against genuine revision-1 fixture files exported before updating generation.
+// Historical layouts belong to recovery. Verify temporary play preserves every
+// protected record byte-for-byte using a genuine revision-1 baseline fixture.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-const { chromium } = await import(
-  process.env.PLAYWRIGHT_MODULE ?? "playwright"
-);
+import { seedCode } from "../src/world/generator.mjs";
+import { VERTICAL_LIMITS } from "../src/world/vertical-limits.mjs";
+
 assert(
   process.env.ISLAND_V1_WORLD && process.env.ISLAND_V1_HEIGHTS,
   "Supply ISLAND_V1_WORLD and ISLAND_V1_HEIGHTS fixture paths",
@@ -11,6 +12,10 @@ assert(
 const world = JSON.parse(await readFile(process.env.ISLAND_V1_WORLD, "utf8"));
 const bytes = await readFile(process.env.ISLAND_V1_HEIGHTS);
 assert.equal(world.generatorVersion, 1);
+assert.equal(bytes.byteLength, world.grid ** 2 * 4);
+const { chromium } = await import(
+  process.env.PLAYWRIGHT_MODULE ?? "playwright"
+);
 const browser = await chromium.launch({
   executablePath:
     process.env.CHROME_PATH ??
@@ -19,12 +24,13 @@ const browser = await chromium.launch({
   args: ["--enable-unsafe-swiftshader"],
 });
 const errors = [];
+let page;
 try {
   const context = await browser.newContext({
     viewport: { width: 1100, height: 760 },
-    permissions: ["clipboard-read", "clipboard-write"],
   });
-  const page = await context.newPage();
+  page = await context.newPage();
+  page.setDefaultTimeout(90000);
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text());
@@ -33,21 +39,105 @@ try {
     route.fulfill({ body: bytes, contentType: "application/octet-stream" }),
   );
   await page.goto(
-    `${process.env.ISLAND_URL ?? "http://127.0.0.1:5177/"}?island=PS2-0000A301#debug`,
+    `${process.env.ISLAND_URL ?? "http://127.0.0.1:5177/"}?island=${seedCode(41729)}#debug`,
   );
+  await page.locator("#islandPreview").waitFor({ state: "visible" });
+  // Install before accepting any candidate, so no active worker can overwrite
+  // the historical snapshot through blur/pagehide captures.
+  await page.evaluate(async (world) => {
+    const heights = new Float32Array(
+      await (await fetch("/qa-v1-world.bin")).arrayBuffer(),
+    );
+    const index = Math.floor(heights.length / 2);
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open("lantern-vale", 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("worlds", "readwrite");
+        const store = tx.objectStore("worlds");
+        store.put({ world, heights }, "baseline");
+        store.put(
+          {
+            version: 8,
+            worldVersion: world.version,
+            generatorVersion: 1,
+            seed: world.seed,
+            marker: "protected-historical-damage",
+            removed: [0],
+            terrain: new Float32Array([index, heights[index] - 5]),
+            laserDry: new Uint32Array([index]),
+            sectioned: true,
+          },
+          "current",
+        );
+        // Incompatible sections must remain opaque and protected as well.
+        store.put({ marker: "protected-historical-section" }, "section:0");
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }, world);
+  const fingerprints = () =>
+    page.evaluate(async () => {
+      const records = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("lantern-vale", 1);
+        request.onsuccess = () => {
+          const db = request.result;
+          const store = db.transaction("worlds").objectStore("worlds");
+          const keys = store.getAllKeys(),
+            values = store.getAll();
+          values.onsuccess = () => {
+            db.close();
+            resolve(keys.result.map((key, i) => [key, values.result[i]]));
+          };
+          values.onerror = () => reject(values.error);
+        };
+        request.onerror = () => reject(request.error);
+      });
+      const digest = async (data) =>
+        Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", data)))
+          .map((n) => n.toString(16).padStart(2, "0"))
+          .join("");
+      const result = {};
+      for (const [key, value] of records) {
+        if (key === "preferences") continue;
+        const encoded = JSON.stringify(value, (field, item) =>
+          field === "heights"
+            ? undefined
+            : ArrayBuffer.isView(item)
+              ? [...item]
+              : item,
+        );
+        result[key] = await digest(new TextEncoder().encode(encoded));
+        if (value.heights)
+          result[key + ":heights"] = await digest(value.heights);
+      }
+      return result;
+    });
+  const protectedRecords = await fingerprints();
+  await page.reload();
+  await page.locator("#recovery").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
+  assert(await page.locator("#recovery").isVisible());
+  assert.deepEqual(await fingerprints(), protectedRecords);
+  await page.locator("#temporary").click();
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
-    {},
-    { timeout: 60000 },
   );
   await page.locator("#keepIsland").click();
-  await page.waitForFunction(
-    () => window.lanternVale?.state.ready,
-    {},
-    { timeout: 90000 },
-  );
+  await page.waitForFunction(() => window.lanternVale?.state.ready);
+  assert.equal(await page.evaluate(() => lanternVale.state.saveEnabled), false);
   await page.evaluate(() => lanternVale.enter());
-  await page.evaluate(() => lanternVale.setPlane([3072, 1260, 3072], 0, 0));
+  const center = await page.evaluate(() => lanternVale.world.castle);
+  await page.evaluate(
+    ({ center, warning }) =>
+      lanternVale.setPlane([center[0], warning + 10, center[2]], 0, 0),
+    { center, warning: VERTICAL_LIMITS.warning },
+  );
   await page.waitForFunction(
     () => !document.getElementById("ceilingWarning").hidden,
   );
@@ -55,7 +145,11 @@ try {
     await page.locator("#ceilingWarning").innerText(),
     /APPROACHING FLIGHT CEILING.*ABOVE SEA LEVEL/,
   );
-  await page.evaluate(() => lanternVale.setPlane([3072, 1360, 3072], 0, 0));
+  await page.evaluate(
+    ({ center, assistance }) =>
+      lanternVale.setPlane([center[0], assistance + 10, center[2]], 0, 0),
+    { center, assistance: VERTICAL_LIMITS.assistance },
+  );
   await page.waitForFunction(() =>
     document
       .getElementById("ceilingWarning")
@@ -63,157 +157,47 @@ try {
   );
   await page.evaluate(() => lanternVale.pause());
   assert(await page.locator("#ceilingWarning").isHidden());
-  console.log("HUD verified");
-  await page.evaluate(() => lanternVale.save());
-  const pristine = await page.evaluate(() => lanternVale.snapshot());
-  // Isolate fixture installation from pagehide/blur captures by the outgoing world.
-  await page.evaluate(() => {
-    const original = Worker.prototype.postMessage;
-    Worker.prototype.postMessage = function (message, ...args) {
-      if (message.type === "capture") {
-        queueMicrotask(() =>
-          this.dispatchEvent(
-            new MessageEvent("message", {
-              data: {
-                id: message.id,
-                commit: { revision: 0, hour: 15, slices: [], storageMS: 0 },
-              },
-            }),
-          ),
-        );
-        return;
-      }
-      return original.call(this, message, ...args);
-    };
+  await page.evaluate(async () => {
+    lanternVale.blast(lanternVale.world.castle, "valley");
+    await lanternVale.step(4);
+    await lanternVale.save();
+    await lanternVale.reset();
+    await lanternVale.save();
   });
-  await page.evaluate(
-    async ({ world, pristine }) => {
-      const heights = new Float32Array(
-        await (await fetch("/qa-v1-world.bin")).arrayBuffer(),
-      );
-      const index = 1500 * world.grid + 1500;
-      const saved = {
-        ...pristine,
-        version: 8,
-        worldVersion: 8,
-        generatorVersion: 1,
-        seed: world.seed,
-        sectioned: undefined,
-        moving: undefined,
-        civilians: undefined,
-        settlements: undefined,
-        monsters: undefined,
-        removed: [0],
-        laserDry: new Uint32Array(),
-        terrain: new Float32Array([index, heights[index] - 5]),
-        ruins: [],
-        pendingJobs: [],
-        lasers: [],
-        laserWork: [],
-        laserSupport: [],
-      };
-      await new Promise((resolve, reject) => {
-        const request = indexedDB.open("lantern-vale", 1);
-        request.onsuccess = () => {
-          const db = request.result,
-            tx = db.transaction("worlds", "readwrite"),
-            store = tx.objectStore("worlds");
-          // Clear revision-2 section deltas before installing the historical save.
-          const cursor = store.openCursor();
-          cursor.onsuccess = () => {
-            const c = cursor.result;
-            if (c) {
-              if (String(c.key).startsWith("section:")) c.delete();
-              c.continue();
-            }
-          };
-          store.put({ world, heights }, "baseline");
-          store.put(saved, "current");
-          tx.oncomplete = () => {
-            db.close();
-            resolve();
-          };
-          tx.onerror = () => reject(tx.error);
-        };
-        request.onerror = () => reject(request.error);
-      });
-    },
-    { world, pristine },
-  );
-  console.log("Historical fixture installed; reloading");
+  assert.deepEqual(await fingerprints(), protectedRecords);
   await page.reload();
-  await page.waitForFunction(
-    () => window.lanternVale?.state.ready,
-    {},
-    { timeout: 90000 },
-  );
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generatorVersion),
-    1,
-  );
-  assert(await page.locator("#recovery").evaluate((e) => !e.open));
-  console.log("Historical world ready");
-  const restored = await page.evaluate(() => lanternVale.snapshot());
-  assert.equal(restored.generatorVersion, 1);
-  assert(restored.removed.includes(0));
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.entities.length),
-    world.entities.length,
-  );
-  console.log("Historical damage verified");
-  await page.locator("#copySeed").click();
-  assert.equal(
-    await page.evaluate(() => navigator.clipboard.readText()),
-    "PS1-0000A301",
-  );
-  const sample = await page.evaluate(() => lanternVale.terrain(3000, 3000));
-  const baselineHeight = bytes.readFloatLE((1500 * world.grid + 1500) * 4);
-  assert(Math.abs(sample - (baselineHeight - 5)) < 0.001);
-  console.log("Historical sharing verified; resetting");
-  await page.evaluate(() => lanternVale.reset());
-  assert(
-    Math.abs(
-      (await page.evaluate(() => lanternVale.terrain(3000, 3000))) -
-        baselineHeight,
-    ) < 0.001,
-  );
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generatorVersion),
-    1,
-  );
-  assert.equal(
-    (await page.evaluate(() => lanternVale.snapshot())).removed.length,
-    0,
-  );
-  await page.evaluate(() => lanternVale.save());
-  await page.reload();
-  await page.waitForFunction(
-    () => window.lanternVale?.state.ready,
-    {},
-    { timeout: 90000 },
-  );
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generatorVersion),
-    1,
-  );
+  await page.locator("#recovery").waitFor({ state: "visible" });
+  assert.deepEqual(await fingerprints(), protectedRecords);
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
       ok: true,
       checks: [
-        "sea-level warning labels",
-        "assistance indicator",
-        "pause hides warning",
-        "revision-1 reload and damage",
-        "revision-1 seed sharing",
-        "reset retains exact historical terrain",
-        "revision-1 save round trip",
+        "historical baseline and damage require recovery",
+        "Escape cannot bypass recovery",
+        "temporary play disables saves",
+        "warning and assistance use sea-level labels",
+        "temporary damage, reset, save and reload preserve historical records",
       ],
       errors,
     }),
   );
 } catch (error) {
-  console.log("Browser errors:", errors);
+  if (page) {
+    await page
+      .screenshot({ path: "/tmp/island-compatibility-failure.png" })
+      .catch(() => {});
+    console.error(
+      await page
+        .evaluate(() => ({
+          status: document.getElementById("status")?.textContent,
+          preview: document.getElementById("islandPreviewStatus")?.textContent,
+          fatal: document.getElementById("fatalMessage")?.textContent,
+          errors: document.getElementById("fatalDetails")?.textContent,
+        }))
+        .catch(() => ({})),
+    );
+  }
   throw error;
 } finally {
   await browser.close();

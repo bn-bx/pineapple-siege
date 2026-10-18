@@ -18,7 +18,7 @@ it("does not scan wreckage when no laser is burning", () => {
       throw Error("inactive laser scanned wreckage");
     },
   };
-  sim.ruins = sim.moving = sim.ballistic = untouched;
+  sim.ruins = sim.ballistic = untouched;
   sim.clearActiveLasers();
   sim.updateLasers(1 / 60);
   sim.lasers.push({ id: 1, p: [100, 10, 100], age: 0, phase: "charging" });
@@ -62,8 +62,12 @@ it("stores dry cells compactly and enumerates bit 31 without duplicating indices
   expect([...indices]).toEqual([0, 31, 32, 1023, 1024, 9440000]);
   expect(indices.size).toBe(6);
   expect(indices.has(31)).toBe(true);
+  const packed = indices.pack();
+  expect(packed).toEqual(Uint32Array.from(indices));
   indices.clear();
   expect([...indices]).toEqual([]);
+  expect(indices.pack()).toHaveLength(0);
+  expect([...packed]).toEqual([0, 31, 32, 1023, 1024, 9440000]);
 });
 it("borrows packed transforms, reuses record identity, and preserves all actor flags", () => {
   const frame = motionFrame();

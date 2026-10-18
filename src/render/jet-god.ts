@@ -10,7 +10,7 @@ export class JetGodView {
     const site = world.sites.find((s) => s.kind === "pineapple-god");
     if (!site) return;
     const figure = world.entities.filter((e) => e.visual && (e.visual.role === "figure" || e.visual.role === "eye"));
-    const ids = (part: number) => figure.filter((e, i) => i % 6 === part).map((e) => e.id);
+    const ids = (part: number) => figure.filter((_, i) => i % 6 === part).map((e) => e.id);
     const effigy = makeInfernalJet("god");
     const sections = new Map<number, THREE.Group>();
     for (const object of [...effigy.children]) {

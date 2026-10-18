@@ -21,23 +21,21 @@ const median = (values) => {
   return (sorted[(sorted.length - 1) >> 1] + sorted[sorted.length >> 1]) / 2;
 };
 try {
-  for (const name of ["generator.mjs", "architecture.mjs"])
+  // Copy the complete baseline module set: generator imports evolve alongside
+  // architecture, terrain, and statue helpers, including across old revisions.
+  const modules = execFileSync(
+    "git",
+    ["ls-tree", "--name-only", ref + ":src/world"],
+    { encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .filter((name) => name.endsWith(".mjs"));
+  for (const name of modules)
     await writeFile(
       join(directory, name),
       execFileSync("git", ["show", `${ref}:src/world/${name}`]),
     );
-  for (const name of ["vertical-limits.mjs", "mountains.mjs"]) {
-    try {
-      await writeFile(
-        join(directory, name),
-        execFileSync("git", ["show", `${ref}:src/world/${name}`], {
-          stdio: ["ignore", "pipe", "ignore"],
-        }),
-      );
-    } catch {
-      /* Earlier generators do not have these modules. */
-    }
-  }
   const baseline = await import(
     pathToFileURL(join(directory, "generator.mjs")).href
   );
