@@ -84,11 +84,35 @@ export class SaveWriter implements DamageWriter {
     const started = performance.now(),
       channel = new MessageChannel();
     try {
-      send(channel.port1);
+      // Firefox can lose messages when a worker posts and closes its endpoint
+      // while the receiving endpoint is still being transferred to a worker.
+      // Install the receiver first and transfer the source only after its ack.
+      const ready = new Promise<void>((resolve, reject) => {
+        channel.port1.onmessage = (event) => {
+          if (event.data?.type === "captureReady") resolve();
+          else reject(Error("Invalid save capture acknowledgement"));
+        };
+        channel.port1.onmessageerror = () =>
+          reject(Error("Save capture acknowledgement could not be decoded"));
+      });
       const committed = this.request(
         { type: "capture", epoch, port: channel.port2 },
         [channel.port2],
       );
+      await Promise.race([
+        ready,
+        committed.then(() => {
+          throw Error("Save capture ended before dispatch");
+        }),
+      ]);
+      channel.port1.onmessage = channel.port1.onmessageerror = null;
+      try {
+        send(channel.port1);
+      } catch (error) {
+        channel.port1.postMessage({ error: String(error) });
+        void committed.catch(() => {});
+        throw error;
+      }
       this.onPreparation?.(performance.now() - started);
       const result = await committed;
       if (!result.commit) throw Error("Save worker returned no commit receipt");

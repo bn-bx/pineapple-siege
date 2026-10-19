@@ -295,17 +295,33 @@ async function activateRealm(realm: Realm, save?: SaveSnapshot, plane?: PlaneSta
   await ready;
   realmReadyResolve = realmReadyReject = undefined;
   if (plane) {
-    const arrived = new Promise<void>((resolve) => { arrivalSnapshotResolve = resolve; });
-    send({ type: "setPlane", plane: arrivalPlane(plane, world.portal!) });
+    const arrival = arrivalPlane(plane, world.portal!);
+    const arrived = new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        arrivalSnapshotResolve = undefined;
+        reject(Error("Portal arrival timed out"));
+      }, 30000);
+      arrivalSnapshotResolve = (snapshot) => {
+        // The worker's initial spawn snapshot can still be in flight when
+        // ready resolves. Wait for the requested arrival pose before resuming.
+        if (!snapshot.plane.p.every((p, i) => Math.abs(p - arrival.p[i]) < 0.001))
+          return;
+        clearTimeout(timeout);
+        arrivalSnapshotResolve = undefined;
+        resolve();
+      };
+    });
+    send({ type: "setPlane", plane: arrival });
     await arrived;
   }
 }
-let arrivalSnapshotResolve: (() => void) | undefined;
+let arrivalSnapshotResolve: ((snapshot: SimulationSnapshot) => void) | undefined;
 async function switchRealm(target: Realm, plane?: PlaneState, resume = true) {
   if (transitioning || !baseIsland) return;
   transitioning = true;
   const departing = activeRealm;
   flash.classList.add("active");
+  session.pause();
   send({ type: "pause", paused: true });
   audio.pause();
   await new Promise((resolve) => setTimeout(resolve, 260));
@@ -327,9 +343,8 @@ async function switchRealm(target: Realm, plane?: PlaneState, resume = true) {
       (saveEnabled ? await destinationStore.load() : undefined);
     if (plane && destination &&
       !portalIntact(realmBaseline(baseIsland, target).world, new Set(destination.removed))) {
-      const bounced = { ...plane, p: [plane.p[0], world.portal!.y + 85, plane.p[2]] as Vec3, pitch: 0.2 };
-      send({ type: "setPlane", plane: bounced });
-      send({ type: "pause", paused: false });
+      send({ type: "setPlane", plane: arrivalPlane(plane, world.portal!) });
+      if (resume) await enter();
       $("status").textContent = "The opening has gone dark.";
       return;
     }
@@ -345,6 +360,10 @@ async function switchRealm(target: Realm, plane?: PlaneState, resume = true) {
         return;
       }
     }
+    // A failed transfer must lift the aircraft out of its portal dive before
+    // flight resumes, including failures before the destination was activated.
+    if (plane && session.ready)
+      send({ type: "setPlane", plane: arrivalPlane(plane, world.portal!) });
     if (resume && session.ready) await enter();
     $("status").textContent = `The opening failed: ${String(error)}`;
   } finally {
@@ -496,8 +515,7 @@ async function handle(message: WorkerMessage) {
       }
       snapshot = message;
       view.receive(message);
-      arrivalSnapshotResolve?.();
-      arrivalSnapshotResolve = undefined;
+      arrivalSnapshotResolve?.(message);
       if (message.stats.shots > lastShots) {
         audio.launch(message.plane.p, message.weapon);
       }

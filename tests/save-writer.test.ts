@@ -100,11 +100,12 @@ it("routes captured payloads through a port and exposes only the committed recei
     storageMS: 4,
   };
   let finished = false;
+  const dispatch = vi.fn((port: MessagePort) => {
+    port.postMessage({ type: "saved", save: save(), slices: receipt.slices });
+    port.close();
+  });
   const capture = f.writer
-    .capture((port) => {
-      port.postMessage({ type: "saved", save: save(), slices: receipt.slices });
-      port.close();
-    })
+    .capture(dispatch)
     .then((result) => {
       finished = true;
       return result;
@@ -117,15 +118,34 @@ it("routes captured payloads through a port and exposes only the committed recei
   >;
   expect(request.type).toBe("capture");
   expect("save" in request).toBe(false);
+  // A source that immediately posts and closes must not be dispatched until
+  // the destination worker has installed its listener.
+  expect(dispatch).not.toHaveBeenCalled();
   const payload = await new Promise<any>((resolve) => {
     request.port.onmessage = (event) => resolve(event.data);
+    request.port.postMessage({ type: "captureReady" });
   });
   expect(payload.type).toBe("saved");
+  expect(dispatch).toHaveBeenCalledOnce();
   expect(payload.save.sections[0].terrain[1]).toBe(20);
   expect(finished).toBe(false);
   request.port.close();
   f.worker.onmessage({ data: { id: request.id, commit: receipt } });
   expect(await capture).toEqual(receipt);
+  f.writer.close();
+});
+it("rejects a receiver failure before dispatching the source", async () => {
+  const f = fixture();
+  const send = vi.fn();
+  const capture = f.writer.capture(send);
+  f.reply(0);
+  await Promise.resolve();
+  f.reply(1, "Receiver unavailable");
+  await expect(capture).rejects.toThrow("Receiver unavailable");
+  expect(send).not.toHaveBeenCalled();
+  (
+    f.requests[1] as Extract<SaveWriteRequest, { type: "capture" }>
+  ).port.close();
   f.writer.close();
 });
 it("rejects failed direct capture dispatch and receipts without a commit", async () => {
@@ -134,16 +154,26 @@ it("rejects failed direct capture dispatch and receipts without a commit", async
     throw Error("Source worker failed");
   });
   f.reply(0);
-  await expect(failed).rejects.toThrow("Source worker failed");
-  expect(f.requests).toHaveLength(1);
-  const missing = f.writer.capture((port) => port.close());
   await Promise.resolve();
-  const request = f.requests[1] as Extract<
+  const failedRequest = f.requests[1] as Extract<
     SaveWriteRequest,
     { type: "capture" }
   >;
+  failedRequest.port.postMessage({ type: "captureReady" });
+  await expect(failed).rejects.toThrow("Source worker failed");
+  f.reply(1, "Source worker failed");
+  failedRequest.port.close();
+  expect(f.requests).toHaveLength(2);
+  const missing = f.writer.capture((port) => port.close());
+  await Promise.resolve();
+  const request = f.requests[2] as Extract<
+    SaveWriteRequest,
+    { type: "capture" }
+  >;
+  request.port.postMessage({ type: "captureReady" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
   request.port.close();
-  f.reply(1);
+  f.reply(2);
   await expect(missing).rejects.toThrow("no commit receipt");
   f.writer.close();
 });

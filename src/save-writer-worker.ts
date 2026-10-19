@@ -62,6 +62,7 @@ self.onmessage = async (event: MessageEvent<SaveWriteRequest>) => {
               finish();
               reject(Error("Save capture could not be decoded"));
             };
+            message.port.postMessage({ type: "captureReady" });
           });
           if (message.epoch !== epoch) throw Error("Obsolete island save");
           const started = performance.now();

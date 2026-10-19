@@ -1,5 +1,5 @@
 {
-  "release": "curved-ocean-horizon-2026-10-18",
+  "release": "portal-save-river-fixes-2026-10-19",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -42,7 +42,10 @@
     "reset-autosave-retirement-ordering",
     "temporary-island-replacement-without-storage",
     "batched-laser-acknowledgements-direct-dry-save-packing",
-    "altitude-based-curved-ocean-horizon"
+    "altitude-based-curved-ocean-horizon",
+    "firefox-save-worker-ready-handshake",
+    "synchronized-portal-arrival-and-safe-failure-recovery",
+    "full-island-river-source-fallback-for-failed-seeds"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216

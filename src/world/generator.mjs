@@ -132,18 +132,20 @@ export function generateIsland(seed, report = () => {}) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
     throw Error("Island seed must be an unsigned 32-bit integer.");
   let failure;
-  for (let attempt = 0; attempt < 8; attempt++) {
+  // Keep every previously accepted PS4 layout byte-exact. Only seeds that
+  // exhausted the original layouts try drainage sources across the full island.
+  for (let attempt = 0; attempt < 16; attempt++) {
     try {
-      return generateCandidate(seed, report, attempt);
+      return generateCandidate(seed, report, attempt % 8, attempt >= 8);
     } catch (error) {
       failure = error;
-      if (attempt < 7)
-        report(`Refining island layout (${attempt + 2}/8)`, 0.02);
+      if (attempt < 15)
+        report(`Refining island layout (${attempt + 2}/16)`, 0.02);
     }
   }
   throw failure;
 }
-function generateCandidate(seed, report, attempt) {
+function generateCandidate(seed, report, attempt, expandedRivers = false) {
   if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff)
     throw Error("Island seed must be an unsigned 32-bit integer.");
   const hash = hashFor((seed ^ Math.imul(attempt, 0x9e3779b9)) >>> 0),
@@ -376,8 +378,9 @@ function generateCandidate(seed, report, attempt) {
     let source = -1,
       best = -Infinity;
     for (let a = 0; a < 1200; a++) {
-      const x = 5 + Math.floor(hash(r * 1900 + a, 81) * 87),
-        z = 5 + Math.floor(hash(r * 1900 + a, 82) * 87),
+      const sourceRange = expandedRivers ? R - 10 : 87,
+        x = 5 + Math.floor(hash(r * 1900 + a, 81) * sourceRange),
+        z = 5 + Math.floor(hash(r * 1900 + a, 82) * sourceRange),
         h = raw(x * 64, z * 64);
       if (
         h < 250 ||

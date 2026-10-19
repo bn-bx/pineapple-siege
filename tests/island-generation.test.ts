@@ -125,6 +125,22 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
     previous = candidate.heights;
   }
 }, 180000);
+it.each([12, 20, 22])(
+  "recovers river-source failures for PS4 seed %i",
+  (seed) => {
+    const refinements: string[] = [];
+    const candidate = generateIsland(seed, (label) => {
+      if (label.startsWith("Refining")) refinements.push(label);
+    });
+    expect(refinements.length).toBeGreaterThanOrEqual(8);
+    expect(candidate.world.seed).toBe(seed);
+    expect(candidate.world.rivers!.length).toBeGreaterThanOrEqual(4);
+    expect(
+      validateIsland(candidate.world, candidate.heights).landFraction,
+    ).toBeGreaterThanOrEqual(0.45);
+  },
+  90000,
+);
 it("keeps residents on dry ground and preserves all three castle home groups", () => {
   const terrain = new Terrain(heights, world.rivers),
     civilians = new Civilians(world, terrain, new Set());
