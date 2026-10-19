@@ -8,6 +8,7 @@ import {
 import { setAudioPosition, setListenerOrientation } from "./spatial-audio";
 import type {
   ContactSound,
+  GravityBombState,
   Explosion,
   LaserStrike,
   Vec3,
@@ -21,6 +22,9 @@ interface NoiseTone {
 }
 
 export class GameAudio {
+  private gravityVoices = new Map<number, {
+    update: (bomb: GravityBombState) => void; stop: () => void;
+  }>();
   private laserVoices = new Map<
     number,
     { update: (l: LaserStrike) => void; stop: () => void }
@@ -391,6 +395,8 @@ export class GameAudio {
     this.lastNuke = -Infinity;
     for (const voice of this.laserVoices.values()) voice.stop();
     this.laserVoices.clear();
+    for (const voice of this.gravityVoices.values()) voice.stop();
+    this.gravityVoices.clear();
     for (const voice of [...this.voices]) voice.stop();
     for (const voice of this.nukeVoices.splice(0)) voice.stop();
   }
@@ -400,6 +406,7 @@ export class GameAudio {
       recordingsLoaded: this.recordings.size,
       nukeVoices: this.nukeVoices.length,
       laserVoices: this.laserVoices.size,
+      gravityVoices: this.gravityVoices.size,
     };
   }
 
@@ -474,6 +481,74 @@ export class GameAudio {
       weapon === "nuke" ? 420 : 1700,
       3,
     );
+  }
+  syncGravityBombs(bombs: GravityBombState[]) {
+    if (!this.ctx || !this.mix) return;
+    const ctx = this.ctx;
+    const active = bombs.filter((b) => b.phase !== "falling").slice(0, 8);
+    const ids = new Set(active.map((b) => b.id));
+    for (const [id, voice] of this.gravityVoices) {
+      if (ids.has(id)) continue;
+      voice.stop();
+      this.gravityVoices.delete(id);
+    }
+    for (const bomb of active) {
+      if (!this.gravityVoices.has(bomb.id)) {
+        const tone = ctx.createOscillator(),
+          bass = ctx.createOscillator();
+        const gain = ctx.createGain(),
+          pan = ctx.createPanner();
+        tone.type = "triangle";
+        bass.type = "sine";
+        gain.gain.value = 0;
+        pan.refDistance = 180;
+        pan.rolloffFactor = 0.7;
+        setAudioPosition(pan, bomb.p);
+        tone.connect(gain);
+        bass.connect(gain);
+        gain.connect(pan).connect(this.mix);
+        tone.start();
+        bass.start();
+        let released = false,
+          stopped = false;
+        this.gravityVoices.set(bomb.id, {
+          update: (state) => {
+            const burst = state.phase === "bursting";
+            const progress = Math.min(1, state.age / 4);
+            if (burst && !released) {
+              released = true;
+              this.noise(state.p, 0.7, 0.6, 2400, 3);
+            }
+            tone.frequency.setTargetAtTime(
+              burst ? 65 : 75 + 420 * progress * progress,
+              ctx.currentTime,
+              0.04,
+            );
+            bass.frequency.setTargetAtTime(
+              burst ? 35 : 35 + 45 * progress,
+              ctx.currentTime,
+              0.04,
+            );
+            gain.gain.setTargetAtTime(
+              burst ? 0 : 0.025 + progress * 0.055,
+              ctx.currentTime,
+              0.04,
+            );
+          },
+          stop: () => {
+            if (stopped) return;
+            stopped = true;
+            gain.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+            tone.stop(ctx.currentTime + 0.1);
+            bass.stop(ctx.currentTime + 0.1);
+            bass.onended = () => {
+              for (const node of [tone, bass, gain, pan]) node.disconnect();
+            };
+          },
+        });
+      }
+      this.gravityVoices.get(bomb.id)!.update(bomb);
+    }
   }
   syncLasers(lasers: LaserStrike[], listener: Vec3) {
     if (!this.ctx || !this.mix || !this.blastNoise) return;

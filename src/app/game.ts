@@ -640,6 +640,7 @@ function frame(now: number) {
     held("ShiftLeft") || held("ShiftRight"),
   );
   audio.syncLasers(snapshot.lasers, view.camera.position.toArray() as Vec3);
+  audio.syncGravityBombs(snapshot.gravityBombs ?? []);
   updateHUD(context, now);
   menu.update();
 }

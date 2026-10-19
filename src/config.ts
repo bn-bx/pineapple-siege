@@ -82,22 +82,21 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
     ejecta: 1200,
   },
 };
-export const STEEL_BALL = {
-  radius: 60,
-  maxActive: 20,
-  rollingResistance: 0.025,
-  angularDamping: 0.015,
-  crushLossPerHit: 0.0001,
-  maxCrushLossPerStep: 0.005,
-  contactGrace: 0.35,
-  slowSpeed: 10,
-  slowSeconds: 1,
-  dentDepth: 2,
-  trackRadius: 10,
-  trackDepth: 1,
+export const GRAVITY_BOMB = {
+  radius: 200,
+  initialRadius: 30,
+  pullSeconds: 4,
+  burstSeconds: 0.75,
+  liftHeight: 35,
+  maxActive: 8,
+  capsuleRadius: 3,
+  lifetime: 20,
+  acceleration: 95,
+  burstSpeed: 180,
+  maxSpeed: 120,
 };
 export const WEAPONS = {
-  steelBall: { cooldown: 5 },
+  gravityBomb: { cooldown: 8 },
   laser: { cooldown: 24 },
   cannon: {
     cooldown: 0.25,

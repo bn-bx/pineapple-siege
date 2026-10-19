@@ -839,6 +839,7 @@ function frame(now: number) {
       false,
     );
     audio.syncLasers(snapshot.lasers, p);
+    audio.syncGravityBombs(snapshot.gravityBombs ?? []);
   }
   if (active) {
     cpu.push(performance.now() - t + handlerWork);

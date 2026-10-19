@@ -21,7 +21,7 @@ import {
   NearMonsterView,
   monsterCombatPose,
 } from "./monster";
-import { SteelBallView } from "./steel-balls";
+import { GravityBombView } from "./gravity-bombs";
 import { ProjectileView } from "./projectiles";
 import { JetMonsterView } from "./jet-monsters";
 import type { ResourceDisposal } from "./resource-disposal";
@@ -54,7 +54,7 @@ export class ActorView {
   private deathRotation = new THREE.Quaternion();
   private deathPreviousRotation = new THREE.Quaternion();
   readonly civilians: CivilianView;
-  readonly steelBallView: SteelBallView;
+  readonly gravityBombView: GravityBombView;
   readonly projectileView: ProjectileView;
   readonly monsterProjectileView = new MonsterProjectileView();
   private monsterFragmentView = new MonsterFragmentView(MAX_MONSTER_COUNT);
@@ -85,7 +85,7 @@ export class ActorView {
     private terrain: TerrainView,
     private effects: Effects,
   ) {
-    this.steelBallView = new SteelBallView(world.realm === "hell");
+    this.gravityBombView = new GravityBombView();
     this.projectileView = new ProjectileView(world.realm === "hell");
     if (world.realm === "hell") {
       this.jetMonsters = new JetMonsterView();
@@ -97,7 +97,7 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
-      this.steelBallView.group,
+      this.gravityBombView.group,
       this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,
@@ -120,7 +120,7 @@ export class ActorView {
     this.flyView.reset();
     this.civilians.reset();
     this.projectileView.reset();
-    this.steelBallView.reset();
+    this.gravityBombView.reset();
     this.monsterProjectileView.reset();
     this.previous = undefined;
     this.rageStarted = undefined;
@@ -413,9 +413,9 @@ export class ActorView {
       previous?.monsterSpikes,
       alpha,
     );
-    this.steelBallView.update(
-      snap.steelBalls ?? [],
-      previous?.steelBalls,
+    this.gravityBombView.update(
+      snap.gravityBombs ?? [],
+      previous?.gravityBombs,
       alpha,
     );
     this.projectileView.update(
@@ -428,7 +428,7 @@ export class ActorView {
         if (shot.weapon === "cannon") this.effects.trail(shot.p, shot.v);
   }
   get projectileCount() {
-    return this.projectileView.count + this.steelBallView.count;
+    return this.projectileView.count + this.gravityBombView.count;
   }
 
   dispose(resources: ResourceDisposal) {
@@ -441,7 +441,7 @@ export class ActorView {
       this.flyView.group,
       this.civilians.group,
       this.projectileView.group,
-      this.steelBallView.group,
+      this.gravityBombView.group,
       this.monsterProjectileView.group,
       this.nearMonsterView.group,
       this.distantMonsterView.group,

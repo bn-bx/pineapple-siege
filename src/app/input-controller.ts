@@ -210,7 +210,7 @@ export function bind(ctx: InputControllerContext): void {
       }
     },
   );
-  for (const weapon of ["cannon", "nuke", "laser", "steelBall"] as const)
+  for (const weapon of ["cannon", "nuke", "laser", "gravityBomb"] as const)
     ctx.$("select-" + weapon).onclick = () => {
       if (ctx.session.active) ctx.send({ type: "weapon", weapon });
     };
@@ -272,7 +272,7 @@ export function bind(ctx: InputControllerContext): void {
               ? "nuke"
               : e.code === "Digit3"
                 ? "laser"
-                : "steelBall",
+                : "gravityBomb",
       });
       return;
     }

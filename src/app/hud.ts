@@ -70,14 +70,14 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("weaponName").textContent = hell
       ? snapshot.weapon === "nuke" ? `JET NUKE · ${label}`
         : snapshot.weapon === "laser" ? "ENGINE LASER"
-        : snapshot.weapon === "steelBall" ? "TURBINE BALL · 120 M"
+        : snapshot.weapon === "gravityBomb" ? "GRAVITY BOMB · 200 M"
         : "JET CANNON"
       : snapshot.weapon === "nuke"
         ? `PINEAPPLE NUKE · ${label} · ${ctx.destruction.nukeScale}×`
         : snapshot.weapon === "laser"
           ? "SPACE LASER · ORBITAL EXCAVATION"
-          : snapshot.weapon === "steelBall"
-            ? "STEEL BALL · 120 M"
+          : snapshot.weapon === "gravityBomb"
+            ? "GRAVITY BOMB · 200 M"
             : "PINEAPPLE CANNON";
     const cooldown = snapshot.cooldowns[snapshot.weapon];
     const strike =
@@ -97,6 +97,8 @@ export function updateHUD(ctx: HudContext, now: number): void {
           : "")
       : snapshot.weapon === "laser" && !snapshot.aim && cooldown <= 0.01
         ? "NO TARGET · AIM AT A SURFACE"
+        : snapshot.weapon === "gravityBomb" && (snapshot.gravityBombs?.length ?? 0) >= 8
+          ? "8 BOMBS ACTIVE"
         : cooldown > 0.01
           ? `READY IN ${cooldown.toFixed(1)} S`
           : !ctx.destruction.noCooldown &&
@@ -111,7 +113,7 @@ export function updateHUD(ctx: HudContext, now: number): void {
               : "READY";
     ctx.$("cooldownFill").style.width =
       `${100 * Math.max(0, 1 - cooldown / (ctx.destruction.noCooldown ? RAPID_FIRE_INTERVAL : WEAPONS[snapshot.weapon].cooldown))}%`;
-    for (const weapon of ["cannon", "nuke", "laser", "steelBall"]) {
+    for (const weapon of ["cannon", "nuke", "laser", "gravityBomb"]) {
       const button = ctx.$("select-" + weapon);
       button.classList.toggle("selected", snapshot.weapon === weapon);
       button.setAttribute("aria-pressed", String(snapshot.weapon === weapon));

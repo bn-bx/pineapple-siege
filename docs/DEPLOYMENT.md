@@ -29,7 +29,9 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`automatic-menu-version-2026-10-19` adds the automatically generated commit-count version to the menu footer and `/version.json`. Version generation is checked across successive commits and a shallow clone; TypeScript, the build, and desktop/mobile menu checks pass.
+`gravity-bomb-2026-10-19` replaces weapon slot 4 with a dropped gravity bomb in both realms. On contact, the core pulls scenery and wreckage inward for four seconds across a growing 200 m field, then releases it outward. The eight-second cooldown, eight-active limit, shared fragmentation budget, and debris speed cap bound repeated drops. The field leaves terrain and aircraft velocity unchanged; destruction persists through existing saves while active bombs remain transient. Forty-six focused weapon, debris, save, rendering, and audio tests, TypeScript, the production build, runtime assets, and a dense-castle browser check pass. Rapid-fire stress and water/lava activation checks pass. A full-suite attempt was stopped after several minutes without a result; no full-suite pass is claimed.
+
+The preceding `automatic-menu-version-2026-10-19` adds the automatically generated commit-count version to the menu footer and `/version.json`. Version generation is checked across successive commits and a shallow clone; TypeScript, the build, and desktop/mobile menu checks pass.
 
 The preceding `portal-save-river-fixes-2026-10-19` release fixes Firefox save delivery by waiting for the receiving worker before dispatching the capture. Portal travel pauses autosaves, waits for the arrival pose, and safely lifts the aircraft out of its dive if a transfer fails. Previously failing PS4 seeds can retry river sources across the full island after exhausting the original layouts; previously successful layouts remain byte-exact. Firefox and Chrome checks cover travel in both directions, forced storage failures, and saving. A separate Chrome production-build check confirms automatic and manual saves survive reload and a full browser restart, including destruction and terrain edits.
 

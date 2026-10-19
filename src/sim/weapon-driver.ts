@@ -29,7 +29,7 @@ export interface WeaponDriverContext {
   weapon: WeaponId;
   input: InputState;
   cooldowns: Record<WeaponId, number>;
-  dropSteelBall: (plane: PlaneState) => boolean;
+  dropGravityBomb: (plane: PlaneState) => boolean;
   laserAim: () => Vec3 | null;
   startLaser: (p: Vec3) => void;
   destruction: {
@@ -68,15 +68,15 @@ export class WeaponDriver {
   fire(p: PlaneState, f: Vec3): void {
     if (p.crashed > 0) return;
     const weapon = this.host.weapon;
-    if (weapon === "steelBall") {
+    if (weapon === "gravityBomb") {
       if (
         this.host.input.fire &&
-        this.host.cooldowns.steelBall <= 1e-9 &&
-        this.host.dropSteelBall(p)
+        this.host.cooldowns.gravityBomb <= 1e-9 &&
+        this.host.dropGravityBomb(p)
       ) {
-        this.host.cooldowns.steelBall = this.host.destruction.noCooldown
+        this.host.cooldowns.gravityBomb = this.host.destruction.noCooldown
           ? RAPID_FIRE_INTERVAL
-          : WEAPONS.steelBall.cooldown;
+          : WEAPONS.gravityBomb.cooldown;
         this.host.shots++;
       }
       return;

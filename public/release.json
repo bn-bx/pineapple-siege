@@ -1,5 +1,5 @@
 {
-  "release": "automatic-menu-version-2026-10-19",
+  "release": "gravity-bomb-2026-10-19",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -17,9 +17,6 @@
     "two-second-nuke-flash",
     "directional-nuke-flash-global-floor",
     "nuclear-fire-lasting-damage-saved-hazards",
-    "steel-ball-120m-oldest-replacement-20-ball-cap",
-    "shallow-ball-terrain-damage-and-slow-speed-cleanup",
-    "adaptive-ball-terrain-collisions",
     "triple-size-and-density-nuclear-flames",
     "enemy-death-body-chunks",
     "larger-procedural-islands-busier-towns",
@@ -46,7 +43,10 @@
     "firefox-save-worker-ready-handshake",
     "synchronized-portal-arrival-and-safe-failure-recovery",
     "full-island-river-source-fallback-for-failed-seeds",
-    "automatic-commit-count-menu-version"
+    "automatic-commit-count-menu-version",
+    "gravity-bomb-four-second-pull-200m-outward-burst",
+    "gravity-bomb-eight-active-cap-and-bounded-debris-forces",
+    "gravity-bomb-pooled-visuals-and-spatial-audio"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216

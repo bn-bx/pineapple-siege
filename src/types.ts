@@ -1,11 +1,11 @@
 import type { CivilianPopulation } from "./civilian-morale";
 export type ProjectileWeapon = "cannon" | "nuke";
-export type WeaponId = ProjectileWeapon | "laser" | "steelBall";
-export interface SteelBallState {
+export type WeaponId = ProjectileWeapon | "laser" | "gravityBomb";
+export interface GravityBombState {
   id: number;
   p: Vec3;
-  q: Quat;
-  fade: number;
+  age: number;
+  phase: "falling" | "pulling" | "bursting";
 }
 export interface LaserProfile {
   radius: number;
@@ -359,7 +359,7 @@ export interface SimulationSnapshot {
   nukeYield: NukeYield;
   cooldowns: Record<WeaponId, number>;
   lasers: LaserStrike[];
-  steelBalls?: SteelBallState[];
+  gravityBombs?: GravityBombState[];
   projectiles: {
     id: number;
     p: Vec3;

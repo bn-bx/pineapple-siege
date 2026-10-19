@@ -12,7 +12,6 @@ import {
   HELL_LAVA_LEVEL,
   LASER,
   RAPID_FIRE_INTERVAL,
-  STEEL_BALL,
   WEAPONS,
   WRECKAGE_FADE_SECONDS,
   WRECKAGE_FLIGHT_SECONDS,
@@ -79,15 +78,13 @@ import { SparseIndices } from "./sparse-indices";
 import { SparseValues } from "./sparse-values";
 import { StaticBlockerIndex } from "./static-blockers";
 import { Terrain } from "./terrain";
-import { ballTerrainGrid } from "./ball-terrain-grid";
-import { SteelBalls, sweptSphereTouches } from "./steel-balls";
+import { GravityBombs, gravityRadius, gravityVelocity } from "./gravity-bombs";
 import { WeaponDriver } from "./weapon-driver";
 const vec = (p: Vec3) => ({ x: p[0], y: p[1], z: p[2] });
 const identity = { x: 0, y: 0, z: 0, w: 1 };
 // Membership in the upper 16 bits, permitted partners in the lower 16 bits.
 const WORLD_COLLISIONS = 0x00010003;
 const WORLD_QUERIES = 0x00010007;
-const BALL_TERRAIN_COLLISIONS = 0x00080004;
 const distance = (a: Vec3, b: Vec3) =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 function rand(n: number) {
@@ -105,9 +102,8 @@ interface Shot {
   age: number;
 }
 export class Simulation {
-  readonly steelBalls: SteelBalls;
+  readonly gravityBombs: GravityBombs;
   private maxEntityExtent = 0;
-  private steelBallTerrainWork: { a: Vec3; b: Vec3; landing: boolean }[] = [];
   private weaponDriver?: WeaponDriver;
   private destructionDriver?: DestructionDriver;
   private prepareWeapons(): void {
@@ -131,7 +127,7 @@ export class Simulation {
       set cooldowns(value) {
         sim.cooldowns = value;
       },
-      dropSteelBall: (plane) => sim.steelBalls.drop(plane),
+      dropGravityBomb: (plane) => sim.gravityBombs.drop(plane),
       laserAim: (...args) => sim.laserAim(...args),
       startLaser: (...args) => sim.startLaser(...args),
       get destruction() {
@@ -221,8 +217,6 @@ export class Simulation {
   readonly entityColliders = new Map<number, RAPIER.Collider>();
   private ruinColliders = new Map<number, RAPIER.Collider>();
   private terrainColliders = new Map<number, RAPIER.Collider>();
-  private ballTerrainColliders = new Map<number, RAPIER.Collider>();
-  private wantedBallTerrain = new Set<number>();
   private pendingTerrainColliders = new Set<number>();
   private assemblies = new Map<string, number[]>();
   readonly projectiles: Shot[] = [];
@@ -252,7 +246,7 @@ export class Simulation {
   setDestruction(value: DestructionSettings) {
     this.destruction = normalizeDestruction(value);
     if (this.destruction.noCooldown)
-      this.cooldowns = { cannon: 0, nuke: 0, laser: 0, steelBall: 0 };
+      this.cooldowns = { cannon: 0, nuke: 0, laser: 0, gravityBomb: 0 };
     // Blast motion uses a fixed visual pool independent of old physics budgets.
   }
   private trackCleanup(id: number) {
@@ -335,7 +329,7 @@ export class Simulation {
     }
   }
 
-  cooldowns = { cannon: 0, nuke: 0, laser: 0, steelBall: 0 };
+  cooldowns = { cannon: 0, nuke: 0, laser: 0, gravityBomb: 0 };
   readonly fires = new NuclearFire();
   readonly crashFuel = new CrashFuel();
   readonly lasers: LaserStrike[] = [];
@@ -402,7 +396,7 @@ export class Simulation {
     residents: 0,
     residency: 0,
     physics: 0,
-    steelBalls: 0,
+    gravityBombs: 0,
     ballistic: 0,
     lasers: 0,
     nuclearFire: 0,
@@ -469,24 +463,7 @@ export class Simulation {
       initialRage,
     );
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
-    this.steelBalls = new SteelBalls(
-      this.physics,
-      this.terrain,
-      (a, b, speed) => this.crushSteelBall(a, b, speed),
-      (p, energy, rolling) => {
-        this.contact(p, "rock", energy, rolling ? "roll" : "impact");
-        if (!rolling)
-          this.emit({
-            type: "explosion",
-            kind: "impact",
-            p,
-            water: this.terrain.water(p[0], p[2]),
-            power: energy,
-            seed: this.tick,
-          });
-      },
-      (a, b, landing) => this.steelBallTerrainWork.push({ a, b, landing }),
-    );
+    this.gravityBombs = new GravityBombs((a, b, radius) => this.gravitySweep(a, b, radius));
     this.monsterRagdolls = new MonsterRagdolls(this.terrain);
     for (const m of this.monsters.states)
       if (
@@ -625,27 +602,6 @@ export class Simulation {
           this.terrain.heights[(cz * 32 + z) * CONFIG.grid + cx * 32 + x];
     return heights;
   }
-  private buildBallTerrainCollider(
-    id: number,
-    fine = this.terrainColliderHeights(id),
-  ) {
-    const old = this.ballTerrainColliders.get(id);
-    if (old) this.physics.removeCollider(old, true);
-    const { samples, heights } = ballTerrainGrid(fine);
-    const cx = id % CHUNKS,
-      cz = Math.floor(id / CHUNKS);
-    const descriptor = RAPIER.ColliderDesc.heightfield(
-      samples,
-      samples,
-      heights,
-      { x: 64, y: 1, z: 64 },
-      RAPIER.HeightFieldFlags.FIX_INTERNAL_EDGES,
-    )
-      .setTranslation(cx * 64 + 32, 0, cz * 64 + 32)
-      .setFriction(0.85)
-      .setCollisionGroups(BALL_TERRAIN_COLLISIONS);
-    this.ballTerrainColliders.set(id, this.physics.createCollider(descriptor));
-  }
   private buildTerrainCollider(id: number) {
     const old = this.terrainColliders.get(id);
     if (old) this.physics.removeCollider(old, true);
@@ -663,15 +619,8 @@ export class Simulation {
       .setFriction(0.85)
       .setCollisionGroups(WORLD_COLLISIONS);
     this.terrainColliders.set(id, this.physics.createCollider(descriptor));
-    if (this.wantedBallTerrain.has(id))
-      this.buildBallTerrainCollider(id, heights);
   }
   private invalidateTerrainCollider(id: number) {
-    const ballCollider = this.ballTerrainColliders.get(id);
-    if (ballCollider) {
-      this.physics.removeCollider(ballCollider, true);
-      this.ballTerrainColliders.delete(id);
-    }
     if (!this.streamedStatics || this.tick === 0) {
       this.buildTerrainCollider(id);
       return;
@@ -697,7 +646,6 @@ export class Simulation {
   }
   private ensureTerrain() {
     const wanted = new Set<number>();
-    this.wantedBallTerrain.clear();
     const near = (p: Vec3, r: number) => {
       for (
         let z = clamp(Math.floor((p[2] - r) / 64), 0, CHUNKS - 1);
@@ -714,32 +662,7 @@ export class Simulation {
     near(this.plane.p, 85);
     near(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 85);
     for (const s of this.projectiles) near(s.p, 12);
-    for (const { p, radius } of this.steelBalls.coverage()) {
-      near(p, radius);
-      // Active balls need collision coverage immediately, rather than the streaming queue.
-      for (
-        let z = clamp(Math.floor((p[2] - radius) / 64), 0, CHUNKS - 1);
-        z <= clamp(Math.floor((p[2] + radius) / 64), 0, CHUNKS - 1);
-        z++
-      )
-        for (
-          let x = clamp(Math.floor((p[0] - radius) / 64), 0, CHUNKS - 1);
-          x <= clamp(Math.floor((p[0] + radius) / 64), 0, CHUNKS - 1);
-          x++
-        ) {
-          const id = z * CHUNKS + x;
-          this.wantedBallTerrain.add(id);
-          if (!this.terrainColliders.has(id)) this.buildTerrainCollider(id);
-          else if (!this.ballTerrainColliders.has(id))
-            this.buildBallTerrainCollider(id);
-          this.pendingTerrainColliders.delete(id);
-        }
-    }
-    for (const [id, collider] of this.ballTerrainColliders)
-      if (!this.wantedBallTerrain.has(id)) {
-        this.physics.removeCollider(collider, true);
-        this.ballTerrainColliders.delete(id);
-      }
+    for (const bomb of this.gravityBombs.bombs) near(bomb.p, gravityRadius(bomb));
     for (const id of wanted)
       if (!this.terrainColliders.has(id)) {
         if (this.streamedStatics && this.tick > 0)
@@ -800,7 +723,7 @@ export class Simulation {
     };
     add(this.plane.p, 110);
     add(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 110);
-    for (const { p, radius } of this.steelBalls.coverage()) add(p, radius);
+    for (const bomb of this.gravityBombs.bombs) add(bomb.p, gravityRadius(bomb));
     for (const [key, range] of cells) {
       for (const id of this.entityCells.get(key) || []) {
         if (this.removed.has(id) || wanted.has(id)) continue;
@@ -2281,114 +2204,115 @@ export class Simulation {
     }
     this.civilians.defeats(before, this.monsters.active());
   }
-  private damageSteelBallTerrain() {
-    if (!this.steelBallTerrainWork.length) return;
-    const values = new Map<number, number>();
-    const chunks = new Set<number>();
-    for (const { a, b, landing } of this.steelBallTerrainWork) {
-      const patch = this.terrain.steelBallTrack(
-        a,
-        b,
-        landing ? STEEL_BALL.radius : STEEL_BALL.trackRadius,
-        landing ? STEEL_BALL.dentDepth : STEEL_BALL.trackDepth,
-      );
-      patch.indices.forEach((id, i) => values.set(id, patch.values[i]));
-      for (const id of patch.chunks) chunks.add(id);
+  private updateGravityBombs(dt: number) {
+    const bursts = this.gravityBombs.update(dt);
+    const pulls = this.gravityBombs.bombs.filter((b) => b.phase === "pulling");
+    const fields = [...pulls, ...bursts];
+    if (!fields.length) return;
+    const candidates = new Map<number, { distance: number; origin: Vec3 }>();
+    const touches = (p: Vec3, size: Vec3, center: Vec3, radius: number) =>
+      p.reduce(
+        (sum, v, i) =>
+          sum + Math.max(0, Math.abs(v - center[i]) - size[i]) ** 2,
+        0,
+      ) <=
+      radius ** 2;
+    let rubbleBudget = 32;
+    for (const bomb of fields) {
+      const radius = gravityRadius(bomb);
+      for (const id of this.nearbyEntities(
+        bomb.p,
+        radius + this.maxEntityExtent,
+      )) {
+        if (this.removed.has(id)) continue;
+        const e = this.world.entities[id];
+        if (!touches(e.p, e.s, bomb.p, radius)) continue;
+        const d = distance(e.p, bomb.p);
+        if (d < (candidates.get(id)?.distance ?? Infinity))
+          candidates.set(id, { distance: d, origin: bomb.p });
+      }
+      for (const r of this.nearbyRuinCandidates(bomb.p, radius)
+        .filter((r) => touches(r.p, orientedSize(r.s, r.q), bomb.p, radius))
+        .sort((a, b) => distance(a.p, bomb.p) - distance(b.p, bomb.p))) {
+        if (rubbleBudget <= 0) break;
+        // Preserve a ruin when the moving-debris pool cannot accept it.
+        if (
+          this.spawnBody(
+            r.p,
+            r.s,
+            r.material,
+            r.source,
+            r.kind,
+            [0, 0, 0],
+            r.q,
+            true,
+            r.roofPart,
+          ) < 0
+        )
+          continue;
+        this.removeRuin(r.id);
+        rubbleBudget--;
+      }
+      for (const [id, remains] of this.cleanupRemains) {
+        if (rubbleBudget <= 0) break;
+        if (
+          !touches(
+            remains.view.p,
+            orientedSize(remains.view.s, remains.view.q),
+            bomb.p,
+            radius,
+          )
+        )
+          continue;
+        this.cleanupRemains.delete(id);
+        this.addBallistic(remains.view, [0, 0, 0]);
+        rubbleBudget--;
+      }
+      if (
+        bomb.phase === "bursting" ||
+        bomb.age === 0 ||
+        Math.floor(bomb.age * 2) !== Math.floor(Math.max(0, bomb.age - dt) * 2)
+      )
+        this.damageMonsters(bomb.p, radius, bomb.phase === "bursting" ? 3 : 1);
     }
-    this.steelBallTerrainWork.length = 0;
-    if (!values.size) return;
-    this.bump();
-    const patch = {
-      indices: Uint32Array.from(values.keys()),
-      values: Float32Array.from(values.values()),
-      chunks: [...chunks],
-      revision: this.revision,
-    };
-    const flood = this.terrain.floodChanged(patch.indices);
-    for (const id of chunks)
-      if (this.terrainColliders.has(id)) this.invalidateTerrainCollider(id);
-    this.flush(patch, flood);
-  }
-  private crushSteelBall(a: Vec3, b: Vec3, speed: number): number {
-    const radius = STEEL_BALL.radius;
-    const touches = (p: Vec3, size: Vec3) =>
-      sweptSphereTouches(a, b, p, size, radius);
-    const middle = a.map((v, i) => (v + b[i]) / 2) as Vec3;
-    const reach = distance(a, b) / 2 + radius;
-    const budget = { n: 0, limit: 16 };
-    let hits = 0;
-    for (const id of this.nearbyEntities(
-      middle,
-      reach + this.maxEntityExtent,
-    )) {
-      const e = this.world.entities[id];
-      if (this.removed.has(id) || !touches(e.p, e.s)) continue;
-      this.fragment(e, middle, Math.min(45, 12 + speed * 0.2), budget);
-      hits++;
+    const budget = { n: 0, limit: 64 };
+    for (const [id, target] of [...candidates]
+      .sort((a, b) => a[1].distance - b[1].distance)
+      .slice(0, 16)) {
+      this.fragment(this.world.entities[id], target.origin, 4, budget);
     }
-    // Ruins use oriented bounds; existing rubble becomes moving debris rather than a wall.
-    for (const r of this.nearbyRuinCandidates(middle, reach)) {
-      if (!touches(r.p, orientedSize(r.s, r.q))) continue;
-      this.removeRuin(r.id);
-      this.spawnBody(
-        r.p,
-        r.s,
-        r.material,
-        r.source,
-        r.kind,
-        this.scatterVelocity(r.p, middle, Math.min(40, 10 + speed * 0.2), r.id),
-        r.q,
-        true,
-        r.roofPart,
-      );
-    }
-    for (const [id, remains] of this.cleanupRemains) {
-      const r = remains.view;
-      if (!touches(r.p, orientedSize(r.s, r.q))) continue;
-      this.cleanupRemains.delete(id);
-      this.addBallistic(
-        r,
-        this.scatterVelocity(r.p, middle, Math.min(40, 10 + speed * 0.2), r.id),
-      );
-    }
+    if (candidates.size)
+      this.resolveSupport(fields[0].p, 7, Math.max(0, budget.limit - budget.n));
+    if (candidates.size || rubbleBudget < 32) this.bump();
     for (const m of this.ballistic.values()) {
-      if (!touches(m.view.p, orientedSize(m.view.s, m.view.q))) continue;
-      m.velocity = this.scatterVelocity(
-        m.view.p,
-        middle,
-        Math.min(40, 10 + speed * 0.2),
-        m.view.id,
-      );
+      const velocity = gravityVelocity(m.view.p, m.velocity, pulls, bursts, dt);
+      if (!velocity) continue;
+      m.velocity = velocity;
       m.grounded = 0;
     }
-    this.civilians.burn(touches);
-    const before = this.monsters.active();
-    for (const m of before) {
-      if (
-        !touches(
-          [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT, m.p[2]],
-          [MONSTER_BODY_RADIUS, MONSTER_BODY_HEIGHT, MONSTER_BODY_RADIUS],
-        )
-      )
-        continue;
-      this.monsters.damage(m, m.health);
-      this.monsterRagdolls.start(m, middle);
-      this.emit({ type: "monsterEvent", p: [...m.p], kind: "defeat" });
-      hits++;
-    }
-    for (const f of this.flies.damageMatching(
-      (f) => touches(f.p, [21, 12, 21]),
-      1000,
-    )) {
-      this.emit({ type: "monsterEvent", p: [...f.p], kind: "defeat" });
-      hits++;
-    }
-    this.civilians.defeats(before, this.monsters.active());
-    if (hits) {
-      this.resolveSupport(middle, 7, Math.max(0, budget.limit - budget.n));
-      this.bump();
-    }
-    return hits;
+    // Keep the same field behavior for dynamic Rapier bodies, including sleeping ones.
+    this.physics.forEachRigidBody((body) => {
+      if (!body.isDynamic()) return;
+      const p = body.translation(),
+        v = body.linvel();
+      const velocity = gravityVelocity(
+        [p.x, p.y, p.z],
+        [v.x, v.y, v.z],
+        pulls,
+        bursts,
+        dt,
+      );
+      if (velocity) body.setLinvel(vec(velocity), true);
+    });
+  }
+  private gravitySweep(a: Vec3, b: Vec3, radius: number): Vec3 | null {
+    const hit = this.sweep(a, b, radius);
+    if (this.world.realm !== "hell") return hit;
+    const level = HELL_LAVA_LEVEL + radius;
+    if (Math.min(a[1], b[1]) > level) return hit;
+    const t = a[1] <= level ? 0 : (level - a[1]) / (b[1] - a[1]);
+    const lava = a.map((v, i) => v + (b[i] - v) * t) as Vec3;
+    return hit && distance(a, hit) < distance(a, lava) ? hit : lava;
   }
   private aircraftSweep(from: Vec3, to: Vec3): Vec3 | null {
     const hit = this.sweep(from, to, 2.2);
@@ -2787,7 +2711,7 @@ export class Simulation {
     return performance.now() - start;
   }
   private updateAim() {
-    if (this.weapon === "steelBall") {
+    if (this.weapon === "gravityBomb") {
       this.aim = null;
       return;
     }
@@ -2852,7 +2776,7 @@ export class Simulation {
     this.portalGrace = Math.max(0, this.portalGrace - dt);
     this.updateCleanup(dt);
     if (!this.holdTime) this.hour = (this.hour + dt / 60) % 24;
-    for (const weapon of ["cannon", "nuke", "laser", "steelBall"] as const)
+    for (const weapon of ["cannon", "nuke", "laser", "gravityBomb"] as const)
       this.cooldowns[weapon] = Math.max(0, this.cooldowns[weapon] - dt);
     const previousPlanePosition = [...this.plane.p] as Vec3;
     const wasCrashed = this.plane.crashed > 0;
@@ -2955,18 +2879,18 @@ export class Simulation {
     }
     this.stageMS.nuclearFire = performance.now() - fireStarted;
     this.destructionMS += laserMS;
-    const ballsStarted = performance.now();
-    this.steelBalls.beforeStep(dt);
-    this.stageMS.steelBalls = performance.now() - ballsStarted;
+    const gravityStarted = performance.now();
+    this.updateGravityBombs(dt);
+    this.stageMS.gravityBombs = performance.now() - gravityStarted;
     const terrainStarted = performance.now();
-    if (this.tick % 20 === 0 || this.steelBalls.balls.length)
+    if (this.tick % 20 === 0 || this.gravityBombs.bombs.length)
       this.ensureTerrain();
     this.stageMS.terrainMaintenance = performance.now() - terrainStarted;
     const residencyStarted = performance.now();
     if (
       this.tick % 4 === 1 ||
       this.pendingJobs.length ||
-      this.steelBalls.balls.length
+      this.gravityBombs.bombs.length
     )
       this.ensureStaticColliders();
     this.stageMS.residency = performance.now() - residencyStarted;
@@ -2978,10 +2902,6 @@ export class Simulation {
     this.physics.step();
     this.monsterRagdolls.update(dt);
     this.stageMS.physics = performance.now() - start;
-    const ballsFinished = performance.now();
-    this.steelBalls.afterStep(dt);
-    this.damageSteelBallTerrain();
-    this.stageMS.steelBalls += performance.now() - ballsFinished;
     this.physicsMS = lerp(this.physicsMS, this.stageMS.physics, 0.05);
     const ballisticStarted = performance.now();
     for (const m of this.ballistic.values()) {
@@ -3034,7 +2954,7 @@ export class Simulation {
           this.stageMS.residency +
           this.stageMS.terrainMaintenance +
           this.stageMS.physics +
-          this.stageMS.steelBalls +
+          this.stageMS.gravityBombs +
           this.stageMS.ballistic +
           this.stageMS.residents +
           this.stageMS.presentationEvents),
@@ -3069,7 +2989,7 @@ export class Simulation {
       weapon: this.weapon,
       nukeYield: this.nukeYield,
       cooldowns: { ...this.cooldowns },
-      steelBalls: this.steelBalls.snapshot(),
+      gravityBombs: this.gravityBombs.snapshot(),
       fires: structuredClone(this.fires.patches),
       fuel: this.crashFuel.snapshot(),
       lasers: structuredClone(this.lasers),
@@ -3394,7 +3314,7 @@ export class Simulation {
     };
   }
   dispose() {
-    this.steelBalls.reset();
+    this.gravityBombs.reset();
     this.fires.reset();
     this.crashFuel.reset();
     this.ballistic.clear();
