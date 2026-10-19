@@ -1,5 +1,5 @@
 {
-  "release": "gravity-bomb-2026-10-19",
+  "release": "gravity-bomb-1000m-2026-10-19",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -44,7 +44,7 @@
     "synchronized-portal-arrival-and-safe-failure-recovery",
     "full-island-river-source-fallback-for-failed-seeds",
     "automatic-commit-count-menu-version",
-    "gravity-bomb-four-second-pull-200m-outward-burst",
+    "gravity-bomb-four-second-pull-1000m-outward-burst",
     "gravity-bomb-eight-active-cap-and-bounded-debris-forces",
     "gravity-bomb-pooled-visuals-and-spatial-audio"
   ],

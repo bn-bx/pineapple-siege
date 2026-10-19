@@ -133,8 +133,27 @@ it("pulls inward and upward, releases outward, and combines fields before the sp
     expect(Math.hypot(...v)).toBeLessThanOrEqual(120.000001);
   }
   expect(
-    gravityVelocity([1300, 0, 1000], [1, 2, 3], [field()], [], 1),
+    gravityVelocity(
+      [1000 + G.radius + 1, 35, 1000],
+      [1, 2, 3],
+      [field()],
+      [],
+      1,
+    ),
   ).toBeNull();
+  expect(G.radius).toBe(1000);
+  expect(
+    gravityVelocity([1900, 35, 1000], [0, 0, 0], [field()], [], 1 / 60)![0],
+  ).toBeLessThan(0);
+  expect(
+    gravityVelocity(
+      [1900, 35, 1000],
+      [0, 0, 0],
+      [],
+      [field("bursting")],
+      1 / 60,
+    )![0],
+  ).toBeGreaterThan(0);
   const early = { ...field(), age: 0 };
   expect(
     gravityVelocity([1080, 35, 1000], [0, 0, 0], [early], [], 1),

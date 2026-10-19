@@ -4,6 +4,7 @@ import {
   BLAST_DEBRIS_LIMIT,
   clamp,
   CONFIG,
+  GRAVITY_BOMB,
   LASER,
   RAPID_FIRE_INTERVAL,
   WEAPONS,
@@ -70,14 +71,14 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("weaponName").textContent = hell
       ? snapshot.weapon === "nuke" ? `JET NUKE · ${label}`
         : snapshot.weapon === "laser" ? "ENGINE LASER"
-        : snapshot.weapon === "gravityBomb" ? "GRAVITY BOMB · 200 M"
+        : snapshot.weapon === "gravityBomb" ? `GRAVITY BOMB · ${GRAVITY_BOMB.radius.toLocaleString("en-US")} M`
         : "JET CANNON"
       : snapshot.weapon === "nuke"
         ? `PINEAPPLE NUKE · ${label} · ${ctx.destruction.nukeScale}×`
         : snapshot.weapon === "laser"
           ? "SPACE LASER · ORBITAL EXCAVATION"
           : snapshot.weapon === "gravityBomb"
-            ? "GRAVITY BOMB · 200 M"
+            ? `GRAVITY BOMB · ${GRAVITY_BOMB.radius.toLocaleString("en-US")} M`
             : "PINEAPPLE CANNON";
     const cooldown = snapshot.cooldowns[snapshot.weapon];
     const strike =

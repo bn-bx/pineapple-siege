@@ -83,7 +83,7 @@ export const NUKE_PROFILES: Record<NukeYield, BlastProfile> = {
   },
 };
 export const GRAVITY_BOMB = {
-  radius: 200,
+  radius: 1000,
   initialRadius: 30,
   pullSeconds: 4,
   burstSeconds: 0.75,
