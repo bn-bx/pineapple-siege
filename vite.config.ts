@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import { rmSync, writeFileSync, mkdirSync } from "node:fs";
 import type { Connect } from "vite";
+import { fileURLToPath } from "node:url";
+import { buildVersion } from "./scripts/build-version";
+const version = buildVersion(fileURLToPath(new URL(".", import.meta.url)));
 const saveBenchmark: Connect.NextHandleFunction = (request, response, next) => {
   if (
     !["/__benchmark-report", "/__benchmark-scene"].includes(
@@ -45,6 +48,19 @@ const saveBenchmark: Connect.NextHandleFunction = (request, response, next) => {
 };
 export default defineConfig({
   plugins: [
+    {
+      name: "commit-count-version",
+      transformIndexHtml(html) {
+        return html.replaceAll("__BUILD_VERSION__", version.version);
+      },
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: JSON.stringify(version) + "\n",
+        });
+      },
+    },
     {
       name: "local-performance-report",
       configureServer(server) {

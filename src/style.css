@@ -1009,6 +1009,7 @@ body:has(#overlay:not([hidden])) header {
 }
 .menu-heading {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 32px;
@@ -1235,6 +1236,12 @@ dialog input {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
+}
+#buildVersion {
+  margin: 0;
+  color: #a6b6be;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .map-heading {
   display: flex;

@@ -19,6 +19,8 @@ The checkout's local Git SSH configuration selects a repository-scoped write dep
 
 A push confirms GitHub receipt. Verify the new release on the production domain after Pages finishes building: `/release.json` must contain the intended release, the game must reach Ready and start, and `/world.json` plus every listed terrain part must return successfully. The Pages dashboard exposes build status and logs.
 
+The menu footer displays `v139`, `v140`, and so on, calculated automatically from the number of commits reachable from the build's `HEAD`. Every new commit advances the version when it is built; pushing to `main` publishes it. No manual bump or Git hook is needed. Vite embeds the number in the menu and writes `/version.json` with the version and full commit ID for deployment verification. Shallow build checkouts fetch their full history before counting; a history-fetch failure stops the build instead of displaying an incorrect version. Local uncommitted edits retain the current commit's version until committed and rebuilt (or the dev server is restarted).
+
 ## Saves and recovery
 
 Browser saves are scoped to the site origin. Keep the production domain unchanged to preserve players' IndexedDB progress; Pages preview URLs and localhost use separate storage. Do not include generated world files, `dist`, credentials, or local Cloudflare state in Git.
@@ -27,7 +29,9 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`portal-save-river-fixes-2026-10-19` fixes Firefox save delivery by waiting for the receiving worker before dispatching the capture. Portal travel pauses autosaves, waits for the arrival pose, and safely lifts the aircraft out of its dive if a transfer fails. Previously failing PS4 seeds can retry river sources across the full island after exhausting the original layouts; previously successful layouts remain byte-exact. Firefox and Chrome checks cover travel in both directions, forced storage failures, and saving. A separate Chrome production-build check confirms automatic and manual saves survive reload and a full browser restart, including destruction and terrain edits.
+`automatic-menu-version-2026-10-19` adds the automatically generated commit-count version to the menu footer and `/version.json`. Version generation is checked across successive commits and a shallow clone; TypeScript, the build, and desktop/mobile menu checks pass.
+
+The preceding `portal-save-river-fixes-2026-10-19` release fixes Firefox save delivery by waiting for the receiving worker before dispatching the capture. Portal travel pauses autosaves, waits for the arrival pose, and safely lifts the aircraft out of its dive if a transfer fails. Previously failing PS4 seeds can retry river sources across the full island after exhausting the original layouts; previously successful layouts remain byte-exact. Firefox and Chrome checks cover travel in both directions, forced storage failures, and saving. A separate Chrome production-build check confirms automatic and manual saves survive reload and a full browser restart, including destruction and terrain edits.
 
 The preceding `curved-ocean-horizon-2026-10-18` release adds an Earth-scale ocean horizon that recedes with camera altitude. Existing water blends into a sky-rendered backdrop with shared day/night colors and reduced distant ripples. Local shorelines, physics, saves, and the lava environment remain unchanged. TypeScript, the production build, runtime assets, nine focused tests, and browser checks at low/high altitude, wide-angle photo mode, sunset, and night pass. The full suite reports 493 passing tests and three timeouts in existing island-generation, monster-save, and cannon statue-reaction tests.
 

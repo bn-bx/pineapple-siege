@@ -1,5 +1,5 @@
 {
-  "release": "portal-save-river-fixes-2026-10-19",
+  "release": "automatic-menu-version-2026-10-19",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -45,7 +45,8 @@
     "altitude-based-curved-ocean-horizon",
     "firefox-save-worker-ready-handshake",
     "synchronized-portal-arrival-and-safe-failure-recovery",
-    "full-island-river-source-fallback-for-failed-seeds"
+    "full-island-river-source-fallback-for-failed-seeds",
+    "automatic-commit-count-menu-version"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216
