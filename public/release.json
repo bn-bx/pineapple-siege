@@ -1,5 +1,5 @@
 {
-  "release": "gravity-bomb-1000m-2026-10-19",
+  "release": "pineapple-god-reference-sculpt-2026-10-23",
   "worldVersion": 10,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -46,7 +46,10 @@
     "automatic-commit-count-menu-version",
     "gravity-bomb-four-second-pull-1000m-outward-burst",
     "gravity-bomb-eight-active-cap-and-bounded-debris-forces",
-    "gravity-bomb-pooled-visuals-and-spatial-audio"
+    "gravity-bomb-pooled-visuals-and-spatial-audio",
+    "pineapple-god-reference-matched-head-and-body-sculpt",
+    "enlarged-animated-cross-realm-portals",
+    "space-laser-island-wide-disco-show"
   ],
   "generatorVersion": 4,
   "mapSizeMeters": 9216
