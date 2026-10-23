@@ -375,6 +375,14 @@ export class GameRenderer {
       this.jetGod = new JetGodView(world);
       this.scene.add(this.jetGod.group);
     }
+    for (const material of Object.values(this.fragmentMaterials))
+      this.environment.disco.install(material);
+    // Include generated statue and distant-view materials in the shared projection.
+    this.scene.traverse((object) => {
+      const material = (object as THREE.Mesh).material;
+      if (material) for (const item of Array.isArray(material) ? material : [material])
+        this.environment.disco.install(item);
+    });
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
     if (world.portal) {
       this.portal = new PortalView(world);
@@ -458,6 +466,8 @@ export class GameRenderer {
     return this.warming;
   }
   private async prewarmOnce() {
+    await this.worldView.approvedGod.load();
+    for (const material of this.worldView.approvedGod.materials) this.environment.disco.install(material);
     this.warmupStages = {};
     let stageStarted = performance.now();
     const mark = (name: string) => {
@@ -743,6 +753,7 @@ export class GameRenderer {
     this.portal?.update(0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
+    this.environment.reset();
     this.crashWrecks.reset();
     this.aircraftFire.reset();
     this.actors.reset();

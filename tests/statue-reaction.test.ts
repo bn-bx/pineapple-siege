@@ -128,31 +128,40 @@ it("drives dedicated near and distant eye emission and never leaves a glow after
     sandstone: new THREE.MeshStandardMaterial(),
   } as any);
   try {
-    const near = (view as any).eyeMaterials as Set<THREE.MeshStandardMaterial>;
-    const far = (view.horizon as any)
-      .eyeMaterials as THREE.MeshStandardMaterial[];
-    expect(near.size).toBeGreaterThan(0);
-    expect(far.length).toBeGreaterThan(0);
+    const packed = JSON.parse(
+      readFileSync("public/assets/pineapple-god/mesh.json", "utf8"),
+    );
+    const bytes = readFileSync("public/assets/pineapple-god/mesh.bin");
+    view.approvedGod.install(
+      packed,
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    );
+    const near = view.approvedGod.materials.filter(
+      (m) => m.emissive.getHex() !== 0,
+    );
+    const far = near; // One shared geometry/material set at every distance.
+    expect(near).toHaveLength(2);
     view.setStatueReaction({ eyeGlowRemaining: 10, enraged: false });
-    for (const mat of [...near, ...far]) {
+    for (const mat of near) {
       expect(mat.emissiveIntensity).toBe(4);
       expect(mat.emissive.r).toBeGreaterThan(mat.emissive.g);
     }
-    const otherRef = view.refs.get(other.id)![0];
-    expect(
-      (otherRef.batch.mesh.material as THREE.MeshStandardMaterial)
-        .emissiveIntensity,
-    ).toBe(0);
+    for (const mat of view.approvedGod.materials.filter(
+      (m) => m.emissive.getHex() === 0,
+    ))
+      expect(mat.emissiveIntensity).toBe(1);
     view.remove(eyes[0].id);
-    expect(view.refs.has(eyes[1].id)).toBe(true);
+    const visible = (e: Entity) =>
+      view.approvedGod.refs
+        .get(e.id)!
+        .some((r) =>
+          Array.from(
+            r.geometry.index!.array.slice(r.start, r.start + r.count),
+          ).some((n) => n !== 0),
+        );
+    expect(visible(eyes[1])).toBe(true);
     view.remove(eyes[1].id);
-    for (const e of eyes) {
-      expect(view.refs.has(e.id)).toBe(false);
-      const ref = (view.horizon as any).refs.get(e.id);
-      const m = new THREE.Matrix4();
-      ref.mesh.getMatrixAt(ref.index, m);
-      expect(m.elements[0]).toBe(0);
-    }
+    for (const e of eyes) expect(visible(e)).toBe(false);
     view.setStatueReaction({ eyeGlowRemaining: 0, enraged: true });
     for (const mat of [...near, ...far]) expect(mat.emissiveIntensity).toBe(0);
   } finally {

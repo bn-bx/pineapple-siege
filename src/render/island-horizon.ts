@@ -73,7 +73,8 @@ export class IslandHorizon {
               : new THREE.BoxGeometry(2, 2, 2);
       const material = new THREE.MeshStandardMaterial({
         color: statue ? "white" : source.color,
-        map: statue ? null : source.map,
+        map: entities[0].visual?.shape === "portal-stone" ? source.map : statue ? null : source.map,
+        vertexColors: entities[0].visual?.shape === "hero-head" || entities[0].visual?.shape === "portal-stone",
         roughness: 1,
         side: statue ? THREE.DoubleSide : THREE.FrontSide,
         emissive: eye ? "#ff1010" : "black",

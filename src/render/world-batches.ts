@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { ApprovedGodView } from "./approved-god";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
 import { isRoof } from "../debris-shape";
@@ -38,6 +39,7 @@ export class WorldBatches {
   readonly removed = new Set<number>();
   readonly flagGroup = new THREE.Group();
   readonly horizon: IslandHorizon;
+  readonly approvedGod: ApprovedGodView;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
   private roof = roofGeometry();
@@ -47,6 +49,8 @@ export class WorldBatches {
     readonly world: WorldData,
     private materials: Record<Material, THREE.MeshStandardMaterial>,
   ) {
+    this.approvedGod = new ApprovedGodView(world);
+    this.scene.add(this.approvedGod.group);
     this.buildBatches();
     this.addBanners();
     this.scene.add(this.flagGroup);
@@ -72,6 +76,7 @@ export class WorldBatches {
       return geometry;
     };
     for (const e of this.world.entities) {
+      if (e.visual?.sculptOwner !== undefined) continue;
       if (this.world.realm === "hell" && e.visual && (e.visual.role === "figure" || e.visual.role === "eye")) continue;
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
@@ -177,11 +182,13 @@ export class WorldBatches {
         }
         // Neutral base material keeps authored stone and gold instance colors intact.
         const eye = statueRole(e, this.world) === "eye",
-          materialKey = e.visual.color + ":" + eye;
+          materialKey = e.visual.color + ":" + eye + ":" + (e.visual.shape === "hero-head" || e.visual.shape === "portal-stone");
         let mat = statueMaterials.get(materialKey);
         if (!mat) {
           mat = new THREE.MeshStandardMaterial({
             color: "white",
+            vertexColors: e.visual.shape === "hero-head" || e.visual.shape === "portal-stone",
+            map: e.visual.shape === "portal-stone" ? this.materials.stone.map : null,
             roughness: 0.9,
             metalness: e.visual.color === "#cf9e38" ? 0.2 : 0,
             side: THREE.DoubleSide,
@@ -238,6 +245,7 @@ export class WorldBatches {
   }
   remove(id: number) {
     this.removed.add(id);
+    this.approvedGod.remove(id);
     this.horizon.remove(id);
     const refs = this.refs.get(id);
     if (!refs) return;
@@ -273,6 +281,7 @@ export class WorldBatches {
   }
   restore(removed: number[]) {
     this.removed.clear();
+    this.approvedGod.restore(removed);
     this.horizon.restore([]);
     this.refs.clear();
     for (const batch of this.batches) {
@@ -317,6 +326,7 @@ export class WorldBatches {
     for (const material of this.eyeMaterials)
       material.emissiveIntensity = intensity;
     this.horizon.setEyeGlow(intensity);
+    this.approvedGod.setEyeGlow(intensity);
   }
   update(
     camera: THREE.PerspectiveCamera,
@@ -347,6 +357,7 @@ export class WorldBatches {
   }
 
   dispose(resources: ResourceDisposal) {
+    this.approvedGod.dispose(resources);
     for (const batch of this.batches) {
       resources.collect(batch.mesh);
       if (batch.low) resources.collect(batch.low);

@@ -1,7 +1,9 @@
+import { applyApprovedGod } from "./approved-god.mjs";
+import { refineGod } from "./refine-god.mjs";
 import { statueShape, rotateStatuePoint } from "./statue-shapes.mjs";
 
 /** Carved sections have tight world-space bounds and ordinary structural owners. */
-export function buildPineappleGod(site, entities, hash, sample) {
+export function buildPineappleGod(site, entities, hash, sample, approved = true) {
   const start = entities.length,
     yaw = site.yaw;
   let role = "throne";
@@ -206,6 +208,7 @@ export function buildPineappleGod(site, entities, hash, sample) {
     );
   }
   const parts = entities.slice(start);
+  refineGod(site, parts);
   // Use the same contact graph as castles, with face relief supported by its host.
   for (let i = 0; i < parts.length; i++)
     for (let j = i + 1; j < parts.length; j++) {
@@ -216,6 +219,7 @@ export function buildPineappleGod(site, entities, hash, sample) {
         b.supports.push(a.id);
       }
     }
+  if (approved) applyApprovedGod(site, parts, sample);
   site.assemblies = [site.id];
   return parts;
 }

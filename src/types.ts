@@ -168,11 +168,19 @@ export interface Entity {
   variant: number;
   treeSpecies?: "pine" | "broadleaf" | "riverside";
   visual?: {
+    anatomyRevision?: number;
+    sculptOwner?: number;
+    sculptRevision?: string;
     shape:
       | "box"
       | "ellipsoid"
       | "sector"
       | "pineapple"
+      | "hero-head"
+      | "hero-torso"
+      | "hero-neck"
+      | "hero-mouth"
+      | "portal-stone"
       | "leaf"
       | "diamond"
       | "rock";

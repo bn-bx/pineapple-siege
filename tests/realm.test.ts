@@ -19,6 +19,13 @@ it("derives the same portal in independent surface and inverted realms", () => {
   const hell = realmBaseline(baseline, "hell");
   expect(surface.world.portal).toEqual(hell.world.portal);
   expect(surface.world.portal!.x).toBe(site.x);
+  expect(site.radius).toBe(54);
+  for (const id of surface.world.portal!.ids) {
+    const p = surface.world.entities[id].p;
+    expect(Math.hypot(p[0] - site.x, p[2] - site.z)).toBeGreaterThan(site.radius);
+    expect(surface.world.entities[id].visual?.shape).toBe("portal-stone");
+    expect(surface.world.entities[id].p[1] + surface.world.entities[id].s[1]).toBeCloseTo(site.y + 7);
+  }
   expect(hell.world.civilians).toEqual([]);
   expect(surface.world.civilians!.length).toBeGreaterThan(0);
   expect(surface.world.entities.length).toBe(world.entities.length + 12);
@@ -45,10 +52,19 @@ it("places clear, traversable portals across island seeds", () => {
     expect(site.y).toBeGreaterThan(15);
     expect(generated.world.entities.some((e) =>
       e.kind !== "tree" && Math.hypot(e.p[0] - site.x, e.p[2] - site.z) <
-      85 + Math.max(e.s[0], e.s[2]),
+      site.radius + 40 + Math.max(e.s[0], e.s[2]),
     )).toBe(false);
   }
 }, 60_000);
+
+it("keeps every terrain vertex below the complete portal aperture and surround", () => {
+  const site=portalSite(baseline);
+  for(let dz=-76;dz<=76;dz+=CONFIG.spacing) for(let dx=-76;dx<=76;dx+=CONFIG.spacing) {
+    if(Math.hypot(dx,dz)>76) continue;
+    const ix=Math.floor((site.x+dx)/CONFIG.spacing),iz=Math.floor((site.z+dz)/CONFIG.spacing);
+    expect(heights[iz*CONFIG.grid+ix]).toBeLessThan(site.y);
+  }
+});
 
 it("lets a descending aircraft cross the aperture and preserves a valid save", () => {
   const surface = realmBaseline(baseline, "surface");
@@ -79,6 +95,23 @@ it("lets a descending aircraft cross the aperture and preserves a valid save", (
   } finally { restored.dispose(); }
   expect(compatible(save, world.version, world.seed)).toBe(true);
   sim.dispose();
+});
+
+it("lets a vertical approach cross outside the old portal opening", () => {
+  const surface = realmBaseline(baseline, "surface"), site = surface.world.portal!;
+  const messages: WorkerMessage[] = [];
+  const sim = new Simulation(surface.world, heights, m => messages.push(m), undefined, true);
+  try {
+    sim.setMonsterCount(0);
+    // 43 units is outside the previous 39-unit travel radius, inside the new 48.
+    sim.plane.p = [site.x + 43, site.y + 18, site.z];
+    sim.plane.pitch = -Math.PI / 2;
+    sim.plane.yaw = 0;
+    sim.plane.speed = 130;
+    sim.portalGrace = 0;
+    for (let i = 0; i < 45 && !messages.some(m => m.type === "portalEnter"); i++) sim.step();
+    expect(messages.some(m => m.type === "portalEnter")).toBe(true);
+  } finally { sim.dispose(); }
 });
 
 it("lets the pineapple fly back through the intact matching aperture", () => {

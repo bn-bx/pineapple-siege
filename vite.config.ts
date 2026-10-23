@@ -75,6 +75,10 @@ export default defineConfig({
       apply: "build",
       closeBundle() {
         rmSync("dist/world.bin", { force: true });
+        // The source sculpt and visual review package are development evidence,
+        // not runtime assets. In particular sculpt.json is too large for Pages.
+        rmSync("dist/review", { recursive: true, force: true });
+        rmSync("dist/statue-review.html", { force: true });
       },
     },
   ],

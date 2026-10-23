@@ -1,3 +1,4 @@
+import manifest from "./world/approved-god-manifest.json" with { type: "json" };
 import type { Entity, StatueReaction, StatueRole, WorldData } from "./types";
 
 /** Old PS4 baselines have the same authored anchors but no semantic role tags. */
@@ -7,6 +8,12 @@ export function statueRole(
 ): StatueRole | undefined {
   if (!e.visual) return;
   if (e.visual.role) return e.visual.role;
+  if (e.visual.sculptOwner !== undefined) {
+    const owner = manifest.owners.find(
+      (o) => o.ordinal === e.visual!.sculptOwner,
+    );
+    if (owner) return owner.role as StatueRole;
+  }
   const site = world.sites?.find(
     (s) => s.kind === "pineapple-god" && s.assemblies.includes(e.assembly),
   );
@@ -25,12 +32,13 @@ export function statueRole(
     return "rock";
   if (z >= 300 && Math.abs(x) < 181) return "stairs";
   if (e.visual.shape !== "box") return "figure";
-  if (near(Math.abs(x), 42) && near(y, 795) && near(z, 104)) return "eye";
+  if (near(Math.abs(x), 42) && near(y, 795) && (near(z, 104) || near(z, 82)))
+    return "eye";
   if (
     (near(x, -290) && near(z, 165)) ||
     (near(y, 270) && near(z, 192)) ||
     (near(y, 544) && near(z, 150)) ||
-    (near(y, 728) && near(z, 101))
+    (near(y, 728) && (near(z, 101) || near(z, 83)))
   )
     return "figure";
   return "throne";

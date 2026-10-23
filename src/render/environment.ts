@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { HELL_LAVA_LEVEL, LASER } from "../config";
+import { DiscoShow } from "./disco-show";
+import { HELL_LAVA_LEVEL } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { makeOcean } from "./ocean";
@@ -10,6 +11,7 @@ import type { TerrainView } from "./terrain-view";
 /** Lighting and water share authoritative hour, strike age, and terrain masks. */
 export class EnvironmentView {
   private hell = false;
+  readonly disco: DiscoShow;
   readonly lighting = new EnvironmentLighting();
   readonly shadowCenter = new THREE.Vector3();
   readonly sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
@@ -26,6 +28,10 @@ export class EnvironmentView {
     shadowSize: number,
   ) {
     this.hell = world.realm === "hell";
+    this.disco = new DiscoShow(world.size);
+    this.scene.add(this.disco.group);
+    this.disco.install(this.terrain.material);
+    for (const material of Object.values(materials)) this.disco.install(material);
     this.sun.castShadow = true;
     const initialShadow = shadowSize;
     this.sun.shadow.mapSize.set(initialShadow, initialShadow);
@@ -127,19 +133,10 @@ export class EnvironmentView {
       this.lighting.ambientIntensity = 2.2;
     }
     const { night, lightDirection: ld } = this.lighting;
-    // Strike age keeps the atmosphere frozen with pause/photo mode and avoids
-    // stacking darkness when several beams fire at once.
-    let laserDim = 0;
-    for (const strike of snap.lasers) {
-      if (strike.phase !== "burning") continue;
-      const age = strike.age - LASER.charge;
-      const envelope = Math.min(
-        THREE.MathUtils.smoothstep(age, 0, 0.25),
-        THREE.MathUtils.smoothstep(LASER.beam - age, 0, 0.5),
-      );
-      laserDim = Math.max(laserDim, envelope * (reduced ? 0.14 : 0.28));
-    }
-    this.sky.material.uniforms.laserDim.value = laserDim;
+    const show = this.disco.update(snap.lasers, snap.time, reduced);
+    this.sky.material.uniforms.laserDim.value = show * .88;
+    this.lighting.sunIntensity *= 1 - show * .94;
+    this.lighting.ambientIntensity *= 1 - show * .65;
     const shadowCenter = this.shadowCenter.set(
       position.x,
       Math.max(0, this.terrain.sample(position.x, position.z)),
@@ -174,10 +171,12 @@ export class EnvironmentView {
 
   reset() {
     this.water.userData.time.value = 0;
+    this.disco.reset();
+    this.sky.material.uniforms.laserDim.value = 0;
   }
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
-    for (const object of [this.sky, this.water, this.rivers, this.abyss]) {
+    for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group]) {
       if (!object) continue;
       resources.collect(object);
       object.removeFromParent();

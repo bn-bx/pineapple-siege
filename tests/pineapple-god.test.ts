@@ -91,17 +91,60 @@ it("keeps sculpted vertices inside collision bounds, preserves both views after 
       }
     }
   fixture.entities = world.entities;
-  const id = parts.find((e) => e.visual?.shape === "pineapple")!.id;
+  const packed = JSON.parse(
+    readFileSync("public/assets/pineapple-god/mesh.json", "utf8"),
+  );
+  const meshBytes = readFileSync("public/assets/pineapple-god/mesh.bin");
+  view.approvedGod.install(
+    packed,
+    meshBytes.buffer.slice(
+      meshBytes.byteOffset,
+      meshBytes.byteOffset + meshBytes.byteLength,
+    ),
+  );
+  const transform = new THREE.Matrix4().makeRotationY(site.yaw!);
+  transform.setPosition(...site.p);
+  for (const [id, refs] of view.approvedGod.refs)
+    for (const ref of refs) {
+      const e = world.entities[id],
+        vertices = ref.geometry.getAttribute("position");
+      for (let i = ref.start; i < ref.start + ref.count; i++) {
+        point
+          .fromBufferAttribute(vertices, ref.original[i])
+          .applyMatrix4(transform);
+        for (let k = 0; k < 3; k++)
+          expect(
+            Math.abs(point.getComponent(k) - e.p[k]),
+            String(id),
+          ).toBeLessThanOrEqual(e.s[k] + 0.002);
+      }
+    }
+  expect(view.approvedGod.refs.size).toBe(815);
+  expect(
+    view.approvedGod.group.children.reduce(
+      (n, m) => n + (m as THREE.Mesh).geometry.groups.length,
+      0,
+    ),
+  ).toBeLessThan(20);
+  const id = parts.find((e) => e.visual?.shape === "hero-head")!.id;
+  const refs = view.approvedGod.refs.get(id)!;
+  const invisible = () =>
+    refs.every((r) =>
+      Array.from(
+        r.geometry.index!.array.slice(r.start, r.start + r.count),
+      ).every((v) => v === 0),
+    );
   view.remove(id);
-  expect(view.refs.has(id)).toBe(false);
-  const horizon = (view.horizon as any).refs.get(id);
-  const matrix = new THREE.Matrix4();
-  horizon.mesh.getMatrixAt(horizon.index, matrix);
-  expect(matrix.elements[0]).toBe(0);
+  expect(invisible()).toBe(true);
+  // The same mesh serves near and distant views; no secondary horizon copy can reappear.
+  expect((view.horizon as any).refs.has(id)).toBe(false);
   view.restore([id]);
-  expect(view.refs.has(id)).toBe(false);
+  expect(invisible()).toBe(true);
   view.restore([]);
-  expect(view.refs.has(id)).toBe(true);
+  for (const r of refs)
+    expect(r.geometry.index!.array.slice(r.start, r.start + r.count)).toEqual(
+      r.original.slice(r.start, r.start + r.count),
+    );
   const resources = new ResourceDisposal();
   view.dispose(resources);
   resources.dispose();
@@ -110,7 +153,7 @@ it("keeps sculpted vertices inside collision bounds, preserves both views after 
 it("destroys local face sections, reloads damage, and collapses a severed head within existing debris limits", () => {
   const sim = new Simulation(world, heights, () => {});
   try {
-    const face = parts.find((e) => e.visual?.shape === "diamond")!;
+    const face = parts.find((e) => e.visual?.role === "eye")!;
     sim.explode(face.p);
     expect(parts.some((e) => sim.removed.has(e.id))).toBe(true);
     expect(parts.filter((e) => sim.removed.has(e.id)).length).toBeLessThan(
@@ -136,12 +179,14 @@ it("destroys local face sections, reloads damage, and collapses a severed head w
     expect(
       parts
         .filter(
-          (e) => e.visual?.shape === "pineapple" && e.p[1] > site.p[1] + 690,
+          (e) => e.visual?.shape === "hero-head" && e.p[1] > site.p[1] + 690,
         )
         .every((e) => sim.removed.has(e.id)),
     ).toBe(true);
     expect(sim.physics.bodies.len()).toBe(0);
-    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
+    expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(
+      BLAST_DEBRIS_LIMIT,
+    );
     expectCompleteStatueDebris(sim);
   } finally {
     sim.dispose();
@@ -174,7 +219,9 @@ it("removes monument sections under laser and nuclear strikes", () => {
         weapon,
       ).toBe(true);
       expect(sim.physics.bodies.len()).toBe(0);
-      expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(BLAST_DEBRIS_LIMIT);
+      expect(sim.snapshot().bodies.length).toBeLessThanOrEqual(
+        BLAST_DEBRIS_LIMIT,
+      );
       if (weapon === "nuke") expectCompleteStatueDebris(sim);
     } finally {
       sim.dispose();

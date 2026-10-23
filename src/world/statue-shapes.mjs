@@ -1,11 +1,46 @@
+import { heroAnatomy } from "./hero-anatomy.mjs";
+
 // Shared source geometry keeps generated collision bounds and both render views aligned.
-export function statueShape(shape, band = 0) {
+export function statueShape(shape, band = 0, azimuth = 0) {
+  if (shape === "hero-head" || shape === "hero-torso" || shape === "hero-neck")
+    return heroAnatomy(shape, band, azimuth);
   const positions = [];
   const tri = (a, b, c) => positions.push(...a, ...b, ...c);
   const quad = (a, b, c, d) => {
     tri(a, b, c);
     tri(a, c, d);
   };
+  if (shape === "hero-mouth") {
+    for (let i = 0; i < 12; i++) {
+      const a = -1 + i / 6,
+        b = a + 1 / 6;
+      const p = (x, y, z) => [x, 0.22 - 0.9 * x * x + y, z];
+      quad(p(a, -0.08, 1), p(b, -0.08, 1), p(b, 0.08, 1), p(a, 0.08, 1));
+      quad(p(b, -0.08, -1), p(a, -0.08, -1), p(a, 0.08, -1), p(b, 0.08, -1));
+      quad(p(a, 0.08, 1), p(b, 0.08, 1), p(b, 0.08, -1), p(a, 0.08, -1));
+      quad(p(a, -0.08, -1), p(b, -0.08, -1), p(b, -0.08, 1), p(a, -0.08, 1));
+    }
+    return positions;
+  }
+  if (shape === "portal-stone") {
+    for (let i = 0; i < 8; i++) {
+      const a = -Math.PI / 12 + (i * Math.PI) / 48,
+        b = a + Math.PI / 48;
+      const p = (r, y, angle) => [r * Math.cos(angle), y, r * Math.sin(angle)];
+      quad(p(0.72, 1, a), p(1, 1, a), p(1, 1, b), p(0.72, 1, b));
+      quad(p(0.72, -1, b), p(1, -1, b), p(1, -1, a), p(0.72, -1, a));
+      quad(p(1, -1, a), p(1, -1, b), p(1, 1, b), p(1, 1, a));
+      quad(p(0.72, -1, b), p(0.72, -1, a), p(0.72, 1, a), p(0.72, 1, b));
+    }
+    for (const a of [-Math.PI / 12, Math.PI / 12])
+      quad(
+        [0.72 * Math.cos(a), -1, 0.72 * Math.sin(a)],
+        [Math.cos(a), -1, Math.sin(a)],
+        [Math.cos(a), 1, Math.sin(a)],
+        [0.72 * Math.cos(a), 1, 0.72 * Math.sin(a)],
+      );
+    return positions;
+  }
   if (shape === "box" || shape === "leaf" || shape === "diamond") {
     const points =
       shape === "leaf"

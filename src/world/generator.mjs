@@ -2,6 +2,7 @@ import { createMountainLayout, mountainRelief } from "./mountains.mjs";
 import { createArchitecture } from "./architecture.mjs";
 import { VERTICAL_LIMITS } from "./vertical-limits.mjs";
 import { buildPineappleGod } from "./pineapple-god.mjs";
+import { applyApprovedGod } from "./approved-god.mjs";
 export const GENERATOR_VERSION = 4;
 export const WORLD_VERSION = 10;
 export const SIZE = 9216;
@@ -1113,7 +1114,9 @@ function generateCandidate(seed, report, attempt, expandedRivers = false) {
   report("Building breakable castles and coastal landmarks", 0.5);
   const architecture = createArchitecture({ sites, castles }, sample, hash),
     { entities, homes } = architecture;
-  buildPineappleGod(god, entities, hash, sample);
+  // Validate the original owner layout before upgrading its geometry. This
+  // preserves PS4 retry decisions, terrain, seeds and structural identity order.
+  buildPineappleGod(god, entities, hash, sample, false);
   architecture.structureCount = entities.length;
   if (entities.length > 48000)
     throw Error(`Structure budget exceeded: ${entities.length}`);
@@ -1297,6 +1300,11 @@ function generateCandidate(seed, report, attempt, expandedRivers = false) {
   // Reject layouts with too little usable land or insufficient surrounding ocean.
   if (landFraction < 0.45 || landFraction > 0.68)
     throw Error("Island footprint failed generation validation.");
+  applyApprovedGod(
+    god,
+    entities.filter((e) => e.assembly === god.id),
+    sample,
+  );
   report("Island ready", 1);
   return { world, heights };
 }
