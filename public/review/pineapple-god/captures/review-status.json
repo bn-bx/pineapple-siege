@@ -1,0 +1,97 @@
+{
+  "status": "Head and body accepted; in-game review pending. integrated; awaiting user visual acceptance",
+  "revisionScope": "Continuous torso/arms/hands, seated hip-to-calf forms, drapery, cuffs, necklace, scepter shaft and stairs. Approved head geometry and texture preserved.",
+  "headOutline": {
+    "score": 0.9831954700832398,
+    "threshold": 0.97,
+    "pass": true,
+    "scope": "Head ROI segmented from reference colors; boundary ambiguity remains at gold neck/crown joins."
+  },
+  "figureOutline": {
+    "score": 0.956175531865108,
+    "threshold": 0.95,
+    "pass": true,
+    "scope": "Figure only. Throne/architecture require visual review. Hand-traced accessory contours share authoring constraints."
+  },
+  "facialLandmarks": {
+    "observed": 0,
+    "required": 16,
+    "mean": null,
+    "max": null,
+    "complete": false,
+    "pass": false,
+    "nominalPass": false,
+    "certified": false,
+    "geometryGateEligible": false
+  },
+  "surfaceProjection": {
+    "texture": "head-surface.png",
+    "crop": [
+      460,
+      184,
+      705,
+      478
+    ],
+    "scope": "head and neck only",
+    "bakedLightingRemains": true
+  },
+  "geometryEvidence": "Photo-surface landmarks cannot independently verify geometry; inspect clay and side captures.",
+  "visualReview": {
+    "headAndNeck": "visually accepted; geometry and texture unchanged",
+    "body": "visually accepted by user",
+    "wholeStatue": "head and body review accepted; in-game result pending",
+    "inGame": "integrated; awaiting user visual acceptance"
+  },
+  "bodySurface": {
+    "texture": "body-surface.png",
+    "crop": [
+      130,
+      140,
+      980,
+      1090
+    ],
+    "scope": "body, drapery, jewelry and scepter",
+    "bakedLightingRemains": true,
+    "occludedAreasReconstructed": true
+  },
+  "clothSurface": {
+    "texture": "cloth-surface.png",
+    "crop": [
+      130,
+      140,
+      980,
+      1090
+    ],
+    "scope": "reconstructed hanging fabric",
+    "bakedLightingRemains": true
+  },
+  "renderBudget": {
+    "triangles": 440638,
+    "meshes": 43
+  },
+  "remainingChecks": [
+    "Body outline is fitted to source trace v2; overlap reports constraint satisfaction, not independent proof of likeness. Source trace remains approximate.",
+    "Review continuous anatomy in body-clay-comparison.png, clay-three.png and clay-side.png. Photographic shading remains in the material.",
+    "Aircraft-hidden fabric is reconstructed using a separate vertical cloth atlas; no unseen source anatomy is certified.",
+    "Production integration uses packed geometry with stable damage owners. Final in-game visual acceptance remains pending."
+  ],
+  "files": [
+    "body-comparison.png",
+    "body-clay-comparison.png",
+    "body-before-after.png",
+    "body-surface-and-clay.png",
+    "body-overlay.png",
+    "whole-comparison.png",
+    "whole-overlay.png",
+    "whole-silhouette-difference.png",
+    "three.png",
+    "side.png",
+    "clay-three.png",
+    "clay-side.png",
+    "head-comparison.png",
+    "measurements.json"
+  ],
+  "referenceSHA256": "10975841ad577b91044616b95ce760f62e9d913b11607cbf3258ac24da89e163",
+  "sculptSHA256": "064f9254f91ab8a8cb0e135c92f6efb7af836176f9d4c6c881771074193c446b",
+  "browserErrors": []
+}

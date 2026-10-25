@@ -4,6 +4,7 @@ import { HELL_LAVA_LEVEL } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { makeOcean } from "./ocean";
+import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
 import type { ResourceDisposal } from "./resource-disposal";
 import { makeRivers } from "./river-view";
@@ -19,6 +20,7 @@ export class EnvironmentView {
   readonly ambient = new THREE.HemisphereLight("#c4e3f4", "#565b32", 1.8);
   readonly water: ReturnType<typeof makeOcean>;
   readonly rivers: THREE.Group;
+  readonly coastline?: CoastlineView;
   readonly abyss?: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
   constructor(
     private scene: THREE.Scene,
@@ -77,6 +79,12 @@ export class EnvironmentView {
     );
     this.rivers = makeRivers(world, this.terrain);
     this.scene.add(this.water, this.rivers);
+    if (!this.hell) {
+      this.coastline = new CoastlineView(this.terrain);
+      this.scene.add(this.coastline.group);
+      this.disco.install(this.coastline.beach.material);
+      this.disco.install(this.coastline.rocks.material as THREE.MeshStandardMaterial);
+    }
     if (this.hell) {
       this.water.visible = false;
       this.scene.fog = new THREE.FogExp2("#7e382f", 0.00046);
@@ -152,6 +160,7 @@ export class EnvironmentView {
     this.materials.window.emissiveIntensity = night * 0.45;
     this.water.material.color.copy(this.lighting.waterColor);
     this.water.userData.time.value = snap.time;
+    this.coastline?.update(snap.time,(1-night*.83)*(1-show*.85));
     const riverMaterial = this.rivers.userData
       .material as THREE.MeshStandardMaterial;
     riverMaterial.color.copy(this.lighting.waterColor);
@@ -176,7 +185,7 @@ export class EnvironmentView {
   }
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
-    for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group]) {
+    for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group, this.coastline?.group]) {
       if (!object) continue;
       resources.collect(object);
       object.removeFromParent();

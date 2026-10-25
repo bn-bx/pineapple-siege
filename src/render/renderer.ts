@@ -62,6 +62,7 @@ import { Presentation } from "./presentation";
 import { PortalView } from "./portal";
 import { JetGodView } from "./jet-god";
 import { BuildingFireView } from "./building-fire";
+import { treeCanopyScale, setTreeCanopyColor } from "./tree-appearance";
 import { deadTreeGeometry, setDeadTreeColor } from "./dead-tree";
 import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
 import { sceneResources } from "./resource-budget";
@@ -827,6 +828,7 @@ export class GameRenderer {
           geo: THREE.BufferGeometry;
           mat: THREE.Material;
           matrices: THREE.Matrix4[];
+          colors: (THREE.Color | undefined)[];
         }
       >();
     let installed = false;
@@ -835,11 +837,13 @@ export class GameRenderer {
         name: string,
         geo: THREE.BufferGeometry,
         mat: THREE.Material,
+        color?: THREE.Color,
       ) => {
         let batch = lists.get(name);
-        if (!batch) lists.set(name, (batch = { geo, mat, matrices: [] }));
+        if (!batch) lists.set(name, (batch = { geo, mat, matrices: [], colors: [] }));
         dummy.updateMatrix();
         batch.matrices.push(dummy.matrix.clone());
+        batch.colors.push(color?.clone());
         bounds.expandByPoint(dummy.position);
         if (!geo.boundingSphere) geo.computeBoundingSphere();
         maxRadius = Math.max(
@@ -880,15 +884,14 @@ export class GameRenderer {
             new THREE.Vector3(0, -r.s[1], 0).applyQuaternion(dummy.quaternion),
           );
           const ratio = r.s[1] / e.s[1];
-          dummy.scale.set(
-            e.s[0] * 1.45 * ratio,
-            r.s[1] * 2,
-            e.s[0] * 1.45 * ratio,
-          );
+          dummy.scale.fromArray(treeCanopyScale(e)).multiplyScalar(ratio);
           add(
             `canopy-${e.treeSpecies ?? "pine"}`,
             this.crownGeometry(e.treeSpecies ?? "pine"),
             this.materials.foliage,
+            this.world.realm === "hell"
+              ? setDeadTreeColor(this.fragmentColor, e)
+              : setTreeCanopyColor(this.fragmentColor, e),
           );
         } else if (r.pile) {
           // A compact record renders as several irregular solid chunks rather
@@ -922,7 +925,7 @@ export class GameRenderer {
           );
       }
       bounds.radius += maxRadius;
-      for (const { geo, mat, matrices } of lists.values()) {
+      for (const { geo, mat, matrices, colors } of lists.values()) {
         const mesh = new THREE.InstancedMesh(geo, mat, matrices.length);
         group.add(mesh);
         for (let i = 0; i < matrices.length; i++) {
@@ -931,7 +934,7 @@ export class GameRenderer {
           mesh.setMatrixAt(i, m);
           mesh.setColorAt(
             i,
-            this.fragmentColor.setScalar(
+            colors[i] ?? this.fragmentColor.setScalar(
               0.86 +
                 (Math.abs(m.elements[12] * 17 + m.elements[14] * 31) % 19) / 70,
             ),
@@ -1248,23 +1251,22 @@ export class GameRenderer {
           };
           offset(b.p, b.q, height);
           if (previous) offset(previous.p, previous.q, previousHeight);
-          b.s[0] = b.s[2] = (e.s[0] * 1.45 * height) / e.s[1];
-          if (previous)
-            previous.s[0] = previous.s[2] =
-              (e.s[0] * 1.45 * previousHeight) / e.s[1];
+          const crownScale = treeCanopyScale(e);
+          b.s[0] = crownScale[0] * height / e.s[1];
+          b.s[1] = crownScale[1] * height / e.s[1];
+          b.s[2] = crownScale[2] * height / e.s[1];
+          if (previous) {
+            previous.s[0] = crownScale[0] * previousHeight / e.s[1];
+            previous.s[1] = crownScale[1] * previousHeight / e.s[1];
+            previous.s[2] = crownScale[2] * previousHeight / e.s[1];
+          }
           const canopy = this.fallenCanopy(species);
           writeDebrisMotion(canopy, index, b, previous);
           canopy.setColorAt(
             index,
-            this.world.realm === "hell" ? setDeadTreeColor(this.fragmentColor, e) : this.fragmentColor.setHSL(
-              species === "broadleaf"
-                ? 0.2
-                : species === "riverside"
-                  ? 0.27
-                  : 0.24,
-              0.18,
-              0.77 + e.variant * 0.16,
-            ),
+            this.world.realm === "hell"
+              ? setDeadTreeColor(this.fragmentColor, e)
+              : setTreeCanopyColor(this.fragmentColor, e),
           );
           canopyCounts.set(species, index + 1);
           trees++;
@@ -1292,18 +1294,16 @@ export class GameRenderer {
             .applyQuaternion(dummy.quaternion),
         );
         const ratio = height / e.s[1];
-        dummy.scale.set(
-          e.s[0] * 1.45 * ratio,
-          height * 2,
-          e.s[0] * 1.45 * ratio,
-        );
+        dummy.scale.fromArray(treeCanopyScale(e)).multiplyScalar(ratio);
         dummy.updateMatrix();
         const species = e.treeSpecies ?? "pine",
           index = canopyCounts.get(species) ?? 0;
         this.fallenCanopy(species).setMatrixAt(index, dummy.matrix);
         this.fallenCanopy(species).setColorAt(
           index,
-          this.fragmentColor.setScalar(1),
+          this.world.realm === "hell"
+            ? setDeadTreeColor(this.fragmentColor, e)
+            : setTreeCanopyColor(this.fragmentColor, e),
         );
         canopyCounts.set(species, index + 1);
         trees++;
@@ -1462,6 +1462,7 @@ export class GameRenderer {
     if (active) this.performance.record("frame", dt * 1000);
     this.frame++;
     if (active) this.elapsed += dt;
+    this.worldView.foliageTime.value = this.elapsed;
     if (active)
       this.averageMS = this.averageMS * 0.95 + Math.min(dt * 1000, 200) * 0.05;
     const playback = this.timeline.sample(frameTime, active);

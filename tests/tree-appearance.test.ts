@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import * as THREE from "three";
-import { setTreeCanopyColor, treeCanopyScale } from "../src/render/tree-appearance";
+import {
+  setTreeCanopyColor,
+  treeCanopyScale,
+} from "../src/render/tree-appearance";
 
 it.each(["pine", "broadleaf", "riverside"] as const)(
   "varies %s crown proportions deterministically within a restrained range",
@@ -15,12 +18,12 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
       other = treeCanopyScale({ ...tree, variant: 0.83 });
     expect(repeated).toEqual(first);
     expect(other).not.toEqual(first);
-    expect(first[0]).toBeGreaterThan(3 * 1.45 * 0.76);
-    expect(first[0]).toBeLessThan(3 * 1.45 * 1.24);
-    expect(first[1]).toBeGreaterThan(12 * 2 * 0.8);
-    expect(first[1]).toBeLessThan(12 * 2 * 1.2);
-    expect(first[2]).toBeGreaterThan(3 * 1.45 * 0.74);
-    expect(first[2]).toBeLessThan(3 * 1.45 * 1.26);
+    expect(first[0]).toBeGreaterThan(3 * 2.35 * 0.65);
+    expect(first[0]).toBeLessThan(3 * 2.35 * 1.31);
+    expect(first[1]).toBeGreaterThan(12 * 2.45 * 0.75);
+    expect(first[1]).toBeLessThan(12 * 2.45 * 1.3);
+    expect(first[2]).toBeGreaterThan(3 * 2.35 * 0.65);
+    expect(first[2]).toBeLessThan(3 * 2.35 * 1.31);
   },
 );
 
@@ -34,7 +37,9 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
         variant: i / 15,
       }),
     );
-    expect(new Set(crowns.map((shape) => shape.join(":"))).size).toBeGreaterThan(12);
+    expect(
+      new Set(crowns.map((shape) => shape.join(":"))).size,
+    ).toBeGreaterThan(12);
     for (const shape of crowns)
       expect(shape.every((scale) => Number.isFinite(scale) && scale > 0)).toBe(
         true,

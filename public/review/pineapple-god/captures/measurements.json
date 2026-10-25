@@ -1,0 +1,119 @@
+{
+  "status": "body-awaiting-visual-acceptance",
+  "headReview": "visually accepted; geometry and texture unchanged",
+  "liveGameModified": false,
+  "reference": "reference.png",
+  "meshRevision": "3649188f205804ce8fc896d51d261f10eb6695a446f699802230b190d36da57a",
+  "scope": "Head ROI and figure-only silhouette; throne and architecture require visual review",
+  "camera": {
+    "position": [
+      0,
+      400,
+      1800
+    ],
+    "target": [
+      0,
+      400,
+      0
+    ],
+    "fov": 45,
+    "near": 1,
+    "far": 5000,
+    "width": 1145,
+    "height": 1374
+  },
+  "facialObservationMethod": "Visual picks on rendered candidate; never projected source fitting vertices",
+  "observationUncertaintyPixels": null,
+  "observedOnImageSHA256": null,
+  "lighting": {
+    "ambient": 1.65,
+    "sunIntensity": 2.1,
+    "sunPosition": [
+      600,
+      1200,
+      1000
+    ],
+    "fillIntensity": 0.4,
+    "exposure": 1,
+    "time": 0,
+    "crt": "off"
+  },
+  "activeView": "whole",
+  "actualCameraPosition": [
+    0,
+    400,
+    1800
+  ],
+  "surfaceMode": "photo",
+  "referenceSurface": {
+    "texture": "head-surface.png",
+    "crop": [
+      460,
+      184,
+      705,
+      478
+    ],
+    "scope": "head and neck only",
+    "bakedLightingRemains": true
+  },
+  "bodySurface": {
+    "texture": "body-surface.png",
+    "crop": [
+      130,
+      140,
+      980,
+      1090
+    ],
+    "scope": "body, drapery, jewelry and scepter",
+    "bakedLightingRemains": true,
+    "occludedAreasReconstructed": true
+  },
+  "clothSurface": {
+    "texture": "cloth-surface.png",
+    "crop": [
+      130,
+      140,
+      980,
+      1090
+    ],
+    "scope": "reconstructed hanging fabric",
+    "bakedLightingRemains": true
+  },
+  "renderBudget": {
+    "triangles": 440638,
+    "meshes": 43
+  },
+  "geometryEvidence": "Inspect clay captures. Photo-surface facial landmarks are source-driven and cannot independently verify geometry.",
+  "headIoU": 0.9831954700832398,
+  "bodyIoU": 0.956175531865108,
+  "face": {
+    "observed": 0,
+    "required": 16,
+    "mean": null,
+    "max": null,
+    "complete": false,
+    "pass": false,
+    "nominalPass": false,
+    "certified": false,
+    "geometryGateEligible": false
+  },
+  "observationsSurface": "photo",
+  "observations": {},
+  "thresholds": {
+    "headIoU": 0.97,
+    "bodyIoU": 0.95,
+    "meanFace": 0.01,
+    "maxFace": 0.02
+  },
+  "maskProvenance": "Head mask is segmented from original image colors and hole-filled. Body trace v2 is a source-coordinate manual estimate, corrected against the source pixel grid; the original coarse trace is retained. Some accessory contours remain shared authoring constraints. Body geometry is fitted to this trace; its overlap is a constraint-satisfaction check, not independent likeness proof. Neither score establishes exact appearance. Body cage fitting uses this trace; the figure score measures constraint satisfaction, not independent likeness.",
+  "limitations": [
+    "Silhouette annotations are estimates; accessory contours are shared authoring constraints.",
+    "Fitting scores do not certify likeness. Facial observations are approximate with roughly two-pixel uncertainty.",
+    "Depth and unseen surfaces are unverified.",
+    "Head and body use photo-derived UV detail with residual baked illumination. Appearance is not independent geometry evidence.",
+    "Aircraft-occluded fabric uses a separate reconstructed cloth atlas; hidden fabric is unverified.",
+    "Head outline is measured in the original y=190..414 ROI; the connected neck is outside that diagnostic.",
+    "No game integration before explicit visual acceptance."
+  ],
+  "browserErrors": []
+}

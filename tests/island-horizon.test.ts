@@ -75,11 +75,23 @@ it("carries the same species-specific crown proportions into whole-island silhou
 });
 
 it("keeps hell trees bare through every detail level and saved destruction", () => {
-  const entities = ["pine", "broadleaf", "riverside"].map((treeSpecies, id) => ({
-    id, kind: "tree", material: "wood", treeSpecies,
-    p: [3000 + id * 20, 30, 3000], s: [3, 12, 3], variant: .5,
-  }));
-  const world = { realm: "hell", entities, banners: [] } as unknown as WorldData;
+  const entities = ["pine", "broadleaf", "riverside"].map(
+    (treeSpecies, id) => ({
+      id,
+      kind: "tree",
+      material: "wood",
+      treeSpecies,
+      p: [3000 + id * 20, 30, 3000],
+      s: [3, 12, 3],
+      variant: 0.5,
+    }),
+  );
+  const world = {
+    realm: "hell",
+    entities,
+    banners: [],
+    sites: [],
+  } as unknown as WorldData;
   const scene = new THREE.Scene();
   const materials = {
     wood: new THREE.MeshStandardMaterial({ color: "#5e5149" }),
@@ -93,7 +105,9 @@ it("keeps hell trees bare through every detail level and saved destruction", () 
   for (const mesh of view.horizon.group.children as THREE.InstancedMesh[])
     expect(mesh.geometry.name).toMatch(/^dead-.*-low$/);
   view.remove(0);
-  expect(view.batches.reduce((count, batch) => count + batch.ids.length, 0)).toBe(2);
+  expect(
+    view.batches.reduce((count, batch) => count + batch.ids.length, 0),
+  ).toBe(2);
   const resources = new ResourceDisposal();
   view.dispose(resources);
   resources.dispose();

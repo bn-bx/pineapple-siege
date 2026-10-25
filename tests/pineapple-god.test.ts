@@ -7,6 +7,7 @@ import { WorldBatches } from "../src/render/world-batches";
 import { ResourceDisposal } from "../src/render/resource-disposal";
 import { MapNavigation } from "../src/app/map-navigation";
 import { compatible } from "../src/storage";
+import { GENERATOR_VERSION, WORLD_VERSION } from "../src/world/generator.mjs";
 import {
   setEntityTransform,
   finishEntityTransform,
@@ -46,8 +47,8 @@ it("reserves one mountain monument at reference scale and rejects PS3 saves", ()
   expect(release.generatorVersion).toBe(world.generatorVersion);
   expect(release.worldVersion).toBe(world.version);
   expect(release.includes).toContain("giant-destructible-pineapple-god");
-  expect(world.generatorVersion).toBe(4);
-  expect(world.version).toBe(10);
+  expect(world.generatorVersion).toBe(GENERATOR_VERSION);
+  expect(world.version).toBe(WORLD_VERSION);
   expect(world.sites.filter((s) => s.kind === "pineapple-god")).toHaveLength(1);
   const top = Math.max(...parts.map((e) => e.p[1] + e.s[1]));
   expect(top - site.p[1]).toBeGreaterThan(1000);

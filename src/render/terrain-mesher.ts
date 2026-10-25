@@ -25,11 +25,13 @@ export interface SectionData {
 }
 export class TerrainMesher {
   private roadDistance: (x: number, z: number) => number;
+  private regions: WorldData["regions"];
   private castleBounds: WorldData["castleBounds"][];
   section?: SectionData;
   constructor(
-    world: Pick<WorldData, "paths" | "castleBounds" | "castles">,
+    world: Pick<WorldData, "paths" | "castleBounds" | "castles" | "regions">,
   ) {
+    this.regions = world.regions;
     this.roadDistance = pathIndex(world.paths);
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
       world.castleBounds,
@@ -67,7 +69,6 @@ export class TerrainMesher {
       indices: number[] = [];
     const cache = new Map<number, number>(),
       c = new THREE.Color(),
-      sand = new THREE.Color("#a69c73"),
       road = new THREE.Color("#817052"),
       verge = new THREE.Color("#938664"),
       earth = new THREE.Color("#705139");
@@ -94,8 +95,10 @@ export class TerrainMesher {
       positions.push(wx, h, wz);
       normals.push(dx / length, 4 / length, dz / length);
       uv.push(wx * 0.07, wz * 0.07);
-      terrainSurfaceColor(c, wx, wz, baseHeight, slope);
-      const [roadCore, roadVerge] = terrainRoadWeights(this.pathDistance(wx, wz));
+      terrainSurfaceColor(c, wx, wz, baseHeight, slope, this.regions);
+      const [roadCore, roadVerge] = terrainRoadWeights(
+        this.pathDistance(wx, wz),
+      );
       c.lerp(verge, roadVerge);
       c.lerp(road, roadCore);
       if (
@@ -105,8 +108,6 @@ export class TerrainMesher {
         )
       )
         c.set("#a5966f");
-      if (baseHeight < 6)
-        c.lerp(sand, clamp((6 - baseHeight) / 6, 0, 1) * 0.85);
       baseColors.push(c.r, c.g, c.b);
       terrainScarColor(earth, wx, wz, h, damage, Math.hypot(dx, dz) / 4);
       if (damage > 0.05) c.lerp(earth, clamp(damage / 0.3, 0, 1));

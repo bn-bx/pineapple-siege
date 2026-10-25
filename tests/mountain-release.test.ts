@@ -3,6 +3,7 @@ import { Color } from "three";
 import { readFileSync } from "node:fs";
 import {
   generateIsland,
+  parseIslandCode,
   validateIsland,
   sampleHeight,
   parseSeedCode,
@@ -17,7 +18,7 @@ import type { WorldData } from "../src/types";
 
 it("rejects old shared layouts and identifies the new generator", () => {
   expect(() => parseSeedCode("PS1-0000002A")).toThrow(/older/);
-  expect(seedCode(parseSeedCode("PS4-0000002A"))).toBe("PS4-0000002A");
+  expect(seedCode(parseIslandCode("PS4-0000002A"))).toBe("PS4-0000002A");
   expect(seedCode(42, 1)).toBe("PS1-0000002A");
   expect(() => parseSeedCode("PS2-0000002A")).toThrow();
   expect(() => parseSeedCode("PS3-0000002A")).toThrow(/older/);
@@ -67,8 +68,8 @@ it.each(seeds)(
   (seed) => {
     const { world, heights } = generateIsland(seed);
     const metrics = validateIsland(world, heights);
-    expect(metrics.landFraction, `seed ${seed}`).toBeGreaterThanOrEqual(0.45);
-    expect(metrics.landFraction, `seed ${seed}`).toBeLessThanOrEqual(0.68);
+    expect(metrics.landFraction, `seed ${seed}`).toBeGreaterThanOrEqual(0.35);
+    expect(metrics.landFraction, `seed ${seed}`).toBeLessThanOrEqual(0.72);
     expect(metrics.peak, `seed ${seed}`).toBeGreaterThanOrEqual(700);
     expect(metrics.peak).toBeLessThanOrEqual(1000);
     const gods = world.sites.filter((s) => s.kind === "pineapple-god");
@@ -123,13 +124,7 @@ it.each(seeds)(
     }
     mountainCounts.add(groups);
     summits.push(summit);
-    expect(world.passes!.length).toBeGreaterThanOrEqual(2);
-    for (const pass of world.passes!) {
-      expect(pass.p[1]).toBeLessThan(450);
-      expect(pass.p[1]).toBeCloseTo(
-        sampleHeight(heights, pass.p[0], pass.p[2]),
-      );
-    }
+    expect(world.passes).toEqual([]);
     expect(
       world.spawn[1] - sampleHeight(heights, world.spawn[0], world.spawn[2]),
     ).toBeGreaterThanOrEqual(100);

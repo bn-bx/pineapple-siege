@@ -215,6 +215,7 @@ export interface SettlementState {
   threatened: boolean;
 }
 export interface CastleSite {
+  layout?: "rectangular" | "courtyard" | "stepped";
   id: string;
   p: Vec3;
   bounds: { min: [number, number]; max: [number, number] };
@@ -223,17 +224,75 @@ export interface CastleSite {
   turn: number;
   landmarks: { gate: Vec3; keep: Vec3; towers: Vec3[] };
 }
+export type GenerationPreset = "B" | "H" | "R" | "W";
+export interface GenerationRequest {
+  seed: number;
+  generatorVersion?: number;
+  preset?: GenerationPreset;
+}
+export interface MainlandMask {
+  grid: number;
+  step: number;
+  cells: Uint8Array;
+}
+export interface RegionFields {
+  grid: number;
+  step: number;
+  moisture: Uint8Array;
+  exposure: Uint8Array;
+  woodland: Uint8Array;
+  biome: Uint8Array;
+  coast: Uint8Array;
+}
+export interface FlightCorridor {
+  id: string;
+  width: number;
+  clearance: number;
+  points: Vec3[];
+}
+export interface LakeData {
+  id: string;
+  center: [number, number];
+  radius: number;
+  level: number;
+  outline: [number, number][];
+  outlet: Vec3;
+  riverId: string;
+}
+export interface WaterfallData {
+  id: string;
+  riverId: string;
+  top: Vec3;
+  bottom: Vec3;
+  width: number;
+}
 export interface RiverData {
+  widths?: number[];
   id: string;
   width: number;
   points: Vec3[];
 }
 export interface WorldData {
+  portalAnchor?: Vec3;
+  shapeFamily?: string;
+  regions?: RegionFields;
+  mainland?: MainlandMask;
+  flightCorridors?: FlightCorridor[];
+  lakes?: LakeData[];
+  waterfalls?: WaterfallData[];
   realm?: "surface" | "hell";
-  portal?: { x: number; z: number; y: number; radius: number; ids: number[]; clearedTrees?: number[] };
+  portal?: {
+    x: number;
+    z: number;
+    y: number;
+    radius: number;
+    ids: number[];
+    clearedTrees?: number[];
+  };
   landscapeProfile?: "mountainous" | "rolling woodland" | "broad lowland";
   passes?: { p: Vec3; radius: number }[];
   generatorVersion?: number;
+  generationPreset?: GenerationPreset;
   castles?: CastleSite[];
   rivers?: RiverData[];
   roadConnections?: [string, string][];
@@ -432,6 +491,8 @@ export interface SupportJob {
   clusters: number[][];
 }
 export interface SaveSection {
+  /** Exact global indices when Float32 pairs cannot represent the far grid. */
+  terrainIndices?: Uint32Array;
   id: number;
   terrain: Float32Array;
   dry: Uint32Array;
@@ -439,6 +500,7 @@ export interface SaveSection {
   removedRuins: number[];
 }
 export interface SaveSnapshot {
+  terrainIndices?: Uint32Array;
   statueReaction?: StatueReaction;
   nuclearFire?: NuclearFireState;
   moving?: PackedBodies;
@@ -448,6 +510,7 @@ export interface SaveSnapshot {
   sectioned?: boolean;
   supportJobs?: SupportJob[];
   generatorVersion?: number;
+  generationPreset?: GenerationPreset;
   destruction?: DestructionSettings;
   version: number;
   worldVersion: number;

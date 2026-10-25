@@ -5,6 +5,7 @@ import { ResourceDisposal } from "../src/render/resource-disposal";
 import type { WorldData } from "../src/types";
 it("removes and restores near and distant tree identity without altering generated owners", () => {
   const world = {
+    sites: [],
     banners: [],
     entities: [0, 1].map((id) => ({
       id,

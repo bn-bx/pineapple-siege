@@ -1,0 +1,25 @@
+{
+  "source": "reference.png",
+  "sourceSHA256": "10975841ad577b91044616b95ce760f62e9d913b11607cbf3258ac24da89e163",
+  "texture": "body-surface.png",
+  "crop": [
+    130,
+    140,
+    980,
+    1090
+  ],
+  "geometry": "Authored anatomical volumes, not photograph-derived depth",
+  "processing": [
+    "Conservative scanline compensation",
+    "Broad illumination correction limited to 10%",
+    "Color gutters beyond source silhouette"
+  ],
+  "occlusion": "Aircraft mask expanded four pixels. A separate continuous cloth atlas uses an unoccluded upper fabric strip; hidden fabric is reconstructed, not verified.",
+  "limitations": [
+    "Baked photographed shading remains. This is not recovered true albedo.",
+    "Side and rear anatomy is reconstructed.",
+    "Source-driven appearance measurements do not independently validate geometry."
+  ],
+  "sourceModified": false,
+  "cameraFacingBillboard": false
+}

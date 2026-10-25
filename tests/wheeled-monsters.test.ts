@@ -63,7 +63,12 @@ it("restores an enraged save over a river without moving it to land", () => {
 });
 it("honors active river cells and laser drying in the terrain surface helper", () => {
   const terrain = {
-    rivers: { index: () => 0, cells: new Map([[0, 10]]) },
+    rivers: {
+      index: () => 0,
+      cells: new Map([[0, 10]]),
+      riverCells: new Map([[0, 10]]),
+      lakeCells: new Set<number>(),
+    },
     laserDry: new Uint8Array(1),
     sample: () => -30,
   };

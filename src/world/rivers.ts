@@ -1,54 +1,74 @@
 import { CONFIG, clamp } from "../config";
-import type { RiverData } from "../types";
+import type { LakeData, RiverData } from "../types";
+import {
+  riverHalfWidth,
+  segmentWater,
+  pointInLake,
+} from "./water-geometry.mjs";
 
-/** Immutable channel surfaces. Inland water never floods beyond this generated footprint. */
+/** Authoritative nearest-sample inland water footprints, shared with presentation. */
 export class RiverField {
   readonly cells = new Map<number, number>();
-  constructor(rivers: RiverData[] = []) {
+  readonly riverCells = new Map<number, number>();
+  readonly lakeCells = new Set<number>();
+  constructor(rivers: RiverData[] = [], lakes: LakeData[] = []) {
+    const raster = (
+      x0: number,
+      z0: number,
+      x1: number,
+      z1: number,
+      visit: (x: number, z: number, i: number) => void,
+    ) => {
+      for (
+        let z = Math.max(0, Math.floor(z0 / 2));
+        z <= Math.min(CONFIG.grid - 1, Math.ceil(z1 / 2));
+        z++
+      )
+        for (
+          let x = Math.max(0, Math.floor(x0 / 2));
+          x <= Math.min(CONFIG.grid - 1, Math.ceil(x1 / 2));
+          x++
+        )
+          visit(x * 2, z * 2, z * CONFIG.grid + x);
+    };
     for (const river of rivers)
-      for (let p = 1; p < river.points.length; p++) {
-        const a = river.points[p - 1],
-          b = river.points[p];
-        const dx = b[0] - a[0],
-          dz = b[2] - a[2],
-          length = dx * dx + dz * dz;
-        if (!length) continue;
-        const x0 = Math.max(
-          0,
-          Math.floor((Math.min(a[0], b[0]) - river.width) / 2),
+      for (let i = 1; i < river.points.length; i++) {
+        const a = river.points[i - 1],
+          b = river.points[i],
+          wa = riverHalfWidth(river, i - 1),
+          wb = riverHalfWidth(river, i),
+          width = Math.max(wa, wb);
+        raster(
+          Math.min(a[0], b[0]) - width,
+          Math.min(a[2], b[2]) - width,
+          Math.max(a[0], b[0]) + width,
+          Math.max(a[2], b[2]) + width,
+          (x, z, index) => {
+            const height = segmentWater(a, b, wa, wb, x, z);
+            if (height !== undefined) {
+              const h = Math.max(this.cells.get(index) ?? -Infinity, height);
+              this.cells.set(index, h);
+              this.riverCells.set(index, h);
+            }
+          },
         );
-        const x1 = Math.min(
-          CONFIG.grid - 1,
-          Math.ceil((Math.max(a[0], b[0]) + river.width) / 2),
-        );
-        const z0 = Math.max(
-          0,
-          Math.floor((Math.min(a[2], b[2]) - river.width) / 2),
-        );
-        const z1 = Math.min(
-          CONFIG.grid - 1,
-          Math.ceil((Math.max(a[2], b[2]) + river.width) / 2),
-        );
-        for (let z = z0; z <= z1; z++)
-          for (let x = x0; x <= x1; x++) {
-            const t = clamp(
-              ((x * 2 - a[0]) * dx + (z * 2 - a[2]) * dz) / length,
-              0,
-              1,
-            );
-            if (
-              Math.hypot(x * 2 - a[0] - dx * t, z * 2 - a[2] - dz * t) >
-              river.width
-            )
-              continue;
-            const index = z * CONFIG.grid + x,
-              height = a[1] + (b[1] - a[1]) * t;
+      }
+    for (const lake of lakes)
+      raster(
+        lake.center[0] - lake.radius,
+        lake.center[1] - lake.radius,
+        lake.center[0] + lake.radius,
+        lake.center[1] + lake.radius,
+        (x, z, index) => {
+          if (pointInLake(lake, x, z)) {
+            this.lakeCells.add(index);
             this.cells.set(
               index,
-              Math.max(this.cells.get(index) ?? -Infinity, height),
+              Math.max(this.cells.get(index) ?? -Infinity, lake.level),
             );
           }
-      }
+        },
+      );
   }
   index(x: number, z: number) {
     return (

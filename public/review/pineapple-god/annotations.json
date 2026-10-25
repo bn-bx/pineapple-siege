@@ -1,0 +1,389 @@
+{
+  "reference": "reference.png",
+  "size": [
+    1145,
+    1374
+  ],
+  "headCrop": [
+    463,
+    184,
+    684,
+    480
+  ],
+  "headOutline": [
+    [
+      550,
+      194
+    ],
+    [
+      521,
+      210
+    ],
+    [
+      504,
+      230
+    ],
+    [
+      493,
+      250
+    ],
+    [
+      481,
+      275
+    ],
+    [
+      474,
+      300
+    ],
+    [
+      474,
+      330
+    ],
+    [
+      474,
+      350
+    ],
+    [
+      482,
+      375
+    ],
+    [
+      487.0,
+      395
+    ],
+    [
+      492.0,
+      413
+    ],
+    [
+      657.6,
+      413
+    ],
+    [
+      659.0,
+      395
+    ],
+    [
+      665,
+      375
+    ],
+    [
+      669,
+      350
+    ],
+    [
+      669,
+      330
+    ],
+    [
+      671,
+      300
+    ],
+    [
+      666,
+      275
+    ],
+    [
+      661,
+      250
+    ],
+    [
+      652,
+      230
+    ],
+    [
+      633,
+      210
+    ],
+    [
+      621,
+      194
+    ]
+  ],
+  "headWidth": 199,
+  "landmarks": {
+    "brow-left-outer": [
+      538,
+      271
+    ],
+    "brow-left-inner": [
+      582,
+      274
+    ],
+    "brow-right-inner": [
+      612,
+      275
+    ],
+    "brow-right-outer": [
+      652,
+      278
+    ],
+    "eye-left-outer": [
+      538,
+      290
+    ],
+    "eye-left-inner": [
+      582,
+      291
+    ],
+    "eye-right-inner": [
+      614,
+      293
+    ],
+    "eye-right-outer": [
+      653,
+      294
+    ],
+    "nose-bridge": [
+      598,
+      294
+    ],
+    "nose-tip": [
+      603,
+      324
+    ],
+    "mouth-left": [
+      564,
+      353
+    ],
+    "mouth-center": [
+      598,
+      350
+    ],
+    "mouth-right": [
+      628,
+      354
+    ],
+    "chin": [
+      598,
+      410
+    ],
+    "jaw-left": [
+      545,
+      398
+    ],
+    "jaw-right": [
+      646,
+      399
+    ],
+    "neck-left": [
+      529,
+      438
+    ],
+    "neck-right": [
+      649,
+      438
+    ],
+    "shoulder-left": [
+      303,
+      469
+    ],
+    "shoulder-right": [
+      823,
+      478
+    ],
+    "chest-left": [
+      479,
+      543
+    ],
+    "chest-right": [
+      690,
+      543
+    ],
+    "elbow-left": [
+      310,
+      705
+    ],
+    "elbow-right": [
+      916,
+      660
+    ],
+    "hand-left": [
+      210,
+      512
+    ],
+    "hand-right": [
+      915,
+      787
+    ],
+    "knee-left": [
+      397,
+      855
+    ],
+    "knee-right": [
+      751,
+      856
+    ],
+    "crown-top": [
+      545,
+      1
+    ],
+    "scepter-top": [
+      210,
+      148
+    ],
+    "scepter-bottom": [
+      216,
+      1036
+    ]
+  },
+  "unverifiedPolygons": [
+    [
+      [
+        462,
+        925
+      ],
+      [
+        540,
+        910
+      ],
+      [
+        541,
+        879
+      ],
+      [
+        545,
+        851
+      ],
+      [
+        551,
+        851
+      ],
+      [
+        562,
+        892
+      ],
+      [
+        561,
+        880
+      ],
+      [
+        573,
+        868
+      ],
+      [
+        585,
+        870
+      ],
+      [
+        595,
+        884
+      ],
+      [
+        596,
+        878
+      ],
+      [
+        601,
+        849
+      ],
+      [
+        606,
+        849
+      ],
+      [
+        610,
+        880
+      ],
+      [
+        604,
+        906
+      ],
+      [
+        714,
+        915
+      ],
+      [
+        725,
+        934
+      ],
+      [
+        615,
+        935
+      ],
+      [
+        610,
+        941
+      ],
+      [
+        672,
+        947
+      ],
+      [
+        684,
+        953
+      ],
+      [
+        668,
+        967
+      ],
+      [
+        609,
+        969
+      ],
+      [
+        606,
+        979
+      ],
+      [
+        596,
+        979
+      ],
+      [
+        594,
+        969
+      ],
+      [
+        563,
+        972
+      ],
+      [
+        554,
+        980
+      ],
+      [
+        548,
+        977
+      ],
+      [
+        482,
+        980
+      ],
+      [
+        472,
+        979
+      ],
+      [
+        463,
+        966
+      ],
+      [
+        468,
+        958
+      ],
+      [
+        523,
+        945
+      ],
+      [
+        539,
+        941
+      ],
+      [
+        539,
+        937
+      ],
+      [
+        463,
+        943
+      ]
+    ]
+  ],
+  "maskProvenance": "Head mask is segmented from original image colors and hole-filled. Body trace v2 is a source-coordinate manual estimate, corrected against the source pixel grid; the original coarse trace is retained. Some accessory contours remain shared authoring constraints. Body geometry is fitted to this trace; its overlap is a constraint-satisfaction check, not independent likeness proof. Neither score establishes exact appearance.",
+  "thresholds": {
+    "headIoU": 0.97,
+    "bodyIoU": 0.95,
+    "meanFaceErrorHeadWidths": 0.01,
+    "maxFaceErrorHeadWidths": 0.02
+  }
+}

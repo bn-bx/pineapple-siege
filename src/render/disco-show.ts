@@ -166,6 +166,9 @@ export class DiscoShow {
     material.onBeforeCompile = (shader, renderer) => {
       prior.call(material, shader, renderer);
       Object.assign(shader.uniforms, this.uniforms);
+      // A retained material may already carry a previous world's projection.
+      // Rebind its uniforms without declaring the GLSL symbols twice.
+      if (shader.vertexShader.includes("varying vec3 vDiscoWorld;")) return;
       shader.vertexShader =
         `varying vec3 vDiscoWorld;\n${shader.vertexShader}`.replace(
           "#include <project_vertex>",

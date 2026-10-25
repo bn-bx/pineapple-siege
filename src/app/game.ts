@@ -4,15 +4,21 @@ import { DEFAULT_MONSTER_COUNT } from "../config";
 import { COSMETIC_LIMITS, DEFAULT_DESTRUCTION } from "../destruction-settings";
 import { bindTouchControls } from "../input";
 import { normalizePreferences } from "../preferences";
-import { arrivalPlane, portalIntact, realmBaseline, type Realm } from "../realm";
+import {
+  arrivalPlane,
+  portalIntact,
+  realmBaseline,
+  type Realm,
+} from "../realm";
 import { GameRenderer } from "../render/renderer";
 import { SaveCaptureCoordinator } from "../save-capture";
 import { SaveWriter } from "../save-writer";
 import { SessionState } from "../session-state";
 import { unpackBodies } from "../sim/body-buffer";
-import { SaveStore } from "../storage";
+import { compatible, SaveStore } from "../storage";
 import "../style.css";
 import type {
+  GenerationRequest,
   GameCommand,
   NukeYield,
   Preferences,
@@ -23,7 +29,7 @@ import type {
   WorkerMessage,
   WorldData,
 } from "../types";
-import { type IslandBaseline } from "../world/generator.mjs";
+import { baselineKey, type IslandBaseline } from "../world/generator.mjs";
 import { IslandPreview } from "../world/preview";
 import { updateHUD } from "./hud";
 import * as input_controller from "./input-controller";
@@ -50,7 +56,7 @@ let worker: Worker,
   lastSaveAt = 0,
   lastSavedHour = -1;
 let baseIsland: IslandBaseline | undefined;
-let hellPreparedSeed: number | undefined;
+let hellPreparedSeed: string | undefined;
 let hellPreparing: Promise<void> | undefined;
 let activeRealm: Realm = "surface";
 let transitioning = false;
@@ -68,7 +74,7 @@ const audio = new GameAudio(),
   hellWriter = new SaveWriter("lantern-vale-hell"),
   hellStore = new SaveStore("lantern-vale-hell", hellWriter),
   keys = new Set<string>();
-const damageStore = () => activeRealm === "hell" ? hellStore : store;
+const damageStore = () => (activeRealm === "hell" ? hellStore : store);
 saveWriter.onPreparation = (ms) => view?.performance.record("saveDispatch", ms);
 let steerX = 0,
   steerY = 0,
@@ -138,7 +144,15 @@ function applyDestruction(): void {
 }
 function send(message: GameCommand, transfer: Transferable[] = []) {
   if (message.type === "input" && activeRealm === "hell")
-    message = { ...message, input: { ...message.input, x: -message.input.x, y: -message.input.y, bank: -message.input.bank } };
+    message = {
+      ...message,
+      input: {
+        ...message.input,
+        x: -message.input.x,
+        y: -message.input.y,
+        bank: -message.input.bank,
+      },
+    };
   worker?.postMessage(message, transfer);
 }
 function fatal(message: string, detail = "") {
@@ -259,39 +273,74 @@ function resetWorld(): Promise<void> {
 }
 async function prepareHell() {
   if (!baseIsland || !saveEnabled) return;
-  if (hellPreparedSeed === baseIsland.world.seed) return;
+  if (hellPreparedSeed === baselineKey(baseIsland.world)) return;
   if (hellPreparing) return hellPreparing;
   const baseline = baseIsland;
   hellPreparing = (async () => {
     await hellStore.open();
     const stored = await hellStore.baseline();
-    if (
-      !stored || stored.world.seed !== baseline.world.seed ||
-      stored.world.version !== baseline.world.version
-    ) await hellStore.replaceBaseline(baseline);
-    hellPreparedSeed = baseline.world.seed;
+    if (!stored || baselineKey(stored.world) !== baselineKey(baseline.world))
+      await hellStore.replaceBaseline(baseline);
+    hellPreparedSeed = baselineKey(baseline.world);
   })();
-  try { await hellPreparing; }
-  finally { hellPreparing = undefined; }
+  try {
+    await hellPreparing;
+  } finally {
+    hellPreparing = undefined;
+  }
 }
 function waitForRealmReady(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(Error("World loading timed out")), 30000);
-    realmReadyResolve = () => { clearTimeout(timeout); resolve(); };
-    realmReadyReject = (error) => { clearTimeout(timeout); reject(error); };
+    const timeout = window.setTimeout(
+      () => reject(Error("World loading timed out")),
+      30000,
+    );
+    realmReadyResolve = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+    realmReadyReject = (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    };
   });
 }
-async function activateRealm(realm: Realm, save?: SaveSnapshot, plane?: PlaneState) {
+async function activateRealm(
+  realm: Realm,
+  save?: SaveSnapshot,
+  plane?: PlaneState,
+) {
   if (!baseIsland) throw Error("Island baseline unavailable");
+  if (
+    save &&
+    !compatible(
+      save,
+      baseIsland.world.version,
+      baseIsland.world.seed,
+      baseIsland.world.generatorVersion,
+      baseIsland.world.generationPreset,
+    )
+  )
+    throw Error(
+      "Saved realm does not match this island. Its original progress remains protected.",
+    );
   activeRealm = realm;
   document.body.classList.toggle("hell-realm", realm === "hell");
-  canvas.setAttribute("aria-label", realm === "hell"
-    ? "A flying pineapple beneath an inverted, destructible island"
-    : "A fighter jet flying over a destructible medieval valley");
+  canvas.setAttribute(
+    "aria-label",
+    realm === "hell"
+      ? "A flying pineapple beneath an inverted, destructible island"
+      : "A fighter jet flying over a destructible medieval valley",
+  );
   const monsterLabel = $("monsterCount").closest("label")?.firstChild;
-  if (monsterLabel) monsterLabel.textContent = realm === "hell" ? "Jets" : "Pineapple monsters";
+  if (monsterLabel)
+    monsterLabel.textContent = realm === "hell" ? "Jets" : "Pineapple monsters";
   const ready = waitForRealmReady();
-  island_coordinator.initializeWorld(context, realmBaseline(baseIsland, realm), save);
+  island_coordinator.initializeWorld(
+    context,
+    realmBaseline(baseIsland, realm),
+    save,
+  );
   await ready;
   realmReadyResolve = realmReadyReject = undefined;
   if (plane) {
@@ -304,7 +353,9 @@ async function activateRealm(realm: Realm, save?: SaveSnapshot, plane?: PlaneSta
       arrivalSnapshotResolve = (snapshot) => {
         // The worker's initial spawn snapshot can still be in flight when
         // ready resolves. Wait for the requested arrival pose before resuming.
-        if (!snapshot.plane.p.every((p, i) => Math.abs(p - arrival.p[i]) < 0.001))
+        if (
+          !snapshot.plane.p.every((p, i) => Math.abs(p - arrival.p[i]) < 0.001)
+        )
           return;
         clearTimeout(timeout);
         arrivalSnapshotResolve = undefined;
@@ -315,7 +366,9 @@ async function activateRealm(realm: Realm, save?: SaveSnapshot, plane?: PlaneSta
     await arrived;
   }
 }
-let arrivalSnapshotResolve: ((snapshot: SimulationSnapshot) => void) | undefined;
+let arrivalSnapshotResolve:
+  | ((snapshot: SimulationSnapshot) => void)
+  | undefined;
 async function switchRealm(target: Realm, plane?: PlaneState, resume = true) {
   if (transitioning || !baseIsland) return;
   transitioning = true;
@@ -329,32 +382,44 @@ async function switchRealm(target: Realm, plane?: PlaneState, resume = true) {
     if (plane) {
       const deadline = performance.now() + 10000;
       while (saveCaptures.saving) {
-        if (performance.now() > deadline) throw Error("Save is still in progress");
+        if (performance.now() > deadline)
+          throw Error("Save is still in progress");
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
       if (saveEnabled) await saveNow(true);
       realmSaves[departing] = saveEnabled
-        ? await damageStore().load() ?? await requestSave()
+        ? ((await damageStore().load()) ?? (await requestSave()))
         : await requestSave();
     }
     if (target === "hell") await prepareHell();
     const destinationStore = target === "hell" ? hellStore : store;
-    const destination = realmSaves[target] ??
+    const destination =
+      realmSaves[target] ??
       (saveEnabled ? await destinationStore.load() : undefined);
-    if (plane && destination &&
-      !portalIntact(realmBaseline(baseIsland, target).world, new Set(destination.removed))) {
+    if (
+      plane &&
+      destination &&
+      !portalIntact(
+        realmBaseline(baseIsland, target).world,
+        new Set(destination.removed),
+      )
+    ) {
       send({ type: "setPlane", plane: arrivalPlane(plane, world.portal!) });
       if (resume) await enter();
       $("status").textContent = "The opening has gone dark.";
       return;
     }
     await activateRealm(target, destination, plane);
-    if (saveEnabled) try { localStorage.setItem("siege-active-realm-v1", target); } catch {}
+    if (saveEnabled)
+      try {
+        localStorage.setItem("siege-active-realm-v1", target);
+      } catch {}
     if (resume) await enter();
   } catch (error) {
     if (activeRealm !== departing) {
-      try { await activateRealm(departing, realmSaves[departing]); }
-      catch (restoreError) {
+      try {
+        await activateRealm(departing, realmSaves[departing]);
+      } catch (restoreError) {
         realmReadyReject = undefined;
         fatal("The island could not recover.", String(restoreError));
         return;
@@ -386,14 +451,22 @@ async function resetBothRealms() {
     hasSave = false;
     savedRevision = -1;
     lastSavedHour = -1;
-    try { localStorage.setItem("siege-active-realm-v1", "surface"); } catch {}
+    try {
+      localStorage.setItem("siege-active-realm-v1", "surface");
+    } catch {}
     const ready = waitForRealmReady();
     activeRealm = "surface";
     document.body.classList.remove("hell-realm");
-    canvas.setAttribute("aria-label", "A fighter jet flying over a destructible medieval valley");
+    canvas.setAttribute(
+      "aria-label",
+      "A fighter jet flying over a destructible medieval valley",
+    );
     const monsterLabel = $("monsterCount").closest("label")?.firstChild;
     if (monsterLabel) monsterLabel.textContent = "Pineapple monsters";
-    island_coordinator.initializeWorld(context, realmBaseline(baseIsland, "surface"));
+    island_coordinator.initializeWorld(
+      context,
+      realmBaseline(baseIsland, "surface"),
+    );
     await ready;
     realmReadyResolve = realmReadyReject = undefined;
     await enter();
@@ -417,7 +490,10 @@ async function handle(message: WorkerMessage) {
   }
   switch (message.type) {
     case "portalEnter":
-      void switchRealm(activeRealm === "surface" ? "hell" : "surface", message.plane);
+      void switchRealm(
+        activeRealm === "surface" ? "hell" : "surface",
+        message.plane,
+      );
       break;
     case "paused":
       snapshot = message.snapshot;
@@ -494,14 +570,28 @@ async function handle(message: WorkerMessage) {
       $("newWorld").hidden = !hasSave;
       while (pendingReady.length) pendingReady.shift()!();
       realmReadyResolve?.();
-      if (debug && !debugPortalUsed && new URLSearchParams(location.search).has("portal-test") && world.portal) {
+      if (
+        debug &&
+        !debugPortalUsed &&
+        new URLSearchParams(location.search).has("portal-test") &&
+        world.portal
+      ) {
         debugPortalUsed = true;
         const p = world.portal;
-        send({ type: "setPlane", grace: 0, plane: {
-          p: [p.x, p.y + 45, p.z], v: [0, -117, 56],
-          yaw: 0, pitch: -1.12, roll: 0, speed: 130,
-          crashed: 0, boundary: false,
-        } });
+        send({
+          type: "setPlane",
+          grace: 0,
+          plane: {
+            p: [p.x, p.y + 45, p.z],
+            v: [0, -117, 56],
+            yaw: 0,
+            pitch: -1.12,
+            roll: 0,
+            speed: 130,
+            crashed: 0,
+            boundary: false,
+          },
+        });
       }
       if (bootRealmPending && !transitioning) {
         bootRealmPending = false;
@@ -563,40 +653,60 @@ function initializeWorld(baseline: IslandBaseline, save?: SaveSnapshot): void {
   baseIsland = baseline;
   activeRealm = "surface";
   document.body.classList.remove("hell-realm");
-  canvas.setAttribute("aria-label", "A fighter jet flying over a destructible medieval valley");
+  canvas.setAttribute(
+    "aria-label",
+    "A fighter jet flying over a destructible medieval valley",
+  );
   const monsterLabel = $("monsterCount").closest("label")?.firstChild;
   if (monsterLabel) monsterLabel.textContent = "Pineapple monsters";
-  try { bootRealmPending = saveEnabled && localStorage.getItem("siege-active-realm-v1") === "hell"; }
-  catch { bootRealmPending = false; }
+  try {
+    bootRealmPending =
+      saveEnabled && localStorage.getItem("siege-active-realm-v1") === "hell";
+  } catch {
+    bootRealmPending = false;
+  }
   input_controller.resetDeathControls(context);
   menu.setIsland(baseline);
   menu.home();
-  island_coordinator.initializeWorld(context, realmBaseline(baseline, "surface"), save);
-  void prepareHell().catch((error) => console.warn("Second world preparation failed", error));
+  island_coordinator.initializeWorld(
+    context,
+    realmBaseline(baseline, "surface"),
+    save,
+  );
+  void prepareHell().catch((error) =>
+    console.warn("Second world preparation failed", error),
+  );
 }
 function replaceIsland(
   baseline: IslandBaseline,
   reload: boolean,
 ): Promise<void> {
-  activeRealm = "surface";
-  bootRealmPending = false;
-  document.body.classList.remove("hell-realm");
-  canvas.setAttribute("aria-label", "A fighter jet flying over a destructible medieval valley");
-  const monsterLabel = $("monsterCount").closest("label")?.firstChild;
-  if (monsterLabel) monsterLabel.textContent = "Pineapple monsters";
-  hellPreparedSeed = undefined;
-  realmSaves.surface = realmSaves.hell = undefined;
-  try { localStorage.setItem("siege-active-realm-v1", "surface"); } catch {}
-  const prepare = saveEnabled
-    ? Promise.resolve(hellPreparing)
-        .then(() => hellStore.open())
-        .then(() => hellStore.replaceBaseline(baseline))
-    : Promise.resolve();
-  return prepare.then(() =>
-    island_coordinator.replaceIsland(context, baseline, reload),
-  );
+  // The surface transaction is the commit point. The matching hell baseline is
+  // reconciled lazily by prepareHell, so failed replacements retain both realms.
+  const committed = () => {
+    activeRealm = "surface";
+    bootRealmPending = false;
+    document.body.classList.remove("hell-realm");
+    canvas.setAttribute(
+      "aria-label",
+      "A fighter jet flying over a destructible medieval valley",
+    );
+    const monsterLabel = $("monsterCount").closest("label")?.firstChild;
+    if (monsterLabel) monsterLabel.textContent = "Pineapple monsters";
+    hellPreparedSeed = undefined;
+    realmSaves.surface = realmSaves.hell = undefined;
+    try {
+      localStorage.setItem("siege-active-realm-v1", "surface");
+    } catch {}
+  };
+  return Promise.resolve(hellPreparing)
+    .catch(() => {})
+    .then(() =>
+      island_coordinator.replaceIsland(context, baseline, reload, committed),
+    );
 }
-function newIsland(seed?: number): Promise<void> {
+
+function newIsland(seed?: number | GenerationRequest): Promise<void> {
   return island_coordinator.newIsland(context, seed);
 }
 function copyIsland(kind: "seed" | "link"): Promise<void> {

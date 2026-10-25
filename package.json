@@ -14,7 +14,10 @@
     "benchmark:debris": "node scripts/generate-world.mjs && node scripts/benchmark-simple-debris.mjs",
     "benchmark:destruction": "node scripts/generate-world.mjs && node scripts/benchmark-destruction.mjs",
     "assets:hash": "node scripts/hash-runtime-assets.mjs",
-    "assets:verify": "node scripts/hash-runtime-assets.mjs && node scripts/verify-built-runtime-assets.mjs"
+    "assets:verify": "node scripts/hash-runtime-assets.mjs && node scripts/verify-built-runtime-assets.mjs",
+    "check:islands": "node --expose-gc scripts/check-island-overhaul.mjs",
+    "check:islands:coarse": "node --expose-gc scripts/check-island-overhaul.mjs --coarse",
+    "benchmark:islands": "node scripts/benchmark-island-generation.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.3",

@@ -85,13 +85,18 @@ const send = (m: WorkerMessage, port?: MessagePort) => {
   if (m.type === "saved" && m.save.terrain instanceof Float32Array)
     transfer.push(m.save.terrain.buffer as ArrayBuffer);
   if (m.type === "saved") {
+    if (m.save.terrainIndices)
+      transfer.push(m.save.terrainIndices.buffer as ArrayBuffer);
     if (m.save.moving) transfer.push(m.save.moving.buffer);
     transfer.push(m.save.laserDry.buffer as ArrayBuffer);
-    for (const s of m.save.sections ?? [])
+    for (const s of m.save.sections ?? []) {
+      if (s.terrainIndices)
+        transfer.push(s.terrainIndices.buffer as ArrayBuffer);
       transfer.push(
         s.terrain.buffer as ArrayBuffer,
         s.dry.buffer as ArrayBuffer,
       );
+    }
   }
   const snapshot =
     m.type === "snapshot" ? m : m.type === "paused" ? m.snapshot : undefined;
@@ -127,10 +132,16 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
       base = new Float32Array(m.heights);
       debug = !!m.debug;
       await initializePhysics();
-      sim = new Simulation(world, base, (message) => {
-        if (message.type === "portalEnter") paused = true;
-        send(message);
-      }, m.save, true);
+      sim = new Simulation(
+        world,
+        base,
+        (message) => {
+          if (message.type === "portalEnter") paused = true;
+          send(message);
+        },
+        m.save,
+        true,
+      );
       sim.setMonsterCount(m.monsterCount ?? DEFAULT_MONSTER_COUNT);
       while (
         sim.supportJobs.length ||
@@ -259,10 +270,16 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         const settings = sim.destruction;
         const count = sim.monsterCount;
         sim.dispose();
-        sim = new Simulation(world, base, (message) => {
-          if (message.type === "portalEnter") paused = true;
-          send(message);
-        }, undefined, true);
+        sim = new Simulation(
+          world,
+          base,
+          (message) => {
+            if (message.type === "portalEnter") paused = true;
+            send(message);
+          },
+          undefined,
+          true,
+        );
         sim.nukeYield = "valley";
         sim.setDestruction(settings);
         sim.setMonsterCount(count);

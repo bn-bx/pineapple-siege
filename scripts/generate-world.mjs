@@ -14,7 +14,12 @@ for (let offset = 0; offset < bytes.length; offset += 20 * 1024 * 1024) {
     bytes.subarray(offset, offset + 20 * 1024 * 1024),
   );
 }
-writeFileSync("public/world.json", JSON.stringify(world));
+writeFileSync(
+  "public/world.json",
+  JSON.stringify(world, (_key, value) =>
+    ArrayBuffer.isView(value) ? Array.from(value) : value,
+  ),
+);
 console.log(
   `Island ${seedCode(seed)}: ${world.grid}² samples, ${world.structureCount} structural parts, ${world.entities.length} entities, ${world.civilians.length} residents`,
 );

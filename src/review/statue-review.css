@@ -1,0 +1,258 @@
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #e8e5d9;
+  background: #111715;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  padding: 32px 40px;
+  border-bottom: 1px solid #344039;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #9cae9f;
+}
+h1 {
+  font-size: 38px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  margin: 10px 0;
+}
+p {
+  line-height: 1.5;
+  color: #aebbaf;
+  margin: 8px 0;
+}
+.pending {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  border: 1px solid #736044;
+  background: #30291e;
+  color: #f3d695;
+  padding: 12px 16px;
+  border-radius: 4px;
+}
+main {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+aside {
+  border-right: 1px solid #344039;
+  padding: 24px;
+}
+section {
+  margin-bottom: 26px;
+}
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: #e2dfcf;
+}
+label {
+  display: block;
+  font-size: 12px;
+  color: #c4cdbf;
+  margin-bottom: 16px;
+}
+select,
+button {
+  font: inherit;
+  color: inherit;
+  background: #1c2720;
+  border: 1px solid #415347;
+  border-radius: 4px;
+  padding: 10px;
+  width: 100%;
+  margin-top: 8px;
+}
+button {
+  cursor: pointer;
+  font-size: 12px;
+}
+button:hover {
+  background: #304536;
+}
+input[type="range"] {
+  width: 100%;
+  display: block;
+  margin-top: 12px;
+  accent-color: #d7b966;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+input[type="checkbox"] {
+  accent-color: #d7b966;
+}
+.small {
+  font-size: 11px;
+  line-height: 1.65;
+  color: #97a698;
+}
+article {
+  padding: 24px;
+  min-width: 0;
+}
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.panel {
+  min-width: 0;
+  position: relative;
+}
+.label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #a8b6aa;
+  margin: 0 0 10px;
+}
+.window {
+  position: relative;
+  overflow: hidden;
+  background: #617774;
+  aspect-ratio: 221/296;
+  width: 100%;
+  border: 1px solid #3b4c40;
+}
+.window img,
+.window canvas {
+  position: absolute;
+  max-width: none;
+  display: block;
+  width: 518.1%;
+  height: auto;
+  left: -209.5%;
+  top: -62.16%;
+  transform-origin: top left;
+}
+.window.whole {
+  aspect-ratio: 1145/1374;
+}
+.window.whole img,
+.window.whole canvas {
+  width: 100%;
+  left: 0;
+  top: 0;
+}
+.panels.overlay {
+  display: block;
+  position: relative;
+}
+.overlay .candidate {
+  position: absolute;
+  inset: 0;
+}
+.overlay .candidate .label {
+  visibility: hidden;
+}
+.overlay .candidate .window {
+  background: transparent;
+}
+.panels.only-candidate,
+.panels.only-reference {
+  grid-template-columns: 1fr;
+  max-width: 760px;
+  margin: auto;
+}
+.only-candidate .reference,
+.only-reference .candidate {
+  display: none;
+}
+#caption {
+  font-size: 12px;
+  margin-top: 14px;
+}
+.metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #28392e;
+  font-size: 12px;
+}
+.pass {
+  color: #a5d5a2;
+}
+.flag {
+  color: #edb78b;
+}
+.pending-text {
+  color: #c7c1a7;
+}
+.evidence {
+  margin-top: 28px;
+  border-top: 1px solid #344039;
+  padding-top: 22px;
+  max-width: 900px;
+  font-size: 12px;
+}
+a {
+  color: #d7bc75;
+}
+ol {
+  font-size: 12px;
+  line-height: 1.8;
+  padding-left: 18px;
+  color: #adb9aa;
+}
+@media (max-width: 850px) {
+  header {
+    padding: 24px;
+    display: block;
+  }
+  .pending {
+    display: inline-block;
+    margin-top: 14px;
+  }
+  main {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    border-right: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .panels {
+    gap: 8px;
+  }
+  article {
+    padding: 12px;
+  }
+}
+@media (max-width: 500px) {
+  aside {
+    grid-template-columns: 1fr;
+  }
+  .panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.window.body {
+  aspect-ratio: 855/655;
+}
+.window.body img,
+.window.body canvas {
+  width: 133.918%;
+  left: -14.62%;
+  top: -66.412%;
+}

@@ -125,11 +125,18 @@ export class SaveStore {
           sections.reduce((n, s) => n + s.terrain.length, 0),
         ),
         dry = new Uint32Array(sections.reduce((n, s) => n + s.dry.length, 0));
+      const terrainIndices = sections.some((s) => s.terrainIndices)
+        ? new Uint32Array(terrain.length / 2)
+        : undefined;
       const ruins = new Map(save.ruins.map((r) => [r.id, r]));
       let t = 0,
         d = 0;
       for (const s of sections) {
         terrain.set(s.terrain, t);
+        if (terrainIndices)
+          for (let i = 0; i < s.terrain.length; i += 2)
+            terrainIndices[(t + i) / 2] =
+              s.terrainIndices?.[i / 2] ?? s.terrain[i];
         t += s.terrain.length;
         dry.set(s.dry, d);
         d += s.dry.length;
@@ -141,7 +148,7 @@ export class SaveStore {
           throw Error("Saved moving debris is missing its island baseline");
         const edits = new Map<number, number>();
         for (let i = 0; i < terrain.length; i += 2)
-          edits.set(terrain[i], terrain[i + 1]);
+          edits.set(terrainIndices?.[i / 2] ?? terrain[i], terrain[i + 1]);
         const sample = (x: number, z: number) => {
           const gx = Math.max(0, Math.min(CONFIG.grid - 1.00001, x / 2)),
             gz = Math.max(0, Math.min(CONFIG.grid - 1.00001, z / 2)),
@@ -215,6 +222,7 @@ export class SaveStore {
       return {
         ...save,
         terrain,
+        terrainIndices,
         laserDry: dry,
         ruins: [...ruins.values()],
         moving: undefined,
@@ -243,8 +251,10 @@ export class SaveStore {
         Math.min(CHUNKS - 1, Math.floor((i % CONFIG.grid) / 32));
       if (save.terrain instanceof Float32Array)
         for (let i = 0; i < save.terrain.length; i += 2)
-          group(sampleSection(save.terrain[i])).terrain.push(
-            save.terrain[i],
+          group(
+            sampleSection(save.terrainIndices?.[i / 2] ?? save.terrain[i]),
+          ).terrain.push(
+            save.terrainIndices?.[i / 2] ?? save.terrain[i],
             save.terrain[i + 1],
           );
       else
@@ -258,6 +268,11 @@ export class SaveStore {
       sections = [...groups].map(([id, g]) => ({
         id,
         terrain: new Float32Array(g.terrain),
+        terrainIndices: g.terrain.some(
+          (value, i) => i % 2 === 0 && value > 0xffffff,
+        )
+          ? Uint32Array.from(g.terrain.filter((_v, i) => i % 2 === 0))
+          : undefined,
         dry: new Uint32Array(g.dry),
         ruins: g.ruins,
         removedRuins: [],
@@ -281,6 +296,7 @@ export class SaveStore {
       capture: undefined,
       sections: undefined,
       terrain: new Float32Array(),
+      terrainIndices: undefined,
       laserDry: new Uint32Array(),
       ruins: save.incremental ? save.ruins : [],
     };
@@ -303,9 +319,15 @@ export class SaveStore {
                 ruins = new Map(old?.ruins.map((r) => [r.id, r]));
               if (old)
                 for (let i = 0; i < old.terrain.length; i += 2)
-                  terrain.set(old.terrain[i], old.terrain[i + 1]);
+                  terrain.set(
+                    old.terrainIndices?.[i / 2] ?? old.terrain[i],
+                    old.terrain[i + 1],
+                  );
               for (let i = 0; i < section.terrain.length; i += 2)
-                terrain.set(section.terrain[i], section.terrain[i + 1]);
+                terrain.set(
+                  section.terrainIndices?.[i / 2] ?? section.terrain[i],
+                  section.terrain[i + 1],
+                );
               for (const i of section.dry) dry.add(i);
               for (const id of section.removedRuins) ruins.delete(id);
               for (const r of section.ruins) ruins.set(r.id, r);
@@ -319,6 +341,9 @@ export class SaveStore {
                 {
                   id: section.id,
                   terrain: packed,
+                  terrainIndices: [...terrain.keys()].some((i) => i > 0xffffff)
+                    ? Uint32Array.from(terrain.keys())
+                    : undefined,
                   dry: Uint32Array.from(dry),
                   ruins: [...ruins.values()],
                   removedRuins: [],
@@ -398,7 +423,16 @@ export function compatible(
   save: unknown,
   worldVersion: number,
   seed: number,
-  generatorVersion = GENERATOR_VERSION,
+  generatorVersion = worldVersion === 10
+    ? 4
+    : worldVersion === 11
+      ? 5
+      : worldVersion === 12
+        ? 6
+        : GENERATOR_VERSION,
+  generationPreset: SaveSnapshot["generationPreset"] = generatorVersion === 5
+    ? "B"
+    : undefined,
 ): save is SaveSnapshot {
   if (!save || typeof save !== "object") return false;
   const s = save as SaveSnapshot;
@@ -409,8 +443,14 @@ export function compatible(
     s.worldVersion === worldVersion &&
     s.seed === seed &&
     (worldVersion < 9 ||
-      (s.generatorVersion === GENERATOR_VERSION &&
-        generatorVersion === GENERATOR_VERSION)) &&
+      (s.generatorVersion === generatorVersion &&
+        ((generatorVersion === 4 && worldVersion === 10) ||
+          ([6, 7].includes(generatorVersion) &&
+            worldVersion === generatorVersion + 6 &&
+            s.generationPreset === undefined) ||
+          (generatorVersion === 5 &&
+            worldVersion === 11 &&
+            s.generationPreset === generationPreset)))) &&
     (s.supportJobs === undefined ||
       (Array.isArray(s.supportJobs) &&
         s.supportJobs.every(
@@ -585,7 +625,7 @@ export function compatible(
           (ids) => Array.isArray(ids) && ids.every(Number.isInteger),
         ),
     ) &&
-    validTerrain(s.terrain) &&
+    validTerrain(s.terrain, s.terrainIndices) &&
     Array.isArray(s.removed) &&
     s.removed.every(Number.isInteger) &&
     Array.isArray(s.ruins) &&
@@ -655,7 +695,7 @@ function validNuclearFire(f: SaveSnapshot["nuclearFire"]) {
       !Number.isFinite(p.height) ||
       (p.height !== 5 && p.height < 6) ||
       p.height > 12 ||
-      ((p.radius === 8) !== (p.height === 5)) ||
+      (p.radius === 8) !== (p.height === 5) ||
       !Number.isFinite(p.age) ||
       p.age < 0 ||
       p.age >= FIRE_LIFETIME ||
@@ -695,7 +735,22 @@ function validPoint(p: unknown): boolean {
     p[2] <= CONFIG.worldSize
   );
 }
-function validTerrain(data: SaveSnapshot["terrain"]) {
+function validTerrain(
+  data: SaveSnapshot["terrain"],
+  exactIndices?: Uint32Array,
+) {
+  if (
+    exactIndices !== undefined &&
+    (!(data instanceof Float32Array) ||
+      !(exactIndices instanceof Uint32Array) ||
+      exactIndices.length !== data.length / 2 ||
+      !exactIndices.every(
+        (value, i) =>
+          value < CONFIG.grid * CONFIG.grid &&
+          Math.fround(value) === data[i * 2],
+      ))
+  )
+    return false;
   if (data instanceof Float32Array)
     return (
       data.length <= CONFIG.grid * CONFIG.grid * 2 &&
@@ -730,7 +785,7 @@ function validSection(section: SaveSection) {
     !(section.dry instanceof Uint32Array) ||
     !Array.isArray(section.ruins) ||
     !Array.isArray(section.removedRuins) ||
-    !validTerrain(section.terrain)
+    !validTerrain(section.terrain, section.terrainIndices)
   )
     return false;
   const belongs = (i: number) =>
@@ -740,7 +795,8 @@ function validSection(section: SaveSection) {
       Math.min(CHUNKS - 1, Math.floor((i % CONFIG.grid) / 32)) ===
       section.id;
   for (let i = 0; i < section.terrain.length; i += 2)
-    if (!belongs(section.terrain[i])) return false;
+    if (!belongs(section.terrainIndices?.[i / 2] ?? section.terrain[i]))
+      return false;
   return (
     section.dry.every(belongs) && section.removedRuins.every(Number.isInteger)
   );

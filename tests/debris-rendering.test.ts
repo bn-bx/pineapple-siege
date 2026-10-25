@@ -1,3 +1,4 @@
+import { treeCanopyScale } from "../src/render/tree-appearance";
 import { expect, it } from "vitest";
 import * as THREE from "three";
 import { roofFragmentGeometry } from "../src/render/assets";
@@ -332,13 +333,18 @@ it("uses matching trunk and canopy dimensions on both sides of GPU interpolation
     const canopy = view.fallenPines.geometry.getAttribute("motionPreviousS");
     expect(trunk.getY(0)).toBe(8);
     expect(trunk.getX(0)).toBe(1);
-    expect(canopy.getY(0)).toBe(8);
-    expect(canopy.getX(0)).toBeCloseTo(2.9);
+    const scale = treeCanopyScale(view.world.entities[0]);
+    const previousRatio = old.s[1] / view.world.entities[0].s[1];
+    const currentRatio = current.s[1] / view.world.entities[0].s[1];
+    expect(canopy.getY(0)).toBeCloseTo(scale[1] * previousRatio);
+    expect(canopy.getX(0)).toBeCloseTo(scale[0] * previousRatio);
     expect(
       view.fallenPines.geometry.getAttribute("motionPreviousP").getY(0),
     ).toBe(96);
     expect(view.fallenTrunks.instanceMatrix.array[5]).toBe(4);
-    expect(view.fallenPines.instanceMatrix.array[0]).toBeCloseTo(1.45);
+    expect(view.fallenPines.instanceMatrix.array[0]).toBeCloseTo(
+      scale[0] * currentRatio,
+    );
     expect(new Uint8Array(oldPacket.buffer)).toEqual(original);
     expect(current.s).toEqual([0.5, 2, 0.5]);
   } finally {

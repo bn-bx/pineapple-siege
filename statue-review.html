@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Pineapple God · Reference Review</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">PINEAPPLE SIEGE / SCULPT REVIEW</span>
+        <h1>Match the reference.</h1>
+        <p>The approved head and body are now integrated into the game.</p>
+      </div>
+      <div class="pending">HEAD & BODY ACCEPTED</div>
+    </header>
+    <main>
+      <aside>
+        <section>
+          <h2>Comparison</h2>
+          <label
+            >View<select id="view">
+              <option value="body">Body · accepted reference crop</option>
+              <option value="head">Head & neck · accepted</option>
+              <option value="head-three">Head three-quarter · inferred</option>
+              <option value="head-side">Head profile · inferred</option>
+              <option value="whole">Complete statue</option>
+              <option value="three">Three-quarter · inferred geometry</option>
+              <option value="side">Side · inferred geometry</option>
+            </select></label
+          >
+          <label
+            >Display<select id="display">
+              <option value="split">Side by side</option>
+              <option value="overlay">Aligned overlay</option>
+              <option value="candidate">Candidate only</option>
+              <option value="reference">Reference only</option>
+            </select></label
+          >
+          <label
+            >Candidate opacity
+            <input
+              id="opacity"
+              type="range"
+              min="0"
+              max="1"
+              step=".01"
+              value=".5"
+          /></label>
+          <label
+            >Surface<select id="surface">
+              <option value="photo">Reference surfaces · statue</option>
+              <option value="material">Gold material · geometry only</option>
+              <option value="clay">Neutral clay · geometry only</option>
+            </select></label
+          >
+          <label class="check"
+            ><input id="relight" type="checkbox" />Light from the opposite
+            side</label
+          >
+          <label class="check"
+            ><input id="annotations" type="checkbox" />Reference
+            landmarks</label
+          ><label class="check"
+            ><input id="wireframe" type="checkbox" />Mesh wireframe</label
+          ><label class="check"
+            ><input id="crt" type="checkbox" />Fixed subtle CRT</label
+          >
+        </section>
+        <section>
+          <h2>Measurements</h2>
+          <div id="metrics">Rendering…</div>
+          <p class="small">
+            Silhouette fit cannot establish identical appearance. Facial
+            observations must be picked on the rendered candidate; source
+            fitting points are not independent evidence.
+          </p>
+        </section>
+        <section>
+          <h2>Inspect a facial landmark</h2>
+          <p class="small">
+            Recorded observations are approximate visual picks. Clicking lets
+            you revise them against the actual render.
+          </p>
+          <label>Feature<select id="landmark"></select></label>
+          <p class="small">
+            Choose Candidate only, then click the visible feature. Observations
+            remain local to this review.
+          </p>
+          <button id="clear">Clear observations</button
+          ><button id="export">Download comparison report</button>
+        </section>
+        <section>
+          <h2>Review stages</h2>
+          <ol>
+            <li>Head & neck: visually accepted; preserved</li>
+            <li>Body & accessories: visually accepted</li>
+            <li>Game integration: complete; final visual review pending</li>
+          </ol>
+          <p class="small">
+            Aircraft-occluded areas and unseen surfaces are unverified. Side
+            views are reconstruction checks, not source matches.
+          </p>
+        </section>
+      </aside>
+      <article>
+        <div class="panels" id="panels">
+          <div class="panel reference">
+            <div class="label">YOUR ORIGINAL REFERENCE</div>
+            <div class="window" id="referenceWindow">
+              <img
+                id="reference"
+                src="/review/pineapple-god/reference.png"
+                alt="Original supplied reference, unchanged"
+              /><img
+                id="annotationImage"
+                src="/review/pineapple-god/reference-annotated.png"
+                alt="Reference landmarks"
+                hidden
+              />
+            </div>
+          </div>
+          <div class="panel candidate">
+            <div class="label">APPROVED 3D SCULPT</div>
+            <div class="window" id="candidateWindow"></div>
+          </div>
+        </div>
+        <p id="caption">
+          Fixed model UVs carry reference-derived detail on the connected head
+          and neck. Inspect the clay and side views to assess actual geometry.
+        </p>
+        <section class="evidence">
+          <h2>Evidence & limits</h2>
+          <p>
+            <a
+              href="/review/pineapple-god/game-captures/comparison.png"
+              target="_blank"
+              >Reference / in-game comparison</a
+            >
+            ·
+            <a href="/?island=PS4-0000A301#debug" target="_blank"
+              >Play the updated game</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/game-captures/matched.png"
+              target="_blank"
+              >Actual in-game front view</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/game-captures/three.png"
+              target="_blank"
+              >In-game three-quarter view</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/game-captures/side.png"
+              target="_blank"
+              >In-game side view</a
+            >
+          </p>
+          <p>
+            <a
+              href="/review/pineapple-god/captures/body-comparison.png"
+              target="_blank"
+              >Body comparison</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/body-surface-and-clay.png"
+              target="_blank"
+              >Body / clay geometry</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/body-before-after.png"
+              target="_blank"
+              >Before / after</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/reference-body-trace.png"
+              target="_blank"
+              >Source contour trace</a
+            >
+          </p>
+          <p>
+            <a
+              href="/review/pineapple-god/captures/head-surface-and-clay.png"
+              target="_blank"
+              >Reference / surface / clay</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/clay-head-three.png"
+              target="_blank"
+              >Clay three-quarter</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/clay-head-side.png"
+              target="_blank"
+              >Clay profile</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/head-comparison.png"
+              target="_blank"
+              >Head comparison</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/head-overlay.png"
+              target="_blank"
+              >Overlay</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/head-silhouette-difference.png"
+              target="_blank"
+              >Outline differences</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/head-appearance-difference.png"
+              target="_blank"
+              >Appearance differences</a
+            >
+            ·
+            <a
+              href="/review/pineapple-god/captures/review-status.json"
+              target="_blank"
+              >Review status</a
+            >
+          </p>
+          <p>
+            The original reference is preserved byte-for-byte. The candidate is
+            an authored polygon mesh with per-part material and damage
+            ownership. The body and head use cleaned reference-derived UV
+            textures; source shadows remain. Hidden fabric is reconstructed. The
+            rear and depth are inferred.
+          </p>
+          <p>
+            Photo projection makes frontal feature measurements
+            source-dependent. Those measurements cannot prove anatomy. Use
+            neutral clay, the opposite light, and side views before accepting
+            the sculpt.
+          </p>
+          <p>
+            Acceptance requires your visual review. A passed silhouette score
+            only confirms the measured outline; it does not approve facial
+            anatomy, shading, pose, or likeness.
+          </p>
+          <a
+            href="/review/pineapple-god/reference-provenance.json"
+            target="_blank"
+            >Original image provenance</a
+          >
+          ·
+          <a href="/review/pineapple-god/annotations.json" target="_blank"
+            >Source annotations</a
+          >
+          ·
+          <a href="/review/pineapple-god/sculpt.json" target="_blank"
+            >Authored mesh asset</a
+          >
+        </section>
+      </article>
+    </main>
+    <script type="module" src="/src/review/statue-review.ts"></script>
+  </body>
+</html>

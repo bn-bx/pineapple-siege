@@ -1,6 +1,6 @@
 {
-  "release": "pineapple-god-reference-sculpt-2026-10-23",
-  "worldVersion": 10,
+  "release": "rolling-island-terrain-2026-10-25",
+  "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
   "includes": [
@@ -49,8 +49,15 @@
     "gravity-bomb-pooled-visuals-and-spatial-audio",
     "pineapple-god-reference-matched-head-and-body-sculpt",
     "enlarged-animated-cross-realm-portals",
-    "space-laser-island-wide-disco-show"
+    "space-laser-island-wide-disco-show",
+    "ps4-playable-save-and-shared-seed-compatibility",
+    "rolling-uplands-valleys-and-graded-settlement-slopes",
+    "seed-driven-island-variety-lakes-and-regional-landscapes",
+    "ps4-ps5-ps6-save-and-shared-code-compatibility",
+    "exact-far-grid-terrain-save-indices",
+    "coastal-beaches-rocks-and-animated-surf",
+    "dense-mixed-age-forests-and-shared-foliage-motion"
   ],
-  "generatorVersion": 4,
+  "generatorVersion": 7,
   "mapSizeMeters": 9216
 }

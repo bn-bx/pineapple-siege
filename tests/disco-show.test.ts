@@ -92,3 +92,29 @@ it("chains receiving-material shader hooks without duplicating projections", () 
   expect(shader.vertexShader).toContain("instanceMatrix * discoPosition");
   expect(shader.fragmentShader).toContain("outgoingLight +=");
 });
+
+it("rebinds retained materials to a new world without duplicating shader declarations", () => {
+  const first = new DiscoShow(9216),
+    second = new DiscoShow(9216);
+  const material = new THREE.MeshStandardMaterial();
+  first.install(material);
+  second.install(material);
+  const shader = {
+    uniforms: {},
+    vertexShader: THREE.ShaderLib.standard.vertexShader,
+    fragmentShader: THREE.ShaderLib.standard.fragmentShader,
+  } as THREE.WebGLProgramParametersWithUniforms;
+  material.onBeforeCompile(shader, {} as THREE.WebGLRenderer);
+  expect(shader.vertexShader.match(/varying vec3 vDiscoWorld;/g)).toHaveLength(
+    1,
+  );
+  expect(shader.fragmentShader.match(/uniform float discoTime/g)).toHaveLength(
+    1,
+  );
+  expect(shader.uniforms.discoTime).toBe(second.uniforms.discoTime);
+  const resources = new ResourceDisposal();
+  resources.collect(first.group);
+  resources.collect(second.group);
+  resources.dispose();
+  material.dispose();
+});

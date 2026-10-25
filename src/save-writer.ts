@@ -138,6 +138,9 @@ export class SaveWriter implements DamageWriter {
     };
     const message: SaveSnapshot = {
       ...save,
+      terrainIndices: save.terrainIndices
+        ? copy(save.terrainIndices)
+        : undefined,
       terrain:
         save.terrain instanceof Float32Array
           ? copy(save.terrain)
@@ -148,6 +151,9 @@ export class SaveWriter implements DamageWriter {
         : undefined,
       sections: save.sections?.map((section) => ({
         ...section,
+        terrainIndices: section.terrainIndices
+          ? copy(section.terrainIndices)
+          : undefined,
         terrain: copy(section.terrain),
         dry: copy(section.dry),
       })),

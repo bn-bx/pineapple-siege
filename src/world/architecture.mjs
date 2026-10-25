@@ -1,5 +1,10 @@
 // Existing castle and village modules adapted to seed-selected sites.
-export function createArchitecture(layout, sample, hash) {
+export function createArchitecture(
+  layout,
+  sample,
+  hash,
+  alignFixtures = false,
+) {
   const { sites, castles } = layout;
   const entities = [];
   function add(
@@ -228,14 +233,40 @@ export function createArchitecture(layout, sample, hash) {
       return owner.id;
     }
     wall("front", fx, fz - HALF_Z, HALF_X * 2, 0, 24, true);
-    wall("rear", fx, fz + HALF_Z, HALF_X * 2, 0);
-    wall("west", fx - HALF_X, fz, HALF_Z * 2, 1);
-    wall("east", fx + HALF_X, fz, HALF_Z * 2, 1);
+    const stepped = c.layout === "stepped",
+      rearHalf = stepped ? HALF_X * 0.72 : HALF_X;
+    wall("rear", fx, fz + HALF_Z, rearHalf * 2, 0);
+    for (const side of [-1, 1]) {
+      if (stepped) {
+        wall(
+          `lower-side-${side}`,
+          fx + side * HALF_X,
+          fz - HALF_Z * 0.25,
+          HALF_Z * 1.5,
+          1,
+        );
+        wall(
+          `shoulder-${side}`,
+          fx + (side * (HALF_X + rearHalf)) / 2,
+          fz + HALF_Z * 0.5,
+          HALF_X - rearHalf,
+          0,
+        );
+        wall(
+          `upper-side-${side}`,
+          fx + side * rearHalf,
+          fz + HALF_Z * 0.75,
+          HALF_Z * 0.5,
+          1,
+        );
+      } else
+        wall(side < 0 ? "west" : "east", fx + side * HALF_X, fz, HALF_Z * 2, 1);
+    }
     for (const a of [-1, 1])
       for (const b of [-1, 1])
         tower(
           `tower-${a}-${b}`,
-          fx + a * HALF_X,
+          fx + a * (b === 1 ? rearHalf : HALF_X),
           fz + b * HALF_Z,
           b === 1 ? 65 : 60,
           20,
@@ -249,7 +280,7 @@ export function createArchitecture(layout, sample, hash) {
         for (const along of [-1, 1])
           tower(
             `flank-${side}-${along}`,
-            fx + side * HALF_X,
+            fx + side * (stepped && along > 0 ? rearHalf : HALF_X),
             fz + along * 45,
             58,
             18,
@@ -257,10 +288,16 @@ export function createArchitecture(layout, sample, hash) {
           );
         tower(`rear-${side}`, fx + side * 40, fz + HALF_Z, 70, 22, true);
       }
-    if (grand) wall("middle-front", fx, fz - 78, 224, 0, 20, true);
-    wall("inner-west", fx - 46, fz + 13, 104, 1, 18);
-    wall("inner-east", fx + 46, fz + 13, 104, 1, 18);
-    wall("inner-front", fx, fz - 39, 92, 0, 18, true);
+    if (grand && c.layout !== "courtyard")
+      wall("middle-front", fx, fz - 78, 224, 0, 20, true);
+    if (c.layout !== "courtyard") {
+      wall("inner-west", fx - 46, fz + 13, 104, 1, 18);
+      wall("inner-east", fx + 46, fz + 13, 104, 1, 18);
+      wall("inner-front", fx, fz - 39, 92, 0, 18, true);
+    } else {
+      for (const side of [-1, 1])
+        wall(`court-gallery-${side}`, fx + side * 76, fz + 5, 86, 1, 14);
+    }
     // Broad keep foundation and terrace; all levels connect to grounded supports.
     const keepZ = fz + 14 + hash(c.turn + Math.round(c.p[0]), 708) * 22;
     for (let x = -2; x <= 2; x++)
@@ -361,7 +398,7 @@ export function createArchitecture(layout, sample, hash) {
     if (grand)
       for (const side of [-1, 1]) {
         const name = `palace-${side}`,
-          cx = fx + side * 48,
+          cx = fx + side * (stepped ? 33 : 48),
           cz = fz + 102;
         wall(name, cx, cz - 15, 62, 0, 26);
         wall(name, cx, cz + 15, 62, 0, 26);
@@ -564,7 +601,7 @@ export function createArchitecture(layout, sample, hash) {
         w * 0.65,
         4,
         d * 0.25 + 1,
-        "roof",
+        hash(Math.round(x), Math.round(z)) > 0.7 ? "slate" : "roof",
         name,
       );
     for (const side of [-1, 1])
@@ -602,16 +639,41 @@ export function createArchitecture(layout, sample, hash) {
   for (const s of sites) {
     const [x, y, z] = s.p,
       begin = entities.length;
-    if (s.kind === "hamlet")
-      for (let i = 0; i < (s.town ? 20 : 5); i++)
+    if (s.kind === "hamlet") {
+      const count = s.town ? 20 : 5;
+      for (let i = 0; i < count; i++) {
+        let dx, dz;
+        if (s.layout === "crescent") {
+          const angle = -Math.PI * 0.8 + (i / (count - 1)) * Math.PI * 1.6,
+            r = s.town ? (i % 2 ? 104 : 64) : 42;
+          dx = Math.cos(angle) * r;
+          dz = Math.sin(angle) * r;
+        } else if (s.layout === "clustered") {
+          const cols = s.town ? 5 : 3;
+          dx =
+            ((i % cols) - (cols - 1) / 2) * (s.town ? 39 : 30) +
+            (hash(i, Math.round(x)) * 2 - 1) * 5;
+          dz =
+            (Math.floor(i / cols) - (s.town ? 1.5 : 0.5)) * 42 +
+            (hash(i, Math.round(z)) * 2 - 1) * 5;
+        } else {
+          dx = ((i % 2) * 2 - 1) * (s.town ? 48 : 23);
+          dz = (Math.floor(i / 2) - (s.town ? 4.5 : 1)) * (s.town ? 24 : 30);
+        }
+        // Place houses in quarter turns so colliders and resident doorways agree.
+        const turn = s.turn ?? 0,
+          rx = turn === 1 ? -dz : turn === 2 ? -dx : turn === 3 ? dz : dx,
+          rz = turn === 1 ? dx : turn === 2 ? -dz : turn === 3 ? -dx : dz;
         building(
           `${s.id}-house-${i}`,
-          x + ((i % (s.town ? 5 : 3)) - (s.town ? 2 : 1)) * (s.town ? 42 : 33),
-          z + (Math.floor(i / (s.town ? 5 : 3)) - (s.town ? 1.5 : 0.5)) * 44,
-          14 + (i % 2) * 4,
-          20,
+          x + rx,
+          z + rz,
+          12 + (i % 2) * 3,
+          s.town ? 18 : 16,
           12 + (i % 3) * 3,
         );
+      }
+    }
     if (s.kind === "farm") {
       building(`${s.id}-barn`, x - 18, z, 23, 32, 16, "wood");
       building(`${s.id}-house`, x + 24, z + 12, 13, 17, 11);
@@ -663,9 +725,12 @@ export function createArchitecture(layout, sample, hash) {
       }
     }
     if (s.kind === "watchtower") {
-      post(s.id, x, z, 42, 12);
+      const towerBase = post(s.id, x, z, 42, 12);
+      // Road grading can change the final base after the site was reserved.
+      // PS7 rails follow their tower; legacy revisions retain their exact geometry.
+      const railBase = alignFixtures ? towerBase : y;
       for (const a of [-1, 1])
-        add("block", x + a * 7, y + 36, z, 1, 4, 7, "wood", s.id);
+        add("block", x + a * 7, railBase + 36, z, 1, 4, 7, "wood", s.id);
     }
     if (s.kind === "watermill") {
       building(`${s.id}-mill`, x, z, 18, 22, 20, "stone");
@@ -816,8 +881,10 @@ export function createArchitecture(layout, sample, hash) {
       lights.push({ owner: owner.id, p: [x, y + 52, z] });
     }
     if (s.kind === "coastal-ruin") {
+      const layers =
+        s.layout === "crescent" ? 2 : s.layout === "clustered" ? 5 : 3;
       for (let side of [-1, 1])
-        for (let layer = 0; layer < 3; layer++)
+        for (let layer = 0; layer < layers; layer++)
           add(
             "block",
             x + side * 8,

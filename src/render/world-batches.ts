@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { installFoliageMotion } from "./foliage-motion";
 import { ApprovedGodView } from "./approved-god";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
@@ -33,8 +34,10 @@ export interface Batch {
 }
 const dummy = new THREE.Object3D();
 export class WorldBatches {
+  private foliageMaterials: THREE.Material[] = [];
   private eyeMaterials = new Set<THREE.MeshStandardMaterial>();
   readonly batches: Batch[] = [];
+  readonly foliageTime = { value: 0 };
   readonly refs = new Map<number, { batch: Batch; index: number }[]>();
   readonly removed = new Set<number>();
   readonly flagGroup = new THREE.Group();
@@ -54,16 +57,39 @@ export class WorldBatches {
     this.buildBatches();
     this.addBanners();
     this.scene.add(this.flagGroup);
-    this.horizon = new IslandHorizon(world, this.batches, materials);
+    this.horizon = new IslandHorizon(world, this.batches, materials, this.foliageTime);
     this.scene.add(this.horizon.group);
   }
-  private crownGeometry(species: "pine" | "broadleaf" | "riverside") {
-    return treeCrownGeometry(species);
-  }
+
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
+    const livingFoliage = this.world.realm === "hell"
+      ? this.materials.foliage
+      : this.materials.foliage?.clone() ?? new THREE.MeshStandardMaterial();
+    const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+    this.foliageMaterials.push(livingFoliage, foliageDepth);
+    if (this.world.realm !== "hell") {
+      const source = this.materials.foliage ?? livingFoliage;
+      livingFoliage.onBeforeCompile = source.onBeforeCompile;
+      const sourceKey = source.customProgramCacheKey();
+      livingFoliage.customProgramCacheKey = () => sourceKey;
+      installFoliageMotion(livingFoliage, this.foliageTime);
+      installFoliageMotion(foliageDepth, this.foliageTime);
+    }
+
     const statueGeometries = new Map<string, THREE.BufferGeometry>();
     const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
+    const crowns = new Map<string, THREE.BufferGeometry>();
+    const crown = (species: "pine" | "broadleaf" | "riverside", low = false) => {
+      const key = `${species}:${low}`;
+      let geometry = crowns.get(key);
+      if (!geometry) {
+        geometry = low ? treeCrownLowGeometry(species) : treeCrownGeometry(species);
+        crowns.set(key, geometry);
+        this.geometries.add(geometry);
+      }
+      return geometry;
+    };
     const deadGeometries = new Map<string, THREE.BufferGeometry>();
     const deadGeometry = (species: "pine" | "broadleaf" | "riverside", low = false) => {
       const key = `${species}:${low}`;
@@ -88,25 +114,17 @@ export class WorldBatches {
       const key = e.visual
         ? `statue:${statueGeometryKey(e)}:${e.visual.color}:${statueRole(e, this.world) === "eye"}:${cell}`
         : e.kind + e.material + (e.treeSpecies ?? "pine") + cell;
-      if (e.kind === "tree" && this.world.realm !== "hell") {
-        const trunkKey = "trunk" + cell;
-        let trunks = grouped.get(trunkKey);
-        if (!trunks) grouped.set(trunkKey, (trunks = []));
-        trunks.push(e);
-      }
       let list = grouped.get(key);
       if (!list) grouped.set(key, (list = []));
       list.push(e);
     }
     const pine = pineGeometry(),
-      low = new THREE.ConeGeometry(1, 1, 7, 1);
-    low.translate(0, 0.5, 0);
+      low = treeCrownLowGeometry("pine");
     const roof = this.roof;
-    const trunk = new THREE.CylinderGeometry(0.8, 1, 1, 6),
-      rock = new THREE.DodecahedronGeometry(1, 0);
-    for (const geometry of [pine, low, trunk, rock])
+    const rock = new THREE.DodecahedronGeometry(1, 0);
+    for (const geometry of [pine, low, rock])
       this.geometries.add(geometry);
-    for (const [groupKey, list] of grouped) {
+    for (const list of grouped.values()) {
       let e = list[0];
       const add = (
         geo: THREE.BufferGeometry,
@@ -116,6 +134,7 @@ export class WorldBatches {
       ) => {
         let mesh = new THREE.InstancedMesh(geo, material, list.length);
         mesh.castShadow = mesh.receiveShadow = true;
+        if (kind === "pine" && this.world.realm !== "hell") mesh.customDepthMaterial = foliageDepth;
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         let batch: Batch = {
           mesh,
@@ -129,6 +148,7 @@ export class WorldBatches {
         if (lowGeo) {
           batch.low = new THREE.InstancedMesh(lowGeo, material, list.length);
           batch.low.receiveShadow = true;
+          if (kind === "pine" && this.world.realm !== "hell") batch.low.customDepthMaterial = foliageDepth;
           this.scene.add(batch.low);
         }
         list.forEach((e, i) => {
@@ -136,10 +156,6 @@ export class WorldBatches {
           if (kind === "pine") {
             dummy.position.y -= e.s[1];
             dummy.scale.fromArray(treeCanopyScale(e));
-          }
-          if (kind === "trunk") {
-            dummy.position.y -= e.s[1] * 0.4;
-            dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
           }
           finishEntityTransform(dummy, e);
           mesh.setMatrixAt(i, dummy.matrix);
@@ -168,10 +184,6 @@ export class WorldBatches {
         this.scene.add(mesh);
         this.batches.push(batch);
       };
-      if (groupKey.startsWith("trunk")) {
-        add(trunk, this.materials.wood, "trunk");
-        continue;
-      }
       if (e.visual) {
         const key = statueGeometryKey(e);
         let geo = statueGeometries.get(key);
@@ -206,10 +218,10 @@ export class WorldBatches {
           continue;
         }
         add(
-          species === "pine" ? pine : this.crownGeometry(species),
-          this.materials.foliage,
+          species === "pine" ? pine : crown(species),
+          livingFoliage,
           "pine",
-          species === "pine" ? low : treeCrownLowGeometry(species),
+          species === "pine" ? low : crown(species, true),
         );
       } else
         add(
@@ -298,10 +310,6 @@ export class WorldBatches {
           dummy.position.y -= e.s[1];
           dummy.scale.fromArray(treeCanopyScale(e));
         }
-        if (batch.kind === "trunk") {
-          dummy.position.y -= e.s[1] * 0.4;
-          dummy.scale.set(0.65, e.s[1] * 1.2, 0.65);
-        }
         finishEntityTransform(dummy, e);
         batch.mesh.setMatrixAt(i, dummy.matrix);
         batch.low?.setMatrixAt(i, dummy.matrix);
@@ -340,9 +348,7 @@ export class WorldBatches {
       if (b.low) {
         b.mesh.visible = d < treeDistance + b.radius;
         b.low.visible = !b.mesh.visible && d < renderDistance + b.radius;
-      } else if (b.kind === "trunk")
-        b.mesh.visible = d < Math.min(700, renderDistance + 90);
-      else b.mesh.visible = d < renderDistance + b.radius;
+      } else b.mesh.visible = d < renderDistance + b.radius;
       for (const mesh of [b.mesh, b.low])
         if (mesh) {
           if (mesh.visible && mesh.count && !mesh.parent) this.scene.add(mesh);
@@ -357,6 +363,7 @@ export class WorldBatches {
   }
 
   dispose(resources: ResourceDisposal) {
+    for (const material of this.foliageMaterials) resources.materials.add(material);
     this.approvedGod.dispose(resources);
     for (const batch of this.batches) {
       resources.collect(batch.mesh);

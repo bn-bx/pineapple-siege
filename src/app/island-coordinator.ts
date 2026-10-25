@@ -6,6 +6,7 @@ import { SaveCaptureCoordinator } from "../save-capture";
 import { SessionState } from "../session-state";
 import { compatible, SaveStore } from "../storage";
 import type {
+  GenerationRequest,
   GameCommand,
   Preferences,
   SaveSnapshot,
@@ -14,10 +15,9 @@ import type {
   WorldData,
 } from "../types";
 import {
-  GENERATOR_VERSION,
-  SIZE,
+  supportedIsland,
   islandLink,
-  parseSeedCode,
+  parseIslandCode,
   seedCode,
   type IslandBaseline,
 } from "../world/generator.mjs";
@@ -59,7 +59,7 @@ export interface IslandCoordinatorContext {
   preferences: () => Preferences;
   islandLinkError: string;
   frame: (now: number) => void;
-  newIsland: (seed?: number) => Promise<void>;
+  newIsland: (seed?: number | GenerationRequest) => Promise<void>;
 }
 export function consumeIslandLink(): void {
   const url = new URL(location.href);
@@ -89,11 +89,16 @@ export function initializeWorld(
     .$("currentSeed")
     .setAttribute(
       "value",
-      seedCode(ctx.world.seed, ctx.world.generatorVersion),
+      seedCode(
+        ctx.world.seed,
+        ctx.world.generatorVersion,
+        ctx.world.generationPreset,
+      ),
     );
   ctx.$<HTMLInputElement>("currentSeed").value = seedCode(
     ctx.world.seed,
     ctx.world.generatorVersion,
+    ctx.world.generationPreset,
   );
   ctx.view = new GameRenderer(
     ctx.canvas,
@@ -152,6 +157,7 @@ export async function replaceIsland(
   ctx: IslandCoordinatorContext,
   baseline: IslandBaseline,
   reload: boolean,
+  committed?: () => void,
 ): Promise<void> {
   ctx.islandChanging = true;
   try {
@@ -163,6 +169,7 @@ export async function replaceIsland(
     }
     ctx.saveEpoch++;
     if (ctx.saveEnabled) await ctx.store.replaceBaseline(baseline);
+    committed?.();
     ctx.consumeIslandLink();
     ctx.hasSave = false;
     if (ctx.saveEnabled && reload) {
@@ -176,7 +183,7 @@ export async function replaceIsland(
 }
 export async function newIsland(
   ctx: IslandCoordinatorContext,
-  seed?: number,
+  seed?: number | GenerationRequest,
 ): Promise<void> {
   if (ctx.islandPreview.dialog.open || ctx.islandChanging) return;
   ctx.pause();
@@ -199,7 +206,11 @@ export async function copyIsland(
   kind: "seed" | "link",
 ): Promise<void> {
   if (!ctx.world) return;
-  const code = seedCode(ctx.world.seed, ctx.world.generatorVersion),
+  const code = seedCode(
+      ctx.world.seed,
+      ctx.world.generatorVersion,
+      ctx.world.generationPreset,
+    ),
     text = kind === "seed" ? code : islandLink(code, location.href);
   try {
     await navigator.clipboard.writeText(text);
@@ -244,12 +255,12 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
         "Local saving unavailable · session only";
       console.warn("Local save unavailable", error);
     }
-    let linkedSeed: number | undefined,
+    let linkedSeed: GenerationRequest | undefined,
       linkError = "";
     const code = new URLSearchParams(location.search).get("island");
     if (code !== null) {
       try {
-        linkedSeed = parseSeedCode(code);
+        linkedSeed = parseIslandCode(code);
       } catch (error) {
         linkError = (error as Error).message;
         ctx.islandLinkError = linkError;
@@ -259,14 +270,14 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
     let save: SaveSnapshot | undefined;
     if (
       baseline &&
-      baseline.world.generatorVersion === GENERATOR_VERSION &&
-      baseline.world.size === SIZE &&
+      supportedIsland(baseline.world) &&
       (!stored ||
         compatible(
           stored,
           baseline.world.version,
           baseline.world.seed,
           baseline.world.generatorVersion,
+          baseline.world.generationPreset,
         ))
     ) {
       save = stored;

@@ -1,0 +1,15 @@
+{
+  "headAndNeck": "visually accepted by user",
+  "userStatement": "looks good to me, how does the rest of the body look now?",
+  "scope": "User accepted the presented head/neck and body review candidates. Approved geometry is integrated; user acceptance of the actual in-game result remains pending. Hidden surfaces are reconstructed.",
+  "headGeometrySHA256": "fb4972ef290c3d1938ba48f3bb1803251b9a6f98337b8f75c486863f71f3a5a7",
+  "headSurfaceSHA256": "a13d904b693ec354f600ff2667745e76d217c9c315f626eb0c97c6d46eea1c6e",
+  "referenceSHA256": "10975841ad577b91044616b95ce760f62e9d913b11607cbf3258ac24da89e163",
+  "wholeStatue": "head and body review accepted; in-game result pending",
+  "inGame": "integrated; awaiting user visual acceptance",
+  "body": "visually accepted by user",
+  "bodyUserStatement": "looks good",
+  "bodyMeshRevision": "3649188f205804ce8fc896d51d261f10eb6695a446f699802230b190d36da57a",
+  "approvedAssetSHA256": "064f9254f91ab8a8cb0e135c92f6efb7af836176f9d4c6c881771074193c446b",
+  "integrationRevision": "7fe7d86bf05bd9da84152b17e166a5411cf69a94fcd8d9fde282f135337b8748"
+}

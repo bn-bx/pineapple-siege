@@ -289,10 +289,17 @@
           <button id="zoomMapIn" type="button" aria-label="Zoom in">+</button>
           <button id="zoomMapOut" type="button" aria-label="Zoom out">−</button>
           <button id="resetMap" type="button">Fit island</button>
-          <label>Landmark <select id="mapLandmark"><option value="">Choose a landmark…</option></select></label>
+          <label
+            >Landmark
+            <select id="mapLandmark">
+              <option value="">Choose a landmark…</option>
+            </select></label
+          >
           <button id="clearWaypoint" type="button">Clear waypoint</button>
         </div>
-        <p id="mapWaypoint" role="status">Select a landmark to set a waypoint.</p>
+        <p id="mapWaypoint" role="status">
+          Select a landmark to set a waypoint.
+        </p>
         <canvas
           id="pauseMap"
           width="768"
@@ -302,7 +309,8 @@
         ></canvas>
         <p class="map-legend">
           Gold arrow: your aircraft · White arrow: flight start · Gold squares:
-          castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring: waypoint. Scroll to zoom; drag to pan.
+          castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring:
+          waypoint. Scroll to zoom; drag to pan.
         </p>
       </section>
       <footer class="menu-footer">
@@ -320,7 +328,10 @@
       <div id="reticle"><i></i></div>
       <div class="telemetry">
         <div><strong id="speed">62</strong><span>M / S</span></div>
-        <div><strong id="altitude">115</strong><span id="altitudeLabel">HEIGHT AGL M</span></div>
+        <div>
+          <strong id="altitude">115</strong
+          ><span id="altitudeLabel">HEIGHT AGL M</span>
+        </div>
         <div class="throttle"><span id="throttleFill"></span></div>
       </div>
       <div class="weapon">
@@ -341,8 +352,10 @@
           ><button id="select-nuke" type="button" aria-pressed="false">
             2 Nuke</button
           ><button id="select-laser" type="button" aria-pressed="false">
-            3 Space Laser
-          </button><button id="select-gravityBomb" type="button" aria-pressed="false">4 Gravity Bomb</button>
+            3 Space Laser</button
+          ><button id="select-gravityBomb" type="button" aria-pressed="false">
+            4 Gravity Bomb
+          </button>
           <div class="cooldown-bar"><span id="cooldownFill"></span></div>
         </div>
       </div>
@@ -431,23 +444,19 @@
     <div id="saveStatus" role="status"></div>
     <pre id="perf" hidden></pre>
     <dialog id="islandPreview" aria-labelledby="islandPreviewTitle">
-      <h2 id="islandPreviewTitle">Choose your island</h2>
-      <p>
-        Explore a lush kingdom of rugged mountains, rivers, forests, and coastal
-        castles.
+      <h2 id="islandPreviewTitle">Your next island</h2>
+      <p class="island-intro">
+        A new coastline, a new kingdom. Every seed is different.
       </p>
-      <form id="previewSeedForm" class="island-seed-form">
-        <label for="previewSeed">Island seed</label>
-        <input
-          id="previewSeed"
-          autocomplete="off"
-          spellcheck="false"
-          maxlength="32"
-          placeholder="PS4-0000A301"
-        />
-        <button type="submit">Preview seed</button>
-      </form>
       <p id="islandSeedNotice" role="alert"></p>
+      <canvas
+        id="islandMap"
+        width="768"
+        height="768"
+        role="img"
+        aria-label="Your generated island: terrain, rivers, castles and harbors"
+        hidden
+      ></canvas>
       <progress
         id="islandProgress"
         max="1"
@@ -455,27 +464,26 @@
         aria-label="Island generation progress"
       ></progress>
       <p id="islandPreviewStatus" role="status" aria-live="polite">
-        Generating your island…
+        Making your island…
       </p>
-      <canvas
-        id="islandMap"
-        width="768"
-        height="768"
-        role="img"
-        aria-label="Overhead island preview showing mountains, forests, rivers, roads, and landmarks"
-        hidden
-      ></canvas>
-      <p class="island-map-legend">
-        Gold squares: castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring: waypoint. Scroll to zoom; drag to pan. ·
-        White arrow: flight start
-      </p>
-      <p id="islandLandmarks"></p>
+      <details id="islandSeedDetails">
+        <summary>Have an island code?</summary>
+        <form id="previewSeedForm" class="island-seed-form">
+          <label class="sr-only" for="previewSeed">Island code</label>
+          <input
+            id="previewSeed"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="32"
+            placeholder="Paste island code"
+          />
+          <button type="submit">Load</button>
+        </form>
+      </details>
       <div class="island-preview-actions">
-        <button id="rerollIsland">Reroll</button
-        ><button id="cancelIsland">Cancel</button
-        ><button id="keepIsland" class="primary" disabled>
-          Keep this island
-        </button>
+        <button id="rerollIsland">New island</button>
+        <button id="cancelIsland">Cancel</button>
+        <button id="keepIsland" class="primary" disabled>Start flying</button>
       </div>
       <section
         id="islandReplacePrompt"

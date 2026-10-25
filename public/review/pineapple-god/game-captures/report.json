@@ -1,0 +1,45 @@
+{
+  "info": {
+    "owners": 815,
+    "batches": 11,
+    "drawGroups": 15,
+    "materials": 13,
+    "removed": 26,
+    "camera": {
+      "position": [
+        4654.808127508279,
+        878.4990234375,
+        7099.637238325071
+      ],
+      "quaternion": [
+        -0.03431067491110399,
+        -0.563773324320207,
+        -0.023449913959431207,
+        0.8248833359375024
+      ],
+      "fov": 45
+    }
+  },
+  "errors": [],
+  "notes": [
+    "Actual game renderer and environment; CRT enabled.",
+    "Matched view uses the approved scale and camera. Background and lighting differ from the source.",
+    "User acceptance of the integrated result remains pending."
+  ],
+  "technicalValidation": {
+    "focusedTests": {
+      "passed": 51,
+      "failed": 0,
+      "files": 9
+    },
+    "typescript": "passed",
+    "productionBuild": "passed",
+    "runtimeAssetVerification": "passed",
+    "seedRetryChecks": {
+      "20": "passed",
+      "22": "passed",
+      "12": "existing assertion expects at least 8 retries, but both the pre-integration generator with approved mesh disabled and the corrected integration return 3; generated island passes validation"
+    },
+    "fullSuite": "stopped after initial seed compatibility failures; relevant corrected tests rerun"
+  }
+}

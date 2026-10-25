@@ -8,6 +8,7 @@ import {
   normalizeMonsterCount,
 } from "../config";
 import type { MonsterSpike, MonsterState, Vec3, WorldData } from "../types";
+import { onMainland } from "../world/landscape.mjs";
 import { Terrain } from "./terrain";
 import { MonsterCrowd } from "./monster-crowd";
 import { PursuitField } from "./pursuit-field";
@@ -209,6 +210,8 @@ export class Monsters {
       z < 75 ||
       z > CONFIG.worldSize - 75
     )
+      return false;
+    if (this.world.mainland && !onMainland(this.world.mainland, x, z))
       return false;
     if (this.waterBlocked(x, z, pursuing)) return false;
     const h = this.ground(x, z, pursuing);

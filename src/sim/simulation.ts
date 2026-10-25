@@ -440,8 +440,9 @@ export class Simulation {
           ),
       );
     this.queryMarks = new Uint32Array(world.entities.length);
-    this.terrain = new Terrain(heights, world.rivers, incremental);
-    if (save) this.terrain.restore(save.terrain, save.laserDry);
+    this.terrain = new Terrain(heights, world.rivers, incremental, world);
+    if (save)
+      this.terrain.restore(save.terrain, save.laserDry, save.terrainIndices);
     for (const id of world.portal?.clearedTrees ?? []) this.removed.add(id);
     const oldRemoved = new Set([...this.removed, ...(save?.removed ?? [])]);
     const initialRage =
@@ -463,7 +464,9 @@ export class Simulation {
       initialRage,
     );
     this.physics = new RAPIER.World({ x: 0, y: -CONFIG.debrisGravity, z: 0 });
-    this.gravityBombs = new GravityBombs((a, b, radius) => this.gravitySweep(a, b, radius));
+    this.gravityBombs = new GravityBombs((a, b, radius) =>
+      this.gravitySweep(a, b, radius),
+    );
     this.monsterRagdolls = new MonsterRagdolls(this.terrain);
     for (const m of this.monsters.states)
       if (
@@ -662,7 +665,8 @@ export class Simulation {
     near(this.plane.p, 85);
     near(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 85);
     for (const s of this.projectiles) near(s.p, 12);
-    for (const bomb of this.gravityBombs.bombs) near(bomb.p, gravityRadius(bomb));
+    for (const bomb of this.gravityBombs.bombs)
+      near(bomb.p, gravityRadius(bomb));
     for (const id of wanted)
       if (!this.terrainColliders.has(id)) {
         if (this.streamedStatics && this.tick > 0)
@@ -723,7 +727,8 @@ export class Simulation {
     };
     add(this.plane.p, 110);
     add(this.plane.p.map((p, i) => p + this.plane.v[i] * 0.35) as Vec3, 110);
-    for (const bomb of this.gravityBombs.bombs) add(bomb.p, gravityRadius(bomb));
+    for (const bomb of this.gravityBombs.bombs)
+      add(bomb.p, gravityRadius(bomb));
     for (const [key, range] of cells) {
       for (const id of this.entityCells.get(key) || []) {
         if (this.removed.has(id) || wanted.has(id)) continue;
@@ -2060,14 +2065,17 @@ export class Simulation {
     p.v = f.map((v) => v * p.speed) as Vec3;
     const next = p.p.map((v, i) => v + p.v[i] * dt) as Vec3;
     const portal = this.world.portal;
-    const throughOpening = !!portal && this.portalGrace <= 0 &&
+    const throughOpening =
+      !!portal &&
+      this.portalGrace <= 0 &&
       portal.ids.every((id) => !this.removed.has(id)) &&
       p.v[1] < -1 &&
       Math.hypot(p.p[0] - portal.x, p.p[2] - portal.z) < portal.radius - 6 &&
       Math.hypot(next[0] - portal.x, next[2] - portal.z) < portal.radius - 6 &&
       p.p[1] < this.terrain.sample(p.p[0], p.p[2]) + 100;
     if (
-      portal && throughOpening &&
+      portal &&
+      throughOpening &&
       next[1] <= this.terrain.sample(next[0], next[2]) + 4 &&
       p.p[1] >= this.terrain.sample(p.p[0], p.p[2]) - 3
     ) {
@@ -2319,7 +2327,10 @@ export class Simulation {
     const contactLevel = HELL_LAVA_LEVEL - 2.2;
     if (this.world.realm !== "hell" || Math.max(from[1], to[1]) < contactLevel)
       return hit;
-    const t = from[1] >= contactLevel ? 0 : (contactLevel - from[1]) / (to[1] - from[1]);
+    const t =
+      from[1] >= contactLevel
+        ? 0
+        : (contactLevel - from[1]) / (to[1] - from[1]);
     const lava: Vec3 = from.map((v, i) => v + (to[i] - v) * t) as Vec3;
     return hit && distance(from, hit) < distance(from, lava) ? hit : lava;
   }
@@ -3048,7 +3059,8 @@ export class Simulation {
         bodies: 0,
         ballistic: this.ballistic.size,
         ruins: this.ruins.size,
-        removed: this.removed.size - (this.world.portal?.clearedTrees?.length ?? 0),
+        removed:
+          this.removed.size - (this.world.portal?.clearedTrees?.length ?? 0),
         shots: this.shots,
         revision: this.revision,
         terrainHeightJournalDataBytes,
@@ -3080,6 +3092,7 @@ export class Simulation {
       version: CONFIG.version,
       worldVersion: this.world.version,
       generatorVersion: this.world.generatorVersion,
+      generationPreset: this.world.generationPreset,
       seed: this.world.seed,
       capture,
       incremental: true,
@@ -3216,6 +3229,9 @@ export class Simulation {
       }
       metadata.sections.push({
         id,
+        terrainIndices: [...s.terrain.keys()].some((i) => i > 0xffffff)
+          ? Uint32Array.from(s.terrain.keys())
+          : undefined,
         terrain: packed,
         dry: Uint32Array.from(s.dry),
         ruins: [...s.ruins.values()],
@@ -3281,18 +3297,25 @@ export class Simulation {
     }
     const ruins = [...captured.values()];
     const terrain = new Float32Array(this.terrain.changed.size * 2);
-    let offset = 0;
+    let offset = 0,
+      needsExact = false;
     this.terrain.changed.forEach((height, index) => {
+      if (index > 0xffffff) needsExact = true;
       terrain[offset++] = index;
       terrain[offset++] = height;
     });
+    const terrainIndices = needsExact
+      ? Uint32Array.from(this.terrain.changed.keys())
+      : undefined;
     return {
+      terrainIndices,
       nuclearFire: this.fires.save(),
       statueReaction: { ...this.statueReaction },
       destruction: { ...this.destruction },
       version: CONFIG.version,
       worldVersion: this.world.version,
       generatorVersion: this.world.generatorVersion,
+      generationPreset: this.world.generationPreset,
       seed: this.world.seed,
       revision: this.revision,
       hour: this.hour,

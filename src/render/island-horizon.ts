@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { installFoliageMotion } from "./foliage-motion";
+import { treeCrownLowGeometry } from "./assets";
 import { statueRole } from "../statue-reaction";
 import type { Entity, Material, WorldData } from "../types";
 import { setTreeCanopyColor, treeCanopyScale } from "./tree-appearance";
@@ -34,6 +36,7 @@ export class IslandHorizon {
     world: WorldData,
     coverage: readonly Coverage[],
     materials: Record<Material, THREE.MeshStandardMaterial>,
+    foliageTime = { value: 0 },
   ) {
     const owners = new Map<number, Coverage>();
     for (const batch of coverage)
@@ -67,14 +70,29 @@ export class IslandHorizon {
         : key.startsWith("rock:")
           ? new THREE.DodecahedronGeometry(1, 0)
           : forest
-            ? dead ? deadTreeGeometry(species as "pine" | "broadleaf" | "riverside", true) : new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0)
+            ? dead
+              ? deadTreeGeometry(
+                  species as "pine" | "broadleaf" | "riverside",
+                  true,
+                )
+              : treeCrownLowGeometry(
+                  species as "pine" | "broadleaf" | "riverside",
+                )
             : key === "roof" || key === "slate"
               ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)
               : new THREE.BoxGeometry(2, 2, 2);
       const material = new THREE.MeshStandardMaterial({
         color: statue ? "white" : source.color,
-        map: entities[0].visual?.shape === "portal-stone" ? source.map : statue ? null : source.map,
-        vertexColors: entities[0].visual?.shape === "hero-head" || entities[0].visual?.shape === "portal-stone",
+        map:
+          entities[0].visual?.shape === "portal-stone"
+            ? source.map
+            : statue
+              ? null
+              : source.map,
+        vertexColors:
+          (forest && !dead) ||
+          entities[0].visual?.shape === "hero-head" ||
+          entities[0].visual?.shape === "portal-stone",
         roughness: 1,
         side: statue ? THREE.DoubleSide : THREE.FrontSide,
         emissive: eye ? "#ff1010" : "black",
@@ -102,6 +120,7 @@ export class IslandHorizon {
         target.customProgramCacheKey = () =>
           `${cache}:whole-island-coverage-v1`;
       };
+      if (forest && !dead) installFoliageMotion(material, foliageTime);
       clip(material);
       const mesh = new THREE.InstancedMesh(geometry, material, entities.length);
       mesh.castShadow = false;
@@ -131,7 +150,9 @@ export class IslandHorizon {
         mesh.setColorAt(
           index,
           forest
-            ? dead ? setDeadTreeColor(canopyColor, entity) : setTreeCanopyColor(canopyColor, entity)
+            ? dead
+              ? setDeadTreeColor(canopyColor, entity)
+              : setTreeCanopyColor(canopyColor, entity)
             : setEntityColor(canopyColor, entity),
         );
         this.refs.set(entity.id, { mesh, index });

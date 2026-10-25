@@ -1,0 +1,24 @@
+{
+  "source": "reference.png",
+  "sourceSHA256": "10975841ad577b91044616b95ce760f62e9d913b11607cbf3258ac24da89e163",
+  "crop": [
+    460,
+    184,
+    705,
+    478
+  ],
+  "texture": "head-surface.png",
+  "geometryScope": "continuous head and neck",
+  "processing": [
+    "Sky-derived scanline compensation",
+    "Conservative broad illumination reduction (maximum 16% increase, 15% decrease)",
+    "Extend head colors through atlas background to prevent sky bleed at grazing angles"
+  ],
+  "limitations": [
+    "Source directional lighting remains in the material. This is not independently recovered albedo.",
+    "No source side/rear view exists. The rear is inferred gold geometry, not photo verified.",
+    "Projected appearance and landmark fit cannot independently validate geometry. Inspect clay and side views."
+  ],
+  "cameraFacingBillboard": false,
+  "sourceModified": false
+}

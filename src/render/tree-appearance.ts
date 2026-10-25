@@ -9,13 +9,13 @@ export function treeCanopyScale(
     species = entity.treeSpecies ?? "pine",
     phase = variant * Math.PI * 2,
     width =
-    species === "riverside"
+      species === "riverside"
         ? 0.84 + Math.sin(phase) * 0.14
         : species === "broadleaf"
           ? 0.98 + Math.sin(phase) * 0.22
-          : 0.98 + Math.sin(phase) * 0.2,
+          : 0.98 + Math.sin(phase) * 0.32,
     depth =
-    species === "riverside"
+      species === "riverside"
         ? 1.02 + Math.cos(phase * 1.7 + 0.3) * 0.22
         : species === "broadleaf"
           ? 0.96 + Math.cos(phase * 1.35 + 0.7) * 0.2
@@ -25,11 +25,11 @@ export function treeCanopyScale(
         ? 1.08 + Math.sin(phase * 2.2 + 0.7) * 0.1
         : species === "broadleaf"
           ? 0.95 + Math.cos(phase * 2.1 + 0.2) * 0.16
-          : 0.98 + Math.sin(phase * 2.3 + 1.1) * 0.12;
+          : 0.98 + Math.sin(phase * 2.3 + 1.1) * 0.22;
   return [
-    entity.s[0] * 1.45 * width,
-    entity.s[1] * 2 * height,
-    entity.s[0] * 1.45 * depth,
+    entity.s[0] * 2.35 * width,
+    entity.s[1] * 2.45 * height,
+    entity.s[0] * 2.35 * depth,
   ];
 }
 
@@ -41,10 +41,19 @@ export function setTreeCanopyColor(
   const variant = Math.max(0, Math.min(1, entity.variant ?? 0.5)),
     species = entity.treeSpecies ?? "pine",
     hue =
-      (species === "riverside" ? 0.29 : species === "broadleaf" ? 0.225 : 0.255) +
-      (variant - 0.5) * 0.045,
+      (species === "riverside"
+        ? 0.29
+        : species === "broadleaf"
+          ? 0.225
+          : 0.295) +
+      (variant - 0.5) * 0.04,
     saturation =
-      (species === "broadleaf" ? 0.31 : species === "riverside" ? 0.23 : 0.26) +
+      (species === "broadleaf" ? 0.46 : species === "riverside" ? 0.3 : 0.43) +
       (variant - 0.5) * 0.08;
-  return color.setHSL(hue, saturation, 0.77 + variant * 0.16);
+  return color.setHSL(
+    hue,
+    saturation,
+    (species === "pine" ? 0.25 : species === "broadleaf" ? 0.3 : 0.35) +
+      variant * 0.09,
+  );
 }

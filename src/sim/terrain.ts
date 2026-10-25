@@ -2,7 +2,7 @@ import { SparseIndices } from "./sparse-indices";
 import { SparseValues } from "./sparse-values";
 import { CONFIG, CHUNKS, CHUNK_SAMPLES, LASER, clamp } from "../config";
 import { RiverField } from "../world/rivers";
-import type { RiverData, TerrainPatch } from "../types";
+import type { RiverData, TerrainPatch, WorldData } from "../types";
 export class Terrain {
   readonly base: Float32Array;
   readonly heights: Float32Array;
@@ -76,8 +76,9 @@ export class Terrain {
     base: Float32Array,
     rivers: RiverData[] = [],
     public trackDirty = false,
+    private world?: Pick<WorldData, "lakes" | "generatorVersion">,
   ) {
-    this.rivers = new RiverField(rivers);
+    this.rivers = new RiverField(rivers, world?.lakes);
     this.base = base;
     this.heights = base.slice();
     // All terrain edits lower the baseline. Include shared section edges so
@@ -159,7 +160,9 @@ export class Terrain {
   /** Active inland water only; ocean flooding is deliberately excluded. */
   riverSurface(x: number, z: number, terrainHeight = this.sample(x, z)) {
     const i = this.rivers.index(x, z);
-    const surface = this.rivers.cells.get(i);
+    const surface = this.rivers.lakeCells.has(i)
+      ? undefined
+      : this.rivers.riverCells.get(i);
     return !this.laserDry[i] && surface !== undefined && terrainHeight < surface
       ? surface
       : undefined;
@@ -178,6 +181,23 @@ export class Terrain {
   initializeFlood() {
     this.flooded.fill(0);
     this.floodHead = this.floodTail = this.floodCount = 0;
+    if ((this.world?.generatorVersion ?? 4) >= 5) {
+      const seed = (i: number) => {
+        if (!this.flooded[i] && !this.laserDry[i] && this.heights[i] < -0.06) {
+          this.flooded[i] = 1;
+          this.enqueueFlood(i);
+        }
+      };
+      for (let j = 0; j < CONFIG.grid; j++) {
+        seed(j);
+        seed((CONFIG.grid - 1) * CONFIG.grid + j);
+        seed(j * CONFIG.grid);
+        seed(j * CONFIG.grid + CONFIG.grid - 1);
+      }
+      this.expandFlood(false);
+      return;
+    }
+    // Preserve the exact legacy PS4 flooding behavior.
     // Seed the immutable ocean, then enqueue only its unvisited frontier.
     for (let i = 0; i < this.base.length; i++)
       if (this.base[i] < -0.15 && !this.laserDry[i]) this.flooded[i] = 1;
@@ -429,6 +449,7 @@ export class Terrain {
   restore(
     data: Float32Array | [number, number][],
     dry: Uint32Array = new Uint32Array(),
+    exactIndices?: Uint32Array,
   ) {
     this.laserDry.fill(0);
     this.dryIndices.clear();
@@ -441,7 +462,9 @@ export class Terrain {
     const count = data instanceof Float32Array ? data.length / 2 : data.length;
     for (let offset = 0; offset < count; offset++) {
       const i =
-          data instanceof Float32Array ? data[offset * 2] : data[offset][0],
+          data instanceof Float32Array
+            ? (exactIndices?.[offset] ?? data[offset * 2])
+            : data[offset][0],
         h =
           data instanceof Float32Array ? data[offset * 2 + 1] : data[offset][1];
       if (i >= 0 && i < this.heights.length && Number.isFinite(h)) {

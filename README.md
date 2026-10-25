@@ -23,18 +23,18 @@ The production application in `dist/` needs no backend or external asset service
 
 ## Play
 
-| Input         | Action                      |
-| ------------- | --------------------------- |
-| Mouse / A, D  | Steer                       |
-| W / S         | Raise / lower throttle      |
-| Shift         | Boost                       |
+| Input         | Action                                     |
+| ------------- | ------------------------------------------ |
+| Mouse / A, D  | Steer                                      |
+| W / S         | Raise / lower throttle                     |
+| Shift         | Boost                                      |
 | 1 / 2 / 3 / 4 | Cannon / nuke / space laser / gravity bomb |
-| Click / Space | Fire; hold to repeat        |
-| R             | Respawn                     |
-| Escape        | Pause                       |
-| C             | Chase / cinematic camera    |
-| P             | Frozen photo mode           |
-| Double-click  | Center steering             |
+| Click / Space | Fire; hold to repeat                       |
+| R             | Respawn                                    |
+| Escape        | Pause                                      |
+| C             | Chase / cinematic camera                   |
+| P             | Frozen photo mode                          |
+| Double-click  | Center steering                            |
 
 Without mouse capture, drag to steer and use Space to fire. Touch controls provide a left steering pad and simultaneous Fire, Boost, throttle, weapon, respawn, and menu buttons.
 
@@ -52,11 +52,11 @@ The 9,216 m island contains seeded mountains, rivers, forests, castles, farms, h
 
 PS4 islands include a roughly 1 km tall seated Pineapple God in the mountains, with a carved pineapple face, leaf crown, scepter, throne, and stairs. Its stone and gold sections can be destroyed independently, unsupported sections collapse, and damage persists in saves. The map includes a Pineapple God waypoint. PS3 layouts use the existing incompatible-save recovery flow. Each ground pineapple monster defeat flashes the surviving statue eyes red for 10 seconds. Damage to its main figure permanently enrages surviving pineapple monsters: they grow two oversized wheels and pursue across the island at 60 m/s with faster attacks and a 750 m range. Wheeled monsters cross river surfaces, steer around obstacles and other monsters, maintain body clearance, spread around the player, yield in narrow passages, and recover from blocked routes; ocean water remains impassable. Rage persists across deaths and saves until the island resets; throne, stair, and rock damage alone does not trigger it. Existing PS4 saves are supported.
 
-Rendering uses shared standard materials, simple near/distant trees, static mill machinery and banners, emissive windows, a basic sky, one directional light, and inexpensive ocean water. Weapon explosions, nuke flash/pineapple cloud, laser charge/beam, damage dust, debris, and basic exhaust remain. Decorative props, googly eyes, reflections, ambient occlusion, bloom, disco scenery/music, and layered environment audio have been removed.
+Rendering uses shared standard materials, detailed near trees with matching distant silhouettes and foliage motion, static mill machinery and banners, emissive windows, a basic sky, and one directional light. Coastal water includes shallow-water color, animated surf, beaches, and rock outcrops that follow terrain excavation. Weapon explosions, nuke flash/pineapple cloud, laser charge/beam, damage dust, debris, and basic exhaust remain. Googly eyes, reflections, ambient occlusion, bloom, and layered environment audio have been removed. Space-laser strikes trigger the island-wide disco show.
 
 The normal island's ocean meets an Earth-scale curved horizon that recedes with camera altitude. Nearby water fades into the sky-rendered ocean backdrop with matching day/night colors and calmer distant ripples. Local shorelines and water physics stay at sea level; the lava environment retains its existing rendering.
 
-World version 8, save compatibility 9, generator output, entity identities, and support/collision data are unchanged. Historical saves remain protected by the recovery dialog; temporary play leaves them untouched. Save transactions remain incremental. Preference revision 5 adds the CRT selection, defaults missing or invalid modes to Subtle, and preserves supported choices. Graphics recovery can restore the renderer or reload without replacing saved progress.
+New islands use one seed-driven generator (revision 7 / world version 13), with substantially different coastlines, broader mountain ranges, lakes, regional landscapes, and varied settlements. One complete preview appears at a time; New island generates another. PS4, PS5 and PS6 islands and progress remain playable. Rolling uplands, winding valleys and smaller hills now continue between the mountain ranges. Save compatibility remains version 10; exact terrain-index sidecars preserve far-grid damage. See [island generation](docs/ISLAND_GENERATION.md) for the pipeline and verification. Historical saves remain protected by the recovery dialog; temporary play leaves them untouched. Save transactions remain incremental. Preference revision 5 adds the CRT selection, defaults missing or invalid modes to Subtle, and preserves supported choices. Graphics recovery can restore the renderer or reload without replacing saved progress.
 
 ## Verification
 

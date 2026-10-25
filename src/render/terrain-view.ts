@@ -18,6 +18,7 @@ interface Chunk {
   baseColors?: Float32Array;
 }
 export class TerrainView {
+  surfaceRevision = 0;
   readonly group = new THREE.Group();
   readonly chunks: Chunk[] = [];
   readonly flood: Uint8Array;
@@ -62,7 +63,6 @@ export class TerrainView {
   private coarseColor = new THREE.Color();
   private coarseBaseColors = new Float32Array((CHUNKS + 1) ** 2 * 3).fill(NaN);
   private coarseDirty = new Set<number>();
-  private sandColor = new THREE.Color("#a69c73");
   private scarColor = new THREE.Color();
   queueDepth = 0;
   workerMS = 0;
@@ -90,6 +90,8 @@ export class TerrainView {
     this.waterSurfaceLookup = new WaterSurfaceLookup(
       world.rivers ?? [],
       world.size,
+      64,
+      world.lakes,
     );
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
       world.castleBounds,
@@ -102,6 +104,7 @@ export class TerrainView {
       this.worker.postMessage({
         type: "init",
         world: {
+          regions: world.regions,
           paths: world.paths,
           castleBounds: world.castleBounds,
           castles: world.castles,
@@ -665,7 +668,14 @@ export class TerrainView {
             this.sample(x - 2, z, this.base) - this.sample(x + 2, z, this.base),
             this.sample(x, z - 2, this.base) - this.sample(x, z + 2, this.base),
           ) * 0.25;
-        terrainSurfaceColor(this.coarseColor, x, z, base, slope);
+        terrainSurfaceColor(
+          this.coarseColor,
+          x,
+          z,
+          base,
+          slope,
+          this.world.regions,
+        );
         if (
           this.pathDistance(x, z) < 3.2 ||
           this.castleBounds.some(
@@ -673,11 +683,6 @@ export class TerrainView {
           )
         )
           this.coarseColor.set("#a5966f");
-        if (base < 6)
-          this.coarseColor.lerp(
-            this.sandColor,
-            clamp((6 - base) / 6, 0, 1) * 0.85,
-          );
         this.coarseColor.toArray(this.coarseBaseColors, i * 3);
       } else this.coarseColor.fromArray(this.coarseBaseColors, i * 3);
       const damage = base - h;
@@ -841,6 +846,7 @@ export class TerrainView {
   }
 
   patch(p: TerrainPatch) {
+    this.surfaceRevision++;
     for (let j = 0; j < p.indices.length; j++)
       this.heights[p.indices[j]] = p.values[j];
     for (const id of p.chunks) {
@@ -915,6 +921,7 @@ export class TerrainView {
     this.uploadRows(this.floodTexture, indices, this.fullFloodUpload);
   }
   restore(h: Float32Array) {
+    this.surfaceRevision++;
     this.textureUploads?.reset();
     this.heights.set(h);
     this.heightPages.refresh();

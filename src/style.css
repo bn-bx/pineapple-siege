@@ -53,7 +53,9 @@ body.hell-realm #world {
   opacity: 0;
   transition: opacity 0.24s ease-out;
 }
-#realmFlash.active { opacity: 1; }
+#realmFlash.active {
+  opacity: 1;
+}
 header {
   position: fixed;
   inset: 25px 30px auto;
@@ -1371,13 +1373,143 @@ dialog p:not(.eyebrow) {
   }
 }
 
-.map-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
-.map-tools button, .map-tools select { padding: 8px 12px; }
-#pauseMap { touch-action: none; cursor: grab; }
-#pauseMap:active { cursor: grabbing; }
-#navigationStatus { position: absolute; top: 92px; left: 20px; color: #f3d291; font-size: 14px; text-shadow: 0 1px 3px #000; }
+.map-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.map-tools button,
+.map-tools select {
+  padding: 8px 12px;
+}
+#pauseMap {
+  touch-action: none;
+  cursor: grab;
+}
+#pauseMap:active {
+  cursor: grabbing;
+}
+#navigationStatus {
+  position: absolute;
+  top: 92px;
+  left: 20px;
+  color: #f3d291;
+  font-size: 14px;
+  text-shadow: 0 1px 3px #000;
+}
 
-#deathOverlay { position: fixed; z-index: 12; bottom: max(32px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); text-align: center; padding: 16px 28px; border: 1px solid #d7bd7c55; border-radius: 12px; background: #10242ae6; color: #f5dfab; }
-#deathOverlay[hidden] { display: none; }
-#deathOverlay button { padding: 12px 36px; font-size: 18px; }
-#deathOverlay p { margin: 8px 0; }
+#deathOverlay {
+  position: fixed;
+  z-index: 12;
+  bottom: max(32px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  padding: 16px 28px;
+  border: 1px solid #d7bd7c55;
+  border-radius: 12px;
+  background: #10242ae6;
+  color: #f5dfab;
+}
+#deathOverlay[hidden] {
+  display: none;
+}
+#deathOverlay button {
+  padding: 12px 36px;
+  font-size: 18px;
+}
+#deathOverlay p {
+  margin: 8px 0;
+}
+
+/* One generated island, one primary action. Seed imports stay out of the main flow. */
+#islandPreview {
+  width: min(620px, calc(100vw - 24px));
+  max-width: 620px;
+  padding: 20px;
+}
+#islandPreview h2 {
+  margin: 0 0 6px;
+}
+#islandPreview .island-intro {
+  margin: 0 0 16px;
+  color: #b9c9c5;
+  font-size: 14px;
+}
+#islandMap {
+  aspect-ratio: 1;
+  max-height: min(52dvh, 470px);
+  border-radius: 8px;
+}
+#islandPreview[aria-busy="true"] #islandProgress {
+  margin-top: min(24dvh, 200px);
+}
+#islandProgress {
+  height: 4px;
+  margin-top: 12px;
+}
+#islandPreviewStatus {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: #bacbc5;
+}
+#islandSeedNotice:empty {
+  display: none;
+}
+#islandSeedDetails {
+  margin: 12px 0 18px;
+  font-size: 13px;
+  color: #b9c9c5;
+}
+#islandSeedDetails summary {
+  cursor: pointer;
+  width: fit-content;
+}
+#islandSeedDetails .island-seed-form {
+  margin-top: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+#islandPreview .island-preview-actions {
+  position: static;
+  margin: 0;
+  padding: 14px 0 0;
+  background: transparent;
+  flex-wrap: nowrap;
+}
+#islandPreview .island-preview-actions button {
+  padding: 10px 14px;
+}
+#islandPreview .island-preview-actions button[hidden] {
+  display: none;
+}
+#rerollIsland {
+  margin-right: auto;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 560px) {
+  #islandPreview {
+    padding: 16px;
+  }
+  #islandPreview .island-intro {
+    font-size: 13px;
+  }
+  #islandPreview .island-preview-actions {
+    gap: 6px;
+  }
+  #islandPreview .island-preview-actions button {
+    padding: 10px;
+    font-size: 13px;
+  }
+}

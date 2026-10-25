@@ -53,7 +53,10 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   };
   view.effects = { prewarm: vi.fn(), prewarmMeshes: [] };
   view.fallenCanopy = vi.fn();
-  view.worldView = { batches: [] };
+  view.worldView = {
+    batches: [],
+    approvedGod: { load: async () => {}, materials: [] },
+  };
   view.fragmentMaterials = {};
   view.renderer = {
     initTexture: vi.fn(),
@@ -65,6 +68,7 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   const a = view.prewarm(),
     b = view.prewarm();
   expect(a).toBe(b);
+  await Promise.resolve();
   expect(view.renderer.compile).toHaveBeenCalledOnce();
   expect(mesh.visible).toBe(true);
   view.graphicsLost = true;
@@ -89,7 +93,10 @@ it("prepares active and inactive effect-light variants before flight and restore
   view.terrain = { heightTexture: {}, floodTexture: {} };
   view.effects = { group, prewarm() {}, prewarmMeshes: [] };
   view.fallenCanopy = () => {};
-  view.worldView = { batches: [] };
+  view.worldView = {
+    batches: [],
+    approvedGod: { load: async () => {}, materials: [] },
+  };
   view.fragmentMaterials = {};
   const rendered: boolean[] = [];
   view.renderer = {
@@ -122,7 +129,10 @@ it("warms the mapped non-instanced terrain shadow layout before tiles arrive", a
   };
   view.effects = { group: new THREE.Group(), prewarm() {}, prewarmMeshes: [] };
   view.fallenCanopy = () => {};
-  view.worldView = { batches: [] };
+  view.worldView = {
+    batches: [],
+    approvedGod: { load: async () => {}, materials: [] },
+  };
   view.fragmentMaterials = {};
   view.renderer = {
     initTexture() {},

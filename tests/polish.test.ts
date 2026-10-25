@@ -206,6 +206,7 @@ it("normalizes saved render distance without resetting other preferences", () =>
 it("gives separate settlements independent draw bounds so distant structures can be culled", () => {
   const view = {
     world: {
+      sites: [],
       banners: [],
       entities: [200, 2200].map((z, id) => ({
         id,

@@ -1,0 +1,77 @@
+{
+  "meshRevision": "fc2185eb10fcb47b42bed489993b9266a0ad9ef5532ee0cb7d76765f55b2a6a2",
+  "method": "Visual inspection of rendered PNG at native-image coordinates. Approximate semantic point picks, not source vertex projections.",
+  "uncertaintyPixels": 2,
+  "accepted": false,
+  "observedOnImageSHA256": "0d844e0741b28c9c6332175c5495f98b03f2bcf5f53ae8834ac5d34ad5b7302f",
+  "limitations": [
+    "Point semantics and source labels are approximate. Numerical thresholds do not certify appearance.",
+    "The stated annotation uncertainty is comparable to the mean-error tolerance. Visual acceptance remains mandatory."
+  ],
+  "points": {
+    "brow-left-outer": [
+      537,
+      273
+    ],
+    "brow-left-inner": [
+      582,
+      276
+    ],
+    "brow-right-inner": [
+      614,
+      276
+    ],
+    "brow-right-outer": [
+      652,
+      280
+    ],
+    "eye-left-outer": [
+      537,
+      291
+    ],
+    "eye-left-inner": [
+      582,
+      292
+    ],
+    "eye-right-inner": [
+      614,
+      293
+    ],
+    "eye-right-outer": [
+      652,
+      295
+    ],
+    "nose-bridge": [
+      599,
+      294
+    ],
+    "nose-tip": [
+      603,
+      325
+    ],
+    "mouth-left": [
+      564,
+      353
+    ],
+    "mouth-center": [
+      599,
+      351
+    ],
+    "mouth-right": [
+      628,
+      354
+    ],
+    "chin": [
+      598,
+      413
+    ],
+    "jaw-left": [
+      545,
+      397
+    ],
+    "jaw-right": [
+      646,
+      399
+    ]
+  }
+}

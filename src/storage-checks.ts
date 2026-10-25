@@ -18,6 +18,7 @@ export async function checkStorage(baseline: IslandBaseline) {
     version: 8,
     worldVersion: baseline.world.version,
     generatorVersion: baseline.world.generatorVersion,
+    generationPreset: baseline.world.generationPreset,
     seed: baseline.world.seed,
     revision: 1,
     hour: 15,
@@ -58,6 +59,7 @@ export async function checkStorage(baseline: IslandBaseline) {
           baseline.world.version,
           baseline.world.seed,
           baseline.world.generatorVersion,
+          baseline.world.generationPreset,
         ),
       "Current damage matches the exact accepted island",
     );
