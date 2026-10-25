@@ -163,6 +163,8 @@ export function updateHUD(ctx: HudContext, now: number): void {
           ? "warming up"
           : `${stats.lowFPS.toFixed(1)} FPS`;
       ctx.perfSummary = `\nFrame median ${stats.medianMS.toFixed(1)} ms · p95 ${stats.p95MS.toFixed(1)} ms\n1% low ${low} · worst ${stats.worstMS.toFixed(1)} ms`;
+      const stages = ctx.view.performance.stats.stages;
+      ctx.perfSummary += `\nCPU p95 ${(stages.prepare?.p95MS ?? 0).toFixed(1)} ms · draw ${(stages.submit?.p95MS ?? 0).toFixed(1)} ms\nTerrain ${(stages.terrain?.p95MS ?? 0).toFixed(1)} ms · worker ${ctx.view.terrain.workerMS.toFixed(1)} ms · queue ${ctx.view.terrain.queueDepth}`;
       ctx.lastPerfSummary = now;
     }
     const r = ctx.view.stats;

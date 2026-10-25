@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { installFoliageMotion } from "./foliage-motion";
+import { installTreeLOD, TREE_LOD_FADE } from "./tree-lod";
 import { ApprovedGodView } from "./approved-god";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
@@ -38,6 +39,8 @@ export class WorldBatches {
   private eyeMaterials = new Set<THREE.MeshStandardMaterial>();
   readonly batches: Batch[] = [];
   readonly foliageTime = { value: 0 };
+  private treeLODCamera = { value: new THREE.Vector2() };
+  private treeLODDistance = { value: 360 };
   readonly refs = new Map<number, { batch: Batch; index: number }[]>();
   readonly removed = new Set<number>();
   readonly flagGroup = new THREE.Group();
@@ -57,41 +60,73 @@ export class WorldBatches {
     this.buildBatches();
     this.addBanners();
     this.scene.add(this.flagGroup);
-    this.horizon = new IslandHorizon(world, this.batches, materials, this.foliageTime);
+    this.horizon = new IslandHorizon(
+      world,
+      this.batches,
+      materials,
+      this.foliageTime,
+    );
     this.scene.add(this.horizon.group);
   }
 
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
-    const livingFoliage = this.world.realm === "hell"
-      ? this.materials.foliage
-      : this.materials.foliage?.clone() ?? new THREE.MeshStandardMaterial();
-    const foliageDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+    const livingFoliage = this.materials.foliage?.clone() ?? new THREE.MeshStandardMaterial();
+    const foliageDepth = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      side: THREE.DoubleSide,
+    });
     this.foliageMaterials.push(livingFoliage, foliageDepth);
+    const source = this.materials.foliage ?? livingFoliage;
+    livingFoliage.onBeforeCompile = source.onBeforeCompile;
+    const sourceKey = source.customProgramCacheKey();
+    livingFoliage.customProgramCacheKey = () => sourceKey;
     if (this.world.realm !== "hell") {
-      const source = this.materials.foliage ?? livingFoliage;
-      livingFoliage.onBeforeCompile = source.onBeforeCompile;
-      const sourceKey = source.customProgramCacheKey();
-      livingFoliage.customProgramCacheKey = () => sourceKey;
       installFoliageMotion(livingFoliage, this.foliageTime);
       installFoliageMotion(foliageDepth, this.foliageTime);
     }
+    const lowFoliage = livingFoliage.clone();
+    lowFoliage.onBeforeCompile = livingFoliage.onBeforeCompile;
+    const foliageKey = livingFoliage.customProgramCacheKey();
+    lowFoliage.customProgramCacheKey = () => foliageKey;
+    this.foliageMaterials.push(lowFoliage);
+    installTreeLOD(
+      livingFoliage,
+      this.treeLODCamera,
+      this.treeLODDistance,
+      true,
+    );
+    installTreeLOD(lowFoliage, this.treeLODCamera, this.treeLODDistance, false);
+    installTreeLOD(
+      foliageDepth,
+      this.treeLODCamera,
+      this.treeLODDistance,
+      true,
+    );
 
     const statueGeometries = new Map<string, THREE.BufferGeometry>();
     const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
     const crowns = new Map<string, THREE.BufferGeometry>();
-    const crown = (species: "pine" | "broadleaf" | "riverside", low = false) => {
+    const crown = (
+      species: "pine" | "broadleaf" | "riverside",
+      low = false,
+    ) => {
       const key = `${species}:${low}`;
       let geometry = crowns.get(key);
       if (!geometry) {
-        geometry = low ? treeCrownLowGeometry(species) : treeCrownGeometry(species);
+        geometry = low
+          ? treeCrownLowGeometry(species)
+          : treeCrownGeometry(species);
         crowns.set(key, geometry);
         this.geometries.add(geometry);
       }
       return geometry;
     };
     const deadGeometries = new Map<string, THREE.BufferGeometry>();
-    const deadGeometry = (species: "pine" | "broadleaf" | "riverside", low = false) => {
+    const deadGeometry = (
+      species: "pine" | "broadleaf" | "riverside",
+      low = false,
+    ) => {
       const key = `${species}:${low}`;
       let geometry = deadGeometries.get(key);
       if (!geometry) {
@@ -103,13 +138,18 @@ export class WorldBatches {
     };
     for (const e of this.world.entities) {
       if (e.visual?.sculptOwner !== undefined) continue;
-      if (this.world.realm === "hell" && e.visual && (e.visual.role === "figure" || e.visual.role === "eye")) continue;
+      if (
+        this.world.realm === "hell" &&
+        e.visual &&
+        (e.visual.role === "figure" || e.visual.role === "eye")
+      )
+        continue;
       // Larger construction batches reduce CPU draw submission while retaining
       // spatial bounds, owner lookup and the original collision entities.
       // Match construction to the existing forest/rock spatial grid. Fewer
       // material batches reduce submission work; owner references and the
       // batch-derived distant-coverage boundary are rebuilt together.
-      const size = 512;
+      const size = e.kind === "tree" ? 256 : 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
       const key = e.visual
         ? `statue:${statueGeometryKey(e)}:${e.visual.color}:${statueRole(e, this.world) === "eye"}:${cell}`
@@ -122,8 +162,7 @@ export class WorldBatches {
       low = treeCrownLowGeometry("pine");
     const roof = this.roof;
     const rock = new THREE.DodecahedronGeometry(1, 0);
-    for (const geometry of [pine, low, rock])
-      this.geometries.add(geometry);
+    for (const geometry of [pine, low, rock]) this.geometries.add(geometry);
     for (const list of grouped.values()) {
       let e = list[0];
       const add = (
@@ -134,7 +173,8 @@ export class WorldBatches {
       ) => {
         let mesh = new THREE.InstancedMesh(geo, material, list.length);
         mesh.castShadow = mesh.receiveShadow = true;
-        if (kind === "pine" && this.world.realm !== "hell") mesh.customDepthMaterial = foliageDepth;
+        if (kind === "pine" && this.world.realm !== "hell")
+          mesh.customDepthMaterial = foliageDepth;
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         let batch: Batch = {
           mesh,
@@ -146,9 +186,14 @@ export class WorldBatches {
           radius: 0,
         };
         if (lowGeo) {
-          batch.low = new THREE.InstancedMesh(lowGeo, material, list.length);
+          batch.low = new THREE.InstancedMesh(
+            lowGeo,
+            kind === "pine" ? lowFoliage : material,
+            list.length,
+          );
           batch.low.receiveShadow = true;
-          if (kind === "pine" && this.world.realm !== "hell") batch.low.customDepthMaterial = foliageDepth;
+          if (kind === "pine" && this.world.realm !== "hell")
+            batch.low.customDepthMaterial = foliageDepth;
           this.scene.add(batch.low);
         }
         list.forEach((e, i) => {
@@ -162,7 +207,9 @@ export class WorldBatches {
           batch.low?.setMatrixAt(i, dummy.matrix);
           const color =
             kind === "pine"
-              ? this.world.realm === "hell" ? setDeadTreeColor(new THREE.Color(), e) : setTreeCanopyColor(new THREE.Color(), e)
+              ? this.world.realm === "hell"
+                ? setDeadTreeColor(new THREE.Color(), e)
+                : setTreeCanopyColor(new THREE.Color(), e)
               : setEntityColor(new THREE.Color(), e);
           mesh.setColorAt(i, color);
           batch.low?.setColorAt(i, color);
@@ -194,13 +241,24 @@ export class WorldBatches {
         }
         // Neutral base material keeps authored stone and gold instance colors intact.
         const eye = statueRole(e, this.world) === "eye",
-          materialKey = e.visual.color + ":" + eye + ":" + (e.visual.shape === "hero-head" || e.visual.shape === "portal-stone");
+          materialKey =
+            e.visual.color +
+            ":" +
+            eye +
+            ":" +
+            (e.visual.shape === "hero-head" ||
+              e.visual.shape === "portal-stone");
         let mat = statueMaterials.get(materialKey);
         if (!mat) {
           mat = new THREE.MeshStandardMaterial({
             color: "white",
-            vertexColors: e.visual.shape === "hero-head" || e.visual.shape === "portal-stone",
-            map: e.visual.shape === "portal-stone" ? this.materials.stone.map : null,
+            vertexColors:
+              e.visual.shape === "hero-head" ||
+              e.visual.shape === "portal-stone",
+            map:
+              e.visual.shape === "portal-stone"
+                ? this.materials.stone.map
+                : null,
             roughness: 0.9,
             metalness: e.visual.color === "#cf9e38" ? 0.2 : 0,
             side: THREE.DoubleSide,
@@ -214,7 +272,12 @@ export class WorldBatches {
       } else if (e.kind === "tree") {
         const species = e.treeSpecies ?? "pine";
         if (this.world.realm === "hell") {
-          add(deadGeometry(species), this.materials.foliage, "pine", deadGeometry(species, true));
+          add(
+            deadGeometry(species),
+            livingFoliage,
+            "pine",
+            deadGeometry(species, true),
+          );
           continue;
         }
         add(
@@ -342,12 +405,16 @@ export class WorldBatches {
     treeDistance: number,
     shadowDistance: number,
   ) {
+    this.treeLODCamera.value.set(camera.position.x, camera.position.z);
+    this.treeLODDistance.value = treeDistance;
     for (const b of this.batches) {
       let d = Math.hypot(b.x - camera.position.x, b.z - camera.position.z);
       b.mesh.castShadow = d < shadowDistance;
       if (b.low) {
-        b.mesh.visible = d < treeDistance + b.radius;
-        b.low.visible = !b.mesh.visible && d < renderDistance + b.radius;
+        b.mesh.visible = d < treeDistance + TREE_LOD_FADE + b.radius;
+        b.low.visible =
+          d > treeDistance - TREE_LOD_FADE - b.radius &&
+          d < renderDistance + b.radius;
       } else b.mesh.visible = d < renderDistance + b.radius;
       for (const mesh of [b.mesh, b.low])
         if (mesh) {
@@ -363,7 +430,8 @@ export class WorldBatches {
   }
 
   dispose(resources: ResourceDisposal) {
-    for (const material of this.foliageMaterials) resources.materials.add(material);
+    for (const material of this.foliageMaterials)
+      resources.materials.add(material);
     this.approvedGod.dispose(resources);
     for (const batch of this.batches) {
       resources.collect(batch.mesh);

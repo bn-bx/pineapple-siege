@@ -42,7 +42,7 @@ export class IslandHorizon {
     for (const batch of coverage)
       if (batch.kind !== "trunk")
         for (const id of batch.allIds) owners.set(id, batch);
-    const lists = new Map<string, Entity[]>();
+    const lists = new Map<string, { kind: string; entities: Entity[] }>();
     for (const entity of world.entities) {
       if (!owners.has(entity.id) || entity.material === "window") continue;
       const key = entity.visual
@@ -52,13 +52,17 @@ export class IslandHorizon {
           : entity.kind === "rock"
             ? `rock:${entity.material}`
             : entity.material;
-      const list = lists.get(key) ?? [];
-      list.push(entity);
-      lists.set(key, list);
+      // Whole-island batches force every distant vertex through the GPU even
+      // when most of the island is behind the camera. Keep spatial bounds.
+      const cell = `${Math.floor(entity.p[0] / 1024)},${Math.floor(entity.p[2] / 1024)}`;
+      const spatialKey = `${key}:${cell}`;
+      let list = lists.get(spatialKey);
+      if (!list) lists.set(spatialKey, (list = { kind: key, entities: [] }));
+      list.entities.push(entity);
     }
     const dummy = new THREE.Object3D();
     const canopyColor = new THREE.Color();
-    for (const [key, entities] of lists) {
+    for (const { kind: key, entities } of lists.values()) {
       const forest = key.startsWith("tree:");
       const species = key.slice(5);
       const dead = forest && world.realm === "hell";
@@ -125,7 +129,7 @@ export class IslandHorizon {
       const mesh = new THREE.InstancedMesh(geometry, material, entities.length);
       mesh.castShadow = false;
       mesh.receiveShadow = false;
-      mesh.frustumCulled = false;
+      mesh.frustumCulled = true;
       mesh.matrixAutoUpdate = false;
       mesh.matrixWorldAutoUpdate = false;
       const depth = new THREE.MeshDepthMaterial({
@@ -157,6 +161,8 @@ export class IslandHorizon {
         );
         this.refs.set(entity.id, { mesh, index });
       });
+      // Preserve the original bounds when owners are removed or restored.
+      mesh.computeBoundingSphere();
       this.originals.set(
         mesh,
         (mesh.instanceMatrix.array as Float32Array).slice(),

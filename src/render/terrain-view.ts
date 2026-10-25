@@ -3,6 +3,11 @@ import { TerrainMesher, type SectionData } from "./terrain-mesher";
 import { TerrainPages } from "./terrain-pages";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
 import { WaterSurfaceLookup } from "./waterline-lookup";
+import {
+  terrainDetailStep,
+  terrainPathDistance,
+  TERRAIN_LOOK_AHEAD_SECONDS,
+} from "./terrain-lod";
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
@@ -47,6 +52,7 @@ export class TerrainView {
     return !!this.worker;
   }
   private epoch = 1;
+  private disposed = false;
   private serial = 0;
   private inFlight = new Map<number, number>();
   private completed: TerrainResult[] = [];
@@ -55,6 +61,7 @@ export class TerrainView {
   private requestedSteps = new Uint8Array(CHUNKS * CHUNKS);
   private editRevisions = new Uint32Array(CHUNKS * CHUNKS);
   private lastCell = -1;
+  private lastPredictedCell = -1;
   private lastDistance = 0;
   private lastDetail = 0;
   private coarseIndices?: Uint16Array | Uint32Array;
@@ -116,11 +123,7 @@ export class TerrainView {
         this.inFlight.delete(result.tile);
         if (
           !this.activeTiles.has(result.tile) ||
-          result.members.some(
-            (c) =>
-              c.revision !== this.editRevisions[c.id] ||
-              c.step !== this.requestedSteps[c.id],
-          )
+          result.members.some((c) => c.revision !== this.editRevisions[c.id])
         ) {
           if (this.activeTiles.has(result.tile))
             this.dirtyTiles.add(result.tile);
@@ -359,8 +362,8 @@ export class TerrainView {
     if (this.worker) {
       this.preloadPosition.copy(camera);
       if (velocity) {
-        this.preloadPosition.x += velocity[0] * 0.65;
-        this.preloadPosition.z += velocity[2] * 0.65;
+        this.preloadPosition.x += velocity[0] * TERRAIN_LOOK_AHEAD_SECONDS;
+        this.preloadPosition.z += velocity[2] * TERRAIN_LOOK_AHEAD_SECONDS;
       }
       this.updateAsync(
         camera,
@@ -396,7 +399,7 @@ export class TerrainView {
       (a, b) => Number(a.c.step !== 0) - Number(b.c.step !== 0) || a.d - b.d,
     );
     for (const { c, d } of visible) {
-      const step = d < 240 ? 2 : d < 600 ? 4 : d < 1000 ? 8 : 16;
+      const step = terrainDetailStep(d / detailScale, c.step);
       if (
         (c.dirty || c.step !== step) &&
         rebuilt < 4 &&
@@ -412,6 +415,33 @@ export class TerrainView {
   }
 
   private preloadPosition = new THREE.Vector3();
+  async prewarm(
+    camera: THREE.Vector3,
+    distance: number,
+    cancelled = () => false,
+  ) {
+    const nearby = this.chunks.filter(
+      (c) =>
+        Math.hypot(
+          (c.id % CHUNKS) * 64 + 32 - camera.x,
+          Math.floor(c.id / CHUNKS) * 64 + 32 - camera.z,
+        ) < 320,
+    );
+    const deadline = performance.now() + 2000;
+    while (!this.disposed && !cancelled() && performance.now() < deadline) {
+      this.update(camera, distance, 2);
+      if (
+        nearby.every(
+          (c) =>
+            c.step !== 0 &&
+            !c.dirty &&
+            (!this.worker || c.step === this.requestedSteps[c.id]),
+        )
+      )
+        return;
+      await new Promise<void>((resolve) => setTimeout(resolve, 8));
+    }
+  }
   private updateAsync(
     camera: THREE.Vector3,
     distance: number,
@@ -422,16 +452,22 @@ export class TerrainView {
     const started = performance.now(),
       cell =
         Math.floor(camera.x / 32) +
-        Math.floor(camera.z / 32) * (CONFIG.worldSize / 32);
-    // Mandatory presentation can exhaust the shared frame allowance. One
-    // bounded tile operation still progresses; extra operations use headroom.
+        Math.floor(camera.z / 32) * (CONFIG.worldSize / 32),
+      predictedCell =
+        Math.floor(predicted.x / 32) +
+        Math.floor(predicted.z / 32) * (CONFIG.worldSize / 32);
+    // Keep installation and dispatch independently moving when presentation
+    // exhausts the frame allowance. Otherwise these alternate frames and halve
+    // streaming throughput even when the worker has plenty of headroom.
     let progressed = false;
     if (
       cell !== this.lastCell ||
+      predictedCell !== this.lastPredictedCell ||
       distance !== this.lastDistance ||
       detailScale !== this.lastDetail
     ) {
       this.lastCell = cell;
+      this.lastPredictedCell = predictedCell;
       this.lastDistance = distance;
       this.lastDetail = detailScale;
       const next = new Set<number>(),
@@ -474,19 +510,15 @@ export class TerrainView {
             for (let dx = 0; dx < 4; dx++) {
               const id = (z * 4 + dz) * CHUNKS + x * 4 + dx,
                 d =
-                  Math.hypot(
-                    x * 256 + dx * 64 + 32 - camera.x,
-                    z * 256 + dz * 64 + 32 - camera.z,
+                  terrainPathDistance(
+                    x * 256 + dx * 64 + 32,
+                    z * 256 + dz * 64 + 32,
+                    camera,
+                    predicted,
                   ) / detailScale;
               const old = this.requestedSteps[id];
-              const step = d < 240 ? 2 : d < 600 ? 4 : d < 1000 ? 8 : 16;
-              // Keep a 12% overlap around thresholds to prevent repeated LOD churn.
-              const thresholds = [0, 0, 240, 0, 600, 0, 0, 0, 1000];
-              const keep =
-                old &&
-                old !== step &&
-                Math.abs(d - (thresholds[Math.min(old, step)] || 1000)) < 45;
-              if (!keep && old !== step) {
+              const step = terrainDetailStep(d, old);
+              if (old !== step) {
                 this.requestedSteps[id] = step;
                 dirty = true;
               }
@@ -526,15 +558,25 @@ export class TerrainView {
       progressed = true;
       const r = this.completed.shift()!;
       if (r.epoch !== this.epoch || !this.activeTiles.has(r.tile)) continue;
-      if (
-        r.members.some(
-          (c) =>
-            c.revision !== this.editRevisions[c.id] ||
-            c.step !== this.requestedSteps[c.id],
-        )
-      ) {
+      if (r.members.some((c) => c.revision !== this.editRevisions[c.id])) {
         this.dirtyTiles.add(r.tile);
         continue;
+      }
+      if (r.members.some((c) => c.step !== this.requestedSteps[c.id])) {
+        // A moving camera can change LOD while the worker builds. Fill missing
+        // terrain now and refine next, instead of repeatedly showing the backdrop.
+        this.dirtyTiles.add(r.tile);
+        // Keep an existing current surface unless this result improves detail.
+        // Partial upgrades still help even if another section now wants more.
+        if (
+          this.tiles.has(r.tile) &&
+          r.members.every(
+            (c) =>
+              this.chunks[c.id].revision === c.revision &&
+              c.step >= this.chunks[c.id].step,
+          )
+        )
+          continue;
       }
       const g = new THREE.BufferGeometry();
       for (const [name, array, size] of [
@@ -573,25 +615,29 @@ export class TerrainView {
       this.group.add(tile.mesh);
       this.coverCoarse(r.tile, true);
     }
+    let dispatched = false;
     while (
       this.inFlight.size < 2 &&
-      (!progressed || performance.now() - started < budgetMS) &&
+      (!dispatched || performance.now() - started < budgetMS) &&
       this.dirtyTiles.size
     ) {
       let key = -1,
         best = Infinity;
       for (const k of this.dirtyTiles) {
         if (this.inFlight.has(k)) continue;
-        const d =
-          ((k % (CHUNKS / 4)) * 256 + 128 - camera.x) ** 2 +
-          (Math.floor(k / (CHUNKS / 4)) * 256 + 128 - camera.z) ** 2;
+        const d = terrainPathDistance(
+          (k % (CHUNKS / 4)) * 256 + 128,
+          Math.floor(k / (CHUNKS / 4)) * 256 + 128,
+          camera,
+          predicted,
+        );
         if (d < best) {
           best = d;
           key = k;
         }
       }
       if (key < 0) break;
-      progressed = true;
+      dispatched = true;
       this.dirtyTiles.delete(key);
       if (!this.activeTiles.has(key)) continue;
       const sections: TerrainJob["sections"] = [],
@@ -756,6 +802,7 @@ export class TerrainView {
   }
 
   dispose() {
+    this.disposed = true;
     this.textureUploads?.dispose();
     this.worker?.terminate();
     this.completed.length = 0;

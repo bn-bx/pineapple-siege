@@ -50,6 +50,7 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
     heightTexture: {},
     floodTexture: {},
     fullTextureUpload: vi.fn(),
+    prewarm: vi.fn(async () => {}),
   };
   view.effects = { prewarm: vi.fn(), prewarmMeshes: [] };
   view.fallenCanopy = vi.fn();
@@ -68,8 +69,7 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   const a = view.prewarm(),
     b = view.prewarm();
   expect(a).toBe(b);
-  await Promise.resolve();
-  expect(view.renderer.compile).toHaveBeenCalledOnce();
+  await vi.waitFor(() => expect(view.renderer.compile).toHaveBeenCalledOnce());
   expect(mesh.visible).toBe(true);
   view.graphicsLost = true;
   await a;
@@ -90,7 +90,7 @@ it("prepares active and inactive effect-light variants before flight and restore
   view.scene = new THREE.Scene();
   view.scene.add(group);
   view.camera = new THREE.PerspectiveCamera();
-  view.terrain = { heightTexture: {}, floodTexture: {} };
+  view.terrain = { heightTexture: {}, floodTexture: {}, prewarm: async () => {} };
   view.effects = { group, prewarm() {}, prewarmMeshes: [] };
   view.fallenCanopy = () => {};
   view.worldView = {
@@ -126,6 +126,7 @@ it("warms the mapped non-instanced terrain shadow layout before tiles arrive", a
     heightTexture: {},
     floodTexture: {},
     material: terrainMaterial,
+    prewarm: async () => {},
   };
   view.effects = { group: new THREE.Group(), prewarm() {}, prewarmMeshes: [] };
   view.fallenCanopy = () => {};

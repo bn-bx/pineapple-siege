@@ -145,7 +145,7 @@ it("removes distant terrain draw tiles when range shrinks and restores them when
   view.heightTexture.dispose();
   view.floodTexture.dispose();
 });
-it("rejects mesh results from obsolete islands, edits, and detail levels", () => {
+it("rejects mesh results from obsolete islands and edits", () => {
   const original = globalThis.Worker;
   class MeshWorker {
     onmessage: any;
@@ -181,7 +181,6 @@ it("rejects mesh results from obsolete islands, edits, and detail levels", () =>
     for (const stale of [
       { ...result, epoch: 0 },
       { ...result, members: [{ id: 0, revision: 2, step: 2 }] },
-      { ...result, members: [{ id: 0, revision: 3, step: 8 }] },
     ])
       runtime.worker.onmessage({ data: stale });
     expect(runtime.completed).toHaveLength(0);
@@ -252,10 +251,10 @@ it("makes bounded terrain request and installation progress with no shared frame
       runtime.tiles.get(job.tile).mesh.geometry.getAttribute("position").count,
     ).toBe(3);
     expect(runtime.completed).toHaveLength(0);
-    expect(jobs()).toHaveLength(1); // installation consumes the one guaranteed operation
+    expect(jobs()).toHaveLength(2); // dispatch progresses alongside installation
     view.update(camera, 600, 0);
-    expect(jobs()).toHaveLength(2);
-    expect(runtime.inFlight.size).toBe(1);
+    expect(jobs()).toHaveLength(3);
+    expect(runtime.inFlight.size).toBe(2);
   } finally {
     view?.dispose();
     globalThis.Worker = original;

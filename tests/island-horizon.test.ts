@@ -6,6 +6,52 @@ import { treeCanopyScale } from "../src/render/tree-appearance";
 import { WorldBatches } from "../src/render/world-batches";
 import { ResourceDisposal } from "../src/render/resource-disposal";
 
+it("culls distant scenery by spatial cell while retaining owner restoration", () => {
+  const entities = [0, 1].map((id) => ({
+    id,
+    kind: "block",
+    material: "stone",
+    p: [id ? 6000 : 100, 30, 100],
+    s: [4, 8, 4],
+    variant: 0.5,
+  }));
+  const view = new IslandHorizon(
+    { entities } as unknown as WorldData,
+    entities.map((e) => ({
+      allIds: [e.id],
+      kind: "block",
+      x: e.p[0],
+      z: e.p[2],
+      radius: 20,
+    })),
+    { stone: new THREE.MeshStandardMaterial() } as any,
+  );
+  expect(view.group.children).toHaveLength(2);
+  const camera = new THREE.PerspectiveCamera(60, 1, 1, 10000);
+  camera.position.set(100, 40, 300);
+  camera.lookAt(100, 30, 100);
+  camera.updateMatrixWorld();
+  const frustum = new THREE.Frustum().setFromProjectionMatrix(
+    new THREE.Matrix4().multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse,
+    ),
+  );
+  view.group.updateMatrixWorld();
+  const [near, side] = view.group.children as THREE.InstancedMesh[];
+  expect(near.frustumCulled).toBe(true);
+  expect(side.frustumCulled).toBe(true);
+  expect(frustum.intersectsObject(near)).toBe(true);
+  expect(frustum.intersectsObject(side)).toBe(false);
+  const bounds = side.boundingSphere!.clone();
+  view.remove(1);
+  view.restore([]);
+  expect(side.boundingSphere).toEqual(bounds);
+  const matrix = new THREE.Matrix4();
+  side.getMatrixAt(0, matrix);
+  expect(matrix.elements[12]).toBe(6000);
+});
+
 it("keeps distant owners aligned with destruction and restored saves without modifying world entities", () => {
   const entities = [0, 1].map((id) => ({
     id,

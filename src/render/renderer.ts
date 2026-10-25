@@ -224,7 +224,6 @@ export class GameRenderer {
   private cameraPosition = new THREE.Vector3();
   private elapsed = 0;
   private frame = 0;
-  private lastLOD = 0;
   private quality = "auto";
   private renderDistance = DEFAULT_RENDER_DISTANCE;
   private targetHeight = this.auto.height;
@@ -476,6 +475,13 @@ export class GameRenderer {
       this.warmupStages[name] = now - stageStarted;
       stageStarted = now;
     };
+    await this.terrain.prewarm(
+      this.camera.position,
+      this.renderDistance,
+      () => this.disposed || this.graphicsLost,
+    );
+    mark("terrainWarmMS");
+    if (this.disposed || this.graphicsLost) return;
     this.renderer.initTexture(terrainGPUTexture(this.terrain.heightTexture));
     this.renderer.initTexture(terrainGPUTexture(this.terrain.floodTexture));
     this.fallenCanopy("broadleaf");
@@ -668,7 +674,6 @@ export class GameRenderer {
       this.sun.shadow.map = null;
       this.renderer.shadowMap.needsUpdate = true;
     }
-    this.lastLOD = -Infinity;
     this.resize();
   }
   /** Independent certification cases begin with the same startup quality. */
@@ -682,7 +687,6 @@ export class GameRenderer {
       Math.hypot(CONFIG.worldSize, CONFIG.worldSize, CONFIG.ceiling) + 512;
     this.camera.updateProjectionMatrix();
     this.sky.scale.setScalar((this.camera.far * 0.9) / 2500);
-    this.lastLOD = -Infinity;
   }
   setShake(value: boolean) {
     this.shakeEnabled = value;
@@ -1774,7 +1778,9 @@ export class GameRenderer {
     this.terrain.update(
       this.camera.position,
       this.renderDistance,
-      Math.max(0, optionalDeadline - performance.now()),
+      // Earlier presentation work usually consumes the shared allowance.
+      // Reserve a small streaming slice so flight cannot outrun installation.
+      Math.max(1, optionalDeadline - performance.now()),
       this.quality === "auto" && this.auto.level >= 3 ? 0.75 : 1,
       snap.plane.v,
     );
@@ -1785,18 +1791,13 @@ export class GameRenderer {
     this.performance.queues.terrainWorkerActive = this.terrain.workerActive
       ? 1
       : 0;
-    if (
-      this.rig.mode === "photo" ||
-      this.elapsed - this.lastLOD > 0.25 ||
-      this.frame < 3
-    ) {
+    {
       this.worldView.update(
         this.camera,
         this.renderDistance,
         this.visualProfile.treeDistance,
         this.visualProfile.name === "Recovery" ? 140 : 220,
       );
-      this.lastLOD = this.elapsed;
     }
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
       this.renderer.shadowMap.needsUpdate = true;
@@ -1919,7 +1920,6 @@ export class GameRenderer {
         this.renderer.shadowMap.needsUpdate = true;
       }
       this.effects.reduced = this.reducedEffects || this.auto.level >= 2;
-      this.lastLOD = -Infinity;
     }
   }
 
@@ -2010,7 +2010,6 @@ export class GameRenderer {
     );
   }
   inspectCamera(p: number[], target: number[]) {
-    this.lastLOD = -Infinity;
     this.inspect = {
       p: new THREE.Vector3().fromArray(p),
       target: new THREE.Vector3().fromArray(target),

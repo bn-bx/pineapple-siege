@@ -1,5 +1,5 @@
 {
-  "release": "rolling-island-terrain-2026-10-25",
+  "release": "terrain-streaming-tree-transitions-2026-10-25",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -56,7 +56,10 @@
     "ps4-ps5-ps6-save-and-shared-code-compatibility",
     "exact-far-grid-terrain-save-indices",
     "coastal-beaches-rocks-and-animated-surf",
-    "dense-mixed-age-forests-and-shared-foliage-motion"
+    "dense-mixed-age-forests-and-shared-foliage-motion",
+    "spatial-distant-scenery-culling",
+    "per-tree-dithered-detail-transitions",
+    "terrain-startup-preparation-and-independent-streaming-budget"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

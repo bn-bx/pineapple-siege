@@ -3,6 +3,10 @@ import * as THREE from "three";
 import { CONFIG, CHUNKS } from "../src/config";
 import { TerrainView } from "../src/render/terrain-view";
 import { terrainRoadWeights } from "../src/render/terrain-colors";
+import {
+  terrainDetailStep,
+  terrainPathDistance,
+} from "../src/render/terrain-lod";
 import type { WorldData } from "../src/types";
 import type {
   TerrainJob,
@@ -78,6 +82,121 @@ class WorkerStub {
   }
 }
 afterEach(() => vi.unstubAllGlobals());
+
+it("prepares nearby terrain before startup warmup finishes", async () => {
+  class CompletingWorker extends WorkerStub {
+    postMessage(m: { type: string; job: TerrainJob }) {
+      super.postMessage(m);
+      if (m.type === "mesh") queueMicrotask(() => this.complete(m.job));
+    }
+  }
+  vi.stubGlobal("Worker", CompletingWorker);
+  const view = create();
+  try {
+    await view.prewarm(new THREE.Vector3(128, 100, 128), 600);
+    expect(view.chunks[2 * CHUNKS + 2].step).toBe(2);
+    expect(view.chunks[2 * CHUNKS + 2].dirty).toBe(false);
+    expect((view as any).tiles.size).toBeGreaterThan(0);
+  } finally {
+    view.dispose();
+  }
+});
+
+it("prepares terrain along the flight path without widening the detail radius", () => {
+  const camera = new THREE.Vector3(128, 100, 128);
+  const predicted = new THREE.Vector3(488, 100, 128);
+  expect(terrainPathDistance(308, 228, camera, predicted)).toBe(100);
+  expect(terrainPathDistance(28, 128, camera, predicted)).toBe(100);
+  expect(terrainPathDistance(588, 128, camera, predicted)).toBe(100);
+  expect(terrainDetailStep(220, 4)).toBe(2);
+  expect(terrainDetailStep(250, 2)).toBe(2);
+  expect(terrainDetailStep(280, 2)).toBe(4);
+  expect(terrainDetailStep(2000)).toBe(16);
+
+  vi.stubGlobal("Worker", WorkerStub);
+  const view = create();
+  try {
+    view.update(camera, 1200, 0);
+    const runtime = view as any;
+    const ahead = 2 * CHUNKS + 8; // (544, 160), ahead of the aircraft.
+    expect(runtime.requestedSteps[ahead]).toBe(4);
+    // Changing velocity in the same camera cell must also update requested LOD.
+    view.update(camera, 1200, 0, 1, [240, 0, 0]);
+    expect(runtime.requestedSteps[ahead]).toBe(2);
+    expect(runtime.requestedSteps[2 * CHUNKS + 4]).toBe(2);
+  } finally {
+    view.dispose();
+  }
+});
+
+it("installs a usable in-flight mesh after movement changes LOD, then requests refinement", () => {
+  vi.stubGlobal("Worker", WorkerStub);
+  const view = create(),
+    worker = WorkerStub.last,
+    runtime = view as any;
+  try {
+    view.update(new THREE.Vector3(128, 100, 128), 600, 0);
+    const job = worker.jobs[0];
+    view.update(new THREE.Vector3(700, 100, 128), 600, 0);
+    expect(
+      job.sections.some((s) => runtime.requestedSteps[s.id] !== s.step),
+    ).toBe(true);
+    worker.complete(job);
+    expect(runtime.completed).toHaveLength(1);
+    view.update(new THREE.Vector3(700, 100, 128), 600, 0);
+    expect(runtime.tiles.has(job.tile)).toBe(true);
+    expect(covered(coarse(view), job.sections[0].id)).toBe(true);
+    expect(
+      runtime.dirtyTiles.has(job.tile) || runtime.inFlight.has(job.tile),
+    ).toBe(true);
+    // New edits still invalidate an old result, even when its LOD is usable.
+    const pending = worker.jobs.find((j) => j.tile !== job.tile)!;
+    view.patch({
+      indices: new Uint32Array(),
+      values: new Float32Array(),
+      chunks: [pending.sections[0].id],
+    });
+    worker.complete(pending);
+    expect(runtime.completed).toHaveLength(0);
+  } finally {
+    view.dispose();
+  }
+});
+
+it("shows partial detail upgrades without replacing a current surface with a downgrade", () => {
+  vi.stubGlobal("Worker", WorkerStub);
+  const view = create(),
+    worker = WorkerStub.last,
+    runtime = view as any;
+  const camera = new THREE.Vector3(128, 100, 128);
+  try {
+    view.update(camera, 600, 0);
+    const job = worker.jobs[0];
+    const atStep = (step: number) => ({
+      ...job,
+      sections: job.sections.map((s) => ({ ...s, step })),
+    });
+    // The camera wants step 2, but step 8 is ready first and fills the backdrop.
+    worker.complete(atStep(8));
+    view.update(camera, 600, 0);
+    const tile = runtime.tiles.get(job.tile);
+    const coarseGeometry = tile.mesh.geometry;
+    expect(view.chunks[job.sections[0].id].step).toBe(8);
+    worker.complete(atStep(4));
+    view.update(camera, 600, 0);
+    expect(tile.mesh.geometry).not.toBe(coarseGeometry);
+    expect(view.chunks[job.sections[0].id].step).toBe(4);
+    const improvedGeometry = tile.mesh.geometry;
+    worker.complete(atStep(8));
+    view.update(camera, 600, 0);
+    expect(tile.mesh.geometry).toBe(improvedGeometry);
+    expect(
+      runtime.dirtyTiles.has(job.tile) || runtime.inFlight.has(job.tile),
+    ).toBe(true);
+  } finally {
+    view.dispose();
+  }
+});
 
 it("restores horizon coverage on tile detach, cached reattach and worker failure", () => {
   vi.stubGlobal("Worker", WorkerStub);
