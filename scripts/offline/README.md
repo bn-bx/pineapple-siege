@@ -11,6 +11,7 @@ remain the real checks whenever they work.
 | `node scripts/offline/run-tests.mjs [names…]` | Runs `tests/*.test.ts` with plain Node and a Vitest stand-in. `--compare <ref>` also runs them at another commit and lists regressions. |
 | `node scripts/offline/typecheck.mjs` | `tsc --noEmit` on `src/` without Vite's ambient types. |
 | `node scripts/offline/check-views.mjs --base <ref>` | Builds previews of the working tree and `<ref>`, captures eight fixed views of each in headless Chromium (needs Playwright), and writes before/after PNGs plus render stats. |
+| `bench-views.js` | Frame-time benchmark run inside the game page (`?island=…#debug`): steady-state fixed views (`benchStart`) and interleaved A/B toggles of haze and shadow-box size (`abStart`). Copy it next to a preview's `index.html` and `import("/bench-views.js")`. Use A/B rounds rather than comparing runs minutes apart: laptops slow down as they heat up. |
 | `scripts/offline/run-local.command` | macOS double-click launcher: finds a usable Node, builds a preview and serves it at http://127.0.0.1:5173/. |
 | `build-preview.mjs`, `serve.mjs` | The preview build (TypeScript emit plus import rewrites, no bundling) and a static server, used by the two above. |
 
