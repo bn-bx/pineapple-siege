@@ -133,10 +133,17 @@ export function makeWaterMaterial(
           "#include <opaque_fragment>",
           `outgoingLight=mix(outgoingLight,oceanBackdrop,oceanBlend);
           #include <opaque_fragment>`,
+        )
+        // The backdrop carries the same aerial haze; fade scene fog out
+        // across the blend so it is not applied twice.
+        .replace(
+          "#include <fog_fragment>",
+          `#define AERIAL_FOG_SCALE (1.-oceanBlend)
+          #include <fog_fragment>`,
         );
   };
   material.customProgramCacheKey = () =>
-    `${horizon ? "curved-ocean-v4" : "simple-ocean-v3"}-${coastal ? "coast-guarded" : "inland"}-${material.userData.prepassMaskKey}`;
+    `${horizon ? "curved-ocean-v6" : "simple-ocean-v3"}-${coastal ? "coast-guarded" : "inland"}-${material.userData.prepassMaskKey}`;
   material.userData.time = time;
   return material;
 }

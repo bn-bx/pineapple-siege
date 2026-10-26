@@ -660,6 +660,8 @@ export function makeJet() {
         opacity: 0.85,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
       }),
       new THREE.Vector3(side * 0.85, -0.3, -6.6),
     );
@@ -673,6 +675,8 @@ export function makeJet() {
         opacity: 0.6,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
       }),
       new THREE.Vector3(side * 0.85, -0.3, -6.85),
     );

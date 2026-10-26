@@ -46,15 +46,25 @@ export function makeCoastalSurf(
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
-    uniforms: { time: { value: 0 }, brightness: { value: 1 } },
+    fog: true,
+    uniforms: {
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+      time: { value: 0 },
+      brightness: { value: 1 },
+    },
     vertexShader: `#include <common>
+      #include <fog_pars_vertex>
       attribute float shoreDistance;varying float surfDistance;varying vec2 surfWorld;
       void main(){
         #include <begin_vertex>
         surfDistance=shoreDistance;surfWorld=position.xz;
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(transformed,1.);}`,
+        vec4 mvPosition=modelViewMatrix*vec4(transformed,1.);
+        gl_Position=projectionMatrix*mvPosition;
+        #include <fog_vertex>
+      }`,
     fragmentShader: `uniform float time,brightness;varying float surfDistance;varying vec2 surfWorld;
       #include <common>
+      #include <fog_pars_fragment>
       ${COASTAL_NOISE_GLSL}
       void main(){
         #include <clipping_planes_fragment>
@@ -79,12 +89,13 @@ export function makeCoastalSurf(
         gl_FragColor=vec4(vec3(.88,.97,.94)*brightness,alpha);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
+        #include <fog_fragment>
       }`,
   });
   waterPrepass(material, terrain.heightTexture, terrain.floodTexture);
   material.onBeforeCompile = (shader) => material.userData.prepassMask(shader);
   material.customProgramCacheKey = () =>
-    `${material.userData.prepassMaskKey}-lacy-surf-v1`;
+    `${material.userData.prepassMaskKey}-lacy-surf-v2`;
   const surf = new THREE.Mesh(geometry, material);
   surf.name = "Lacy surf following coves and headlands";
   surf.renderOrder = 2;

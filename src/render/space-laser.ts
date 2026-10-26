@@ -33,6 +33,8 @@ export class SpaceLaser {
         opacity,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
         side: THREE.DoubleSide,
         toneMapped: false,
       });
@@ -83,6 +85,8 @@ export class SpaceLaser {
         transparent: true,
         opacity: 0.85,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
         depthWrite: false,
         toneMapped: false,
       }),

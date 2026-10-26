@@ -9,12 +9,38 @@ import { oceanHorizon } from "./ocean-horizon";
 import type { ResourceDisposal } from "./resource-disposal";
 import { makeRivers } from "./river-view";
 import type { TerrainView } from "./terrain-view";
+import {
+  AERIAL_FOG_DENSITY,
+  AERIAL_FOG_SCALE_HEIGHT,
+  AerialFog,
+} from "./aerial-fog";
+import {
+  SHADOW_FAR,
+  SHADOW_HALF_EXTENTS,
+  SHADOW_SUN_DISTANCE,
+  leadShadowCenter,
+  shadowBias,
+  shadowCasterReach,
+  shadowExtentIndex,
+  snapShadowCenter,
+} from "./shadow-frame";
 /** Lighting and water share authoritative hour, strike age, and terrain masks. */
 export class EnvironmentView {
   private hell = false;
   readonly disco: DiscoShow;
   readonly lighting = new EnvironmentLighting();
   readonly shadowCenter = new THREE.Vector3();
+  /** Index into SHADOW_HALF_EXTENTS for the current sun shadow box. */
+  shadowExtent = 0;
+  /** Camera-relative radius in which casters can reach the shadow box. */
+  shadowReach = SHADOW_HALF_EXTENTS[0] * Math.SQRT2;
+  /** Largest half-extent the quality profile allows. */
+  shadowMaxHalf: number = SHADOW_HALF_EXTENTS[0];
+  /** Normal-island aerial perspective; Hell keeps its own FogExp2. */
+  readonly aerialFog?: AerialFog;
+  private viewDirection = new THREE.Vector3();
+  /** Shadow-map size the current bias was computed for. */
+  private biasMapSize = 0;
   readonly sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   readonly sun = new THREE.DirectionalLight("#fff0d2", 2.8);
   readonly ambient = new THREE.HemisphereLight("#c4e3f4", "#565b32", 1.8);
@@ -37,17 +63,7 @@ export class EnvironmentView {
     this.sun.castShadow = true;
     const initialShadow = shadowSize;
     this.sun.shadow.mapSize.set(initialShadow, initialShadow);
-    Object.assign(this.sun.shadow.camera, {
-      left: -220,
-      right: 220,
-      top: 220,
-      bottom: -220,
-      near: 1,
-      far: 2000,
-    });
-    this.sun.shadow.bias = -0.00015;
-    this.sun.shadow.normalBias = 0.5;
-    this.sun.shadow.camera.updateProjectionMatrix();
+    this.applyShadowExtent(0);
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(2500, 24, 16),
       new THREE.ShaderMaterial({
@@ -62,6 +78,8 @@ export class EnvironmentView {
           oceanBlendEnd: { value: 7000 },
           oceanEnabled: { value: this.hell ? 0 : 1 },
           laserDim: { value: 0 },
+          hazeDensity: { value: this.hell ? 0 : AERIAL_FOG_DENSITY },
+          hazeScale: { value: AERIAL_FOG_SCALE_HEIGHT },
         },
         vertexShader:
           "varying vec3 vDirection; void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
@@ -84,6 +102,8 @@ export class EnvironmentView {
       this.scene.add(this.coastline.group);
       this.disco.install(this.coastline.beach.material);
       this.disco.install(this.coastline.rocks.material as THREE.MeshStandardMaterial);
+      this.aerialFog = new AerialFog(this.lighting.horizonColor);
+      this.scene.fog = this.aerialFog;
     }
     if (this.hell) {
       this.water.visible = false;
@@ -145,13 +165,10 @@ export class EnvironmentView {
     this.sky.material.uniforms.laserDim.value = show * .88;
     this.lighting.sunIntensity *= 1 - show * .94;
     this.lighting.ambientIntensity *= 1 - show * .65;
-    const shadowCenter = this.shadowCenter.set(
-      position.x,
-      Math.max(0, this.terrain.sample(position.x, position.z)),
-      position.z,
-    );
-    this.sun.position.copy(shadowCenter).addScaledVector(ld, 1000);
-    this.sun.target.position.copy(shadowCenter);
+    this.aerialFog?.color
+      .copy(this.lighting.horizonColor)
+      .multiplyScalar(1 - show * 0.88);
+    this.updateShadowFrame(camera, position, ld);
     this.sun.intensity = this.lighting.sunIntensity;
     this.sun.color.copy(this.lighting.sunColor);
     this.ambient.intensity = this.lighting.ambientIntensity;
@@ -178,6 +195,58 @@ export class EnvironmentView {
     }
   }
 
+  /** Sizes, leads and texel-snaps the sun's shadow box for this frame. */
+  private updateShadowFrame(
+    camera: THREE.PerspectiveCamera,
+    position: THREE.Vector3,
+    ld: THREE.Vector3,
+  ) {
+    const ground = Math.max(0, this.terrain.sample(position.x, position.z));
+    const extent = shadowExtentIndex(
+      position.y - ground,
+      this.shadowMaxHalf,
+      this.shadowExtent,
+    );
+    // Quality changes resize the map elsewhere; rescale bias to the new texels.
+    if (
+      extent !== this.shadowExtent ||
+      this.sun.shadow.mapSize.x !== this.biasMapSize
+    )
+      this.applyShadowExtent(extent);
+    const half = SHADOW_HALF_EXTENTS[this.shadowExtent];
+    const center = this.shadowCenter.set(position.x, ground, position.z);
+    camera.getWorldDirection(this.viewDirection);
+    leadShadowCenter(center, this.viewDirection, half);
+    snapShadowCenter(center, ld, (half * 2) / this.sun.shadow.mapSize.x);
+    this.shadowReach = shadowCasterReach(
+      half,
+      Math.hypot(center.x - camera.position.x, center.z - camera.position.z),
+    );
+    this.sun.position.copy(center).addScaledVector(ld, SHADOW_SUN_DISTANCE);
+    this.sun.target.position.copy(center);
+  }
+
+  /** Applies a box size and the bias matching its texel size. */
+  private applyShadowExtent(index: number) {
+    this.shadowExtent = index;
+    this.biasMapSize = this.sun.shadow.mapSize.x;
+    const half = SHADOW_HALF_EXTENTS[index];
+    Object.assign(this.sun.shadow.camera, {
+      left: -half,
+      right: half,
+      top: half,
+      bottom: -half,
+      near: 1,
+      far: SHADOW_FAR,
+    });
+    const { bias, normalBias } = shadowBias(
+      (half * 2) / this.sun.shadow.mapSize.x,
+    );
+    this.sun.shadow.bias = bias;
+    this.sun.shadow.normalBias = normalBias;
+    this.sun.shadow.camera.updateProjectionMatrix();
+  }
+
   reset() {
     this.water.userData.time.value = 0;
     this.disco.reset();
@@ -190,7 +259,7 @@ export class EnvironmentView {
       resources.collect(object);
       object.removeFromParent();
     }
-    if (this.hell) this.scene.fog = null;
+    if (this.hell || this.scene.fog === this.aerialFog) this.scene.fog = null;
     this.sun.removeFromParent();
     this.sun.target.removeFromParent();
     this.ambient.removeFromParent();

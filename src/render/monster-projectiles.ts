@@ -41,6 +41,8 @@ export class MonsterProjectileView {
         transparent: true,
         opacity: 0.55,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
         depthWrite: false,
         toneMapped: false,
         side: THREE.DoubleSide,

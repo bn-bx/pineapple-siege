@@ -25,6 +25,8 @@ interface Chunk {
 }
 export class TerrainView {
   surfaceRevision = 0;
+  /** Chunks nearer the camera than this cast sun shadows (set per frame). */
+  shadowCasterDistance = 260;
   readonly group = new THREE.Group();
   readonly chunks: Chunk[] = [];
   readonly flood: Uint8Array;
@@ -404,7 +406,7 @@ export class TerrainView {
         (c.id % CHUNKS) * 64 + 32 - camera.x,
         Math.floor(c.id / CHUNKS) * 64 + 32 - camera.z,
       );
-      c.mesh.castShadow = d < 260;
+      c.mesh.castShadow = d < this.shadowCasterDistance;
       c.mesh.visible = d < renderDistance + 64 && c.step !== 0;
       if (d < renderDistance + 100) visible.push({ c, d });
       else if (d > renderDistance + 500 && c.step !== 0) {
@@ -550,7 +552,9 @@ export class TerrainView {
           if (tile) {
             tile.mesh.castShadow =
               Math.hypot(x * 256 + 128 - camera.x, z * 256 + 128 - camera.z) <
-              400;
+              (this.shadowCasterDistance <= 260
+                ? 400
+                : this.shadowCasterDistance + 181);
             if (!tile.mesh.parent) {
               this.transitions.replace(key, tile.mesh, this.coarseTile(key));
               this.group.add(tile.mesh);
@@ -945,7 +949,7 @@ export class TerrainView {
         tile.members = new Set(group.chunks.map((c) => c.id));
         merged++;
       }
-      if (tile) tile.mesh.castShadow = group.distance < 260;
+      if (tile) tile.mesh.castShadow = group.distance < this.shadowCasterDistance;
       for (const c of group.chunks) {
         c.mesh.visible = !tile?.members.has(c.id);
         if (c.mesh.visible && c.mesh.parent !== this.group)

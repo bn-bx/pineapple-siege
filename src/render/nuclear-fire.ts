@@ -82,6 +82,8 @@ export class NuclearFireView {
           depthWrite: false,
           toneMapped: false,
           blending: THREE.AdditiveBlending,
+          // Additive glow would add haze colour if fogged.
+          fog: false,
         }),
       );
     mesh.position.fromArray(e.p);

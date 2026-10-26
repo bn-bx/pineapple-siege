@@ -135,14 +135,14 @@ export function makePineappleAircraft() {
   }
   for (const side of [-1, 1]) {
     const flame = new THREE.Mesh(new THREE.ConeGeometry(.6, 3, 10), new THREE.MeshBasicMaterial({
-      color: "#60d9d1", transparent: true, opacity: .75, depthWrite: false, blending: THREE.AdditiveBlending,
+      color: "#60d9d1", transparent: true, opacity: .75, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
     }));
     flame.position.set(side * 3.5, .8, -5.1);
     flame.rotation.x = -Math.PI / 2;
     flame.name = "flame";
     aircraft.add(flame);
     const core = new THREE.Mesh(new THREE.ConeGeometry(.25, 2.2, 8), new THREE.MeshBasicMaterial({
-      color: "#e0fff0", transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending,
+      color: "#e0fff0", transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
     }));
     core.position.copy(flame.position); core.rotation.copy(flame.rotation); core.name = "flame-core";
     aircraft.add(core);

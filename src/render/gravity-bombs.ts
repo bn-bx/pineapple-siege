@@ -36,6 +36,8 @@ export class GravityBombView {
           opacity: 0.9,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
+          // Additive glow would add haze colour if fogged.
+          fog: false,
         }),
       );
       group.add(mesh);
@@ -54,6 +56,8 @@ export class GravityBombView {
         opacity: 0.65,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
       }),
     );
     trails.frustumCulled = false;
@@ -66,6 +70,8 @@ export class GravityBombView {
         depthWrite: false,
         wireframe: true,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
       }),
     );
     group.add(core, trails, wave);

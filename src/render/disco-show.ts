@@ -99,6 +99,8 @@ export class DiscoShow {
         transparent: true,
         opacity: 0.035,
         blending: THREE.AdditiveBlending,
+        // Additive glow would add haze colour if fogged.
+        fog: false,
         depthWrite: false,
         side: THREE.DoubleSide,
         toneMapped: false,

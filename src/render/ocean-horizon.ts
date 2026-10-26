@@ -13,9 +13,13 @@ export function oceanHorizon(height: number) {
 }
 
 /** Shared linear colors keep the finite water mesh invisible at its far edge. */
+import { AERIAL_FOG_START } from "./aerial-fog";
+
 export const OCEAN_BACKGROUND_GLSL = `
 uniform vec3 sun,zenithColor,horizonColor,waterColor;
 uniform float laserDim,horizonDip,oceanEnabled,oceanBlendEnd;
+// Aerial haze matching AerialFog (0 density disables it, e.g. in Hell).
+uniform float hazeDensity,hazeScale;
 vec3 oceanBackground(vec3 d){
   vec3 sky=mix(zenithColor,horizonColor,pow(1.-max(d.y,0.),3.));
   float alignment=max(dot(d,sun.y>=0.?sun:-sun),0.);
@@ -26,6 +30,15 @@ vec3 oceanBackground(vec3 d){
   float sea=oceanEnabled*(1.-smoothstep(-aa,aa,edge));
   float haze=exp(-max(-edge,0.)*80.);
   vec3 water=mix(waterColor*.8,horizonColor,haze*.72);
+  if(hazeDensity>0.){
+    // Same height-fog integral as scene fog, along the ray to a flat sea.
+    float camY=max(cameraPosition.y,1.);
+    float k=1./hazeScale;
+    float seaDistance=camY/max(-d.y,1e-4);
+    float optical=hazeDensity*(1.-exp(-camY*k))/(camY*k)
+      *max(seaDistance-${AERIAL_FOG_START.toFixed(1)},0.);
+    water=mix(water,horizonColor,1.-exp(-optical));
+  }
   return mix(sky,water,sea)*(1.-laserDim);
 }
 `;

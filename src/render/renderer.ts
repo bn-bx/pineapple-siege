@@ -3,6 +3,7 @@ import { AircraftFireView } from "./aircraft-fire";
 import { clearDeathCamera } from "./death-camera";
 import { terrainGPUTexture } from "./terrain-pages";
 import * as THREE from "three";
+import { SHADOW_SLOW_REFRESH_EXTENT } from "./shadow-frame";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
   CHUNKS,
@@ -1850,6 +1851,8 @@ export class GameRenderer {
       this.shadowDirty = true;
     }
     this.lightingHour = snap.hour;
+    this.environment.shadowMaxHalf = this.visualProfile.shadowReach;
+    const previousShadowExtent = this.environment.shadowExtent;
     this.environment.update(
       snap,
       this.camera,
@@ -1857,6 +1860,14 @@ export class GameRenderer {
       this.renderDistance,
       this.effects.reduced,
     );
+    if (this.environment.shadowExtent !== previousShadowExtent)
+      this.shadowDirty = true;
+    // The original box keeps its original caster radii; larger boxes widen
+    // them to the box's reach so distant terrain and buildings cast too.
+    const shadowGrown = this.environment.shadowExtent > 0;
+    this.terrain.shadowCasterDistance = shadowGrown
+      ? this.environment.shadowReach
+      : 260;
     const terrainStarted = performance.now();
     this.terrain.update(
       this.camera.position,
@@ -1882,13 +1893,20 @@ export class GameRenderer {
         this.camera,
         this.renderDistance,
         this.visualProfile.treeDistance,
-        this.visualProfile.name === "Recovery" ? 140 : 220,
+        shadowGrown
+          ? this.environment.shadowReach
+          : this.visualProfile.name === "Recovery"
+            ? 140
+            : 220,
       );
     }
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowDirty = false;
-      this.nextShadow = this.elapsed + this.visualProfile.shadowInterval;
+      this.nextShadow =
+        this.elapsed +
+        this.visualProfile.shadowInterval *
+          (this.environment.shadowExtent >= SHADOW_SLOW_REFRESH_EXTENT ? 2 : 1);
     }
     this.effects.ground = (x, z) => this.terrain.sample(x, z);
     const effectsStarted = performance.now();
