@@ -33,6 +33,12 @@ export class Effects {
   private next = 0;
   private activeParticles = new Set<number>();
   private points: THREE.Points;
+  setRenderScale(scale: number) {
+    // PointsMaterial uses the renderer's output DPR, while Auto can render the
+    // scene to a smaller target. Preserve the authored screen-space sizes.
+    (this.points.material as THREE.PointsMaterial).size = 1.7 * scale;
+    (this.spray.mesh.material as THREE.PointsMaterial).size = 2.5 * scale;
+  }
   private vaporRegions = new Map<
     string,
     { p: [number, number, number]; radius: number }

@@ -1,5 +1,6 @@
 /** Play worker states on one continuous simulation clock, rather than restarting
  * interpolation whenever a message arrives. A small buffer absorbs tick jitter. */
+export const FLIGHT_PLAYBACK_DELAY = 2 / 30;
 export class SnapshotTimeline<T extends { time: number }> {
   private states: T[] = [];
   private arrival = 0;

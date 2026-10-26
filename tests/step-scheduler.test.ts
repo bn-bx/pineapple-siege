@@ -1,5 +1,26 @@
 import { expect, it } from "vitest";
 import { StepScheduler } from "../src/sim/step-scheduler";
+it("keeps the intended publication rate when the worker only checks after physics ticks", () => {
+  const s = new StepScheduler();
+  s.reset(0);
+  const deliveries: number[] = [];
+  for (let now = 8; now <= 4000; now += 8) {
+    const steps = s.advance(
+      now,
+      () => {},
+      () => 0,
+    );
+    if (steps && s.shouldPublish(now)) deliveries.push(now);
+  }
+  expect(deliveries).toHaveLength(120);
+  expect(deliveries.at(-1)).toBe(4000);
+  expect(s.shouldPublish(4000)).toBe(false);
+  // A long stall skips deadlines without replaying a backlog of packets.
+  expect(s.shouldPublish(10000)).toBe(true);
+  expect(s.shouldPublish(10008)).toBe(false);
+  expect(s.shouldPublish(10024)).toBe(false);
+  expect(s.shouldPublish(10040)).toBe(true);
+});
 it("keeps 60Hz physics with regular worker scheduling and publishes at most 30Hz", () => {
   const s = new StepScheduler();
   s.reset(0);

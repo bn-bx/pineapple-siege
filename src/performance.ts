@@ -72,8 +72,9 @@ export class GPUTimer {
     TIME_ELAPSED_EXT: number;
     GPU_DISJOINT_EXT: number;
   } | null;
-  private pending: { query: WebGLQuery; name: string }[] = [];
-  private current?: { query: WebGLQuery; name: string };
+  private pending: { query: WebGLQuery; name: string; category?: string }[] =
+    [];
+  private current?: { query: WebGLQuery; name: string; category?: string };
   lastMS = 0;
   constructor(
     private gl: WebGL2RenderingContext,
@@ -81,11 +82,11 @@ export class GPUTimer {
   ) {
     this.extension = gl.getExtension("EXT_disjoint_timer_query_webgl2");
   }
-  begin(name: string) {
+  begin(name: string, category?: string) {
     if (!this.extension || this.current || this.pending.length >= 8) return;
     const query = this.gl.createQuery();
     if (!query) return;
-    this.current = { query, name };
+    this.current = { query, name, category };
     this.gl.beginQuery(this.extension.TIME_ELAPSED_EXT, query);
   }
   end() {
@@ -106,8 +107,9 @@ export class GPUTimer {
       if (!disjoint) {
         const ms =
           this.gl.getQueryParameter(first.query, this.gl.QUERY_RESULT) / 1e6;
-        this.lastMS = ms;
+        if (first.name === "gpu") this.lastMS = ms;
         this.monitor.record(first.name, ms);
+        if (first.category) this.monitor.record(first.category, ms);
       }
       this.gl.deleteQuery(first.query);
       this.pending.shift();

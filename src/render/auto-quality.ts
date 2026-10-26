@@ -2,6 +2,7 @@ import { qualityProfile } from "./quality-profile";
 
 export interface QualityPressure {
   frameMS: number;
+  frameSampleMS?: number;
   cpuMS: number;
   gpuMS: number;
   workerMS: number;
@@ -17,9 +18,12 @@ export class AutoQuality {
   private previousSample?: number;
   private settlingUntil?: number;
   private headroom = 0;
+  private lateFraction = 0;
+  private gpuTail = 0;
+  private recoverAfter = -Infinity;
   private changed = -Infinity;
   resume() {
-    this.headroom = this.overloadDebt = 0;
+    this.headroom = this.overloadDebt = this.lateFraction = this.gpuTail = 0;
     this.previousSample = this.settlingUntil = undefined;
   }
   update(now: number, p: QualityPressure) {
@@ -30,27 +34,49 @@ export class AutoQuality {
     this.previousSample = now;
     this.settlingUntil ??= now + 3000;
     if (now < this.settlingUntil) return false;
+    // Average FPS hides repeated 33 ms frames among otherwise smooth frames.
+    // Use a two-second window and sustained evidence, so isolated stalls do not
+    // reduce quality. GPU-tail pressure excludes simulation-only stalls.
+    const weight = 1 - Math.exp(-elapsed / 2000);
+    if (p.frameSampleMS !== undefined) {
+      const missed = p.frameSampleMS > 1000 / 45 ? 1 : 0;
+      this.lateFraction += (missed - this.lateFraction) * weight;
+      this.gpuTail = Math.max(p.gpuMS, this.gpuTail * (1 - weight));
+    }
+    const recurringGPUMisses =
+      p.frameSampleMS !== undefined &&
+      this.lateFraction > 0.025 &&
+      this.gpuTail > 16 &&
+      p.workerMS < 12 &&
+      p.lagMS < 85;
 
     // Worker stalls alone do not improve when graphics are reduced. Require
     // missed frame budget plus renderer pressure; use frames as a fallback
     // when GPU timers are unavailable and simulation is keeping up.
     const overloaded =
-      p.frameMS > 20 &&
-      (p.cpuMS > 12 ||
-        p.gpuMS > 16 ||
-        (!(p.gpuMS > 0) && p.workerMS < 12 && p.lagMS < 85));
+      recurringGPUMisses ||
+      (p.frameMS > 20 &&
+        (p.cpuMS > 12 ||
+          p.gpuMS > 16 ||
+          (!(p.gpuMS > 0) && p.workerMS < 12 && p.lagMS < 85)));
     const comfortable =
-      p.frameMS < 18 && p.cpuMS < 10 && (!(p.gpuMS > 0) || p.gpuMS < 14);
+      now >= this.recoverAfter &&
+      (p.frameSampleMS === undefined ||
+        (this.lateFraction < 0.005 && this.gpuTail < 14)) &&
+      p.frameMS < 18 &&
+      p.cpuMS < 10 &&
+      (!(p.gpuMS > 0) || p.gpuMS < 14);
     if (overloaded) {
       this.headroom = 0;
       this.overloadDebt = Math.min(2000, this.overloadDebt + elapsed);
       const severe = p.frameMS > 35 && (p.cpuMS > 24 || p.gpuMS > 25);
       if (
-        this.overloadDebt >= (severe ? 750 : 2000) &&
+        this.overloadDebt >= (severe || recurringGPUMisses ? 750 : 2000) &&
         now - this.changed >= 3000 &&
         this.level < 4
       ) {
         this.level++;
+        if (recurringGPUMisses) this.recoverAfter = now + 15000;
         this.changed = now;
         this.overloadDebt = 0;
         return true;

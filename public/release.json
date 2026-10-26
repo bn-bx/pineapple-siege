@@ -1,5 +1,5 @@
 {
-  "release": "terrain-streaming-tree-transitions-2026-10-25",
+  "release": "smooth-streaming-frame-time-fixes-2026-10-25",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -59,7 +59,13 @@
     "dense-mixed-age-forests-and-shared-foliage-motion",
     "spatial-distant-scenery-culling",
     "per-tree-dithered-detail-transitions",
-    "terrain-startup-preparation-and-independent-streaming-budget"
+    "terrain-startup-preparation-and-independent-streaming-budget",
+    "lower-latency-snapshot-playback",
+    "bounded-multi-lod-terrain-cache",
+    "per-entity-scenery-and-terrain-handoffs",
+    "terrain-shadow-shader-prewarming",
+    "tail-aware-auto-quality-with-fixed-output-canvas",
+    "bounded-frame-spike-and-gpu-pass-diagnostics"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

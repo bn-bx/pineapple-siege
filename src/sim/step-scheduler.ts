@@ -27,8 +27,13 @@ export class StepScheduler {
     return steps;
   }
   shouldPublish(now: number) {
-    if (now - this.published < 1000 / 30) return false;
-    this.published = now;
+    const interval = 1000 / 30;
+    if (now - this.published + 1e-6 < interval) return false;
+    // Keep the publication phase: rounding each deadline up to an 8ms worker
+    // callback otherwise turns the intended 30Hz stream into roughly 20–25Hz.
+    // Skip missed slots after stalls instead of producing a catch-up burst.
+    this.published +=
+      Math.floor((now - this.published + 1e-6) / interval) * interval;
     return true;
   }
 }

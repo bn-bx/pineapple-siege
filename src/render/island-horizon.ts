@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { installFoliageMotion } from "./foliage-motion";
+import { installSceneryLOD, SCENERY_LOD_FADE } from "./scenery-lod";
 import { treeCrownLowGeometry } from "./assets";
 import { statueRole } from "../statue-reaction";
 import type { Entity, Material, WorldData } from "../types";
@@ -32,6 +33,8 @@ export class IslandHorizon {
     { mesh: THREE.InstancedMesh; index: number }
   >();
   private originals = new Map<THREE.InstancedMesh, Float32Array>();
+  private coverageGroups: { mesh: THREE.InstancedMesh; owners: Coverage[] }[] =
+    [];
   constructor(
     world: WorldData,
     coverage: readonly Coverage[],
@@ -62,11 +65,15 @@ export class IslandHorizon {
     }
     const dummy = new THREE.Object3D();
     const canopyColor = new THREE.Color();
+    const sharedMaterials = new Map<string, THREE.MeshStandardMaterial>();
+    const sharedDepths = new Map<string, THREE.MeshDepthMaterial>();
     for (const { kind: key, entities } of lists.values()) {
       const forest = key.startsWith("tree:");
       const species = key.slice(5);
       const dead = forest && world.realm === "hell";
-      const source = dead ? materials.foliage : materials[entities[0].material];
+      const source = forest
+        ? (materials.foliage ?? materials[entities[0].material])
+        : materials[entities[0].material];
       const statue = !!entities[0].visual;
       const eye = statueRole(entities[0], world) === "eye";
       const geometry = statue
@@ -85,65 +92,52 @@ export class IslandHorizon {
             : key === "roof" || key === "slate"
               ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)
               : new THREE.BoxGeometry(2, 2, 2);
-      const material = new THREE.MeshStandardMaterial({
-        color: statue ? "white" : source.color,
-        map:
-          entities[0].visual?.shape === "portal-stone"
-            ? source.map
-            : statue
-              ? null
-              : source.map,
-        vertexColors:
-          (forest && !dead) ||
-          entities[0].visual?.shape === "hero-head" ||
-          entities[0].visual?.shape === "portal-stone",
-        roughness: 1,
-        side: statue ? THREE.DoubleSide : THREE.FrontSide,
-        emissive: eye ? "#ff1010" : "black",
-        emissiveIntensity: 0,
-      });
-      if (eye) this.eyeMaterials.push(material);
-      const bounds = new Float32Array(entities.length * 3);
-      geometry.setAttribute(
-        "horizonCoverage",
-        new THREE.InstancedBufferAttribute(bounds, 3),
-      );
-      const clip = (target: THREE.Material) => {
-        const prior = target.onBeforeCompile,
-          cache = target.customProgramCacheKey();
-        target.onBeforeCompile = (shader, renderer) => {
-          prior(shader, renderer);
-          shader.uniforms.horizonCamera = this.camera;
-          shader.uniforms.horizonDetail = this.detail;
-          shader.vertexShader =
-            `attribute vec3 horizonCoverage; uniform vec2 horizonCamera; uniform float horizonDetail;\n${shader.vertexShader}`.replace(
-              /void main\s*\(\s*\)\s*\{/,
-              `void main() {\nvec2 horizonOffset=horizonCoverage.xy-horizonCamera; float horizonRange=horizonDetail+horizonCoverage.z;\nif(dot(horizonOffset,horizonOffset)<horizonRange*horizonRange){gl_Position=vec4(2.,2.,2.,1.);return;}`,
-            );
-        };
-        target.customProgramCacheKey = () =>
-          `${cache}:whole-island-coverage-v1`;
-      };
-      if (forest && !dead) installFoliageMotion(material, foliageTime);
-      clip(material);
+      const cachedMaterial = sharedMaterials.get(key);
+      const material =
+        cachedMaterial ??
+        new THREE.MeshStandardMaterial({
+          color: statue ? "white" : source.color,
+          map:
+            entities[0].visual?.shape === "portal-stone"
+              ? source.map
+              : statue
+                ? null
+                : source.map,
+          vertexColors:
+            (forest && !dead) ||
+            entities[0].visual?.shape === "hero-head" ||
+            entities[0].visual?.shape === "portal-stone",
+          roughness: 1,
+          side: statue ? THREE.DoubleSide : THREE.FrontSide,
+          emissive: eye ? "#ff1010" : "black",
+          emissiveIntensity: 0,
+        });
+      if (eye && !cachedMaterial) this.eyeMaterials.push(material);
+      if (!cachedMaterial) {
+        if (forest && !dead) installFoliageMotion(material, foliageTime);
+        installSceneryLOD(material, this.camera, this.detail, false);
+        sharedMaterials.set(key, material);
+      }
       const mesh = new THREE.InstancedMesh(geometry, material, entities.length);
       mesh.castShadow = false;
       mesh.receiveShadow = false;
       mesh.frustumCulled = true;
       mesh.matrixAutoUpdate = false;
       mesh.matrixWorldAutoUpdate = false;
-      const depth = new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking,
-        alphaTest: material.alphaTest,
-        side: material.side,
-        map: null,
-      });
-      depth.onBeforeCompile = material.onBeforeCompile;
-      depth.customProgramCacheKey = material.customProgramCacheKey;
+      let depth = sharedDepths.get(key);
+      if (!depth) {
+        depth = new THREE.MeshDepthMaterial({
+          depthPacking: THREE.RGBADepthPacking,
+          alphaTest: material.alphaTest,
+          side: material.side,
+          map: null,
+        });
+        depth.onBeforeCompile = material.onBeforeCompile;
+        depth.customProgramCacheKey = material.customProgramCacheKey;
+        sharedDepths.set(key, depth);
+      }
       mesh.customDepthMaterial = depth;
       entities.forEach((entity, index) => {
-        const batch = owners.get(entity.id)!;
-        bounds.set([batch.x, batch.z, batch.radius], index * 3);
         setEntityTransform(dummy, entity);
         if (forest) {
           dummy.position.y -= entity.s[1];
@@ -163,6 +157,10 @@ export class IslandHorizon {
       });
       // Preserve the original bounds when owners are removed or restored.
       mesh.computeBoundingSphere();
+      this.coverageGroups.push({
+        mesh,
+        owners: [...new Set(entities.map((e) => owners.get(e.id)!))],
+      });
       this.originals.set(
         mesh,
         (mesh.instanceMatrix.array as Float32Array).slice(),
@@ -174,6 +172,21 @@ export class IslandHorizon {
   setView(camera: THREE.Vector3, detailDistance: number) {
     this.camera.value.set(camera.x, camera.z);
     this.detail.value = detailDistance;
+    for (const group of this.coverageGroups) {
+      // Skip the draw entirely when every owner is already represented nearby.
+      // Keep the instances resident so moving away never requires reloading.
+      let covered = true;
+      for (const owner of group.owners) {
+        const dx = owner.x - camera.x,
+          dz = owner.z - camera.z;
+        const fullyCovered = detailDistance - SCENERY_LOD_FADE - owner.radius;
+        if (fullyCovered <= 0 || dx * dx + dz * dz >= fullyCovered ** 2) {
+          covered = false;
+          break;
+        }
+      }
+      group.mesh.visible = !covered;
+    }
   }
   setEyeGlow(intensity: number) {
     for (const material of this.eyeMaterials)

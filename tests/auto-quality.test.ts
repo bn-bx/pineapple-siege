@@ -103,3 +103,54 @@ it("bounds degradation and shares resolution and shadow budgets with the render 
     expect(a.shadowInterval).toBe(profile.shadowInterval);
   }
 });
+
+it("responds to recurring GPU misses hidden by a healthy average without dropping object detail", () => {
+  const auto = new AutoQuality();
+  let changedAt = 0;
+  for (let frame = 0; frame < 900; frame++) {
+    const missed = frame % 30 === 0;
+    if (
+      auto.update((frame * 1000) / 60, {
+        ...healthy,
+        frameMS: 17.2,
+        frameSampleMS: missed ? 33.3 : 16.67,
+        gpuMS: missed ? 25 : 12,
+      })
+    ) {
+      changedAt = (frame * 1000) / 60;
+      break;
+    }
+  }
+  expect(changedAt).toBeGreaterThan(5000);
+  expect(auto.level).toBe(1);
+  const ultra = qualityProfile("auto", 0),
+    high = qualityProfile("auto", 1);
+  expect(high.height).toBeLessThan(ultra.height);
+  for (const key of [
+    "treeDistance",
+    "shadowSize",
+    "debrisShadows",
+    "cosmetics",
+  ] as const)
+    expect(high[key]).toBe(ultra[key]);
+  for (let now = changedAt + 17; now < changedAt + 14000; now += 17)
+    auto.update(now, { ...healthy, frameSampleMS: 16.67 });
+  expect(auto.level).toBe(1); // Avoid immediately reallocating the larger buffers.
+});
+
+it("keeps isolated frame spikes and recurring worker-only stalls from reducing resolution", () => {
+  for (const workerOnly of [false, true]) {
+    const auto = new AutoQuality();
+    for (let frame = 0; frame < 1800; frame++) {
+      const missed = workerOnly ? frame % 30 === 0 : frame === 300;
+      auto.update((frame * 1000) / 60, {
+        ...healthy,
+        frameSampleMS: missed ? 33.3 : 16.67,
+        gpuMS: workerOnly ? 7 : missed ? 30 : 12,
+        workerMS: workerOnly ? 30 : 4,
+        lagMS: workerOnly ? 120 : 0,
+      });
+    }
+    expect(auto.level).toBe(0);
+  }
+});

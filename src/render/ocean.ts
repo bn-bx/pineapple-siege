@@ -82,34 +82,61 @@ export function makeWaterMaterial(
           diffuseColor.rgb=mix(diffuseColor.rgb,lagoon,shallows*.94);
           float mottling=coastFbm(coastP*.11+seabed*3.);
           diffuseColor.rgb*=.84+mottling*.3;
-          float irregular=coastFbm(coastP*.09)*3.;
-          float surfPhase=depth*1.65-oceanTime*.85+irregular*.65;
-          float aa=max(.04,fwidth(surfPhase));
-          float crest=smoothstep(.86-aa,.97+aa,sin(surfPhase));
-          float shoreBreak=(1.-smoothstep(1.5,6.,depth))*crest;
-          float wash=(1.-smoothstep(.15,1.3,depth))*(.65+.15*sin(oceanTime*.9+irregular));
-          float foam=max(wash*.5,shoreBreak*.35);
-          float offshorePhase=coastP.x*.035+coastP.y*.045-oceanTime*.55
-            +coastFbm(coastP*.018)*7.;
-          float offshoreAA=max(.015,fwidth(offshorePhase));
-          float wave=smoothstep(.975-offshoreAA,1.+offshoreAA,sin(offshorePhase));
-          float brokenWave=smoothstep(.55,.76,coastFbm(coastP*.038+oceanTime*.01));
-          float waveFade=1.-smoothstep(700.,2400.,length(prepassWaterWorld.xz-cameraPosition.xz));
-          wave*=smoothstep(5.,12.,depth)*.12*brokenWave*waveFade*(1.-smoothstep(.15,.5,offshoreAA));
+          float depthFootprint=fwidth(depth);
+          float coastViewDistance=length(prepassWaterWorld.xz-cameraPosition.xz);
+          float distanceFootprint=fwidth(coastViewDistance);
+          float foam=0.;
+          // Both shoreline terms are exactly zero at six meters of depth.
+          if(depth<6.+depthFootprint) {
+            float irregular=coastFbm(coastP*.09)*3.;
+            float surfPhase=depth*1.65-oceanTime*.85+irregular*.65;
+            float aa=max(.04,fwidth(surfPhase));
+            float crest=smoothstep(.86-aa,.97+aa,sin(surfPhase));
+            float shoreBreak=(1.-smoothstep(1.5,6.,depth))*crest;
+            float wash=(1.-smoothstep(.15,1.3,depth))*(.65+.15*sin(oceanTime*.9+irregular));
+            foam=max(wash*.5,shoreBreak*.35);
+          }
+          float waveFade=1.-smoothstep(700.,2400.,coastViewDistance);
+          float wave=0.;
+          // Avoid two noise fields when their final multiplier is zero.
+          if(depth>5.-depthFootprint && coastViewDistance<2400.+distanceFootprint) {
+            float offshorePhase=coastP.x*.035+coastP.y*.045-oceanTime*.55
+              +coastFbm(coastP*.018)*7.;
+            float offshoreAA=max(.015,fwidth(offshorePhase));
+            wave=smoothstep(.975-offshoreAA,1.+offshoreAA,sin(offshorePhase));
+            float brokenWave=smoothstep(.55,.76,coastFbm(coastP*.038+oceanTime*.01));
+            wave*=smoothstep(5.,12.,depth)*.12*brokenWave*waveFade*(1.-smoothstep(.15,.5,offshoreAA));
+          }
           diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.83,.94,.91),clamp(foam+wave,0.,.9));`,
         );
     }
     if (horizon)
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <opaque_fragment>",
-        `vec3 oceanRay=normalize(prepassWaterWorld-cameraPosition);
-        float oceanBlend=smoothstep(oceanBlendEnd*.5,oceanBlendEnd,length(prepassWaterWorld.xz-cameraPosition.xz));
-        outgoingLight=mix(outgoingLight,oceanBackground(oceanRay),oceanBlend);
-        #include <opaque_fragment>`,
-      );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <color_fragment>",
+          `#include <color_fragment>
+          float oceanViewDistance=length(prepassWaterWorld.xz-cameraPosition.xz);
+          vec3 oceanRay=normalize(prepassWaterWorld-cameraPosition);
+          float oceanBlend=smoothstep(oceanBlendEnd*.5,oceanBlendEnd,oceanViewDistance);
+          vec3 oceanBackdrop=oceanBackground(oceanRay);
+          // Beyond the blend, the backdrop replaces all water shading.
+          // The canonical wet/terrain discard has already run above.
+          // Keep the full path while the laser projection is active.
+          if(oceanViewDistance>oceanBlendEnd+fwidth(oceanViewDistance) && laserDim<=0.) {
+            gl_FragColor=vec4(oceanBackdrop,1.);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+            return;
+          }`,
+        )
+        .replace(
+          "#include <opaque_fragment>",
+          `outgoingLight=mix(outgoingLight,oceanBackdrop,oceanBlend);
+          #include <opaque_fragment>`,
+        );
   };
   material.customProgramCacheKey = () =>
-    `${horizon ? "curved-ocean-v3" : "simple-ocean-v3"}-${coastal ? "coast" : "inland"}-${material.userData.prepassMaskKey}`;
+    `${horizon ? "curved-ocean-v4" : "simple-ocean-v3"}-${coastal ? "coast-guarded" : "inland"}-${material.userData.prepassMaskKey}`;
   material.userData.time = time;
   return material;
 }

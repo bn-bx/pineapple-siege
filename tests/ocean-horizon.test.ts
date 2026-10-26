@@ -47,3 +47,35 @@ it("keeps river water on its existing shader and shares backdrop uniforms only w
     material.dispose();
   }
 });
+
+it("clips canonical water before the distant backdrop shortcut and preserves nearby coast shading", () => {
+  const material = makeWaterMaterial(
+    {
+      heightTexture: new THREE.Texture(),
+      floodTexture: new THREE.Texture(),
+    } as TerrainView,
+    { oceanBlendEnd: { value: 7000 } },
+    true,
+  );
+  const shader = {
+    uniforms: {},
+    vertexShader: THREE.ShaderLib.standard.vertexShader,
+    fragmentShader: THREE.ShaderLib.standard.fragmentShader,
+  } as THREE.WebGLProgramParametersWithUniforms;
+  material.onBeforeCompile(shader, {} as THREE.WebGLRenderer);
+  const fragment = shader.fragmentShader;
+  const shortcut = fragment.indexOf("if(oceanViewDistance>");
+  expect(fragment.indexOf("if(inWorld&&")).toBeLessThan(shortcut);
+  expect(shortcut).toBeLessThan(fragment.indexOf("float depth=inWorld"));
+  expect(fragment).toContain("if(depth<6.+depthFootprint)");
+  expect(fragment).toContain("coastViewDistance<2400.+distanceFootprint");
+  // Derivative padding keeps neighboring fragments active at fade boundaries.
+  expect(fragment).toContain("oceanBlendEnd+fwidth(oceanViewDistance)");
+  const output = fragment.slice(
+    shortcut,
+    fragment.indexOf("float depth=inWorld"),
+  );
+  expect(output).toContain("#include <tonemapping_fragment>");
+  expect(output).toContain("#include <colorspace_fragment>");
+  material.dispose();
+});

@@ -18,6 +18,7 @@ WorkerMessage,
 WorldData,
 } from "./types";
 import { loadTerrain } from "./world-loader";
+import { flightBenchmarkRoute } from "./review/flight-benchmark-route";
 const canvas = document.querySelector<HTMLCanvasElement>("#world")!,
   status = document.querySelector("#status")!,
   report = document.querySelector<HTMLElement>("#report")!;
@@ -106,6 +107,7 @@ const view = new GameRenderer(
       );
   },
 );
+view.resourceTracking = true;
 let snapshot: SimulationSnapshot,
   reviewedResidentId: number | undefined,
   reviewedResidentYaw: number | undefined,
@@ -180,9 +182,13 @@ let loadStarted = 0,
 let initialPreparationStages: Record<string, number> = {};
 const results: unknown[] = [];
 const frames: number[] = [];
+const slowFrames: Record<string, number>[] = [];
+const qualityTransitions: Record<string, number>[] = [];
+let lastSceneHeight = 0;
 const callbackFrames: number[] = [];
 let lastCallback = 0;
 let foregroundFrames = 0;
+let crashedFrames = 0;
 const cpu: number[] = [];
 const ticks: number[] = [];
 const saveSlices: number[] = [];
@@ -388,6 +394,7 @@ async function beginCase(index: number) {
   (document.querySelector("#inspect-quality") as HTMLSelectElement).value =
     "auto";
   foregroundFrames = 0;
+  crashedFrames = 0;
   active = false;
   touring = false;
   send({ type: "pause", paused: true });
@@ -411,15 +418,17 @@ async function beginCase(index: number) {
       }
     : cases[index];
   send({ type: "monsterCount", value: c.count });
+  const flight = c.kind === "flight" || c.kind === "flight-3000";
+  const flightRoute = flight ? flightBenchmarkRoute(world, (x, z) => view.terrain.sample(x, z)) : undefined;
   send({
     type: "debugPlane",
-    p: [world.castle[0] - 180, 280, world.castle[2] - 300],
-    yaw: 0,
+    p: flightRoute?.p ?? [world.castle[0] - 180, 280, world.castle[2] - 300],
+    yaw: flightRoute?.yaw ?? 0,
     pitch: 0,
   });
   send({
     type: "input",
-    input: { x: 0, y: 0, bank: 0, throttle: 0, boost: false, fire: false },
+    input: { x: flight ? -0.5 : 0, y: 0, bank: 0, throttle: flight ? 1 : 0, boost: false, fire: false },
   });
   routeIndex = weaponIndex = -1;
   recovering = false;
@@ -468,6 +477,8 @@ async function beginCase(index: number) {
     delivery.length =
       0;
   handlerWork = 0;
+  slowFrames.length = qualityTransitions.length = 0;
+  lastSceneHeight = 0;
   lastStatus = 0;
   view.performance.reset();
   view.performance.queues.shadowShaderProgramsCreated = 0;
@@ -507,6 +518,20 @@ function frame(now: number) {
       return;
     }
     frames.push(raw);
+    if (raw > 25 && slowFrames.length < 128) {
+      const q = view.performance.queues;
+      slowFrames.push({
+        elapsed: (now - started) / 1000,
+        frameMS: raw,
+        previousMainMS: cpu.at(-1) ?? 0,
+        betweenFramesMS: handlerWork,
+        sceneHeight: q.sceneHeight ?? 0,
+        qualityLevel: q.qualityLevel ?? 0,
+        terrainQueue: q.terrain ?? 0,
+        programs: q.shaderPrograms ?? 0,
+      });
+    }
+    if (snapshot.plane.crashed > 0 || snapshot.plane.falling) crashedFrames++;
     callbackFrames.push(lastCallback ? arrival - lastCallback : 1000 / 60);
     lastCallback = arrival;
     if (document.visibilityState === "visible" && document.hasFocus())
@@ -728,6 +753,8 @@ function frame(now: number) {
             : callbackFrames,
           Infinity,
         ),
+        slowFrames: slowFrames.slice(),
+        qualityTransitions: qualityTransitions.slice(),
         environment: {
           userAgent: navigator.userAgent,
           viewport: [innerWidth, innerHeight],
@@ -741,6 +768,7 @@ function frame(now: number) {
               : "single route",
           distance: view.stats.renderDistance,
           foregroundFraction: foregroundFrames / frames.length,
+          crashedFrames,
         },
         main,
         saveCapture,
@@ -791,6 +819,7 @@ function frame(now: number) {
           : null,
         performance: view.performance.stats,
         gatesPassed:
+          (!(c.kind === "flight" || c.kind === "flight-3000") || crashedFrames === 0) &&
           foregroundFrames / frames.length >= 0.99 &&
           fps >= 59 &&
           (stats.lowFPS || 0) >= 55 &&
@@ -830,6 +859,11 @@ function frame(now: number) {
   }
   const t = performance.now();
   view.render(Math.min(raw / 1000, 0.1), active || touring, now);
+  if (active && view.performance.queues.sceneHeight !== lastSceneHeight) {
+    lastSceneHeight = view.performance.queues.sceneHeight;
+    if (qualityTransitions.length < 128)
+      qualityTransitions.push({ elapsed: (now - started) / 1000, sceneHeight: lastSceneHeight });
+  }
   if (active || touring) {
     const p = view.camera.position.toArray() as [number, number, number];
     audio.update(

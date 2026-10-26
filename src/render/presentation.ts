@@ -16,6 +16,7 @@ export class Presentation {
   readonly focus: BokehPass;
   readonly smaa = new SMAAPass();
   onPass?: (name: string, ms: number) => void;
+  onPassStart?: (name: string) => void;
   targetBytes = 0;
   private width = 1;
   private height = 1;
@@ -55,12 +56,11 @@ export class Presentation {
       this.composer.addPass(pass);
       const render = pass.render.bind(pass);
       pass.render = (...args) => {
+        const name = ["scene", "photo", "antialias", "output", "crt"][i];
         const started = performance.now();
+        this.onPassStart?.(name);
         render(...args);
-        this.onPass?.(
-          ["scene", "photo", "antialias", "output", "crt"][i],
-          performance.now() - started,
-        );
+        this.onPass?.(name, performance.now() - started);
       };
     }
   }

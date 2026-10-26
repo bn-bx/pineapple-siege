@@ -83,6 +83,80 @@ class WorkerStub {
 }
 afterEach(() => vi.unstubAllGlobals());
 
+it("blends the first detailed tile from its backdrop and applies edits without waiting for the fade", () => {
+  vi.stubGlobal("Worker", WorkerStub);
+  const view = create(),
+    worker = WorkerStub.last,
+    runtime = view as any;
+  const camera = new THREE.Vector3(128, 100, 128);
+  try {
+    view.update(camera, 600, 0);
+    const job = worker.jobs[0];
+    worker.complete(job);
+    view.update(camera, 600, 0);
+    const tile = runtime.tiles.get(job.tile);
+    expect(runtime.transitions.active(job.tile)).toBe(true);
+    expect(tile.mesh.geometry.getAttribute("terrainBlend").getY(0)).toBe(1);
+    const previous = view.group.children.find((child) => {
+      const geometry = (child as THREE.Mesh).geometry;
+      return geometry?.getAttribute("terrainBlend")?.getY(0) === -1;
+    }) as THREE.Mesh;
+    expect(previous.geometry.getAttribute("position").getY(0)).toBe(79);
+    const disposal = vi.spyOn(previous.geometry, "dispose");
+    view.patch({
+      indices: new Uint32Array(),
+      values: new Float32Array(),
+      chunks: [job.sections[0].id],
+    });
+    worker.complete({
+      ...job,
+      sections: job.sections.map((s, i) => ({
+        ...s,
+        revision: i === 0 ? 1 : 0,
+      })),
+    });
+    view.update(camera, 600, 0);
+    expect(runtime.transitions.active(job.tile)).toBe(false);
+    expect(tile.mesh.geometry.getAttribute("terrainBlend").getY(0)).toBe(0);
+    expect(disposal).toHaveBeenCalledOnce();
+  } finally {
+    view.dispose();
+  }
+});
+
+it("does not resubmit installed or completed terrain when a temporary detail change has already resolved", () => {
+  vi.stubGlobal("Worker", WorkerStub);
+  const view = create(),
+    worker = WorkerStub.last,
+    runtime = view as any;
+  const camera = new THREE.Vector3(128, 100, 128);
+  try {
+    view.update(camera, 600, 0);
+    view.update(camera, 600, 0);
+    const [first, second] = worker.jobs;
+    // A request can become dirty while running, then match the target again.
+    runtime.dirtyTiles.add(first.tile);
+    runtime.dirtyTiles.add(second.tile);
+    worker.complete(first);
+    worker.complete(second);
+    view.update(camera, 600, 0);
+    expect(runtime.dirtyTiles.has(first.tile)).toBe(false);
+    expect(runtime.completedTiles.has(second.tile)).toBe(true);
+    expect(
+      worker.jobs
+        .slice(2)
+        .some((j) => j.tile === first.tile || j.tile === second.tile),
+    ).toBe(false);
+    view.update(camera, 600, 0);
+    expect(runtime.dirtyTiles.has(second.tile)).toBe(false);
+    expect(runtime.completedTiles.size).toBe(0);
+    view.restore(view.heights);
+    expect(runtime.completedTiles.size).toBe(0);
+  } finally {
+    view.dispose();
+  }
+});
+
 it("prepares nearby terrain before startup warmup finishes", async () => {
   class CompletingWorker extends WorkerStub {
     postMessage(m: { type: string; job: TerrainJob }) {
@@ -181,12 +255,15 @@ it("shows partial detail upgrades without replacing a current surface with a dow
     view.update(camera, 600, 0);
     const tile = runtime.tiles.get(job.tile);
     const coarseGeometry = tile.mesh.geometry;
+    // A second LOD waits until the current handover finishes.
+    runtime.transitions.update(performance.now() / 1000 + 1);
     expect(view.chunks[job.sections[0].id].step).toBe(8);
     worker.complete(atStep(4));
     view.update(camera, 600, 0);
     expect(tile.mesh.geometry).not.toBe(coarseGeometry);
     expect(view.chunks[job.sections[0].id].step).toBe(4);
     const improvedGeometry = tile.mesh.geometry;
+    runtime.transitions.update(performance.now() / 1000 + 1);
     worker.complete(atStep(8));
     view.update(camera, 600, 0);
     expect(tile.mesh.geometry).toBe(improvedGeometry);

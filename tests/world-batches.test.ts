@@ -4,6 +4,60 @@ import { WorldBatches } from "../src/render/world-batches";
 import { ResourceDisposal } from "../src/render/resource-disposal";
 import type { WorldData } from "../src/types";
 
+it("matches distant crown materials and keeps nearby windows tied to day/night lighting", () => {
+  const world = {
+    sites: [],
+    banners: [],
+    entities: [
+      {
+        id: 0,
+        kind: "tree",
+        material: "bark",
+        treeSpecies: "pine",
+        p: [100, 20, 100],
+        s: [4, 10, 4],
+        variant: 0.5,
+      },
+      {
+        id: 1,
+        kind: "block",
+        material: "window",
+        p: [120, 20, 100],
+        s: [1, 1, 1],
+        variant: 0.5,
+      },
+    ],
+  } as unknown as WorldData;
+  const foliage = new THREE.MeshStandardMaterial({
+    color: "#487539",
+    map: new THREE.Texture(),
+  });
+  const window = new THREE.MeshStandardMaterial({
+    emissive: "#ffc077",
+    emissiveIntensity: 0,
+  });
+  const view = new WorldBatches(new THREE.Scene(), world, {
+    foliage,
+    window,
+    bark: new THREE.MeshStandardMaterial({ color: "#514230" }),
+  } as any);
+  const far = (view.horizon.group.children[0] as THREE.Mesh)
+    .material as THREE.MeshStandardMaterial;
+  expect(far.color).toEqual(foliage.color);
+  expect(far.map).toBe(foliage.map);
+  window.emissiveIntensity = 0.45;
+  view.update(new THREE.PerspectiveCamera(), 1200, 360, 220);
+  const nearWindow = view.batches.find((b) => b.allIds.includes(1))!.mesh
+    .material as THREE.MeshStandardMaterial;
+  expect(nearWindow.emissiveIntensity).toBe(0.45);
+  window.emissiveIntensity = 0;
+  view.update(new THREE.PerspectiveCamera(), 1200, 360, 220);
+  expect(nearWindow.emissiveIntensity).toBe(0);
+  const resources = new ResourceDisposal();
+  view.dispose(resources);
+  resources.dispose();
+});
+
 it("overlaps tree LODs near the transition and preserves complementary shader fading", () => {
   const world = {
     sites: [],
@@ -42,9 +96,24 @@ it("overlaps tree LODs near the transition and preserves complementary shader fa
   const low = compile(batch.low!.material as THREE.Material);
   expect(high.fragmentShader).toContain("treeLODNoise >= treeLODWeight");
   expect(low.fragmentShader).toContain("treeLODNoise < treeLODWeight");
+  expect(high.fragmentShader).toContain("sceneryLODNoise >= sceneryLODWeight");
+  const distant = view.horizon.group.children[0] as THREE.InstancedMesh;
+  const far = compile(distant.material as THREE.Material);
+  expect(far.fragmentShader).toContain("sceneryLODNoise < sceneryLODWeight");
+  expect(far.vertexShader).toContain("instanceMatrix[3].xyz");
+  expect(far.vertexShader).not.toContain("horizonCoverage");
   expect(high.vertexShader).toContain("foliageTime");
   expect(low.vertexShader).toContain("foliageTime");
+  const photo = { ...low, fragmentShader: "void main() {}" };
+  (batch.low!.material as THREE.Material).userData.prepassMask(photo, {});
+  expect(photo.fragmentShader).toBe(low.fragmentShader);
   expect(high.uniforms).toMatchObject({ treeLODDistance: { value: 360 } });
+  // Batch membership can change outside the fade band without hiding an owner
+  // which is still transitioning at the edge of the detailed radius.
+  camera.position.z = 1370;
+  view.update(camera, 1200, 360, 220);
+  expect(batch.low!.parent).not.toBeNull();
+  expect(distant.visible).toBe(true);
   camera.position.z = 1500;
   view.update(camera, 1200, 360, 220);
   expect(batch.mesh.visible).toBe(false);

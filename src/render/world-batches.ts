@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { installFoliageMotion } from "./foliage-motion";
 import { installTreeLOD, TREE_LOD_FADE } from "./tree-lod";
+import { installSceneryLOD, SCENERY_LOD_FADE } from "./scenery-lod";
 import { ApprovedGodView } from "./approved-god";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
@@ -35,12 +36,14 @@ export interface Batch {
 }
 const dummy = new THREE.Object3D();
 export class WorldBatches {
-  private foliageMaterials: THREE.Material[] = [];
+  private ownedMaterials: THREE.Material[] = [];
   private eyeMaterials = new Set<THREE.MeshStandardMaterial>();
+  private windowMaterial?: THREE.MeshStandardMaterial;
   readonly batches: Batch[] = [];
   readonly foliageTime = { value: 0 };
   private treeLODCamera = { value: new THREE.Vector2() };
   private treeLODDistance = { value: 360 };
+  private sceneryDistance = { value: 1200 };
   readonly refs = new Map<number, { batch: Batch; index: number }[]>();
   readonly removed = new Set<number>();
   readonly flagGroup = new THREE.Group();
@@ -71,25 +74,21 @@ export class WorldBatches {
 
   private buildBatches() {
     const grouped = new Map<string, Entity[]>();
-    const livingFoliage = this.materials.foliage?.clone() ?? new THREE.MeshStandardMaterial();
-    const foliageDepth = new THREE.MeshDepthMaterial({
-      depthPacking: THREE.RGBADepthPacking,
-      side: THREE.DoubleSide,
-    });
-    this.foliageMaterials.push(livingFoliage, foliageDepth);
+    const livingFoliage =
+      this.materials.foliage?.clone() ?? new THREE.MeshStandardMaterial();
+    this.ownedMaterials.push(livingFoliage);
     const source = this.materials.foliage ?? livingFoliage;
     livingFoliage.onBeforeCompile = source.onBeforeCompile;
     const sourceKey = source.customProgramCacheKey();
     livingFoliage.customProgramCacheKey = () => sourceKey;
     if (this.world.realm !== "hell") {
       installFoliageMotion(livingFoliage, this.foliageTime);
-      installFoliageMotion(foliageDepth, this.foliageTime);
     }
     const lowFoliage = livingFoliage.clone();
     lowFoliage.onBeforeCompile = livingFoliage.onBeforeCompile;
     const foliageKey = livingFoliage.customProgramCacheKey();
     lowFoliage.customProgramCacheKey = () => foliageKey;
-    this.foliageMaterials.push(lowFoliage);
+    this.ownedMaterials.push(lowFoliage);
     installTreeLOD(
       livingFoliage,
       this.treeLODCamera,
@@ -97,12 +96,47 @@ export class WorldBatches {
       true,
     );
     installTreeLOD(lowFoliage, this.treeLODCamera, this.treeLODDistance, false);
-    installTreeLOD(
-      foliageDepth,
-      this.treeLODCamera,
-      this.treeLODDistance,
-      true,
-    );
+
+    const nearMaterials = new Map<THREE.Material, THREE.Material>();
+    const nearDepths = new Map<THREE.Material, THREE.MeshDepthMaterial>();
+    const nearMaterial = (source: THREE.Material) => {
+      let material = nearMaterials.get(source);
+      if (!material) {
+        material = source.clone();
+        material.userData = { ...source.userData };
+        material.onBeforeCompile = source.onBeforeCompile;
+        const key = source.customProgramCacheKey();
+        material.customProgramCacheKey = () => key;
+        installSceneryLOD(
+          material,
+          this.treeLODCamera,
+          this.sceneryDistance,
+          true,
+        );
+        if (source === this.materials.window)
+          this.windowMaterial = material as THREE.MeshStandardMaterial;
+        if (this.eyeMaterials.has(source as THREE.MeshStandardMaterial))
+          this.eyeMaterials.add(material as THREE.MeshStandardMaterial);
+        nearMaterials.set(source, material);
+        this.ownedMaterials.push(material);
+      }
+      return material;
+    };
+    const nearDepth = (material: THREE.Material) => {
+      let depth = nearDepths.get(material);
+      if (!depth) {
+        depth = new THREE.MeshDepthMaterial({
+          depthPacking: THREE.RGBADepthPacking,
+          side: material.side,
+        });
+        // Reuse the same vertex and cutout hooks for shadows and photo depth.
+        depth.onBeforeCompile = material.onBeforeCompile;
+        depth.customProgramCacheKey = material.customProgramCacheKey;
+        nearDepths.set(material, depth);
+        this.ownedMaterials.push(depth);
+      }
+      return depth;
+    };
 
     const statueGeometries = new Map<string, THREE.BufferGeometry>();
     const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
@@ -148,7 +182,7 @@ export class WorldBatches {
       // spatial bounds, owner lookup and the original collision entities.
       // Match construction to the existing forest/rock spatial grid. Fewer
       // material batches reduce submission work; owner references and the
-      // batch-derived distant-coverage boundary are rebuilt together.
+      // owner references stay identical across near and distant views.
       const size = e.kind === "tree" ? 256 : 512;
       const cell = `${Math.floor(e.p[0] / size)},${Math.floor(e.p[2] / size)}`;
       const key = e.visual
@@ -171,10 +205,10 @@ export class WorldBatches {
         kind: string,
         lowGeo?: THREE.BufferGeometry,
       ) => {
+        material = nearMaterial(material);
         let mesh = new THREE.InstancedMesh(geo, material, list.length);
         mesh.castShadow = mesh.receiveShadow = true;
-        if (kind === "pine" && this.world.realm !== "hell")
-          mesh.customDepthMaterial = foliageDepth;
+        mesh.customDepthMaterial = nearDepth(material);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         let batch: Batch = {
           mesh,
@@ -188,12 +222,13 @@ export class WorldBatches {
         if (lowGeo) {
           batch.low = new THREE.InstancedMesh(
             lowGeo,
-            kind === "pine" ? lowFoliage : material,
+            kind === "pine" ? nearMaterial(lowFoliage) : material,
             list.length,
           );
           batch.low.receiveShadow = true;
-          if (kind === "pine" && this.world.realm !== "hell")
-            batch.low.customDepthMaterial = foliageDepth;
+          batch.low.customDepthMaterial = nearDepth(
+            batch.low.material as THREE.Material,
+          );
           this.scene.add(batch.low);
         }
         list.forEach((e, i) => {
@@ -265,6 +300,7 @@ export class WorldBatches {
             emissive: eye ? "#ff1010" : "black",
             emissiveIntensity: 0,
           });
+          this.ownedMaterials.push(mat);
           statueMaterials.set(materialKey, mat);
           if (eye) this.eyeMaterials.add(mat);
         }
@@ -407,6 +443,10 @@ export class WorldBatches {
   ) {
     this.treeLODCamera.value.set(camera.position.x, camera.position.z);
     this.treeLODDistance.value = treeDistance;
+    this.sceneryDistance.value = renderDistance;
+    if (this.windowMaterial)
+      this.windowMaterial.emissiveIntensity =
+        this.materials.window.emissiveIntensity;
     for (const b of this.batches) {
       let d = Math.hypot(b.x - camera.position.x, b.z - camera.position.z);
       b.mesh.castShadow = d < shadowDistance;
@@ -414,8 +454,8 @@ export class WorldBatches {
         b.mesh.visible = d < treeDistance + TREE_LOD_FADE + b.radius;
         b.low.visible =
           d > treeDistance - TREE_LOD_FADE - b.radius &&
-          d < renderDistance + b.radius;
-      } else b.mesh.visible = d < renderDistance + b.radius;
+          d < renderDistance + SCENERY_LOD_FADE + b.radius;
+      } else b.mesh.visible = d < renderDistance + SCENERY_LOD_FADE + b.radius;
       for (const mesh of [b.mesh, b.low])
         if (mesh) {
           if (mesh.visible && mesh.count && !mesh.parent) this.scene.add(mesh);
@@ -430,7 +470,7 @@ export class WorldBatches {
   }
 
   dispose(resources: ResourceDisposal) {
-    for (const material of this.foliageMaterials)
+    for (const material of this.ownedMaterials)
       resources.materials.add(material);
     this.approvedGod.dispose(resources);
     for (const batch of this.batches) {

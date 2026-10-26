@@ -67,7 +67,7 @@ import { deadTreeGeometry, setDeadTreeColor } from "./dead-tree";
 import { qualityProfile, type RenderQualityProfile } from "./quality-profile";
 import { sceneResources } from "./resource-budget";
 import { ResourceDisposal } from "./resource-disposal";
-import { SnapshotTimeline } from "./snapshot-timeline";
+import { FLIGHT_PLAYBACK_DELAY, SnapshotTimeline } from "./snapshot-timeline";
 import { TerrainView } from "./terrain-view";
 import { WorldBatches } from "./world-batches";
 const dummy = new THREE.Object3D(),
@@ -131,6 +131,11 @@ export class GameRenderer {
   private presentation: Presentation;
   private cadence = new SimulationCadence();
   private nextResources = 0;
+  resourceTracking = false;
+  private gpuPassFrame = false;
+  private gpuPassName = "scene";
+  private gpuFrameCounter = 0;
+  private qualityResourcesPending = false;
   private cachedProfile?: {
     selection: string;
     level: number;
@@ -216,8 +221,9 @@ export class GameRenderer {
   private previous?: SimulationSnapshot;
   private retired = new Set<SimulationSnapshot>();
   private motionFrames = new Map<string, ReturnType<typeof motionFrame>>();
-  private timeline = new SnapshotTimeline<SimulationSnapshot>(0.1, (s) =>
-    this.retired.add(s),
+  private timeline = new SnapshotTimeline<SimulationSnapshot>(
+    FLIGHT_PLAYBACK_DELAY,
+    (s) => this.retired.add(s),
   );
   private readyCamera = false;
   private cameraTarget = new THREE.Vector3();
@@ -300,8 +306,14 @@ export class GameRenderer {
       this.scene,
       this.camera,
     );
-    this.presentation.onPass = (name, ms) =>
+    this.presentation.onPassStart = (name) => {
+      if (this.gpuPassFrame && name === this.gpuPassName)
+        this.gpu.begin("gpuPass:" + name);
+    };
+    this.presentation.onPass = (name, ms) => {
       this.performance.record(name + "Submit", ms);
+      if (this.gpuPassFrame && name === this.gpuPassName) this.gpu.end();
+    };
     const shadowRender = this.renderer.shadowMap.render.bind(
       this.renderer.shadowMap,
     );
@@ -336,7 +348,11 @@ export class GameRenderer {
     if (world.realm === "hell") {
       for (const [key, material] of Object.entries(this.materials)) {
         if (key === "window") material.emissive.set("#ff4b17");
-        else material.color.lerp(new THREE.Color(key === "foliage" ? "#392326" : "#60312d"), 0.55);
+        else
+          material.color.lerp(
+            new THREE.Color(key === "foliage" ? "#392326" : "#60312d"),
+            0.55,
+          );
       }
       this.materials.foliage.map = null;
       this.materials.foliage.color.set("#877b6c");
@@ -380,8 +396,9 @@ export class GameRenderer {
     // Include generated statue and distant-view materials in the shared projection.
     this.scene.traverse((object) => {
       const material = (object as THREE.Mesh).material;
-      if (material) for (const item of Array.isArray(material) ? material : [material])
-        this.environment.disco.install(item);
+      if (material)
+        for (const item of Array.isArray(material) ? material : [material])
+          this.environment.disco.install(item);
     });
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
     if (world.portal) {
@@ -467,7 +484,8 @@ export class GameRenderer {
   }
   private async prewarmOnce() {
     await this.worldView.approvedGod.load();
-    for (const material of this.worldView.approvedGod.materials) this.environment.disco.install(material);
+    for (const material of this.worldView.approvedGod.materials)
+      this.environment.disco.install(material);
     this.warmupStages = {};
     let stageStarted = performance.now();
     const mark = (name: string) => {
@@ -519,10 +537,23 @@ export class GameRenderer {
         "color",
         new THREE.BufferAttribute(new Float32Array(12).fill(1), 3),
       );
-      const mesh = new THREE.Mesh(terrainWarmGeometry, this.terrain.material);
-      mesh.castShadow = mesh.receiveShadow = true;
-      this.scene.add(mesh);
-      temporary.push(mesh);
+      terrainWarmGeometry.setAttribute(
+        "terrainBlend",
+        new THREE.BufferAttribute(new Float32Array(8), 2),
+      );
+      for (const material of [
+        this.terrain.material,
+        this.terrain.transitionMaterial,
+      ]) {
+        if (!material) continue;
+        this.environment?.disco.install(material);
+        const mesh = new THREE.Mesh(terrainWarmGeometry, material);
+        if (material === this.terrain.transitionMaterial)
+          mesh.customDepthMaterial = this.terrain.transitionDepthMaterial;
+        mesh.castShadow = mesh.receiveShadow = true;
+        this.scene.add(mesh);
+        temporary.push(mesh);
+      }
     }
     if (this.settledTrunkMaterial) {
       const mesh = new THREE.InstancedMesh(
@@ -662,6 +693,7 @@ export class GameRenderer {
       value || (this.quality === "auto" && this.auto.level >= 2);
   }
   setQuality(q: string) {
+    this.qualityResourcesPending = false;
     if (q === "auto" && this.quality !== "auto") this.auto = new AutoQuality();
     if (q !== this.quality) this.auto.resume();
     this.quality = q;
@@ -698,10 +730,30 @@ export class GameRenderer {
         this.targetHeight / innerHeight,
         (this.targetHeight * 16) / 9 / innerWidth,
       );
-    this.renderer.setPixelRatio(Math.max(0.5, ratio));
-    this.renderer.setSize(innerWidth, innerHeight);
     const drawing = this.renderer.getDrawingBufferSize(new THREE.Vector2());
-    this.presentation?.resize(drawing.x, drawing.y);
+    const pixelRatio = Math.max(0.5, ratio),
+      width = Math.floor(innerWidth * pixelRatio),
+      height = Math.floor(innerHeight * pixelRatio);
+    // Auto changes only the offscreen scene. Reallocating the browser's canvas
+    // during flight can block for tens of milliseconds even with one resize.
+    const outputRatio = this.quality === "auto" ? dpr : pixelRatio;
+    this.effects?.setRenderScale?.(pixelRatio / outputRatio);
+    if (
+      drawing.x !== Math.floor(innerWidth * outputRatio) ||
+      drawing.y !== Math.floor(innerHeight * outputRatio)
+    ) {
+      // setPixelRatio already calls setSize. Setting both resets the canvas
+      // twice, which can synchronously wait for the just-submitted GPU work.
+      this.renderer.setDrawingBufferSize(innerWidth, innerHeight, outputRatio);
+    }
+    const style = this.renderer.domElement.style;
+    if (style.width !== `${innerWidth}px`) style.width = `${innerWidth}px`;
+    if (style.height !== `${innerHeight}px`) style.height = `${innerHeight}px`;
+    if (
+      this.presentation?.size[0] !== width ||
+      this.presentation?.size[1] !== height
+    )
+      this.presentation?.resize(width, height);
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
   }
@@ -755,7 +807,10 @@ export class GameRenderer {
     if (waterMask) this.terrain.setWaterMask(waterMask);
     this.worldView.restore(removed);
     this.jetGod?.update(this.removed);
-    this.portal?.update(0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
+    this.portal?.update(
+      0,
+      this.world.portal!.ids.every((id) => !this.removed.has(id)),
+    );
     for (const r of ruins) this.addRuin(r);
     this.effects.reset();
     this.environment.reset();
@@ -776,7 +831,11 @@ export class GameRenderer {
   delta(d: WorldDelta) {
     for (const id of d.removed) this.worldView.remove(id);
     if (d.removed.length) this.jetGod?.update(this.removed);
-    if (d.removed.length) this.portal?.update(this.last?.time ?? 0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
+    if (d.removed.length)
+      this.portal?.update(
+        this.last?.time ?? 0,
+        this.world.portal!.ids.every((id) => !this.removed.has(id)),
+      );
     for (const id of d.rubbleRemoved) this.removeRuin(id);
     for (const r of d.settled) this.addRuin(r);
     if (d.terrain) this.terrain.patch(d.terrain);
@@ -844,7 +903,8 @@ export class GameRenderer {
         color?: THREE.Color,
       ) => {
         let batch = lists.get(name);
-        if (!batch) lists.set(name, (batch = { geo, mat, matrices: [], colors: [] }));
+        if (!batch)
+          lists.set(name, (batch = { geo, mat, matrices: [], colors: [] }));
         dummy.updateMatrix();
         batch.matrices.push(dummy.matrix.clone());
         batch.colors.push(color?.clone());
@@ -938,10 +998,12 @@ export class GameRenderer {
           mesh.setMatrixAt(i, m);
           mesh.setColorAt(
             i,
-            colors[i] ?? this.fragmentColor.setScalar(
-              0.86 +
-                (Math.abs(m.elements[12] * 17 + m.elements[14] * 31) % 19) / 70,
-            ),
+            colors[i] ??
+              this.fragmentColor.setScalar(
+                0.86 +
+                  (Math.abs(m.elements[12] * 17 + m.elements[14] * 31) % 19) /
+                    70,
+              ),
           );
         }
         mesh.receiveShadow = true;
@@ -1050,7 +1112,10 @@ export class GameRenderer {
     this.crownGeometries ??= new Map();
     let geometry = this.crownGeometries.get(species);
     if (!geometry) {
-      geometry = this.world.realm === "hell" ? deadTreeGeometry(species) : treeCrownGeometry(species);
+      geometry =
+        this.world.realm === "hell"
+          ? deadTreeGeometry(species)
+          : treeCrownGeometry(species);
       this.crownGeometries.set(species, geometry);
     }
     return geometry;
@@ -1256,13 +1321,13 @@ export class GameRenderer {
           offset(b.p, b.q, height);
           if (previous) offset(previous.p, previous.q, previousHeight);
           const crownScale = treeCanopyScale(e);
-          b.s[0] = crownScale[0] * height / e.s[1];
-          b.s[1] = crownScale[1] * height / e.s[1];
-          b.s[2] = crownScale[2] * height / e.s[1];
+          b.s[0] = (crownScale[0] * height) / e.s[1];
+          b.s[1] = (crownScale[1] * height) / e.s[1];
+          b.s[2] = (crownScale[2] * height) / e.s[1];
           if (previous) {
-            previous.s[0] = crownScale[0] * previousHeight / e.s[1];
-            previous.s[1] = crownScale[1] * previousHeight / e.s[1];
-            previous.s[2] = crownScale[2] * previousHeight / e.s[1];
+            previous.s[0] = (crownScale[0] * previousHeight) / e.s[1];
+            previous.s[1] = (crownScale[1] * previousHeight) / e.s[1];
+            previous.s[2] = (crownScale[2] * previousHeight) / e.s[1];
           }
           const canopy = this.fallenCanopy(species);
           writeDebrisMotion(canopy, index, b, previous);
@@ -1445,7 +1510,10 @@ export class GameRenderer {
     } else for (const r of snap.bodies) if (wreckBox(r)) yield box;
   }
   render(dt: number, active: boolean, frameTime = performance.now()) {
-    this.portal?.update(this.last?.time ?? 0, this.world.portal!.ids.every((id) => !this.removed.has(id)));
+    this.portal?.update(
+      this.last?.time ?? 0,
+      this.world.portal!.ids.every((id) => !this.removed.has(id)),
+    );
     if (active && !this.wasActive) {
       this.averageMS = 1000 / 60;
       this.cpuMS = 0;
@@ -1454,6 +1522,21 @@ export class GameRenderer {
     this.wasActive = active;
     const workStarted = performance.now(),
       optionalDeadline = workStarted + 0.65;
+    if (this.qualityResourcesPending) {
+      this.qualityResourcesPending = false;
+      const resizeStarted = performance.now();
+      this.resize();
+      if (this.sun.shadow.mapSize.x !== this.auto.shadowSize) {
+        this.sun.shadow.mapSize.set(this.auto.shadowSize, this.auto.shadowSize);
+        this.sun.shadow.map?.dispose();
+        this.sun.shadow.map = null;
+        this.renderer.shadowMap.needsUpdate = true;
+      }
+      this.performance.record(
+        "qualityResize",
+        performance.now() - resizeStarted,
+      );
+    }
     this.gpu.poll();
     this.performance.record(
       "textureUpload",
@@ -1707,7 +1790,7 @@ export class GameRenderer {
     }
     this.camera.position.copy(this.cameraPosition);
     this.camera.up.copy(
-      this.world.realm === "hell" ? down : deathShot?.up ?? up,
+      this.world.realm === "hell" ? down : (deathShot?.up ?? up),
     );
     if (!deathShot && this.shakeEnabled && active) {
       let shake = this.effects.shake * 0.4;
@@ -1787,6 +1870,9 @@ export class GameRenderer {
     this.performance.record("terrain", performance.now() - terrainStarted);
     this.performance.record("terrainWorker", this.terrain.workerMS);
     this.performance.queues.terrain = this.terrain.queueDepth;
+    this.performance.queues.terrainCacheBytes = this.terrain.workerCacheBytes;
+    this.performance.queues.terrainCacheHits = this.terrain.workerCacheHits;
+    this.performance.queues.terrainMeshesBuilt = this.terrain.workerMeshesBuilt;
     this.performance.queues.renderRuins = this.dirtyRuinBatches.size;
     this.performance.queues.terrainWorkerActive = this.terrain.workerActive
       ? 1
@@ -1819,7 +1905,12 @@ export class GameRenderer {
       this.effects.reduced,
       snap.time,
     );
-    this.buildingFire?.update(this.removed, this.camera, snap.time, this.effects.reduced);
+    this.buildingFire?.update(
+      this.removed,
+      this.camera,
+      snap.time,
+      this.effects.reduced,
+    );
     this.performance.record("effects", performance.now() - effectsStarted);
     this.effects.laser.reduced = this.effects.reduced;
     this.effects.laser.update(
@@ -1850,7 +1941,19 @@ export class GameRenderer {
     ])
       mesh.castShadow = debrisShadows;
     this.performance.queues.movingDebrisShadows = +debrisShadows;
-    this.gpu.begin("gpu");
+    // Sample individual passes occasionally without nesting GPU queries.
+    // Whole-frame samples continue to drive automatic quality.
+    this.gpuPassFrame = this.resourceTracking && this.gpuFrameCounter % 8 === 0;
+    this.gpuPassName = ["scene", "antialias", "output", "crt"][
+      Math.floor(this.gpuFrameCounter++ / 8) % 4
+    ];
+    if (!this.gpuPassFrame)
+      this.gpu.begin(
+        "gpu",
+        this.renderer.shadowMap.needsUpdate
+          ? "gpuShadowFrame"
+          : "gpuRegularFrame",
+      );
     const drawStarted = performance.now();
     this.renderer.info.autoReset = false;
     this.renderer.info.reset();
@@ -1880,7 +1983,7 @@ export class GameRenderer {
     this.performance.queues.postProcessing = this.presentation.passCount;
     this.performance.queues.renderTargetBytes =
       this.presentation.targetBytes + this.sun.shadow.mapSize.x ** 2 * 8;
-    if (this.elapsed >= this.nextResources) {
+    if (this.resourceTracking && this.elapsed >= this.nextResources) {
       Object.assign(
         this.performance.queues,
         sceneResources(this.scene, [
@@ -1902,6 +2005,7 @@ export class GameRenderer {
       this.quality === "auto" &&
       this.auto.update(frameTime, {
         frameMS: this.averageMS,
+        frameSampleMS: dt * 1000,
         cpuMS: this.cpuMS,
         gpuMS: this.gpu.lastMS,
         workerMS: snap.stats.stepMS ?? snap.stats.physicsMS,
@@ -1911,13 +2015,9 @@ export class GameRenderer {
       const height = this.auto.height;
       if (height !== this.targetHeight) {
         this.targetHeight = height;
-        this.resize();
-      }
-      if (this.sun.shadow.mapSize.x !== this.auto.shadowSize) {
-        this.sun.shadow.mapSize.set(this.auto.shadowSize, this.auto.shadowSize);
-        this.sun.shadow.map?.dispose();
-        this.sun.shadow.map = null;
-        this.renderer.shadowMap.needsUpdate = true;
+        // Apply before the next frame submits work, so resizing does not wait
+        // synchronously on this frame's GPU commands.
+        this.qualityResourcesPending = true;
       }
       this.effects.reduced = this.reducedEffects || this.auto.level >= 2;
     }
@@ -2024,8 +2124,10 @@ export class GameRenderer {
       cameraMode: this.rig.mode,
       effectTime: this.elapsed,
       fps: 1000 / this.averageMS,
-      width: this.canvas.width,
-      height: this.canvas.height,
+      width: this.presentation.size[0],
+      height: this.presentation.size[1],
+      outputWidth: this.canvas.width,
+      outputHeight: this.canvas.height,
       drawCalls: this.renderer.info.render.calls,
       triangles: this.renderer.info.render.triangles,
       geometries: this.renderer.info.memory.geometries,

@@ -125,6 +125,7 @@ export function initializeWorld(
     baseline.heights,
   );
   ctx.view.setQuality(ctx.extras.quality!);
+  ctx.view.resourceTracking = !!ctx.extras.showPerf || ctx.debug;
   ctx.view.setCRTMode(ctx.extras.crtMode!);
   ctx.view.setRenderDistance(ctx.extras.renderDistance!);
   ctx.view.setReducedEffects(!!ctx.extras.reduceEffects);

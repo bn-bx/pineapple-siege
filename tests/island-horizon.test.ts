@@ -6,6 +6,47 @@ import { treeCanopyScale } from "../src/render/tree-appearance";
 import { WorldBatches } from "../src/render/world-batches";
 import { ResourceDisposal } from "../src/render/resource-disposal";
 
+it("shares distant materials and skips fully covered cells without unloading their owners", () => {
+  const entities = [100, 1800, 120].map((x, id) => ({
+    id,
+    kind: "block",
+    material: "stone",
+    p: [x, 30, 100],
+    s: [4, 8, 4],
+    variant: 0.5,
+  }));
+  const view = new IslandHorizon(
+    { entities } as unknown as WorldData,
+    entities.map((e) => ({
+      allIds: [e.id],
+      kind: "block",
+      x: e.p[0],
+      z: e.p[2],
+      radius: 10,
+    })),
+    { stone: new THREE.MeshStandardMaterial() } as any,
+  );
+  const [a, b] = view.group.children as THREE.InstancedMesh[];
+  expect(a.material).toBe(b.material);
+  expect(a.customDepthMaterial).toBe(b.customDepthMaterial);
+  const geometry = a.geometry,
+    instances = a.instanceMatrix.array;
+  view.setView(new THREE.Vector3(100, 30, 100), 600);
+  expect(a.visible).toBe(false);
+  expect(b.visible).toBe(true);
+  view.setView(new THREE.Vector3(720, 30, 100), 600);
+  expect(a.visible).toBe(true); // One owner still needs its distant representation.
+  view.setView(new THREE.Vector3(1800, 30, 100), 600);
+  expect(a.visible).toBe(true);
+  expect(b.visible).toBe(false);
+  expect(a.geometry).toBe(geometry);
+  expect(a.instanceMatrix.array).toBe(instances);
+  expect(a.count).toBe(2);
+  view.remove(0);
+  view.restore([]);
+  expect(a.count).toBe(2);
+});
+
 it("culls distant scenery by spatial cell while retaining owner restoration", () => {
   const entities = [0, 1].map((id) => ({
     id,

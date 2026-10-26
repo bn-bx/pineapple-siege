@@ -1,6 +1,33 @@
 import { expect, it } from "vitest";
-import { SnapshotTimeline } from "../src/render/snapshot-timeline";
+import {
+  FLIGHT_PLAYBACK_DELAY,
+  SnapshotTimeline,
+} from "../src/render/snapshot-timeline";
 const state = (time: number) => ({ time, x: time * 100 });
+it("plays flight roughly one frame-pair sooner while absorbing ordinary delivery jitter", () => {
+  const low = new SnapshotTimeline<ReturnType<typeof state>>(
+    FLIGHT_PLAYBACK_DELAY,
+  );
+  const old = new SnapshotTimeline<ReturnType<typeof state>>(0.1);
+  let sent = 0,
+    previous = -Infinity;
+  for (let now = 0; now <= 6000; now += 8) {
+    while (sent * (1000 / 30) + [0, 8, 16, 0][sent % 4] <= now) {
+      const time = sent++ / 30;
+      low.receive(state(time), now);
+      old.receive(state(time), now);
+    }
+    const sample = low.sample(now, true)!;
+    old.sample(now, true);
+    expect(sample.time).toBeGreaterThanOrEqual(previous);
+    expect(sample.time).toBeLessThanOrEqual((sent - 1) / 30);
+    if (now >= 1000) expect(sample.time - previous).toBeGreaterThan(0.006);
+    previous = sample.time;
+  }
+  expect(
+    low.sample(6000, true)!.time - old.sample(6000, true)!.time,
+  ).toBeGreaterThan(0.03);
+});
 it("keeps the latest transferable packet owned through repeated resumes", () => {
   const retired: number[] = [];
   const t = new SnapshotTimeline<ReturnType<typeof state>>(0.1, (s) =>

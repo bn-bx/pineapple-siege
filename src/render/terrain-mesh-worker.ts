@@ -17,6 +17,9 @@ export interface TerrainResult {
   tile: number;
   serial: number;
   buildMS: number;
+  cacheHits?: number;
+  meshesBuilt?: number;
+  cacheBytes?: number;
   members: { id: number; step: number; revision: number }[];
   position: Float32Array;
   normal: Float32Array;
@@ -27,7 +30,19 @@ export interface TerrainResult {
 }
 let mesher: TerrainMesher;
 let cacheEpoch = -1;
-const cache = new Map<number, MeshChunk>();
+type CachedChunk = MeshChunk & { bytes: number };
+// Retain alternate LODs so circling/backtracking does not rebuild the same
+// unchanged surface. Both entry count and actual array storage are bounded.
+const CACHE_BYTES = 32 * 1024 * 1024;
+const cache = new Map<number, CachedChunk>();
+let cacheBytes = 0,
+  cacheHits = 0,
+  meshesBuilt = 0;
+function clearCache() {
+  for (const c of cache.values()) c.mesh.geometry.dispose();
+  cache.clear();
+  cacheBytes = cacheHits = meshesBuilt = 0;
+}
 self.onmessage = (
   event: MessageEvent<
     { type: "init"; world: WorldData } | { type: "mesh"; job: TerrainJob }
@@ -36,46 +51,64 @@ self.onmessage = (
   const m = event.data;
   if (m.type === "init") {
     mesher = new TerrainMesher(m.world);
-    for (const c of cache.values()) c.mesh.geometry.dispose();
-    cache.clear();
+    clearCache();
     return;
   }
   const { job } = m,
     started = performance.now();
   if (cacheEpoch !== job.epoch) {
-    for (const chunk of cache.values()) chunk.mesh.geometry.dispose();
-    cache.clear();
+    clearCache();
     cacheEpoch = job.epoch;
   }
   const geometries: THREE.BufferGeometry[] = [];
   for (const s of job.sections) {
-    let c = cache.get(s.id);
+    const key = s.id * 32 + s.step;
+    let c = cache.get(key);
     if (!c)
       c = {
         id: s.id,
         step: 0,
         dirty: true,
         revision: -1,
+        bytes: 0,
         mesh: new THREE.Mesh(new THREE.BufferGeometry()),
       };
     if (c.step !== s.step || c.revision !== s.revision) {
+      cacheBytes -= c.bytes;
       mesher.section = s;
       mesher.build(c, s.step);
       c.revision = s.revision;
-    }
-    // LRU holds at most 2,048 editable sections; evicted geometry is reconstructible.
-    cache.delete(s.id);
-    cache.set(s.id, c);
+      // Only the synchronous renderer needs these for in-place scar refreshes.
+      c.baseColors = undefined;
+      c.bytes = c.mesh.geometry.index!.array.byteLength;
+      for (const attribute of Object.values(c.mesh.geometry.attributes))
+        c.bytes += attribute.array.byteLength;
+      cacheBytes += c.bytes;
+      meshesBuilt++;
+    } else cacheHits++;
+    cache.delete(key);
+    cache.set(key, c);
     geometries.push(c.mesh.geometry);
   }
   const geometry = mergeGeometries(geometries)!;
   geometry.computeBoundingSphere();
   const sphere = geometry.boundingSphere!;
+  // Merging has copied the arrays; cached sections can now be safely evicted.
+  while (cache.size > 4096 || cacheBytes > CACHE_BYTES) {
+    const key = cache.keys().next().value!;
+    const c = cache.get(key)!;
+    cacheBytes -= c.bytes;
+    c.mesh.geometry.dispose();
+    cache.delete(key);
+  }
   const result: TerrainResult = {
     epoch: job.epoch,
     tile: job.tile,
     serial: job.serial,
     buildMS: performance.now() - started,
+    cacheHits,
+    meshesBuilt,
+    cacheBytes,
     members: job.sections.map((s) => ({
       id: s.id,
       step: s.step,
@@ -96,9 +129,4 @@ self.onmessage = (
     result.index.buffer,
   ]);
   geometry.dispose();
-  while (cache.size > 2048) {
-    const id = cache.keys().next().value!;
-    cache.get(id)!.mesh.geometry.dispose();
-    cache.delete(id);
-  }
 };

@@ -88,6 +88,7 @@ export function applyPreferences(ctx: SettingsContext, p: Preferences): void {
   ctx.$<HTMLInputElement>("volume").value = String(ctx.extras.volume);
   ctx.$<HTMLSelectElement>("quality").value = ctx.extras.quality!;
   ctx.$("perf").hidden = !(ctx.extras.showPerf || ctx.debug);
+  if (ctx.view) ctx.view.resourceTracking = !!ctx.extras.showPerf || ctx.debug;
 }
 export function updateMonsterCountUI(ctx: SettingsContext): void {
   ctx.$<HTMLInputElement>("monsterCount").value = String(ctx.monsterCount);
@@ -192,6 +193,7 @@ export function bind(ctx: SettingsContext): void {
   ] as const) {
     ctx.$<HTMLInputElement>(id).onchange = (e) => {
       if (id === "showPerf") ctx.resetFrameStats();
+      if (ctx.view) ctx.view.resourceTracking = !!ctx.extras.showPerf || ctx.debug;
       ctx.extras[id] = (e.target as HTMLInputElement).checked;
       ctx.view?.setReducedEffects(!!ctx.extras.reduceEffects);
       ctx.view?.setShake(!ctx.extras.reduceShake);

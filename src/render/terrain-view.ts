@@ -2,6 +2,7 @@ import { terrainSurfaceColor, terrainScarColor } from "./terrain-colors";
 import { TerrainMesher, type SectionData } from "./terrain-mesher";
 import { TerrainPages } from "./terrain-pages";
 import { TerrainTextureUploads } from "./terrain-texture-uploads";
+import { TerrainTransitions } from "./terrain-transitions";
 import { WaterSurfaceLookup } from "./waterline-lookup";
 import {
   terrainDetailStep,
@@ -34,6 +35,7 @@ export class TerrainView {
   readonly base: Float32Array;
   readonly material: THREE.MeshStandardMaterial;
   private mesher: TerrainMesher;
+  private transitions: TerrainTransitions;
   private worker?: Worker;
   private textureUploads?: TerrainTextureUploads;
   enableStreamingUploads() {
@@ -48,6 +50,12 @@ export class TerrainView {
   get textureQueue() {
     return this.textureUploads?.pending ?? 0;
   }
+  get transitionMaterial() {
+    return this.transitions.material;
+  }
+  get transitionDepthMaterial() {
+    return this.transitions.depth;
+  }
   get workerActive() {
     return !!this.worker;
   }
@@ -56,6 +64,7 @@ export class TerrainView {
   private serial = 0;
   private inFlight = new Map<number, number>();
   private completed: TerrainResult[] = [];
+  private completedTiles = new Set<number>();
   private activeTiles = new Set<number>();
   private dirtyTiles = new Set<number>();
   private requestedSteps = new Uint8Array(CHUNKS * CHUNKS);
@@ -73,6 +82,9 @@ export class TerrainView {
   private scarColor = new THREE.Color();
   queueDepth = 0;
   workerMS = 0;
+  workerCacheHits = 0;
+  workerMeshesBuilt = 0;
+  workerCacheBytes = 0;
   private castleBounds: WorldData["castleBounds"][];
   private pathBounds: number[];
   private roadDistance: (x: number, z: number) => number;
@@ -130,12 +142,17 @@ export class TerrainView {
           return;
         }
         this.completed.push(result);
+        this.completedTiles.add(result.tile);
         this.workerMS = result.buildMS;
+        this.workerCacheHits = result.cacheHits ?? 0;
+        this.workerMeshesBuilt = result.meshesBuilt ?? 0;
+        this.workerCacheBytes = result.cacheBytes ?? 0;
       };
       this.worker.onerror = (event) => {
         console.error("Terrain meshing worker failed", event.message);
         this.worker?.terminate();
         this.worker = undefined;
+        this.transitions.clear();
         this.inFlight.clear();
         for (const [key, tile] of this.tiles) {
           this.group.remove(tile.mesh);
@@ -144,6 +161,7 @@ export class TerrainView {
         }
         this.tiles.clear();
         this.completed.length = 0;
+        this.completedTiles.clear();
         for (const c of this.chunks) {
           c.step = 0;
           c.dirty = true;
@@ -201,6 +219,7 @@ export class TerrainView {
         "#include <map_fragment>\n diffuseColor.rgb = vec3(dot(diffuseColor.rgb, vec3(.2126,.7152,.0722)));",
       );
     };
+    this.transitions = new TerrainTransitions(this.group, this.material);
     for (let z = 0; z < CHUNKS; z++)
       for (let x = 0; x < CHUNKS; x++) {
         let mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
@@ -251,6 +270,7 @@ export class TerrainView {
         ),
       );
       this.coarseIndices = (g.index!.array as Uint16Array).slice();
+      this.transitions.setBlend(g);
       this.coarse = new THREE.Mesh(g, this.material);
       this.coarse.receiveShadow = true;
       this.coarse.matrixAutoUpdate = false;
@@ -312,6 +332,7 @@ export class TerrainView {
   private build(chunk: Chunk, step: number) {
     this.mesher.section = this.section(chunk.id);
     this.mesher.build(chunk, step);
+    this.transitions.setBlend(chunk.mesh.geometry);
   }
 
   private refresh(chunk: Chunk) {
@@ -353,10 +374,11 @@ export class TerrainView {
     detailScale = 1,
     velocity?: readonly number[],
   ) {
+    this.transitions.update();
     const coarseStarted = performance.now();
     this.refreshCoarse(
       false,
-      Math.max(0.05, Math.min(0.35, Math.max(0, budgetMS) * 0.25)),
+      budgetMS > 0 ? Math.max(0.05, Math.min(0.35, budgetMS * 0.25)) : 0,
     );
     budgetMS = Math.max(0, budgetMS - (performance.now() - coarseStarted));
     if (this.worker) {
@@ -530,6 +552,7 @@ export class TerrainView {
               Math.hypot(x * 256 + 128 - camera.x, z * 256 + 128 - camera.z) <
               400;
             if (!tile.mesh.parent) {
+              this.transitions.replace(key, tile.mesh, this.coarseTile(key));
               this.group.add(tile.mesh);
               this.coverCoarse(key, true);
             }
@@ -538,6 +561,7 @@ export class TerrainView {
       for (const key of this.activeTiles)
         if (!next.has(key)) {
           const tile = this.tiles.get(key);
+          this.transitions.finish(key);
           if (tile) this.group.remove(tile.mesh);
           this.coverCoarse(key, false);
           this.dirtyTiles.delete(key);
@@ -551,12 +575,23 @@ export class TerrainView {
           this.coverCoarse(key, false);
         }
     }
+    let remainingCompletions = this.completed.length;
     while (
+      remainingCompletions-- > 0 &&
       this.completed.length &&
       (!progressed || performance.now() - started < budgetMS)
     ) {
-      progressed = true;
       const r = this.completed.shift()!;
+      const existing = this.tiles.get(r.tile);
+      const edited = r.members.some(
+        (c) => this.chunks[c.id].revision !== c.revision,
+      );
+      if (this.transitions.active(r.tile) && existing && !edited) {
+        this.completed.push(r);
+        continue;
+      }
+      progressed = true;
+      this.completedTiles.delete(r.tile);
       if (r.epoch !== this.epoch || !this.activeTiles.has(r.tile)) continue;
       if (r.members.some((c) => c.revision !== this.editRevisions[c.id])) {
         this.dirtyTiles.add(r.tile);
@@ -577,7 +612,7 @@ export class TerrainView {
           )
         )
           continue;
-      }
+      } else this.dirtyTiles.delete(r.tile);
       const g = new THREE.BufferGeometry();
       for (const [name, array, size] of [
         ["position", r.position, 3],
@@ -592,10 +627,19 @@ export class TerrainView {
         r.sphere[3],
       );
       let tile = this.tiles.get(r.tile);
+      let previous: THREE.Mesh | undefined;
       if (tile) {
-        tile.mesh.geometry.dispose();
+        if (!edited) {
+          previous = new THREE.Mesh(tile.mesh.geometry, this.material);
+          previous.receiveShadow = true;
+          previous.matrixAutoUpdate = false;
+        } else {
+          this.transitions.finish(r.tile);
+          tile.mesh.geometry.dispose();
+        }
         tile.mesh.geometry = g;
       } else {
+        previous = this.coarseTile(r.tile);
         const mesh = new THREE.Mesh(g, this.material);
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
@@ -604,6 +648,7 @@ export class TerrainView {
           (tile = { mesh, signature: "", members: new Set() }),
         );
       }
+      this.transitions.replace(r.tile, tile.mesh, previous);
       tile.members.clear();
       for (const c of r.members) {
         const chunk = this.chunks[c.id];
@@ -624,7 +669,7 @@ export class TerrainView {
       let key = -1,
         best = Infinity;
       for (const k of this.dirtyTiles) {
-        if (this.inFlight.has(k)) continue;
+        if (this.inFlight.has(k) || this.completedTiles.has(k)) continue;
         const d = terrainPathDistance(
           (k % (CHUNKS / 4)) * 256 + 128,
           Math.floor(k / (CHUNKS / 4)) * 256 + 128,
@@ -670,6 +715,37 @@ export class TerrainView {
     }
     this.queueDepth =
       this.dirtyTiles.size + this.completed.length + this.inFlight.size;
+  }
+  private coarseTile(tile: number) {
+    if (!this.coarse || !this.coarseIndices) return undefined;
+    const source = this.coarse.geometry;
+    const x = (tile % (CHUNKS / 4)) * 4,
+      z = Math.floor(tile / (CHUNKS / 4)) * 4;
+    const indices: number[] = [];
+    for (let row = z; row < z + 4; row++)
+      for (let col = x; col < x + 4; col++) {
+        const start = (row * CHUNKS + col) * 6;
+        for (let i = start; i < start + 6; i++)
+          indices.push(this.coarseIndices[i]);
+      }
+    const geometry = new THREE.BufferGeometry();
+    for (const name of ["position", "normal", "color", "uv"]) {
+      const attribute = source.getAttribute(name);
+      const values = new Float32Array(indices.length * attribute.itemSize);
+      for (let i = 0; i < indices.length; i++)
+        for (let j = 0; j < attribute.itemSize; j++)
+          values[i * attribute.itemSize + j] =
+            attribute.array[indices[i] * attribute.itemSize + j];
+      geometry.setAttribute(
+        name,
+        new THREE.BufferAttribute(values, attribute.itemSize),
+      );
+    }
+    geometry.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geometry, this.material);
+    mesh.matrixAutoUpdate = false;
+    mesh.receiveShadow = true;
+    return mesh;
   }
   private coverCoarseChunk(id: number, covered: boolean) {
     if (
@@ -803,9 +879,11 @@ export class TerrainView {
 
   dispose() {
     this.disposed = true;
+    this.transitions.dispose();
     this.textureUploads?.dispose();
     this.worker?.terminate();
     this.completed.length = 0;
+    this.completedTiles.clear();
     this.coarseDirty.clear();
     this.inFlight.clear();
     for (const tile of this.tiles.values()) tile.mesh.geometry.dispose();
@@ -973,9 +1051,11 @@ export class TerrainView {
     this.heights.set(h);
     this.heightPages.refresh();
     this.refreshCoarse();
+    this.transitions.clear();
     this.epoch++;
     this.inFlight.clear();
     this.completed.length = 0;
+    this.completedTiles.clear();
     if (this.worker) {
       for (const tile of this.tiles.values()) {
         this.group.remove(tile.mesh);
