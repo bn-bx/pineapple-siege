@@ -30,7 +30,7 @@ export function qualityProfile(
         : Number(selection) || 900,
     shadowSize: level < 2 ? 2048 : 1024,
     shadowInterval: level < 2 ? 1 / 24 : level === 4 ? 1 / 8 : 1 / 12,
-    shadowReach: [660, 660, 460, 320, 220][level],
+    shadowReach: [460, 460, 320, 220, 220][level],
     debrisShadows: level < 2,
     treeDistance: [360, 360, 300, 240, 160][level],
     cosmetics: [1, 1, 0.75, 0.5, 0.35][level],

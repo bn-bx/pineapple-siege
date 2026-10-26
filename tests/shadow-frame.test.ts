@@ -31,7 +31,7 @@ it("respects each quality profile's shadow reach", () => {
     expect(half).toBeLessThanOrEqual(shadowReach);
   }
   expect(qualityProfile("auto", 4).shadowReach).toBe(220);
-  expect(qualityProfile("auto", 0).shadowReach).toBe(660);
+  expect(qualityProfile("auto", 0).shadowReach).toBe(460);
   expect(qualityProfile("auto", 0).shadowReach).toBe(
     qualityProfile("auto", 1).shadowReach,
   );

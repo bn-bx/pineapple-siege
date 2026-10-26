@@ -46,6 +46,10 @@ it("uses linear Fog uniforms for density and scale height, leaving FogExp2 untou
     "1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth )",
   );
   expect(THREE.ShaderChunk.fog_vertex).toContain("vFogOffset");
+  // Per-vertex haze everywhere except the ocean, which needs it per pixel.
+  expect(THREE.ShaderChunk.fog_vertex).toContain("vAerialFog = aerialFog( vFogOffset );");
+  expect(THREE.ShaderChunk.fog_fragment).toContain("float fogFactor = vAerialFog;");
+  expect(THREE.ShaderChunk.fog_fragment).toContain("aerialFog( vFogOffset ) * AERIAL_FOG_SCALE");
   expect(THREE.ShaderChunk.fog_pars_fragment).toContain("uniform float fogNear");
 });
 

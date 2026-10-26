@@ -138,8 +138,11 @@ html = html
       "\n</head>",
   );
 fs.writeFileSync(path.join(outRoot, "index.html"), html);
-fs.symlinkSync(path.join(repo, "node_modules"), path.join(outRoot, "node_modules"));
+// Relative links keep a preview usable when the folder is opened on another
+// machine or through a different mount path.
+const link = (target, at) => fs.symlinkSync(path.relative(path.dirname(at), target), at);
+link(path.join(repo, "node_modules"), path.join(outRoot, "node_modules"));
 for (const name of fs.readdirSync(path.join(repo, "public")))
   if (!fs.existsSync(path.join(outRoot, name)))
-    fs.symlinkSync(path.join(repo, "public", name), path.join(outRoot, name));
+    link(path.join(repo, "public", name), path.join(outRoot, name));
 console.log("built", outRoot, "css:", cssLinks);
