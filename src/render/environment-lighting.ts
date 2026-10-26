@@ -19,12 +19,27 @@ const palette = {
   waterDay: new Color("#285f65"),
   waterSet: new Color("#365e7c"),
   waterNight: new Color("#102940"),
+  sunDisc: new Color("#fff4e0"),
+  sunLow: new Color("#ff8326"),
 };
+
+/**
+ * The moon rides opposite the sun, swung this far around the vertical so it
+ * isn't exactly anti-solar: it then shows a gibbous phase and rises later than
+ * sunset, which reads as a moon rather than a mirrored sun.
+ */
+export const MOON_AZIMUTH_OFFSET = 0.45;
 
 /** Reused colors/uniform values: hour is authoritative, including in photo mode. */
 export class EnvironmentLighting {
   readonly sunDirection = new Vector3();
+  /** Direction to the moon; it lights the night instead of a mirrored sun. */
+  readonly moonDirection = new Vector3();
   readonly lightDirection = new Vector3();
+  /** Sun disc and glow tint: white-gold by day, deep orange at the horizon. */
+  readonly sunTint = new Color();
+  /** 0 by day, 1 in full night: drives star visibility. */
+  starStrength = 0;
   readonly sunColor = new Color();
   readonly ambientColor = new Color();
   readonly groundColor = new Color();
@@ -48,8 +63,16 @@ export class EnvironmentLighting {
       (1 - MathUtils.smoothstep(Math.abs(height), 0.04, 0.42)) *
       MathUtils.smoothstep(height, -0.25, -0.04);
     this.night = 1 - MathUtils.smoothstep(height, -0.08, 0.18);
-    this.lightDirection.copy(this.sunDirection);
-    if (height < 0) this.lightDirection.negate();
+    const c = Math.cos(MOON_AZIMUTH_OFFSET),
+      s = Math.sin(MOON_AZIMUTH_OFFSET),
+      mx = -this.sunDirection.x,
+      mz = -this.sunDirection.z;
+    this.moonDirection.set(mx * c - mz * s, -this.sunDirection.y, mx * s + mz * c);
+    this.lightDirection.copy(height < 0 ? this.moonDirection : this.sunDirection);
+    // Low sun passes through more air: redder disc and wider, warmer glow.
+    const low = 1 - MathUtils.smoothstep(height, 0.02, 0.35);
+    this.sunTint.copy(palette.sunDisc).lerp(palette.sunLow, low);
+    this.starStrength = MathUtils.smoothstep(-height, 0.08, 0.3);
     this.sunColor
       .lerpColors(palette.moon, palette.sunDay, this.daylight)
       .lerp(palette.sunSet, this.twilight);
@@ -70,7 +93,10 @@ export class EnvironmentLighting {
     this.waterColor
       .lerpColors(palette.waterNight, palette.waterDay, this.daylight)
       .lerp(palette.waterSet, this.twilight * 0.65);
-    this.sunIntensity = 0.55 + this.daylight * 2.45;
+    // The light switches from sun to moon as the sun crosses the horizon;
+    // fading it out on both sides hides the jump in shadow direction.
+    const handoff = MathUtils.smoothstep(Math.abs(height), 0.005, 0.07);
+    this.sunIntensity = (0.55 + this.daylight * 2.45) * handoff;
     this.ambientIntensity = 0.72 + this.daylight * 0.23;
   }
 }

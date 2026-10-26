@@ -1,6 +1,6 @@
 # Lighting roadmap
 
-Done: phase 1a (shadow snapping, altitude-aware shadow frustum, bias tuning, normal-island haze) and phase 1b (island-wide terrain and statue shadows from a worker-computed horizon mask; see `src/render/terrain-sun-mask.ts`). Each phase ships with unit tests, before/after screenshots at fixed seeds and hours, and no production push until reviewed. Where npm or Vite can't run, `scripts/offline/` provides the test runner, type check, view capture and local preview.
+Done: phase 1a (shadow snapping, altitude-aware shadow frustum, bias tuning, normal-island haze) and phase 1b (island-wide terrain and statue shadows from a worker-computed horizon mask; see `src/render/terrain-sun-mask.ts`) and phase 2 sky (sun disc with limb darkening, glow and low-sun warming; a phase-lit moon that lights the night; twinkling stars; analytic sky reflections on metal; see `src/render/sky-bodies.ts` and `src/render/sky-reflection.ts`). Each phase ships with unit tests, before/after screenshots at fixed seeds and hours, and no production push until reviewed. Where npm or Vite can't run, `scripts/offline/` provides the test runner, type check, view capture and local preview.
 
 Constraints: AO, bloom, and reflection targets were removed for performance and the larger performance scenarios remain uncertified, so every addition must be gated by quality profile and measured.
 
@@ -12,11 +12,10 @@ Known 1b limits, candidates for follow-up: the mask is 2D (an object's height is
 - Far cascade refreshes about every 0.5 s and draws only static casters (terrain, buildings, statue).
 - Balanced and below keep the single adaptive shadow map.
 
-## Phase 2 — Sky and atmosphere
+## Phase 2 — Remaining
 
-- PMREM environment map from the existing sky shader, regenerated on meaningful hour changes, for sky-tinted ambient and specular (water, gold, metal).
-- Time-of-day curves: warmer golden hour, per-hour exposure, moonlight balance, optional stars.
 - Baked per-vertex occlusion for building eaves/corners.
+- A PMREM map was not needed: metals use an analytic sky gradient instead (no render targets, no measured frame cost).
 
 ## Phase 3 — Local dynamic light
 

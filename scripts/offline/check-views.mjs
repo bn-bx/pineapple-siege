@@ -42,6 +42,11 @@ export const VIEWS = [
   { name: "6-shadows-from-altitude", hour: 16.8, target: "castle", angle: 1.0, dist: 900, up: 600, look: 0 },
   { name: "7-morning-mountains", hour: 7.3, target: "god", angle: 0.4, dist: 3800, up: 500, look: 0 },
   { name: "8-evening-valley", hour: 17.4, target: "castle", angle: 1.75, dist: 2200, up: 350, look: 0 },
+  // Sky views: the camera looks straight at the sun or moon from near the castle.
+  { name: "9-sun-afternoon", hour: 15.5, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "sun" },
+  { name: "10-sun-setting", hour: 17.75, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "sun" },
+  { name: "11-moonrise", hour: 19.6, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "moon" },
+  { name: "12-moon-and-stars", hour: 23.5, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "moon" },
 ];
 
 const require = createRequire(import.meta.url);
@@ -104,7 +109,19 @@ async function capture(url, dir) {
       const x = target[0] + Math.cos(a) * view.dist, z = target[2] + Math.sin(a) * view.dist;
       const ground = Math.max(0, lanternVale.terrain(x, z)), tg = lanternVale.terrain(target[0], target[2]);
       const eye = [x, Math.min(1450, Math.max(ground + view.up, tg + view.up)), z];
-      const look = [target[0], tg + view.look, target[2]];
+      let look = [target[0], tg + (view.look ?? 0), target[2]];
+      if (view.sky) {
+        // Same sun path as EnvironmentLighting; the moon is swung 0.45 rad.
+        const ang = ((view.hour - 6) / 24) * Math.PI * 2;
+        let dir = [Math.cos(ang) * 0.8, Math.sin(ang), Math.cos(ang) * 0.5];
+        const len = Math.hypot(...dir);
+        dir = dir.map((v) => v / len);
+        if (view.sky === "moon") {
+          const c = Math.cos(0.45), s = Math.sin(0.45), mx = -dir[0], mz = -dir[2];
+          dir = [mx * c - mz * s, -dir[1], mx * s + mz * c];
+        }
+        look = [eye[0] + dir[0] * 1500, eye[1] + dir[1] * 1500, eye[2] + dir[2] * 1500];
+      }
       const dx = look[0] - x, dz = look[2] - z, dl = Math.hypot(dx, dz);
       const V = lanternVale.view.camera.position.constructor;
       window.__focus = new V(x + (dx / dl) * 40, eye[1] - 8, z + (dz / dl) * 40);

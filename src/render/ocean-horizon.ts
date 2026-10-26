@@ -14,20 +14,22 @@ export function oceanHorizon(height: number) {
 
 /** Shared linear colors keep the finite water mesh invisible at its far edge. */
 import { AERIAL_FOG_START } from "./aerial-fog";
+import { SKY_BODIES_GLSL } from "./sky-bodies";
 
 export const OCEAN_BACKGROUND_GLSL = `
 uniform vec3 sun,zenithColor,horizonColor,waterColor;
 uniform float laserDim,horizonDip,oceanEnabled,oceanBlendEnd;
 // Aerial haze matching AerialFog (0 density disables it, e.g. in Hell).
 uniform float hazeDensity,hazeScale;
+${SKY_BODIES_GLSL}
 vec3 oceanBackground(vec3 d){
   vec3 sky=mix(zenithColor,horizonColor,pow(1.-max(d.y,0.),3.));
-  float alignment=max(dot(d,sun.y>=0.?sun:-sun),0.);
-  sky+=vec3(.8,.75,.6)*smoothstep(.9999,.99998,alignment);
   // For a sphere tangent to local sea level, a ray hits water below -dip.
   float edge=d.y+horizonDip;
   float aa=max(fwidth(edge),.00002);
   float sea=oceanEnabled*(1.-smoothstep(-aa,aa,edge));
+  // Sun, moon and stars only where sky shows (skipped for open water).
+  if(sea<1.) sky=skyBodies(d,sky);
   float haze=exp(-max(-edge,0.)*80.);
   vec3 water=mix(waterColor*.8,horizonColor,haze*.72);
   if(hazeDensity>0.){

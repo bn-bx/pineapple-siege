@@ -4,6 +4,7 @@ import { HELL_LAVA_LEVEL } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { TerrainSunMask } from "./terrain-sun-mask";
+import { SkyReflection } from "./sky-reflection";
 import { makeOcean } from "./ocean";
 import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
@@ -32,6 +33,12 @@ export class EnvironmentView {
   /** Island-wide terrain and statue shadows beyond the shadow map. */
   readonly sunMask: TerrainSunMask;
   readonly lighting = new EnvironmentLighting();
+  /** Sky-gradient reflections for metallic materials. */
+  readonly skyReflection = new SkyReflection(
+    this.lighting.zenithColor,
+    this.lighting.horizonColor,
+    this.lighting.groundColor,
+  );
   readonly shadowCenter = new THREE.Vector3();
   /** Index into SHADOW_HALF_EXTENTS for the current sun shadow box. */
   shadowExtent = 0;
@@ -79,6 +86,10 @@ export class EnvironmentView {
         depthWrite: false,
         uniforms: {
           sun: { value: this.lighting.sunDirection },
+          moon: { value: this.lighting.moonDirection },
+          sunTint: { value: this.lighting.sunTint },
+          starStrength: { value: 0 },
+          skyTime: { value: 0 },
           zenithColor: { value: this.lighting.zenithColor },
           horizonColor: { value: this.lighting.horizonColor },
           waterColor: { value: this.lighting.waterColor },
@@ -173,6 +184,11 @@ export class EnvironmentView {
     const { night, lightDirection: ld } = this.lighting;
     const show = this.disco.update(snap.lasers, snap.time, reduced);
     this.sky.material.uniforms.laserDim.value = show * .88;
+    this.skyReflection.uniforms.skyReflStrength.value = 1 - show * 0.88;
+    this.sky.material.uniforms.starStrength.value = this.hell
+      ? 0
+      : this.lighting.starStrength * (1 - show);
+    this.sky.material.uniforms.skyTime.value = snap.time;
     this.lighting.sunIntensity *= 1 - show * .94;
     this.lighting.ambientIntensity *= 1 - show * .65;
     this.aerialFog?.color
@@ -209,6 +225,7 @@ export class EnvironmentView {
   installMaterial(material: THREE.Material) {
     this.disco.install(material);
     this.sunMask.install(material);
+    this.skyReflection.install(material);
   }
 
   /** Sizes, leads and texel-snaps the sun's shadow box for this frame. */
