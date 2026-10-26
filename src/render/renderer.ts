@@ -393,13 +393,13 @@ export class GameRenderer {
       this.scene.add(this.jetGod.group);
     }
     for (const material of Object.values(this.fragmentMaterials))
-      this.environment.disco.install(material);
+      this.environment.installMaterial(material);
     // Include generated statue and distant-view materials in the shared projection.
     this.scene.traverse((object) => {
       const material = (object as THREE.Mesh).material;
       if (material)
         for (const item of Array.isArray(material) ? material : [material])
-          this.environment.disco.install(item);
+          this.environment.installMaterial(item);
     });
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
     if (world.portal) {
@@ -486,7 +486,7 @@ export class GameRenderer {
   private async prewarmOnce() {
     await this.worldView.approvedGod.load();
     for (const material of this.worldView.approvedGod.materials)
-      this.environment.disco.install(material);
+      this.environment.installMaterial(material);
     this.warmupStages = {};
     let stageStarted = performance.now();
     const mark = (name: string) => {
@@ -547,7 +547,7 @@ export class GameRenderer {
         this.terrain.transitionMaterial,
       ]) {
         if (!material) continue;
-        this.environment?.disco.install(material);
+        this.environment?.installMaterial(material);
         const mesh = new THREE.Mesh(terrainWarmGeometry, material);
         if (material === this.terrain.transitionMaterial)
           mesh.customDepthMaterial = this.terrain.transitionDepthMaterial;
@@ -1862,6 +1862,15 @@ export class GameRenderer {
     );
     if (this.environment.shadowExtent !== previousShadowExtent)
       this.shadowDirty = true;
+    this.environment.sunMask.update(
+      this.lighting.lightDirection,
+      this.elapsed,
+      this.removed,
+    );
+    this.performance.queues.sunMaskComputeMS = Math.round(
+      this.environment.sunMask.computeMS,
+    );
+    this.performance.queues.sunMaskJobs = this.environment.sunMask.jobs;
     // The original box keeps its original caster radii; larger boxes widen
     // them to the box's reach so distant terrain and buildings cast too.
     const shadowGrown = this.environment.shadowExtent > 0;

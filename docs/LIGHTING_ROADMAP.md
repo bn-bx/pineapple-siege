@@ -1,14 +1,10 @@
 # Lighting roadmap
 
-Phase 1a (shadow snapping, altitude-aware shadow frustum, bias tuning, normal-island haze) is in progress. The phases below are planned for later. Each phase ships with unit tests, before/after screenshots at fixed seeds and hours (noon low, noon high, golden hour, night, distant Pineapple God), `performance.html` before/after timings, and no production push until reviewed.
+Done: phase 1a (shadow snapping, altitude-aware shadow frustum, bias tuning, normal-island haze) and phase 1b (island-wide terrain and statue shadows from a worker-computed horizon mask; see `src/render/terrain-sun-mask.ts`). Each phase ships with unit tests, before/after screenshots at fixed seeds and hours, and no production push until reviewed. Where npm or Vite can't run, `scripts/offline/` provides the test runner, type check, view capture and local preview.
 
 Constraints: AO, bloom, and reflection targets were removed for performance and the larger performance scenarios remain uncertified, so every addition must be gated by quality profile and measured.
 
-## Phase 1b — Island-wide terrain shadows and cavity shading
-
-- Compute a sun-horizon shadow mask from the terrain heightmap in the terrain worker; sample it in the terrain/scenery shader so mountains and the Pineapple God cast long shadows island-wide at near-zero GPU cost.
-- Same pass produces a cavity/valley occlusion term (cheap AO substitute).
-- Recompute only when the sun angle moves past a threshold or terrain revisions (craters) change affected pages.
+Known 1b limits, candidates for follow-up: the mask is 2D (an object's height is ignored, so tall towers in a valley shadow are darkened to the top); texels are 18 m; cavity/valley occlusion was not added.
 
 ## Phase 1c — Cascaded shadows (Ultra/High only)
 

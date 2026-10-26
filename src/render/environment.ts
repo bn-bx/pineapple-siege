@@ -3,6 +3,7 @@ import { DiscoShow } from "./disco-show";
 import { HELL_LAVA_LEVEL } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
+import { TerrainSunMask } from "./terrain-sun-mask";
 import { makeOcean } from "./ocean";
 import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
@@ -28,6 +29,8 @@ import {
 export class EnvironmentView {
   private hell = false;
   readonly disco: DiscoShow;
+  /** Island-wide terrain and statue shadows beyond the shadow map. */
+  readonly sunMask: TerrainSunMask;
   readonly lighting = new EnvironmentLighting();
   readonly shadowCenter = new THREE.Vector3();
   /** Index into SHADOW_HALF_EXTENTS for the current sun shadow box. */
@@ -58,8 +61,13 @@ export class EnvironmentView {
     this.hell = world.realm === "hell";
     this.disco = new DiscoShow(world.size);
     this.scene.add(this.disco.group);
-    this.disco.install(this.terrain.material);
-    for (const material of Object.values(materials)) this.disco.install(material);
+    this.sunMask = new TerrainSunMask(
+      world.size,
+      this.terrain,
+      TerrainSunMask.statueParts(world),
+    );
+    this.installMaterial(this.terrain.material);
+    for (const material of Object.values(materials)) this.installMaterial(material);
     this.sun.castShadow = true;
     const initialShadow = shadowSize;
     this.sun.shadow.mapSize.set(initialShadow, initialShadow);
@@ -96,12 +104,14 @@ export class EnvironmentView {
       this.hell ? undefined : this.sky.material.uniforms,
     );
     this.rivers = makeRivers(world, this.terrain);
+    this.sunMask.exclude(this.water.material);
+    this.sunMask.exclude(this.rivers.userData.material as THREE.Material);
     this.scene.add(this.water, this.rivers);
     if (!this.hell) {
       this.coastline = new CoastlineView(this.terrain);
       this.scene.add(this.coastline.group);
-      this.disco.install(this.coastline.beach.material);
-      this.disco.install(this.coastline.rocks.material as THREE.MeshStandardMaterial);
+      this.installMaterial(this.coastline.beach.material);
+      this.installMaterial(this.coastline.rocks.material as THREE.MeshStandardMaterial);
       this.aerialFog = new AerialFog(this.lighting.horizonColor);
       this.scene.fog = this.aerialFog;
     }
@@ -195,6 +205,12 @@ export class EnvironmentView {
     }
   }
 
+  /** Adds the laser disco projection and island-wide sun shadows to a material. */
+  installMaterial(material: THREE.Material) {
+    this.disco.install(material);
+    this.sunMask.install(material);
+  }
+
   /** Sizes, leads and texel-snaps the sun's shadow box for this frame. */
   private updateShadowFrame(
     camera: THREE.PerspectiveCamera,
@@ -254,6 +270,7 @@ export class EnvironmentView {
   }
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
+    this.sunMask.dispose();
     for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group, this.coastline?.group]) {
       if (!object) continue;
       resources.collect(object);
