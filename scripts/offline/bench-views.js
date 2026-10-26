@@ -100,3 +100,73 @@ export function abStart(configs = { none: { fog: false, reach: 220 }, current: {
   })().catch((e) => (window.__abResult = { error: String(e) }));
   return "started";
 }
+
+// Flight stutter test: flies a fixed straight route at a fixed quality with the
+// chase camera, and records every frame interval plus where main-thread time
+// went (render stages) for frames longer than `slowMS`. Poll window.__flightResult.
+export function flightStart({ quality = "720", alt = 1100, yaw = 0, secs = 20, warm = 8, slowMS = 33, start, renderDistance, monsters } = {}) {
+  window.__flightResult = null;
+  (async () => {
+    const until = async (f) => { while (!f()) await wait(250); };
+    await until(() => window.lanternVale?.state?.ready || (document.getElementById("keepIsland") && !document.getElementById("keepIsland").disabled));
+    if (!window.lanternVale?.state?.ready) document.getElementById("keepIsland").click();
+    await until(() => window.lanternVale?.state.ready && !document.getElementById("enter").disabled);
+    const lv = window.lanternVale, v = lv.view;
+    if (!lv.state.active) lv.enter();
+    lv.setQuality(quality);
+    if (renderDistance) v.setRenderDistance(renderDistance);
+    if (monsters) lv.send({ type: "monsterCount", value: monsters });
+    lv.clearInspect();
+    window.__focus = null;
+    lv.send({ type: "holdTime", hold: false });
+    lv.send({ type: "hour", hour: 16 });
+    const s = start ?? [lv.world.size * 0.35, alt, lv.world.size * 0.35];
+    lv.setPlane(s, yaw, 0);
+    // Per-frame stage timers (main thread).
+    const stages = {};
+    const wrap = (obj, key, label) => {
+      if (!obj || typeof obj[key] !== "function" || obj[key].__timed) return;
+      const f = obj[key].bind(obj);
+      const timed = (...a) => { const t = performance.now(); try { return f(...a); } finally { stages[label] = (stages[label] ?? 0) + performance.now() - t; } };
+      timed.__timed = true; obj[key] = timed;
+    };
+    wrap(v, "render", "view.render");
+    wrap(v.environment, "update", "environment");
+    wrap(v.environment.sunMask, "update", "sunMask");
+    wrap(v.terrain, "update", "terrain");
+    wrap(v.worldView, "update", "worldBatches");
+    wrap(v.renderer.shadowMap, "render", "shadowMap");
+    wrap(v.renderer, "render", "three.render");
+    await wait(warm * 1000);
+    const frames = [];
+    let last = performance.now(), stop = false;
+    const loop = (t) => {
+      const dt = t - last; last = t;
+      const snapshot = { ...stages };
+      for (const k in stages) stages[k] = 0;
+      frames.push({ dt, ...snapshot });
+      if (!stop) requestAnimationFrame(loop);
+    };
+    for (const k in stages) stages[k] = 0;
+    requestAnimationFrame(loop);
+    await wait(secs * 1000);
+    stop = true;
+    const dts = frames.map((f) => f.dt).sort((a, b) => a - b);
+    const q = (p) => +dts[Math.floor(p * (dts.length - 1))].toFixed(1);
+    const slow = frames.filter((f) => f.dt > slowMS);
+    const avg = (list, k) => +(list.reduce((s, f) => s + (f[k] ?? 0), 0) / Math.max(1, list.length)).toFixed(2);
+    const keys = ["view.render", "environment", "sunMask", "terrain", "worldBatches", "shadowMap", "three.render"];
+    window.__flightResult = {
+      quality: v.visualProfile.name, canvas: [v.renderer.domElement.width, v.renderer.domElement.height],
+      fps: +((1000 * frames.length) / frames.reduce((s, f) => s + f.dt, 0)).toFixed(1),
+      median: q(0.5), p95: q(0.95), p99: q(0.99), max: +dts.at(-1).toFixed(0),
+      over33: frames.filter((f) => f.dt > 33).length, over50: frames.filter((f) => f.dt > 50).length, over100: frames.filter((f) => f.dt > 100).length,
+      frames: frames.length,
+      meanStages: Object.fromEntries(keys.map((k) => [k, avg(frames, k)])),
+      slowStages: Object.fromEntries(keys.map((k) => [k, avg(slow, k)])),
+      worst: frames.sort((a, b) => b.dt - a.dt).slice(0, 5).map((f) => Object.fromEntries(Object.entries(f).map(([k, x]) => [k, +x.toFixed(1)]))),
+      shadowHalf: v.environment.sun.shadow.camera.right, sunMaskJobs: v.performance.queues.sunMaskJobs ?? null,
+    };
+  })().catch((e) => (window.__flightResult = { error: String(e?.stack ?? e) }));
+  return "started";
+}
