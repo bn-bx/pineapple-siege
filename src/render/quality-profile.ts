@@ -8,6 +8,8 @@ export interface RenderQualityProfile {
   debrisShadows: boolean;
   treeDistance: number;
   cosmetics: number;
+  /** Local lights from explosions and fires (0 to DYNAMIC_LIGHT_SLOTS). */
+  dynamicLights: number;
 }
 /** Presentation budgets never change simulation or saved damage. */
 export function qualityProfile(
@@ -34,5 +36,6 @@ export function qualityProfile(
     debrisShadows: level < 2,
     treeDistance: [360, 360, 300, 240, 160][level],
     cosmetics: [1, 1, 0.75, 0.5, 0.35][level],
+    dynamicLights: [8, 8, 6, 4, 2][level],
   };
 }

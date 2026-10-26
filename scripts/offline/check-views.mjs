@@ -47,6 +47,15 @@ export const VIEWS = [
   { name: "10-sun-setting", hour: 17.75, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "sun" },
   { name: "11-moonrise", hour: 19.6, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "moon" },
   { name: "12-moon-and-stars", hour: 23.5, target: "castle", angle: 0.5, dist: 300, up: 220, sky: "moon" },
+  // Combat views change the world, so they run last. `blast.at` is the
+  // fraction of the way from the camera to the target and `side` metres to
+  // the screen's right (negative: left); `age` advances the
+  // (otherwise frozen) flash by that many seconds; `steps` runs the
+  // simulation so fires spread.
+  { name: "13-night-blast", hour: 22.5, target: "castle", angle: 0.75, dist: 420, up: 140, look: 40,
+    blast: { at: 0.7, side: -150 } },
+  { name: "14-night-nuke-fires", hour: 22.5, target: "castle", angle: 1.25, dist: 1300, up: 260, look: 0,
+    blast: { at: 0.6, yield: "local", steps: 240, age: 2.5 } },
 ];
 
 const require = createRequire(import.meta.url);
@@ -131,7 +140,25 @@ async function capture(url, dir) {
       lanternVale.inspect(eye, look);
       return { eye, look };
     }, { view, target: features[view.target] });
+    if (view.blast) {
+      await page.evaluate(async ({ blast, pose }) => {
+        const [ex, , ez] = pose.eye, [lx, , lz] = pose.look;
+        const fx = lx - ex, fz = lz - ez, fl = Math.hypot(fx, fz), side = blast.side ?? 0;
+        const x = ex + fx * blast.at - (fz / fl) * side, z = ez + fz * blast.at + (fx / fl) * side;
+        lanternVale.blast([x, lanternVale.terrain(x, z) + 2, z], blast.yield);
+        await new Promise((r) => setTimeout(r, 1500));
+        if (blast.steps) await lanternVale.step(blast.steps);
+      }, { blast: view.blast, pose });
+    }
     await page.waitForTimeout(settle);
+    if (view.blast?.age)
+      await page.evaluate((age) => {
+        const fx = lanternVale.view.effects;
+        for (let t = 0; t < age; t += 0.1) {
+          fx.update(0.1);
+          fx.nukeFlash.update(0.1, lanternVale.view.camera, false);
+        }
+      }, view.blast.age);
     await page.evaluate(() => {
       const v = lanternVale.view;
       v.shadowDirty = true;

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { Entity, FirePatch, WorldData } from "../types";
 import { NuclearFireView } from "./nuclear-fire";
+import { fireLight, type DynamicLights } from "./dynamic-lights";
 import type { ResourceDisposal } from "./resource-disposal";
 
 /** Every structure burns; large assemblies receive several independent fires. */
@@ -31,6 +32,7 @@ export class BuildingFireView {
   private frustum = new THREE.Frustum();
   private projection = new THREE.Matrix4();
   private bounds = new THREE.Sphere(new THREE.Vector3(), 110);
+  private visible: FirePatch[] = [];
   constructor(world: WorldData) {
     this.sites = buildingFireSites(world);
     this.fire = new NuclearFireView({ capacity: Math.max(1, this.sites.length), flamesPerPatch: 8, smokePerPatch: 2 });
@@ -53,7 +55,15 @@ export class BuildingFireView {
       this.bounds.center.set(patch.p[0], patch.p[1] - 25, patch.p[2]);
       if (this.frustum.intersectsSphere(this.bounds)) visible.push(patch);
     }
+    this.visible = visible;
     this.fire.update(visible, 0, reduced, time);
+  }
+  /** Lights the fires drawn this frame (they burn downward in Hell). */
+  collectLights(lights: DynamicLights, time: number) {
+    for (const patch of this.visible) {
+      const l = fireLight(patch, time, 1, true);
+      lights.add(l.x, l.y, l.z, 0xff6a24, l.intensity, l.range, true);
+    }
   }
   collectResources(resources: ResourceDisposal) { this.fire.collectResources(resources); }
 }

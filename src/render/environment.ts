@@ -5,6 +5,7 @@ import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { TerrainSunMask } from "./terrain-sun-mask";
 import { SkyReflection } from "./sky-reflection";
+import { DynamicLights } from "./dynamic-lights";
 import { makeOcean } from "./ocean";
 import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
@@ -39,6 +40,8 @@ export class EnvironmentView {
     this.lighting.horizonColor,
     this.lighting.groundColor,
   );
+  /** Explosion, fire and muzzle-flash light for every installed material. */
+  readonly dynamicLights = new DynamicLights();
   readonly shadowCenter = new THREE.Vector3();
   /** Index into SHADOW_HALF_EXTENTS for the current sun shadow box. */
   shadowExtent = 0;
@@ -109,7 +112,7 @@ export class EnvironmentView {
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
 
-    this.scene.add(this.sun, this.sun.target, this.ambient);
+    this.scene.add(this.sun, this.sun.target, this.ambient, this.dynamicLights.halos.points);
     this.water = makeOcean(
       this.terrain,
       this.hell ? undefined : this.sky.material.uniforms,
@@ -221,11 +224,12 @@ export class EnvironmentView {
     }
   }
 
-  /** Adds the laser disco projection and island-wide sun shadows to a material. */
+  /** Adds the laser disco projection, island-wide sun shadows, sky reflections and local lights to a material. */
   installMaterial(material: THREE.Material) {
     this.disco.install(material);
     this.sunMask.install(material);
     this.skyReflection.install(material);
+    this.dynamicLights.install(material);
   }
 
   /** Sizes, leads and texel-snaps the sun's shadow box for this frame. */
@@ -283,11 +287,14 @@ export class EnvironmentView {
   reset() {
     this.water.userData.time.value = 0;
     this.disco.reset();
+    this.dynamicLights.clear();
     this.sky.material.uniforms.laserDim.value = 0;
   }
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
     this.sunMask.dispose();
+    this.dynamicLights.halos.points.removeFromParent();
+    this.dynamicLights.dispose();
     for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group, this.coastline?.group]) {
       if (!object) continue;
       resources.collect(object);

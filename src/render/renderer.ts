@@ -57,6 +57,9 @@ import {
 } from "./debris-motion";
 import { Effects } from "./effects";
 import { EnvironmentView } from "./environment";
+import { MuzzleFlashes, fireLight, fuelLight } from "./dynamic-lights";
+import { WindowGlow } from "./window-glow";
+import { FIRE_LIFETIME } from "../sim/nuclear-fire";
 import { flightPose } from "./flight-pose";
 import { jetExhaustProfile } from "./jet-exhaust";
 import { Presentation } from "./presentation";
@@ -167,6 +170,10 @@ export class GameRenderer {
   private lightingHour = NaN;
   private lastArrival = 0;
   private reducedEffects = false;
+  private readonly muzzleFlashes = new MuzzleFlashes();
+  private windowGlow?: WindowGlow;
+  private burningAircraft?: THREE.Vector3;
+  private readonly burningAircraftPosition = new THREE.Vector3();
   private cpuMS = 0;
   private wasActive = false;
   readonly materials: ReturnType<typeof createMaterials>["materials"];
@@ -269,6 +276,9 @@ export class GameRenderer {
       this.scene.add(this.buildingFire.group);
     }
     this.crashWrecks = new CrashWreckView(this.jet);
+    this.windowGlow = new WindowGlow(world.entities);
+    if (world.realm === "hell")
+      this.windowGlow.points.material.uniforms.glowColor.value.set("#ff5a20");
     for (const e of world.entities) {
       if (e.kind === "tree") continue;
       for (
@@ -382,6 +392,7 @@ export class GameRenderer {
     );
     this.scene.add(
       this.terrain.group,
+      this.windowGlow.points,
       this.effects.group,
       this.jet,
       this.crashWrecks.group,
@@ -807,6 +818,7 @@ export class GameRenderer {
     this.terrain.setFlood(flood, true);
     if (waterMask) this.terrain.setWaterMask(waterMask);
     this.worldView.restore(removed);
+    this.windowGlow?.invalidate();
     this.jetGod?.update(this.removed);
     this.portal?.update(
       0,
@@ -817,6 +829,8 @@ export class GameRenderer {
     this.environment.reset();
     this.crashWrecks.reset();
     this.aircraftFire.reset();
+    this.muzzleFlashes.reset();
+    this.burningAircraft = undefined;
     this.actors.reset();
     this.readyCamera = false;
     this.motionFrames.clear();
@@ -849,6 +863,50 @@ export class GameRenderer {
   }
   explosion(e: Explosion) {
     this.effects.explosion(e, this.visualProfile.cosmetics);
+  }
+  /** Gathers this frame's explosion, fire and muzzle light and fills the slots. */
+  private updateDynamicLights(snap: SimulationSnapshot, dt: number) {
+    const lights = this.environment.dynamicLights;
+    lights.begin();
+    lights.strength = this.reducedEffects ? 0.45 : 1;
+    this.effects.collectLights(lights);
+    const inverted = this.effects.fire.inverted;
+    for (const patch of snap.fires ?? []) {
+      const l = fireLight(patch, snap.time, (FIRE_LIFETIME - patch.age) / 8, inverted);
+      lights.add(l.x, l.y, l.z, 0xff7428, l.intensity, l.range, true);
+    }
+    this.buildingFire?.collectLights(lights, snap.time);
+    for (const drop of snap.fuel ?? []) {
+      const l = fuelLight(drop);
+      if (l) lights.add(drop.p[0], drop.p[1] + 2, drop.p[2], 0xff6a12, l.intensity, l.range, true);
+    }
+    this.muzzleFlashes.update(snap.projectiles, dt, lights);
+    if (this.burningAircraft)
+      lights.add(
+        this.burningAircraft.x,
+        this.burningAircraft.y,
+        this.burningAircraft.z,
+        0xff7a2e,
+        2.6,
+        45,
+        true,
+      );
+    // Halo sprites are sized in pixels of the offscreen scene target.
+    const sceneHeight = this.presentation?.size[1];
+    if (sceneHeight)
+      lights.halos.points.material.uniforms.viewportHeight.value = sceneHeight;
+    this.windowGlow?.update(
+      this.world.realm === "hell" ? 0.6 : this.lighting.night,
+      this.removed,
+      sceneHeight ?? 800,
+    );
+    lights.commit(
+      this.camera,
+      this.visualProfile.dynamicLights,
+      0.3 + 0.7 * this.lighting.night,
+    );
+    this.performance.queues.dynamicLights = lights.uniforms.dynamicLightCount.value;
+    this.performance.queues.lightCandidates = lights.count;
   }
   private ruinCell(p: number[]) {
     return (
@@ -1610,6 +1668,9 @@ export class GameRenderer {
     this.jet.quaternion.copy(rotation);
     this.jet.visible = p.crashed <= 0 || !!p.falling;
     this.aircraftFire.update(!!p.falling, position, rotation, snap.time);
+    this.burningAircraft = p.falling
+      ? this.burningAircraftPosition.copy(position)
+      : undefined;
     this.crashWrecks.update(p, snap.time, (x, z) => this.terrain.sample(x, z));
     const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);
     for (const flame of this.jet.children) {
@@ -1954,6 +2015,7 @@ export class GameRenderer {
       this.camera,
       this.reducedEffects,
     );
+    this.updateDynamicLights(snap, active ? dt : 0);
     this.performance.record("prepare", performance.now() - workStarted);
     // Thousands of alpha-tested falling leaf cards must not dominate the
     // shadow pass when Auto has already reduced foliage and cosmetic detail.
@@ -2068,6 +2130,8 @@ export class GameRenderer {
     this.environment.dispose(resources);
     this.effects.dispose(resources);
     this.buildingFire?.collectResources(resources);
+    this.windowGlow?.points.removeFromParent();
+    this.windowGlow?.dispose();
     for (const group of this.ruinGroups.values()) resources.collect(group);
     if (this.settledTrunkMaterial)
       resources.materials.add(this.settledTrunkMaterial);

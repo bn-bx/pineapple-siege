@@ -13,6 +13,7 @@ import { NukeCloud, type CloudShape } from "./nuke-cloud";
 import { NukeFlash } from "./nuke-flash";
 import type { ResourceDisposal } from "./resource-disposal";
 import { SpaceLaser } from "./space-laser";
+import { explosionLight, type DynamicLights } from "./dynamic-lights";
 export class Effects {
   cloudShape: CloudShape = "pineapple";
   readonly spray = new WheelSpray();
@@ -58,6 +59,7 @@ export class Effects {
     duration: number;
     nuke: boolean;
     intensity: number;
+    kind: Explosion["kind"];
   }[] = [];
   private clouds: NukeCloud[] = [];
   readonly nukeFlash = new NukeFlash();
@@ -271,6 +273,7 @@ export class Effects {
         water: e.water,
         radius: flashStyle.radius,
         intensity: flashStyle.intensity,
+        kind: e.kind,
       });
       this.shake = Math.min(1, this.shake + 0.65);
     }
@@ -288,6 +291,14 @@ export class Effects {
     this.life[i] = 0.32;
     this.colors.set([1, 0.72, 0.22], i * 3);
     this.points.geometry.attributes.color.needsUpdate = true;
+  }
+  /** Adds each live explosion flash as a local light for this frame. */
+  collectLights(lights: DynamicLights) {
+    for (const f of this.flashes) {
+      const light = explosionLight(f.kind, f.water, f.radius, f.life / f.duration);
+      const p = f.mesh.position;
+      lights.add(p.x, p.y + light.lift, p.z, light.color, light.intensity, light.range);
+    }
   }
   get cloudCount() {
     return this.clouds.length;

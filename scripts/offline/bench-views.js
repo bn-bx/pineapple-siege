@@ -170,3 +170,46 @@ export function flightStart({ quality = "720", alt = 1100, yaw = 0, secs = 20, w
   })().catch((e) => (window.__flightResult = { error: String(e?.stack ?? e) }));
   return "started";
 }
+
+// Local-light cost: interleaved A/B on the current view between no dynamic
+// lights, 8 local lights (fire-sized, around the view target) and 8 lights
+// covering the whole screen (the nuke worst case). Synthetic sources are added
+// on top of whatever the game supplies. Poll window.__lightsResult.
+export function lightsAB(rounds = 3, settle = 4, secs = 6) {
+  window.__lightsResult = null;
+  const v = window.lanternVale.view, lights = v.environment.dynamicLights;
+  const configs = { off: 0, local: 150, wide: 2500 };
+  let range = 0, slots = null;
+  const commit = lights.commit.bind(lights);
+  lights.commit = (camera, n, halo) => {
+    if (range) {
+      const f = camera.getWorldDirection(camera.position.clone());
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const x = camera.position.x + f.x * 300 + Math.cos(a) * 80, z = camera.position.z + f.z * 300 + Math.sin(a) * 80;
+        lights.add(x, window.lanternVale.terrain(x, z) + 10, z, 0xff7428, 3, range, true);
+      }
+    }
+    return commit(camera, slots ?? n, halo);
+  };
+  const measure = async () => {
+    const d = []; let last = performance.now(), stop = false;
+    const loop = (t) => { d.push(t - last); last = t; if (!stop) requestAnimationFrame(loop); };
+    requestAnimationFrame(loop); await wait(secs * 1000); stop = true;
+    return (1000 * d.length) / d.reduce((s, x) => s + x, 0);
+  };
+  (async () => {
+    const res = Object.fromEntries(Object.keys(configs).map((k) => [k, []]));
+    for (let r = 0; r < rounds; r++)
+      for (const [k, c] of Object.entries(configs)) {
+        range = c;
+        slots = c ? 8 : 0;
+        await wait(settle * 1000);
+        res[k].push(+(await measure()).toFixed(1));
+      }
+    lights.commit = commit;
+    window.__lightsResult = Object.fromEntries(Object.entries(res).map(([k, a]) => [k, { mean: +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(1), runs: a }]));
+  })().catch((e) => (window.__lightsResult = { error: String(e) }));
+  return "started";
+}
+window.lightsAB = lightsAB;
