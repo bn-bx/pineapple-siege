@@ -39,6 +39,7 @@ import { ActorView } from "./actors";
 import {
   createMaterials,
   fractureGeometry,
+  shardGeometry,
   fractureMaterials,
   makeFlyingPineapple,
   makeJet,
@@ -245,6 +246,7 @@ export class GameRenderer {
   private shakeEnabled = true;
   private fractureBox = fractureGeometry();
   private fractureRoof = fractureGeometry(roofGeometry());
+  private fractureShard = shardGeometry();
   private roofFragments = new Map<number, THREE.BufferGeometry>();
   private fragmentMaterials: Record<Material, THREE.MeshStandardMaterial>;
   private settledTrunkMaterial?: THREE.Material;
@@ -369,6 +371,8 @@ export class GameRenderer {
       this.materials.foliage.color.set("#877b6c");
       this.materials.foliage.roughness = 1;
       this.materials.wood.color.set("#5e5149");
+      // Matches the scorched hell toilet.
+      this.materials.porcelain.color.set("#5a4b46");
     }
     this.fragmentMaterials = fractureMaterials(this.materials);
     this.terrain = new TerrainView(
@@ -377,11 +381,17 @@ export class GameRenderer {
       assets.grass,
       immutableBaseline,
     );
-    if (world.realm === "hell") {
-      this.terrain.material.color.set("#c99691");
-      this.terrain.material.emissive.set("#3d1710");
-      this.terrain.material.emissiveIntensity = 0.22;
-    }
+    if (world.realm === "hell")
+      // The detail-swap crossfade draws with a clone made before this tint;
+      // left untinted, tiles near the aircraft flash pale while they swap.
+      for (const material of [
+        this.terrain.material,
+        this.terrain.transitionMaterial as THREE.MeshStandardMaterial,
+      ]) {
+        material.color.set("#c99691");
+        material.emissive.set("#3d1710");
+        material.emissiveIntensity = 0.22;
+      }
     this.terrain.enableStreamingUploads();
     this.environment = new EnvironmentView(
       this.scene,
@@ -467,7 +477,7 @@ export class GameRenderer {
     this.scene.add(this.marker);
     for (const material of Object.keys(this.materials) as Material[]) {
       let mesh = new THREE.InstancedMesh(
-        isRoof(material) ? this.fractureRoof : this.fractureBox,
+        this.fracturePiece(material),
         this.fragmentMaterials[material],
         CONFIG.maxBodies,
       );
@@ -1042,7 +1052,7 @@ export class GameRenderer {
                 dummy.scale.set(r.s[0] * 0.5, r.s[1] * 0.5, r.s[2] * 0.5);
                 add(
                   r.material,
-                  isRoof(r.material) ? this.fractureRoof : this.fractureBox,
+                  this.fracturePiece(r.material),
                   this.fragmentMaterials[r.material],
                 );
               }
@@ -1161,8 +1171,15 @@ export class GameRenderer {
   private debrisKey(b: Pick<BodyView, "material" | "roofPart">) {
     return roofKeys.get(b.material)![b.roofPart ?? 0];
   }
+  private fracturePiece(material: Material) {
+    return material === "porcelain"
+      ? this.fractureShard
+      : isRoof(material)
+        ? this.fractureRoof
+        : this.fractureBox;
+  }
   private debrisGeometry(b: Pick<BodyView, "material" | "roofPart">) {
-    if (!isRoof(b.material)) return this.fractureBox;
+    if (!isRoof(b.material)) return this.fracturePiece(b.material);
     if (!b.roofPart) return this.fractureRoof;
     // Shared by airborne and settled instances; at most four prepared shapes.
     this.roofFragments ??= new Map();

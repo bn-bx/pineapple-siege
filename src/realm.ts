@@ -254,7 +254,7 @@ function addPortal(
       kind: "block",
       p,
       s,
-      material: "plaster",
+      material: "porcelain",
       assembly: "portal-toilet",
       foundation,
       supports: [],

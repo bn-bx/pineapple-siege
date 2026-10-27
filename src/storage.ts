@@ -643,6 +643,7 @@ export function compatible(
           "sandstone",
           "slate",
           "window",
+          "porcelain",
         ].includes(r.material) &&
         ["chunk", "tree", "rock"].includes(r.kind) &&
         Number.isInteger(r.id) &&

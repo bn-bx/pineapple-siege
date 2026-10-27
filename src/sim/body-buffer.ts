@@ -12,6 +12,7 @@ export const BODY_MATERIALS: Material[] = [
   "sandstone",
   "slate",
   "window",
+  "porcelain",
 ];
 const materials = BODY_MATERIALS;
 const materialIds = new Map(materials.map((name, i) => [name, i]));

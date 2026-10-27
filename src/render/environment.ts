@@ -77,6 +77,8 @@ export class EnvironmentView {
       TerrainSunMask.statueParts(world),
     );
     this.installMaterial(this.terrain.material);
+    // The detail-swap crossfade must be lit like the terrain it blends.
+    this.installMaterial(this.terrain.transitionMaterial);
     for (const material of Object.values(materials)) this.installMaterial(material);
     this.sun.castShadow = true;
     const initialShadow = shadowSize;

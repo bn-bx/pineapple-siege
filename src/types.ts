@@ -155,7 +155,8 @@ export type Material =
   | "roof"
   | "sandstone"
   | "slate"
-  | "window";
+  | "window"
+  | "porcelain";
 export interface Entity {
   id: number;
   kind: "block" | "tree" | "rock";

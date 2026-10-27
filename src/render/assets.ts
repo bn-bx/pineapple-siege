@@ -140,6 +140,11 @@ export function createMaterials() {
       roughness: 0.55,
       metalness: 0.08,
     }),
+    porcelain: new THREE.MeshStandardMaterial({
+      color: "#f4f1ea",
+      roughness: 0.22,
+      side: THREE.DoubleSide,
+    }),
   };
   return { materials, grass };
 }
@@ -785,6 +790,63 @@ export function fractureGeometry(
     );
   }
   geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
+
+/** A curved, jagged porcelain shard filling the unit debris box: glazed
+ * faces on both sides of the shell, matte broken body along the rim. */
+export function shardGeometry(sides = 9) {
+  const rim: [number, number][] = [];
+  for (let i = 0; i < sides; i++) {
+    const a = ((i + random(i * 3.1) * 0.6) / sides) * Math.PI * 2,
+      r = i % 2 ? 0.62 + random(i + 11) * 0.2 : 0.9 + random(i + 5) * 0.1;
+    rim.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  // The shell bends like a piece of bowl wall.
+  const surface = (x: number, z: number, side: number): number[] => [
+    x,
+    0.75 * (x * x + z * z) - 0.45 + side * 0.13,
+    z,
+  ];
+  const positions: number[] = [],
+    colors: number[] = [];
+  const tri = (a: number[], b: number[], c: number[], shade: number) => {
+    positions.push(...a, ...b, ...c);
+    for (let k = 0; k < 3; k++) colors.push(shade, shade, shade * 0.97);
+  };
+  for (let i = 0; i < sides; i++) {
+    const [x0, z0] = rim[i],
+      [x1, z1] = rim[(i + 1) % sides],
+      // An off-centre apex keeps the facets from looking machined.
+      cx = 0.08,
+      cz = -0.05;
+    for (const side of [1, -1]) {
+      const c = surface(cx, cz, side),
+        a = surface(x0, z0, side),
+        b = surface(x1, z1, side),
+        ma = surface((x0 + cx) / 2, (z0 + cz) / 2, side),
+        mb = surface((x1 + cx) / 2, (z1 + cz) / 2, side);
+      const wind = (p: number[], q: number[], r: number[]) =>
+        side > 0 ? tri(p, r, q, 1) : tri(p, q, r, 0.93);
+      wind(c, ma, mb);
+      wind(ma, a, b);
+      wind(ma, b, mb);
+    }
+    const ta = surface(x0, z0, 1),
+      tb = surface(x1, z1, 1),
+      ba = surface(x0, z0, -1),
+      bb = surface(x1, z1, -1);
+    tri(ta, tb, bb, 0.78);
+    tri(ta, bb, ba, 0.78);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute(
+    "uv",
+    new THREE.Float32BufferAttribute(new Float32Array((positions.length / 3) * 2), 2),
+  );
+  geo.computeVertexNormals();
   return geo;
 }
 

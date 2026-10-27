@@ -18,6 +18,7 @@ const palette = {
   sandstone: 0xcba56f,
   slate: 0x43515a,
   window: 0x32393c,
+  porcelain: 0xf2efe8,
 };
 // Position, velocity, size, rotation, spin, life, color, grounded, clearance.
 const STRIDE = 21;
@@ -101,11 +102,12 @@ export class Fragments {
         speed = e.speed * (0.45 + random() * 0.55),
         up = 0.3 + random() * 0.6,
         horizontal = Math.sqrt(1 - up * up) * speed,
-        size = 0.5 + random() * 2.5,
+        size = (0.5 + random() * 2.5) * (e.material === "porcelain" ? 3 : 1),
         wood = e.material === "wood",
         tile = e.material === "roof" || e.material === "slate",
         shard = e.material === "window",
         leaf = e.material === "foliage",
+        porcelain = e.material === "porcelain",
         life = WRECKAGE_LIFETIME;
       d[j] = x;
       d[j + 1] = Math.max(y, this.ground(x, z) + 1);
@@ -116,7 +118,18 @@ export class Fragments {
       d[j + 6] =
         size * (wood ? 0.35 : tile ? 1.3 : shard ? 0.8 : leaf ? 0.65 : 1);
       d[j + 7] =
-        size * (wood ? 2.5 : tile ? 0.16 : shard ? 0.04 : leaf ? 0.035 : 0.7);
+        size *
+        (wood
+          ? 2.5
+          : tile
+            ? 0.16
+            : shard
+              ? 0.04
+              : leaf
+                ? 0.035
+                : porcelain
+                  ? 0.14
+                  : 0.7);
       d[j + 8] = size * (wood ? 0.25 : tile ? 0.8 : leaf ? 1.2 : 0.65);
       for (let k = 0; k < 3; k++) d[j + 9 + k] = random() * 6;
       for (let k = 0; k < 3; k++) d[j + 12 + k] = random() * 5 - 2.5;

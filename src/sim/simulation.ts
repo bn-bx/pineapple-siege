@@ -858,6 +858,17 @@ export class Simulation {
         ),
       );
     }
+    // Shell pieces alone read as slabs; a spray of chips sells shattered porcelain.
+    if (e.material === "porcelain")
+      this.emitFragments(
+        e.p,
+        origin,
+        e.material,
+        48,
+        Math.max(force, 25) * 1.2,
+        Math.max(...e.s),
+        e.id,
+      );
   }
   private spawnBody(
     p: Vec3,

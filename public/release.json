@@ -1,5 +1,5 @@
 {
-  "release": "toilet-portal-2026-10-27",
+  "release": "porcelain-shards-2026-10-27",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -73,7 +73,9 @@
     "analytic-sky-reflections-on-metal",
     "local-light-from-explosions-fires-and-muzzle-flashes",
     "fire-halos-and-night-window-glow",
-    "giant-destructible-toilet-portal"
+    "giant-destructible-toilet-portal",
+    "porcelain-toilet-shards",
+    "hell-terrain-detail-swap-tint"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216
