@@ -1,5 +1,5 @@
 {
-  "release": "smooth-streaming-frame-time-fixes-2026-10-25",
+  "release": "lighting-overhaul-2026-10-26",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -65,7 +65,14 @@
     "per-entity-scenery-and-terrain-handoffs",
     "terrain-shadow-shader-prewarming",
     "tail-aware-auto-quality-with-fixed-output-canvas",
-    "bounded-frame-spike-and-gpu-pass-diagnostics"
+    "bounded-frame-spike-and-gpu-pass-diagnostics",
+    "texel-snapped-altitude-aware-sun-shadows",
+    "height-based-aerial-haze",
+    "island-wide-terrain-and-statue-sun-mask",
+    "sun-disc-phase-lit-moon-and-stars",
+    "analytic-sky-reflections-on-metal",
+    "local-light-from-explosions-fires-and-muzzle-flashes",
+    "fire-halos-and-night-window-glow"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216
