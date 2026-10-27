@@ -171,6 +171,7 @@ export interface Entity {
     anatomyRevision?: number;
     sculptOwner?: number;
     sculptRevision?: string;
+    modelOwner?: number;
     shape:
       | "box"
       | "ellipsoid"
@@ -288,6 +289,12 @@ export interface WorldData {
     radius: number;
     ids: number[];
     clearedTrees?: number[];
+    yaw?: number;
+    base?: Vec3;
+    top?: number;
+    exit?: number;
+    water?: [number, number];
+    retired?: number[];
   };
   landscapeProfile?: "mountainous" | "rolling woodland" | "broad lowland";
   passes?: { p: Vec3; radius: number }[];

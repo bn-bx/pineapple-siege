@@ -1,25 +1,23 @@
 import * as THREE from "three";
 import type { WorldData } from "../types";
 
-/** A recessed, opaque energy well inside the simulation's stone aperture. */
+/** The swirling water in the toilet bowl: the opening to and from hell. */
 export class PortalView {
   readonly group = new THREE.Group();
-  private energy = new THREE.Group();
-  private disc: THREE.Mesh<THREE.RingGeometry, THREE.ShaderMaterial>;
-  private rim: THREE.Mesh<THREE.TorusGeometry, THREE.MeshStandardMaterial>;
-  private inscriptions: THREE.MeshBasicMaterial;
+  private disc: THREE.Mesh<THREE.CircleGeometry, THREE.ShaderMaterial>;
   constructor(world: WorldData) {
     const portal = world.portal!;
     const hell = world.realm === "hell";
     const color = new THREE.Color(hell ? "#ff622a" : "#389bcc");
-    const radius = portal.radius - 0.7;
-    const geometry = new THREE.RingGeometry(0, radius, 128, 24).rotateX(
+    // A unit disc that dips toward the drain; its rim tucks into the porcelain.
+    const radius = 1;
+    const geometry = new THREE.CircleGeometry(radius, 128).rotateX(
       -Math.PI / 2,
     );
     const position = geometry.getAttribute("position");
     for (let i = 0; i < position.count; i++) {
       const r = Math.hypot(position.getX(i), position.getZ(i)) / radius;
-      position.setY(i, 2 + 5 * r * r);
+      position.setY(i, -6 * (1 - r * r));
     }
     geometry.computeVertexNormals();
     this.disc = new THREE.Mesh(
@@ -54,57 +52,14 @@ export class PortalView {
         }`,
       }),
     );
-    this.rim = new THREE.Mesh(
-      new THREE.TorusGeometry(portal.radius, 0.65, 8, 128).rotateX(Math.PI / 2),
-      new THREE.MeshStandardMaterial({
-        color: hell ? "#423029" : "#414b54",
-        metalness: 0.65,
-        roughness: 0.4,
-        emissive: color,
-        emissiveIntensity: 0.25,
-      }),
-    );
-    this.rim.position.y = 7.2;
-    this.inscriptions = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.65,
-      depthWrite: false,
-    });
-    const runes = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      this.inscriptions,
-      48,
-    );
-    const dummy = new THREE.Object3D();
-    let index = 0;
-    for (let i = 0; i < 12; i++) {
-      const a = (i * Math.PI) / 6,
-        r = portal.radius + 10;
-      for (let stroke = 0; stroke < 4; stroke++) {
-        const tangent = (stroke === 0 ? 0 : stroke - 2) * 1.05;
-        dummy.position.set(
-          Math.cos(a) * r - Math.sin(a) * tangent,
-          7.12,
-          Math.sin(a) * r + Math.cos(a) * tangent,
-        );
-        dummy.rotation.set(0, -a + (stroke === 0 ? 0 : Math.PI / 3), 0);
-        dummy.scale.set(0.32, 0.12, stroke === 0 ? 4.2 : 1.5);
-        dummy.updateMatrix();
-        runes.setMatrixAt(index++, dummy.matrix);
-      }
-    }
-    runes.computeBoundingSphere();
-    this.energy.add(this.disc, runes);
+    const [halfX, halfZ] = portal.water ?? [portal.radius, portal.radius];
+    this.disc.scale.set(halfX * 1.06, 1, halfZ * 1.06);
     this.group.position.set(portal.x, portal.y, portal.z);
-    this.group.add(this.rim, this.energy);
+    this.group.rotation.y = portal.yaw ?? 0;
+    this.group.add(this.disc);
   }
   update(time: number, intact: boolean) {
-    this.energy.visible = intact;
+    this.disc.visible = intact;
     this.disc.material.uniforms.time.value = time;
-    this.rim.material.emissiveIntensity = intact
-      ? 0.25 + 0.04 * Math.sin(time * 1.5)
-      : 0;
-    this.inscriptions.opacity = 0.5 + 0.12 * Math.sin(time * 0.9);
   }
 }

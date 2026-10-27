@@ -93,7 +93,7 @@ try {
         grace: 0,
         plane: {
           ...lanternVale.state.snapshot.plane,
-          p: [site.x, lanternVale.terrain(site.x, site.z) + 30, site.z],
+          p: [site.x, site.y + 30, site.z],
           v: [0, -100, 0],
           yaw: 0,
           pitch: -1.12,

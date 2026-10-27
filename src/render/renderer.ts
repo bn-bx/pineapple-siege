@@ -495,8 +495,14 @@ export class GameRenderer {
     return this.warming;
   }
   private async prewarmOnce() {
-    await this.worldView.approvedGod.load();
-    for (const material of this.worldView.approvedGod.materials)
+    await Promise.all([
+      this.worldView.approvedGod.load(),
+      this.worldView.toilet.load(),
+    ]);
+    for (const material of [
+      ...this.worldView.approvedGod.materials,
+      ...this.worldView.toilet.materials,
+    ])
       this.environment.installMaterial(material);
     this.warmupStages = {};
     let stageStarted = performance.now();

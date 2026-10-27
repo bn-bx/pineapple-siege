@@ -8,7 +8,7 @@ import type { ResourceDisposal } from "./resource-disposal";
 export function buildingFireSites(world: WorldData) {
   const cells = new Map<string, Entity[]>();
   for (const e of world.entities) {
-    if (e.kind !== "block" || !e.assembly || e.assembly === "portal-ring" || e.visual) continue;
+    if (e.kind !== "block" || !e.assembly || e.assembly === "portal-toilet" || e.visual) continue;
     const key = `${e.assembly}:${Math.floor(e.p[0] / 48)}:${Math.floor(e.p[2] / 48)}`;
     let list = cells.get(key);
     if (!list) cells.set(key, list = []);

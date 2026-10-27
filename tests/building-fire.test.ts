@@ -9,7 +9,7 @@ it("keeps every building burning beyond the transient fire limit and lifetime", 
     { id: i * 2, kind: "block", assembly: `house-${i}`, material: "roof", p: [0, 10, -100], s: [4, 2, 4] },
     { id: i * 2 + 1, kind: "block", assembly: `house-${i}`, material: "stone", p: [0, 5, -100], s: [4, 2, 4] },
   ]).flat() as Entity[];
-  const world = { entities: [...entities, { ...entities[0], id: 600, assembly: "portal-ring" }] } as WorldData;
+  const world = { entities: [...entities, { ...entities[0], id: 600, assembly: "portal-toilet" }] } as WorldData;
   expect(buildingFireSites(world)).toHaveLength(300);
   const view = new BuildingFireView(world);
   const camera = new THREE.PerspectiveCamera(70, 1, .1, 1000);

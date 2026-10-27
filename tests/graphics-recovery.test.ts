@@ -73,6 +73,7 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   view.worldView = {
     batches: [],
     approvedGod: { load: async () => {}, materials: [] },
+    toilet: { load: async () => {}, materials: [] },
   };
   view.fragmentMaterials = {};
   view.renderer = {
@@ -116,6 +117,7 @@ it("prepares active and inactive effect-light variants before flight and restore
   view.worldView = {
     batches: [],
     approvedGod: { load: async () => {}, materials: [] },
+    toilet: { load: async () => {}, materials: [] },
   };
   view.fragmentMaterials = {};
   const rendered: boolean[] = [];
@@ -157,6 +159,7 @@ it("warms the mapped non-instanced terrain shadow layout before tiles arrive", a
   view.worldView = {
     batches: [],
     approvedGod: { load: async () => {}, materials: [] },
+    toilet: { load: async () => {}, materials: [] },
   };
   view.fragmentMaterials = {};
   view.renderer = {

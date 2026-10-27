@@ -443,7 +443,11 @@ export class Simulation {
     this.terrain = new Terrain(heights, world.rivers, incremental, world);
     if (save)
       this.terrain.restore(save.terrain, save.laserDry, save.terrainIndices);
-    for (const id of world.portal?.clearedTrees ?? []) this.removed.add(id);
+    for (const id of [
+      ...(world.portal?.clearedTrees ?? []),
+      ...(world.portal?.retired ?? []),
+    ])
+      this.removed.add(id);
     const oldRemoved = new Set([...this.removed, ...(save?.removed ?? [])]);
     const initialRage =
       this.statueReaction.enraged ||
@@ -2072,12 +2076,15 @@ export class Simulation {
       p.v[1] < -1 &&
       Math.hypot(p.p[0] - portal.x, p.p[2] - portal.z) < portal.radius - 6 &&
       Math.hypot(next[0] - portal.x, next[2] - portal.z) < portal.radius - 6 &&
-      p.p[1] < this.terrain.sample(p.p[0], p.p[2]) + 100;
+      p.p[1] < (portal.top ?? this.terrain.sample(p.p[0], p.p[2]) + 100);
+    // The opening is the bowl's water plane, below the seat hole.
+    const surface = (q: Vec3) =>
+      portal?.top === undefined ? this.terrain.sample(q[0], q[2]) : portal.y;
     if (
       portal &&
       throughOpening &&
-      next[1] <= this.terrain.sample(next[0], next[2]) + 4 &&
-      p.p[1] >= this.terrain.sample(p.p[0], p.p[2]) - 3
+      next[1] <= surface(next) + 4 &&
+      p.p[1] >= surface(p.p) - 3
     ) {
       p.p = next;
       this.portalGrace = 2;
@@ -3060,7 +3067,9 @@ export class Simulation {
         ballistic: this.ballistic.size,
         ruins: this.ruins.size,
         removed:
-          this.removed.size - (this.world.portal?.clearedTrees?.length ?? 0),
+          this.removed.size -
+          (this.world.portal?.clearedTrees?.length ?? 0) -
+          (this.world.portal?.retired?.length ?? 0),
         shots: this.shots,
         revision: this.revision,
         terrainHeightJournalDataBytes,

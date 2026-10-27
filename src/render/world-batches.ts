@@ -3,6 +3,7 @@ import { installFoliageMotion } from "./foliage-motion";
 import { installTreeLOD, TREE_LOD_FADE } from "./tree-lod";
 import { installSceneryLOD, SCENERY_LOD_FADE } from "./scenery-lod";
 import { ApprovedGodView } from "./approved-god";
+import { ToiletView } from "./toilet";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
 import { isRoof } from "../debris-shape";
@@ -49,6 +50,7 @@ export class WorldBatches {
   readonly flagGroup = new THREE.Group();
   readonly horizon: IslandHorizon;
   readonly approvedGod: ApprovedGodView;
+  readonly toilet: ToiletView;
   private fragmentColor = new THREE.Color();
   private box = new THREE.BoxGeometry(2, 2, 2);
   private roof = roofGeometry();
@@ -60,6 +62,8 @@ export class WorldBatches {
   ) {
     this.approvedGod = new ApprovedGodView(world);
     this.scene.add(this.approvedGod.group);
+    this.toilet = new ToiletView(world);
+    this.scene.add(this.toilet.group);
     this.buildBatches();
     this.addBanners();
     this.scene.add(this.flagGroup);
@@ -171,7 +175,11 @@ export class WorldBatches {
       return geometry;
     };
     for (const e of this.world.entities) {
-      if (e.visual?.sculptOwner !== undefined) continue;
+      if (
+        e.visual?.sculptOwner !== undefined ||
+        e.visual?.modelOwner !== undefined
+      )
+        continue;
       if (
         this.world.realm === "hell" &&
         e.visual &&
@@ -357,6 +365,7 @@ export class WorldBatches {
   remove(id: number) {
     this.removed.add(id);
     this.approvedGod.remove(id);
+    this.toilet.remove(id);
     this.horizon.remove(id);
     const refs = this.refs.get(id);
     if (!refs) return;
@@ -393,6 +402,7 @@ export class WorldBatches {
   restore(removed: number[]) {
     this.removed.clear();
     this.approvedGod.restore(removed);
+    this.toilet.restore(removed);
     this.horizon.restore([]);
     this.refs.clear();
     for (const batch of this.batches) {
@@ -473,6 +483,7 @@ export class WorldBatches {
     for (const material of this.ownedMaterials)
       resources.materials.add(material);
     this.approvedGod.dispose(resources);
+    this.toilet.dispose(resources);
     for (const batch of this.batches) {
       resources.collect(batch.mesh);
       if (batch.low) resources.collect(batch.low);
