@@ -31,3 +31,35 @@ export function fractureStatueBox(p: Vec3, s: Vec3, limit: number, edge = 24) {
   }
   return pieces;
 }
+
+/** Most pieces one sculpted owner breaks into. Each piece is real textured
+ * and stone geometry, so the god breaks into fewer, larger chunks than boxes. */
+export const SCULPT_PIECE_LIMIT = 8;
+
+/** Equal halvings stay aligned to the source box, so a piece's size and cell
+ * name its slice of the sculpture without storing where it started. */
+export function statuePieceCell(p: Vec3, s: Vec3, partP: Vec3, partS: Vec3) {
+  let cell = 0,
+    stride = 1;
+  for (let k = 0; k < 3; k++) {
+    const n = Math.max(1, Math.round(s[k] / partS[k]));
+    const j = Math.round((partP[k] - partS[k] - p[k] + s[k]) / (2 * partS[k]));
+    cell += Math.min(n - 1, Math.max(0, j)) * stride;
+    stride *= n;
+  }
+  return cell;
+}
+
+/** Inverse of statuePieceCell: the piece's box when it broke away. */
+export function statuePieceBox(p: Vec3, s: Vec3, partS: Vec3, cell: number) {
+  const n = s.map((v, k) => Math.max(1, Math.round(v / partS[k])));
+  const min: Vec3 = [0, 0, 0],
+    max: Vec3 = [0, 0, 0];
+  for (let k = 0, rest = cell; k < 3; k++) {
+    const j = rest % n[k];
+    rest = Math.floor(rest / n[k]);
+    min[k] = p[k] - s[k] + j * 2 * partS[k];
+    max[k] = min[k] + 2 * partS[k];
+  }
+  return { min, max, n };
+}

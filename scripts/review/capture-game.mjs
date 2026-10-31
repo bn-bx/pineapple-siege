@@ -27,7 +27,7 @@ page.on("console", (m) => {
 try {
   await page.goto(
     (process.env.ISLAND_URL ?? "http://127.0.0.1:5184/") +
-      "?island=PS4-0000A301#debug",
+      "?island=PS7-0000A301#debug",
   );
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,

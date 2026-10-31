@@ -1,4 +1,4 @@
-import { BODY_MATERIALS } from "./body-buffer";
+import { BODY_MATERIALS, bodyTag } from "./body-buffer";
 import type { BodyView, PackedBodies } from "../types";
 const materials = new Map(
   BODY_MATERIALS.map((material, index) => [material, index]),
@@ -41,9 +41,7 @@ export class BodyPoseCache {
     this.identity[index * 2] = view.id;
     this.identity[index * 2 + 1] = view.source;
     this.tags[index * 2] = materials.get(view.material)!;
-    this.tags[index * 2 + 1] =
-      (view.kind === "tree" ? 1 : view.kind === "rock" ? 2 : 0) |
-      ((view.roofPart ?? 0) << 2);
+    this.tags[index * 2 + 1] = bodyTag(view);
     this.update(view);
   }
   update(view: BodyView) {

@@ -74,6 +74,7 @@ export function consolidateRubble(
       volume,
       pile: true,
       roofPart: undefined,
+      piece: undefined,
       kind: "chunk",
       q: [0, 0, 0, 1],
     },

@@ -20,7 +20,7 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const base = process.env.ISLAND_URL ?? "http://127.0.0.1:5177/";
 try {
-  await page.goto(`${base}?island=PS4-0000A301#debug`);
+  await page.goto(`${base}?island=PS7-0000A301#debug`);
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
     {},

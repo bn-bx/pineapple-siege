@@ -1,4 +1,5 @@
 import { PacketVector } from "./motion-buffer";
+import { isRoof } from "../debris-shape";
 import type { BodyView, Material, PackedBodies } from "../types";
 
 export const BODY_MATERIALS: Material[] = [
@@ -17,6 +18,29 @@ export const BODY_MATERIALS: Material[] = [
 const materials = BODY_MATERIALS;
 const materialIds = new Map(materials.map((name, i) => [name, i]));
 const kinds: BodyView["kind"][] = ["chunk", "tree", "rock"];
+
+/** Second tag byte: kind in the low two bits, then a roof wedge for roof
+ * materials or a sculpture piece cell plus one for everything else. */
+export function bodyTag(
+  b: Pick<BodyView, "kind" | "material" | "roofPart" | "piece">,
+) {
+  const part = isRoof(b.material)
+    ? (b.roofPart ?? 0)
+    : b.piece === undefined
+      ? 0
+      : b.piece + 1;
+  return kinds.indexOf(b.kind) | (part << 2);
+}
+/** Sculpture piece cell carried by a packed tag, if any. */
+export function tagPiece(material: Material, tag: number) {
+  return isRoof(material) || !(tag >>> 2) ? undefined : (tag >>> 2) - 1;
+}
+function readTag(b: BodyView, material: Material, tag: number) {
+  b.material = material;
+  b.kind = kinds[tag & 3];
+  b.roofPart = isRoof(material) ? tag >>> 2 || undefined : undefined;
+  b.piece = tagPiece(material, tag);
+}
 
 /** One transferable allocation: integer identity, float transforms, byte tags. */
 export function packBodies(
@@ -47,7 +71,7 @@ export function packBodies(
     transforms[j + 8] = b.s[1];
     transforms[j + 9] = b.s[2];
     tags[i * 2] = materialIds.get(b.material)!;
-    tags[i * 2 + 1] = kinds.indexOf(b.kind) | ((b.roofPart ?? 0) << 2);
+    tags[i * 2 + 1] = bodyTag(b);
     i++;
   }
   return { count, buffer };
@@ -59,16 +83,20 @@ export function unpackBodies({ count, buffer }: PackedBodies): BodyView[] {
   const tags = new Uint8Array(buffer, count * 48, count * 2);
   const bodies = new Array<BodyView>(count);
   for (let i = 0; i < count; i++) {
-    const j = i * 10;
+    const j = i * 10,
+      material = materials[tags[i * 2]],
+      tag = tags[i * 2 + 1],
+      piece = tagPiece(material, tag);
     bodies[i] = {
       id: identity[i * 2],
       source: identity[i * 2 + 1],
       p: [t[j], t[j + 1], t[j + 2]],
       q: [t[j + 3], t[j + 4], t[j + 5], t[j + 6]],
       s: [t[j + 7], t[j + 8], t[j + 9]],
-      material: materials[tags[i * 2]],
-      kind: kinds[tags[i * 2 + 1] & 3],
-      ...(tags[i * 2 + 1] >>> 2 ? { roofPart: tags[i * 2 + 1] >>> 2 } : {}),
+      material,
+      kind: kinds[tag & 3],
+      ...(isRoof(material) && tag >>> 2 ? { roofPart: tag >>> 2 } : {}),
+      ...(piece !== undefined ? { piece } : {}),
     };
   }
   return bodies;
@@ -97,9 +125,7 @@ export function bindBodies({ count, buffer }: PackedBodies, frame: BodyFrame) {
       };
     b.id = identity[i * 2];
     b.source = identity[i * 2 + 1];
-    b.material = materials[tags[i * 2]];
-    b.kind = kinds[tags[i * 2 + 1] & 3];
-    b.roofPart = tags[i * 2 + 1] >>> 2 || undefined;
+    readTag(b, materials[tags[i * 2]], tags[i * 2 + 1]);
     (b.p as unknown as PacketVector).bind(t, i * 10);
     (b.q as unknown as PacketVector).bind(t, i * 10 + 3);
     (b.s as unknown as PacketVector).bind(t, i * 10 + 7);
@@ -137,9 +163,7 @@ export class PackedBodyReader {
       tag = this.tags[i * 2 + 1];
     b.id = this.identity[i * 2];
     b.source = this.identity[i * 2 + 1];
-    b.material = materials[this.tags[i * 2]];
-    b.kind = kinds[tag & 3];
-    b.roofPart = tag >>> 2 || undefined;
+    readTag(b, materials[this.tags[i * 2]], tag);
     b.p[0] = t[j];
     b.p[1] = t[j + 1];
     b.p[2] = t[j + 2];

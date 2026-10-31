@@ -17,7 +17,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
 try {
-  await page.goto(`${base}?island=PS4-0000A301#debug`);
+  await page.goto(`${base}?island=PS7-0000A301#debug`);
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
     {},

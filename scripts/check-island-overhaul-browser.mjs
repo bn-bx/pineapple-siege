@@ -34,6 +34,9 @@ const state = async () =>
   page.evaluate(() => ({
     status: document.getElementById("islandPreviewStatus")?.textContent,
     fatal: document.getElementById("fatalDetail")?.textContent,
+    game: document.getElementById("status")?.textContent,
+    realm: window.lanternVale?.world?.realm,
+    ready: window.lanternVale?.state.ready,
   }));
 async function exact(code) {
   await page.locator("#islandSeedDetails").evaluate((e) => (e.open = true));
@@ -41,6 +44,16 @@ async function exact(code) {
   await page.locator("#previewSeedForm button").click();
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
+  );
+}
+async function rejected(code) {
+  await page.locator("#islandSeedDetails").evaluate((e) => (e.open = true));
+  await page.locator("#previewSeed").fill(code);
+  await page.locator("#previewSeedForm button").click();
+  await page.waitForFunction(() =>
+    /older generator/.test(
+      document.getElementById("islandPreviewStatus").textContent,
+    ),
   );
 }
 async function ready() {
@@ -87,20 +100,19 @@ try {
     (await page.evaluate(() => lanternVale.state.snapshot.stats.removed)) > 0,
   );
   await page.locator("#createIsland").click();
-  await exact("PS5-R-0000002A");
+  for (const code of ["PS4-0000002A", "PS5-R-0000002A", "PS6-0000002A"])
+    await rejected(code);
+  await exact("PS7-00000001");
   await page
     .locator("#islandPreview")
-    .screenshot({ path: out + "/riverlands-final-preview.png" });
+    .screenshot({ path: out + "/seed-final-preview.png" });
   await page.locator("#keepIsland").click();
   await Promise.all([
     page.waitForEvent("domcontentloaded"),
     page.locator("#confirmIsland").click(),
   ]);
   await ready();
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generationPreset),
-    "R",
-  );
+  assert.equal(await page.evaluate(() => lanternVale.world.seed), 1);
   const renderer = await page.evaluate(() => {
     const gl = document.querySelector("#world").getContext("webgl2"),
       ext = gl?.getExtension("WEBGL_debug_renderer_info");
@@ -146,7 +158,7 @@ try {
       { p, name, feature },
     );
     await page.waitForTimeout(2500);
-    await page.screenshot({ path: out + `/riverlands-${name}.png` });
+    await page.screenshot({ path: out + `/seed-${name}.png` });
   }
   await page.evaluate(() => {
     document.getElementById("overlay").hidden = false;
@@ -171,7 +183,7 @@ try {
     })),
   );
   assert(saved.removed.length > 0);
-  assert.equal(saved.generationPreset, "R");
+  assert.equal(saved.generatorVersion, 7);
   await page.reload();
   await ready();
   console.log(
@@ -180,13 +192,10 @@ try {
       revision: lanternVale.state.snapshot.stats.revision,
       removed: lanternVale.state.snapshot.stats.removed,
       saveEnabled: lanternVale.state.saveEnabled,
-      preset: lanternVale.world.generationPreset,
+      generatorVersion: lanternVale.world.generatorVersion,
     })),
   );
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generationPreset),
-    "R",
-  );
+  assert.equal(await page.evaluate(() => lanternVale.world.seed), 1);
   assert(
     (await page.evaluate(() => lanternVale.state.snapshot.stats.removed)) > 0,
   );
@@ -214,41 +223,54 @@ try {
     await page.evaluate(() => lanternVale.pause());
   }
   await page.locator("#createIsland").click();
-  await exact("PS4-0000002A");
+  await exact("PS7-00000007");
   await page.locator("#keepIsland").click();
   assert(await page.locator("#islandReplacePrompt").isVisible());
   await page.locator("#backToIsland").click();
   await page.locator("#cancelIsland").click();
-  assert.equal(
-    await page.evaluate(() => lanternVale.world.generationPreset),
-    "R",
+  assert.equal(await page.evaluate(() => lanternVale.world.seed), 1);
+  // A stored island from an older generator is replaced without the recovery prompt.
+  await page.evaluate(async () => {
+    const { generateIsland } = await import("/src/world/generator.mjs");
+    const legacy = generateIsland({ seed: 42, generatorVersion: 4 });
+    const db = await new Promise((resolve, reject) => {
+      const r = indexedDB.open("lantern-vale", 1);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("worlds", "readwrite");
+      tx.objectStore("worlds").put(legacy, "baseline");
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.reload();
+  await page.locator("#islandPreview").waitFor({ state: "visible" });
+  assert(!(await page.locator("#recovery").evaluate((d) => d.open)));
+  assert.match(
+    await page.locator("#islandSeedNotice").textContent(),
+    /older generator/,
   );
-  await page.locator("#createIsland").click();
-  await exact("PS4-0000002A");
+  await page.waitForFunction(
+    () => !document.getElementById("keepIsland").disabled,
+  );
   await page.locator("#keepIsland").click();
-  await Promise.all([
-    page.waitForEvent("domcontentloaded"),
-    page.locator("#confirmIsland").click(),
-  ]);
   await ready();
   assert.equal(
     await page.evaluate(() => lanternVale.world.generatorVersion),
-    4,
+    7,
   );
-  await page.evaluate(() => {
-    lanternVale.blast(lanternVale.world.castle, "local");
-  });
-  await page.evaluate(() => lanternVale.step(4));
-  const oldSave = await page.evaluate(() => lanternVale.save());
-  assert(oldSave.removed.length > 0);
+  assert.equal(
+    await page.evaluate(() => lanternVale.state.snapshot.stats.removed),
+    0,
+  );
   await page.reload();
   await ready();
   assert.equal(
     await page.evaluate(() => lanternVale.world.generatorVersion),
-    4,
-  );
-  assert(
-    (await page.evaluate(() => lanternVale.state.snapshot.stats.removed)) > 0,
+    7,
   );
   await context.newPage().then(async (touch) => {
     await touch.setViewportSize({ width: 390, height: 844 });
@@ -274,10 +296,11 @@ try {
           "single-island flow and rapid cancellation",
           "collapsed seed import",
           "revision-7 destruction save and reload",
-          "PS5 save reload",
-          "PS5 round-trip realm travel",
+          "older island codes rejected",
+          "imported seed save reload",
+          "imported seed round-trip realm travel",
           "replacement cancellation",
-          "PS4 save reload",
+          "older-generator baseline replaced automatically",
           "mobile preview",
         ],
         errors,

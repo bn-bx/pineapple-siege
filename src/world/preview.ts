@@ -1,5 +1,5 @@
 import {
-  parseIslandCode,
+  parsePlayableIslandCode,
   generationRequest,
   seedCode,
   type IslandBaseline,
@@ -216,7 +216,7 @@ export class IslandPreview {
       event.preventDefault();
       try {
         this.generate(
-          parseIslandCode(get<HTMLInputElement>("previewSeed").value),
+          parsePlayableIslandCode(get<HTMLInputElement>("previewSeed").value),
         );
       } catch (error) {
         this.status((error as Error).message);

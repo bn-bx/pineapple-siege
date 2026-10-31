@@ -365,6 +365,8 @@ export interface BodyView {
   source: number;
   /** One of four solid roof wedges; absent for an intact section. */
   roofPart?: number;
+  /** Sculpted owners only: which slice of the source sculpture this piece is. */
+  piece?: number;
 }
 export interface TerrainPatch {
   indices: Uint32Array;
@@ -382,6 +384,8 @@ export interface Ruin {
   source: number;
   /** One of four solid roof wedges; absent for an intact section. */
   roofPart?: number;
+  /** Sculpted owners only: which slice of the source sculpture this piece is. */
+  piece?: number;
   // Material volume survives pile consolidation, including during save capture.
   volume?: number;
   pile?: boolean;

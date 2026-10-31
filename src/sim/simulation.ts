@@ -1,6 +1,10 @@
 import { CrashFuel } from "./crash-fuel";
 import { restoreStatueReaction, statueRole } from "../statue-reaction";
-import { fractureStatueBox } from "./statue-fracture";
+import {
+  fractureStatueBox,
+  SCULPT_PIECE_LIMIT,
+  statuePieceCell,
+} from "./statue-fracture";
 import { NuclearFire } from "./nuclear-fire";
 import { Flies } from "./flies";
 import RAPIER from "@dimforge/rapier3d-compat";
@@ -837,8 +841,9 @@ export class Simulation {
       0,
       this.statueQuotas.size - this.fracturedStatue.size - 1,
     );
+    const sculpted = e.visual?.sculptOwner !== undefined;
     const count = Math.min(
-      64,
+      sculpted ? SCULPT_PIECE_LIMIT : 64,
       this.statueQuotas.get(e.id) ?? 1,
       Math.max(1, free - reserve),
     );
@@ -856,6 +861,10 @@ export class Simulation {
           force * (0.85 + rand(e.id * 13 + i) * 0.15),
           e.id + i,
         ),
+        undefined,
+        false,
+        0,
+        sculpted ? statuePieceCell(e.p, e.s, part.p, part.s) : undefined,
       );
     }
     // Shell pieces alone read as slabs; a spray of chips sells shattered porcelain.
@@ -880,6 +889,7 @@ export class Simulation {
     q: Quat = [0, 0, 0, 1],
     existing = false,
     roofPart = 0,
+    piece?: number,
   ) {
     if (
       (!existing && this.vaporized.has(source)) ||
@@ -898,6 +908,7 @@ export class Simulation {
         kind,
         source,
         ...(roofPart ? { roofPart } : {}),
+        ...(piece !== undefined ? { piece } : {}),
       },
       [...impulse],
     );
@@ -1111,6 +1122,7 @@ export class Simulation {
         r.q,
         true,
         r.roofPart,
+        r.pile ? undefined : r.piece,
       );
       budget.n++;
     }
@@ -2273,6 +2285,7 @@ export class Simulation {
             r.q,
             true,
             r.roofPart,
+            r.pile ? undefined : r.piece,
           ) < 0
         )
           continue;

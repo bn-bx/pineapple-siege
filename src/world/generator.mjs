@@ -70,6 +70,15 @@ export function parseIslandCode(code) {
     "This seed is malformed or uses an older or unsupported layout. Enter a PS7, PS6, PS5, or PS4 island code.",
   );
 }
+/** Play-time parse; older codes remain readable through parseIslandCode for tooling. */
+export function parsePlayableIslandCode(code) {
+  const request = parseIslandCode(code);
+  if (request.generatorVersion !== GENERATOR_VERSION)
+    throw Error(
+      `This island code is from an older generator and can no longer be played. Enter a PS${GENERATOR_VERSION} island code.`,
+    );
+  return request;
+}
 export function parseSeedCode(code) {
   return parseIslandCode(code).seed;
 }
@@ -105,6 +114,14 @@ export function supportedIsland(world) {
       (world.generatorVersion === 5 &&
         world.version === 11 &&
         Object.hasOwn(PRESETS, world.generationPreset)))
+  );
+}
+/** Play-time gate; older generators stay validatable for tooling and tests only. */
+export function playableIsland(world) {
+  return (
+    supportedIsland(world) &&
+    world.generatorVersion === GENERATOR_VERSION &&
+    world.version === WORLD_VERSION
   );
 }
 export function planIsland(input, report = () => {}) {

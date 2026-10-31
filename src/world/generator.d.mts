@@ -42,6 +42,8 @@ export function generationRequest(
   input: number | GenerationRequest,
 ): GenerationRequest;
 export function parseIslandCode(code: string): GenerationRequest;
+/** Play-time parse: only codes for the current generator are accepted. */
+export function parsePlayableIslandCode(code: string): GenerationRequest;
 export function parseSeedCode(code: string): number;
 export function seedCode(
   seed: number | GenerationRequest,
@@ -56,6 +58,8 @@ export function baselineKey(
   >,
 ): string;
 export function supportedIsland(world: WorldData): boolean;
+/** Play-time gate: only islands from the current generator and world version. */
+export function playableIsland(world: WorldData): boolean;
 export function hashFor(seed: number): (x: number, z: number) => number;
 export function sampleHeight(
   heights: Float32Array,

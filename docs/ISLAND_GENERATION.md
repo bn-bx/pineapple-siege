@@ -4,13 +4,13 @@ New islands use one seed-driven generator (revision 7 / world 13). There is no s
 
 Coastlines vary between long bent islands, branching peninsulas, deep horseshoe bays, irregular mainlands, crescents, and hammerhead coasts, with independent proportions, orientation, secondary bays and headlands. Mountain ranges have broader connected foothills, longer ridges, sharp crests and branching spurs. Terrain is no longer flattened to force low passes or cross-island flight lanes. Ecology and relief vary independently of the silhouette.
 
-PS4 / world 10 and the original PS5 / world 11 generators are frozen with their dependencies. Their codes, baselines, and damage remain supported. New codes use `PS7-XXXXXXXX`; older codes reproduce their original islands. Complete revision, world, seed and legacy-preset identity still protects damage and realm caches.
+Play requires PS7 / world 13. The PS4 / world 10, original PS5 / world 11 and PS6 / world 12 generators remain frozen with their dependencies for validation, tests and tooling only. A saved island from an older generator is replaced automatically on load, without the recovery prompt, and its damage is discarded. Older island codes and links are rejected with a notice. New codes use `PS7-XXXXXXXX`. Complete revision, world, seed and legacy-preset identity still protects damage and realm caches.
 
 ## Rolling relief (2026-10-25)
 
 Revision 7 adds domain-warped regional uplands, rolling hills and valley bands before drainage and settlement placement. Lowland profiles scale the regional relief while retaining small hills. Coastal aprons descend toward beaches; exposed sectors retain higher headlands. Settlement elevation limits now accommodate uplands, and grading blends over 50–180 m to soften terrace edges. Structural footprints, including the monument terrace, remain level for stable foundations.
 
-Revision 6 / world 12 remains available through PS6 codes and existing baselines. Its generator and grading remain unchanged. PS7 uses world 13, keeping damage and realm identity separate from previous terrain. Existing saved islands retain their shape; choose **New island** to see the new relief.
+Revision 6 / world 12 is no longer playable; its generator and grading remain unchanged for tooling. PS7 uses world 13, keeping damage and realm identity separate from previous terrain.
 
 ### Relief verification
 

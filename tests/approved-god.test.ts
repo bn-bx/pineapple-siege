@@ -17,12 +17,12 @@ const packed = JSON.parse(
 const bytes = readFileSync("public/assets/pineapple-god/mesh.bin");
 const binary = () =>
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-it("packages the accepted sculpt with stable owners and verified production bytes", () => {
-  const approval = JSON.parse(
-    readFileSync("public/review/pineapple-god/visual-acceptance.json", "utf8"),
+it("packages the source model with stable owners and verified production bytes", () => {
+  expect(manifest.sourceSHA256).toBe(
+    createHash("sha256")
+      .update(readFileSync("pineapple-god/source.glb"))
+      .digest("hex"),
   );
-  expect(manifest.sourceSHA256).toBe(approval.approvedAssetSHA256);
-  expect(manifest.sourceRevision).toBe(approval.bodyMeshRevision);
   expect(createHash("sha256").update(bytes).digest("hex")).toBe(packed.hash);
   expect(packed.revision).toBe(manifest.revision);
   expect(manifest.owners).toHaveLength(815);
@@ -59,9 +59,8 @@ it("restores damage received before loading, preserves eye emission, and dispose
   view.remove(eye.id);
   view.setEyeGlow(4);
   const textures = {
-    head: new THREE.Texture(),
-    body: new THREE.Texture(),
-    cloth: new THREE.Texture(),
+    baseColor: new THREE.Texture(),
+    metallicRoughness: new THREE.Texture(),
   };
   view.install(packed, binary(), textures);
   expect(
@@ -82,7 +81,7 @@ it("restores damage received before loading, preserves eye emission, and dispose
   view.dispose(resources);
   view.dispose(resources);
   resources.dispose();
-  expect(disposed).toBe(3);
+  expect(disposed).toBe(2);
 });
 it("retains the infernal effigy while upgrading its throne and stairs", () => {
   const view = new ApprovedGodView({ ...world, realm: "hell" });

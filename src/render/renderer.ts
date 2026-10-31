@@ -19,6 +19,7 @@ import {
   BODY_MATERIALS,
   PackedBodyLookup,
   PackedBodyReader,
+  tagPiece,
 } from "../sim/body-buffer";
 import { bindMotion, motionFrame } from "../sim/motion-buffer";
 import { SimulationCadence } from "../simulation-cadence";
@@ -75,9 +76,16 @@ import { ResourceDisposal } from "./resource-disposal";
 import { FLIGHT_PLAYBACK_DELAY, SnapshotTimeline } from "./snapshot-timeline";
 import { TerrainView } from "./terrain-view";
 import { WorldBatches } from "./world-batches";
+import { GodDebris, type GodPiece } from "./god-debris";
 const dummy = new THREE.Object3D(),
   up = new THREE.Vector3(0, 1, 0),
   down = new THREE.Vector3(0, -1, 0);
+/** Instanced pieces share geometry; merged god debris owns its own. */
+function disposeRuinGroup(group: THREE.Group) {
+  for (const mesh of group.children)
+    if (mesh instanceof THREE.InstancedMesh) mesh.dispose();
+    else (mesh as THREE.Mesh).geometry.dispose();
+}
 const bodyKeys = BODY_MATERIALS.map((material) =>
   Array.from({ length: 5 }, (_, part) =>
     part ? `${material}:${part}` : material,
@@ -181,6 +189,9 @@ export class GameRenderer {
   private ruins = new Map<number, Ruin>();
   private ruinCells = new Map<number, Set<number>>();
   private ruinGroups = new Map<number, THREE.Group>();
+  private godDebris?: GodDebris;
+  private godPosition = new THREE.Vector3();
+  private godRotation = new THREE.Quaternion();
   private dirtyRuinBatches = new Set<number>();
   private ruinBuild?: Generator<void>;
   private ruinBuildKey = -1;
@@ -533,6 +544,7 @@ export class GameRenderer {
     this.fallenCanopy("broadleaf");
     this.fallenCanopy("riverside");
     this.effects.prewarm();
+    this.godPieces()?.prewarm();
     // Roof fragments omit instance colors, unlike ordinary airborne chunks.
     // Prepare every shape with its actual attributes before play.
     for (const material of Object.keys(this.fragmentMaterials) as Material[])
@@ -827,7 +839,7 @@ export class GameRenderer {
     this.ruinVersions.clear();
     for (const g of this.ruinGroups.values()) {
       this.scene.remove(g);
-      for (const m of g.children) (m as THREE.InstancedMesh).dispose();
+      disposeRuinGroup(g);
     }
     this.ruinGroups.clear();
     this.terrain.restore(heights);
@@ -888,13 +900,27 @@ export class GameRenderer {
     this.effects.collectLights(lights);
     const inverted = this.effects.fire.inverted;
     for (const patch of snap.fires ?? []) {
-      const l = fireLight(patch, snap.time, (FIRE_LIFETIME - patch.age) / 8, inverted);
+      const l = fireLight(
+        patch,
+        snap.time,
+        (FIRE_LIFETIME - patch.age) / 8,
+        inverted,
+      );
       lights.add(l.x, l.y, l.z, 0xff7428, l.intensity, l.range, true);
     }
     this.buildingFire?.collectLights(lights, snap.time);
     for (const drop of snap.fuel ?? []) {
       const l = fuelLight(drop);
-      if (l) lights.add(drop.p[0], drop.p[1] + 2, drop.p[2], 0xff6a12, l.intensity, l.range, true);
+      if (l)
+        lights.add(
+          drop.p[0],
+          drop.p[1] + 2,
+          drop.p[2],
+          0xff6a12,
+          l.intensity,
+          l.range,
+          true,
+        );
     }
     this.muzzleFlashes.update(snap.projectiles, dt, lights);
     if (this.burningAircraft)
@@ -921,7 +947,8 @@ export class GameRenderer {
       this.visualProfile.dynamicLights,
       0.3 + 0.7 * this.lighting.night,
     );
-    this.performance.queues.dynamicLights = lights.uniforms.dynamicLightCount.value;
+    this.performance.queues.dynamicLights =
+      lights.uniforms.dynamicLightCount.value;
     this.performance.queues.lightCandidates = lights.count;
   }
   private ruinCell(p: number[]) {
@@ -970,6 +997,8 @@ export class GameRenderer {
         }
       >();
     let installed = false;
+    const god = this.godPieces(),
+      godPieces: { piece: GodPiece; matrix: THREE.Matrix4 }[] = [];
     try {
       const add = (
         name: string,
@@ -1056,6 +1085,15 @@ export class GameRenderer {
                   this.fragmentMaterials[r.material],
                 );
               }
+        } else if (god?.owns(r.source, r.piece)) {
+          const piece = god.piece(r.source, r.piece!, r.s);
+          if (piece) {
+            dummy.scale.set(1, 1, 1);
+            dummy.updateMatrix();
+            godPieces.push({ piece, matrix: dummy.matrix.clone() });
+            bounds.expandByPoint(dummy.position);
+            maxRadius = Math.max(maxRadius, piece.radius);
+          }
         } else
           add(
             this.debrisKey(r),
@@ -1064,6 +1102,7 @@ export class GameRenderer {
           );
       }
       bounds.radius += maxRadius;
+      for (const mesh of god?.settled(godPieces) ?? []) group.add(mesh);
       for (const { geo, mat, matrices, colors } of lists.values()) {
         const mesh = new THREE.InstancedMesh(geo, mat, matrices.length);
         group.add(mesh);
@@ -1090,19 +1129,29 @@ export class GameRenderer {
       const old = this.ruinGroups.get(key);
       if (old) {
         this.scene.remove(old);
-        for (const mesh of old.children)
-          (mesh as THREE.InstancedMesh).dispose();
+        disposeRuinGroup(old);
       }
       this.scene.add(group);
       this.ruinGroups.set(key, group);
       installed = true;
     } finally {
-      if (!installed)
-        for (const mesh of group.children)
-          (mesh as THREE.InstancedMesh).dispose();
+      if (!installed) disposeRuinGroup(group);
     }
   }
+  /** Created once the god's textured surface loads; earlier rubble then rebuilds. */
+  private godPieces() {
+    if (!this.godDebris && this.worldView?.approvedGod.materials.length) {
+      this.godDebris = new GodDebris(
+        this.world,
+        this.worldView.approvedGod,
+        this.scene,
+      );
+      for (const key of this.ruinGroups.keys()) this.dirtyRuinBatches.add(key);
+    }
+    return this.godDebris;
+  }
   private updateRuins(budgetMS = Infinity) {
+    this.godPieces();
     const deadline = performance.now() + budgetMS;
     while (performance.now() < deadline) {
       if (!this.ruinBuild) {
@@ -1272,6 +1321,9 @@ export class GameRenderer {
     const changed = bodies !== this.syncedBodies;
     this.syncedBodies = bodies;
     this.syncedBodyAlpha = alpha;
+    const god = this.godPieces(),
+      godPresent = new Set<number>();
+    god?.beginFrame();
     if (changed) {
       const needed = new Map<string, number>();
       let treeCount = 0;
@@ -1286,6 +1338,21 @@ export class GameRenderer {
       for (let i = 0; i < bodies.length; i++) {
         const tag = packet ? this.bodyReader.tags[i * 2 + 1] : 0;
         const b = packet ? undefined : bodies[i];
+        if (god) {
+          const material = packet
+              ? BODY_MATERIALS[this.bodyReader.tags[i * 2]]
+              : b!.material,
+            piece = packet ? tagPiece(material, tag) : b!.piece;
+          if (
+            god.owns(
+              packet ? this.bodyReader.identity[i * 2 + 1] : b!.source,
+              piece,
+            )
+          ) {
+            godPresent.add(packet ? this.bodyReader.identity[i * 2] : b!.id);
+            continue;
+          }
+        }
         if (packet ? (tag & 3) === 1 : b!.kind === "tree") {
           treeCount++;
           const source = packet
@@ -1294,7 +1361,15 @@ export class GameRenderer {
           const species = this.world.entities[source].treeSpecies ?? "pine";
           speciesNeeded.set(species, (speciesNeeded.get(species) ?? 0) + 1);
         } else {
-          if (packet) codes[this.bodyReader.tags[i * 2] * 5 + (tag >>> 2)]++;
+          const material = packet
+            ? BODY_MATERIALS[this.bodyReader.tags[i * 2]]
+            : undefined;
+          // Undrawn sculpture pieces fall back to plain boxes.
+          if (packet)
+            codes[
+              this.bodyReader.tags[i * 2] * 5 +
+                (tagPiece(material!, tag) === undefined ? tag >>> 2 : 0)
+            ]++;
           else {
             const key = this.debrisKey(b!);
             needed.set(key, (needed.get(key) || 0) + 1);
@@ -1366,6 +1441,31 @@ export class GameRenderer {
             ? this.oldBodyReader.read(previousIndex - 1, this.oldBodyScratch)
             : undefined
           : this.previousBodies.get(b.id);
+      if (b.kind === "chunk" && god?.owns(b.source, b.piece)) {
+        this.godPosition.fromArray(b.p);
+        this.godRotation.fromArray(b.q);
+        if (previous && alpha < 1) {
+          this.godPosition.set(
+            THREE.MathUtils.lerp(previous.p[0], b.p[0], alpha),
+            THREE.MathUtils.lerp(previous.p[1], b.p[1], alpha),
+            THREE.MathUtils.lerp(previous.p[2], b.p[2], alpha),
+          );
+          this.godRotation.copy(
+            this.debrisRotation
+              .fromArray(previous.q)
+              .slerp(this.godRotation, alpha),
+          );
+        }
+        god.place(
+          b.id,
+          b.source,
+          b.piece!,
+          b.s,
+          this.godPosition,
+          this.godRotation,
+        );
+        continue;
+      }
       if (!gpu) {
         dummy.position.fromArray(b.p);
         dummy.quaternion.fromArray(b.q);
@@ -1480,6 +1580,7 @@ export class GameRenderer {
         );
       counts.set(key, index + 1);
     }
+    god?.endFrame(changed ? godPresent : undefined);
     for (const [species, mesh] of [
       ["pine", this.fallenPines],
       ["trunk", this.fallenTrunks],
@@ -2148,6 +2249,7 @@ export class GameRenderer {
     this.gpu.dispose();
     this.terrain.dispose();
     const resources = new ResourceDisposal();
+    this.godDebris?.dispose();
     this.worldView.dispose(resources);
     this.actors.dispose(resources);
     this.environment.dispose(resources);

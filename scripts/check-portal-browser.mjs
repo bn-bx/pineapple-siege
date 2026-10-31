@@ -59,7 +59,7 @@ async function arrive(realm) {
 }
 try {
   await page.goto(
-    `${process.env.ISLAND_URL ?? "http://127.0.0.1:5177/"}?island=PS4-0000A301&portal-test#debug`,
+    `${process.env.ISLAND_URL ?? "http://127.0.0.1:5177/"}?island=PS7-0000A301&portal-test#debug`,
   );
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,

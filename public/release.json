@@ -1,5 +1,5 @@
 {
-  "release": "porcelain-shards-2026-10-27",
+  "release": "solid-pineapple-god-debris-2026-10-31",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -50,10 +50,8 @@
     "pineapple-god-reference-matched-head-and-body-sculpt",
     "enlarged-animated-cross-realm-portals",
     "space-laser-island-wide-disco-show",
-    "ps4-playable-save-and-shared-seed-compatibility",
     "rolling-uplands-valleys-and-graded-settlement-slopes",
     "seed-driven-island-variety-lakes-and-regional-landscapes",
-    "ps4-ps5-ps6-save-and-shared-code-compatibility",
     "exact-far-grid-terrain-save-indices",
     "coastal-beaches-rocks-and-animated-surf",
     "dense-mixed-age-forests-and-shared-foliage-motion",
@@ -75,7 +73,11 @@
     "fire-halos-and-night-window-glow",
     "giant-destructible-toilet-portal",
     "porcelain-toilet-shards",
-    "hell-terrain-detail-swap-tint"
+    "hell-terrain-detail-swap-tint",
+    "textured-pineapple-god-throne-model",
+    "ps7-only-play-older-islands-replaced",
+    "textured-pineapple-god-debris",
+    "solid-pineapple-god-interior-and-stone-wounds"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

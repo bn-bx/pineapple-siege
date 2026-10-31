@@ -1,7 +1,12 @@
 import * as THREE from "three";
 import type { WorldData } from "../types";
-import { applyReferenceSurface } from "./reference-surface";
 import { ResourceDisposal } from "./resource-disposal";
+import {
+  decodeSolid,
+  GodWounds,
+  type GodSolid,
+  type SolidMeta,
+} from "./god-solid";
 import manifest from "../world/approved-god-manifest.json" with { type: "json" };
 interface Chunk {
   owner: number;
@@ -9,17 +14,15 @@ interface Chunk {
   count: number;
 }
 interface PackedBatch {
-  material: {
-    color: string;
-    roughness: number;
-    metalness: number;
-    surface: "head" | "body" | "cloth" | null;
-    flat: boolean;
-  };
+  material: { color: string; roughness: number; metalness: number };
   vertices: { offset: number; length: number };
   indices: { offset: number; length: number };
   chunks: Chunk[];
 }
+const WOUND_BUDGET_MS = 4;
+export type GodTextures = Partial<
+  Record<"baseColor" | "metallicRoughness", THREE.Texture>
+>;
 export interface PackedGod {
   revision: string;
   hash: string;
@@ -44,6 +47,13 @@ export class ApprovedGodView {
   private loading?: Promise<void>;
   private intensity = 0;
   private owners = new Map<number, number>();
+  private ordinals = new Map<number, number>();
+  /** Filled interior, when its export matches the loaded geometry. */
+  solid?: GodSolid;
+  /** Generic stone for broken surfaces. */
+  stone?: THREE.MeshStandardMaterial;
+  private wounds?: GodWounds;
+  private woundsQueued = false;
   constructor(readonly world: WorldData) {
     const site = world.sites.find((s) => s.kind === "pineapple-god");
     this.group.name = "approved-pineapple-god";
@@ -59,6 +69,7 @@ export class ApprovedGodView {
         )
           continue;
         this.owners.set(e.visual.sculptOwner, e.id);
+        this.ordinals.set(e.id, e.visual.sculptOwner);
       }
   }
   load() {
@@ -73,25 +84,34 @@ export class ApprovedGodView {
       if (!r.ok) throw Error(`Statue asset ${url}: ${r.status}`);
       return r;
     };
-    const [packed, data] = await Promise.all([
+    const [packed, data, solid] = await Promise.all([
       get("mesh.json").then((r) => r.json()) as Promise<PackedGod>,
       get("mesh.bin").then((r) => r.arrayBuffer()),
+      // The filled interior is optional; without it breaks stay hollow.
+      Promise.all([
+        get("solid.json").then((r) => r.json()) as Promise<SolidMeta>,
+        get("solid.bin").then((r) => r.arrayBuffer()),
+      ]).catch((error) => {
+        console.warn("Statue interior unavailable", error);
+        return undefined;
+      }),
     ]);
     if (packed.revision !== manifest.revision)
       throw Error("Statue geometry/owner revision mismatch");
-    const textures: Partial<Record<"head" | "body" | "cloth", THREE.Texture>> =
-      {};
+    const textures: GodTextures = {};
     // Own successful loads even if another texture fails or the scene is reset.
     try {
       const loaded = await Promise.allSettled(
         (this.world.realm === "hell"
           ? []
-          : (["head", "body", "cloth"] as const)
+          : (["baseColor", "metallicRoughness"] as const)
         ).map(async (name) => {
           const t = await new THREE.TextureLoader().loadAsync(
-            base + name + "-surface.png" + suffix,
+            base + name + ".webp" + suffix,
           );
-          t.colorSpace = THREE.SRGBColorSpace;
+          // glTF UVs: no vertical flip; only base colour is sRGB.
+          t.flipY = false;
+          if (name === "baseColor") t.colorSpace = THREE.SRGBColorSpace;
           t.anisotropy = 4;
           textures[name] = t;
         }),
@@ -102,7 +122,7 @@ export class ApprovedGodView {
         for (const t of Object.values(textures)) t.dispose();
         return;
       }
-      this.install(packed, data, textures);
+      this.install(packed, data, textures, solid);
     } catch (error) {
       for (const t of Object.values(textures)) t.dispose();
       throw error;
@@ -112,21 +132,35 @@ export class ApprovedGodView {
   install(
     packed: PackedGod,
     data: ArrayBuffer,
-    textures: Partial<Record<"head" | "body" | "cloth", THREE.Texture>> = {},
+    textures: GodTextures = {},
+    solid?: [SolidMeta, ArrayBuffer],
   ) {
+    if (solid && solid[0].revision === packed.revision) {
+      this.solid = decodeSolid(solid[0], new Uint16Array(solid[1]));
+      this.stone = new THREE.MeshStandardMaterial({
+        color: this.world.realm === "hell" ? "#3a3534" : "#8f897f",
+        roughness: 0.95,
+        metalness: 0,
+      });
+      this.wounds = new GodWounds(
+        this.solid,
+        (ordinal) => this.owners.has(ordinal),
+        this.stone,
+      );
+      this.group.add(this.wounds.mesh);
+    }
     for (const batch of packed.batches) {
       const chunks = batch.chunks.filter((c) => this.owners.has(c.owner));
       if (!chunks.length) continue;
       const geometry = new THREE.BufferGeometry(),
         v = new THREE.InterleavedBuffer(
           new Float32Array(data, batch.vertices.offset, batch.vertices.length),
-          9,
+          8,
         );
       for (const [name, size, offset] of [
         ["position", 3, 0],
         ["normal", 3, 3],
         ["uv", 2, 6],
-        ["surfaceWeight", 1, 8],
       ] as const)
         geometry.setAttribute(
           name,
@@ -147,17 +181,17 @@ export class ApprovedGodView {
       );
       geometry.computeBoundingBox();
       geometry.computeBoundingSphere();
-      const { surface, flat, ...settings } = batch.material;
       const material = new THREE.MeshStandardMaterial({
-        ...settings,
-        flatShading: flat,
+        ...batch.material,
+        map: textures.baseColor ?? null,
+        roughnessMap: textures.metallicRoughness ?? null,
+        metalnessMap: textures.metallicRoughness ?? null,
         side: THREE.DoubleSide,
       });
-      if (surface && textures[surface])
-        applyReferenceSurface(material, textures[surface]!);
       if (this.world.realm === "hell") {
         material.color.set("#3f424b");
-        material.map = null;
+        material.metalness = 0.2;
+        material.roughness = 0.8;
       }
       this.materials.push(material);
       const mesh = new THREE.Mesh<
@@ -178,9 +212,6 @@ export class ApprovedGodView {
           const eye = material.clone();
           eye.emissive.set("#ff1010");
           eye.emissiveIntensity = this.intensity;
-          // MeshStandardMaterial.clone does not retain custom shader callbacks.
-          if (surface && textures[surface])
-            applyReferenceSurface(eye, textures[surface]!);
           this.materials.push(eye);
           mesh.material = Array.isArray(mesh.material)
             ? [...mesh.material, eye]
@@ -206,10 +237,17 @@ export class ApprovedGodView {
         else geometry.addGroup(c.start, c.count, materialIndex);
       }
     }
+    // The skin stays first: debris draws flying pieces with materials[0].
+    if (this.stone) this.materials.push(this.stone);
     for (const id of this.removed) this.remove(id);
   }
   remove(id: number) {
     this.removed.add(id);
+    const ordinal = this.ordinals.get(id);
+    if (this.wounds && ordinal !== undefined) {
+      this.wounds.remove(ordinal);
+      this.queueWounds();
+    }
     for (const r of this.refs.get(id) ?? []) {
       const index = r.geometry.index!;
       (index.array as Uint32Array).fill(0, r.start, r.start + r.count);
@@ -217,8 +255,21 @@ export class ApprovedGodView {
       index.needsUpdate = true;
     }
   }
+  private queueWounds() {
+    if (this.woundsQueued) return;
+    this.woundsQueued = true;
+    // One rebuild per batch of removals; a large break spreads over frames.
+    const run = () => {
+      if (this.disposed) return;
+      if (this.wounds?.update(WOUND_BUDGET_MS)) setTimeout(run, 0);
+      else this.woundsQueued = false;
+    };
+    queueMicrotask(run);
+  }
   restore(ids: number[]) {
     this.removed.clear();
+    this.wounds?.reset();
+    this.queueWounds();
     for (const refs of this.refs.values())
       for (const r of refs) {
         r.geometry.index!.array.set(
@@ -238,6 +289,7 @@ export class ApprovedGodView {
     if (this.disposed) return;
     this.disposed = true;
     resources.collect(this.group);
+    this.wounds?.dispose();
     this.group.removeFromParent();
     this.refs.clear();
     this.materials.length = 0;

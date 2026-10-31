@@ -5,6 +5,8 @@ import {
   planIsland,
   materializeIsland,
   parseIslandCode,
+  parsePlayableIslandCode,
+  playableIsland,
   seedCode,
   baselineKey,
   validateIsland,
@@ -61,6 +63,34 @@ it("retains the exact PS4 terrain and structural output behind version dispatch"
     sim.dispose();
   }
 }, 60_000);
+it("only plays islands and codes from the current generator", () => {
+  const world = { size: 9216, grid: 4609, step: 2 };
+  expect(
+    playableIsland({ ...world, generatorVersion: 7, version: 13 } as any),
+  ).toBe(true);
+  for (const [generatorVersion, version, generationPreset] of [
+    [4, 10],
+    [5, 11, "B"],
+    [6, 12],
+    [7, 12],
+  ] as const)
+    expect(
+      playableIsland({
+        ...world,
+        generatorVersion,
+        version,
+        generationPreset,
+      } as any),
+    ).toBe(false);
+  expect(parsePlayableIslandCode(" ps7-0000002a ")).toEqual({
+    seed: 42,
+    generatorVersion: 7,
+  });
+  for (const code of ["PS4-0000002A", "PS5-B-0000002A", "PS6-0000002A"]) {
+    expect(() => parseIslandCode(code)).not.toThrow();
+    expect(() => parsePlayableIslandCode(code)).toThrow(/older generator/);
+  }
+});
 it("shares each preset and revision independently of the currently selected island", () => {
   for (const preset of Object.keys(PRESETS) as GenerationPreset[])
     for (const seed of [0, 1, 4294967295]) {

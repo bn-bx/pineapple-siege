@@ -25,6 +25,8 @@ export function applyApprovedGod(site, parts, sample) {
         max[k] = Math.max(max[k], q[k]);
       }
     }
+    // Only owners at the stair base anchor the support graph.
+    e.foundation = owner.foundation;
     // Foundation colliders extend into terrain; the visible approved mesh is untouched.
     if (e.foundation && sample)
       min[1] = Math.min(

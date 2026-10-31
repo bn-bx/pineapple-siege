@@ -16,8 +16,9 @@ import type {
 } from "../types";
 import {
   supportedIsland,
+  playableIsland,
   islandLink,
-  parseIslandCode,
+  parsePlayableIslandCode,
   seedCode,
   type IslandBaseline,
 } from "../world/generator.mjs";
@@ -261,7 +262,7 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
     const code = new URLSearchParams(location.search).get("island");
     if (code !== null) {
       try {
-        linkedSeed = parseIslandCode(code);
+        linkedSeed = parsePlayableIslandCode(code);
       } catch (error) {
         linkError = (error as Error).message;
         ctx.islandLinkError = linkError;
@@ -269,9 +270,14 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
       }
     }
     let save: SaveSnapshot | undefined;
+    // Older generators are no longer playable; replace them without asking.
+    const outdated =
+      !!baseline &&
+      supportedIsland(baseline.world) &&
+      !playableIsland(baseline.world);
     if (
       baseline &&
-      supportedIsland(baseline.world) &&
+      playableIsland(baseline.world) &&
       (!stored ||
         compatible(
           stored,
@@ -284,7 +290,7 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
       save = stored;
       ctx.hasSave = !!save;
     } else {
-      if (stored || baselineIssue) {
+      if ((stored || baselineIssue) && !outdated) {
         const action = await new Promise<"temporary" | "replace">((resolve) => {
           ctx.$<HTMLDialogElement>("recovery").oncancel = (e) =>
             e.preventDefault();
@@ -302,14 +308,17 @@ export async function load(ctx: IslandCoordinatorContext): Promise<void> {
       baseline = (await ctx.islandPreview.choose(
         linkedSeed,
         false,
-        ctx.saveEnabled && (!!stored || baselineIssue),
-        linkError,
+        ctx.saveEnabled && !outdated && (!!stored || baselineIssue),
+        linkError ||
+          (outdated
+            ? "Your previous island used an older generator and has been replaced."
+            : ""),
       )) as IslandBaseline;
       if (ctx.saveEnabled) {
         try {
           await ctx.store.replaceBaseline(baseline);
         } catch (error) {
-          if (stored || baselineIssue) throw error;
+          if ((stored || baselineIssue) && !outdated) throw error;
           ctx.saveEnabled = false;
           ctx.$("saveStatus").textContent =
             "Island could not be saved · temporary play";
