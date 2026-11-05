@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { markStaticCaster } from "./static-shadows";
 
 /** The god's filled interior: one owner ordinal plus one per 5 m voxel
  * (0 is air), in the god's local frame. See scripts/export-god-solid.mjs. */
@@ -193,7 +194,8 @@ export class GodWounds {
   ) {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
     this.mesh.name = "god-wounds";
-    this.mesh.castShadow = this.mesh.receiveShadow = true;
+    this.mesh.receiveShadow = true;
+    markStaticCaster(this.mesh);
   }
   remove(ordinal: number) {
     if (this.removed.has(ordinal) || !this.drawn(ordinal)) return;

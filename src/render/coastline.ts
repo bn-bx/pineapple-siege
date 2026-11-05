@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { TerrainView } from "./terrain-view";
 import { terrainSurfaceColor } from "./terrain-colors";
 import { makeCoastalSurf } from "./coastal-surf";
+import { markStaticCaster } from "./static-shadows";
 
 export type ShorePoint = readonly [number, number];
 export type ShoreSegment = readonly [ShorePoint, ShorePoint];
@@ -359,7 +360,7 @@ export class CoastlineView {
     );
     this.rocks.name = "Coastal cliffs, boulders, talus and offshore sea stacks";
     this.rocks.receiveShadow = true;
-    this.rocks.castShadow = true;
+    markStaticCaster(this.rocks);
     const foamMaterial = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,

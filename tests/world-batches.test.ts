@@ -46,12 +46,12 @@ it("matches distant crown materials and keeps nearby windows tied to day/night l
   expect(far.color).toEqual(foliage.color);
   expect(far.map).toBe(foliage.map);
   window.emissiveIntensity = 0.45;
-  view.update(new THREE.PerspectiveCamera(), 1200, 360, 220);
+  view.update(new THREE.PerspectiveCamera(), 1200, 360);
   const nearWindow = view.batches.find((b) => b.allIds.includes(1))!.mesh
     .material as THREE.MeshStandardMaterial;
   expect(nearWindow.emissiveIntensity).toBe(0.45);
   window.emissiveIntensity = 0;
-  view.update(new THREE.PerspectiveCamera(), 1200, 360, 220);
+  view.update(new THREE.PerspectiveCamera(), 1200, 360);
   expect(nearWindow.emissiveIntensity).toBe(0);
   const resources = new ResourceDisposal();
   view.dispose(resources);
@@ -79,7 +79,7 @@ it("overlaps tree LODs near the transition and preserves complementary shader fa
   expect(view.batches).toHaveLength(2);
   const camera = new THREE.PerspectiveCamera();
   camera.position.set(100, 80, 460);
-  view.update(camera, 1200, 360, 220);
+  view.update(camera, 1200, 360);
   const batch = view.batches[0];
   expect(batch.mesh.visible).toBe(true);
   expect(batch.low!.visible).toBe(true);
@@ -111,11 +111,11 @@ it("overlaps tree LODs near the transition and preserves complementary shader fa
   // Batch membership can change outside the fade band without hiding an owner
   // which is still transitioning at the edge of the detailed radius.
   camera.position.z = 1370;
-  view.update(camera, 1200, 360, 220);
+  view.update(camera, 1200, 360);
   expect(batch.low!.parent).not.toBeNull();
   expect(distant.visible).toBe(true);
   camera.position.z = 1500;
-  view.update(camera, 1200, 360, 220);
+  view.update(camera, 1200, 360);
   expect(batch.mesh.visible).toBe(false);
   const resources = new ResourceDisposal();
   view.dispose(resources);

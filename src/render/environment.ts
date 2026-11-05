@@ -4,6 +4,7 @@ import { HELL_LAVA_LEVEL } from "../config";
 import type { Material, SimulationSnapshot, WorldData } from "../types";
 import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { TerrainSunMask } from "./terrain-sun-mask";
+import { StaticShadows } from "./static-shadows";
 import { SkyReflection } from "./sky-reflection";
 import { DynamicLights } from "./dynamic-lights";
 import { CloudLayer } from "./clouds";
@@ -34,6 +35,8 @@ export class EnvironmentView {
   readonly disco: DiscoShow;
   /** Island-wide terrain and statue shadows beyond the shadow map. */
   readonly sunMask: TerrainSunMask;
+  /** Cached sun shadows for scenery that does not move. */
+  readonly staticShadows: StaticShadows;
   readonly lighting = new EnvironmentLighting();
   /** Sky-gradient reflections for metallic materials. */
   readonly skyReflection = new SkyReflection(
@@ -86,6 +89,7 @@ export class EnvironmentView {
       this.terrain,
       TerrainSunMask.statueParts(world),
     );
+    this.staticShadows = new StaticShadows(scene);
     this.installMaterial(this.terrain.material);
     // The detail-swap crossfade must be lit like the terrain it blends.
     this.installMaterial(this.terrain.transitionMaterial);
@@ -245,6 +249,7 @@ export class EnvironmentView {
   installMaterial(material: THREE.Material) {
     this.disco.install(material);
     this.sunMask.install(material);
+    this.staticShadows.install(material);
     this.skyReflection.install(material);
     this.dynamicLights.install(material);
   }
@@ -310,6 +315,7 @@ export class EnvironmentView {
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
     this.sunMask.dispose();
+    this.staticShadows.dispose();
     this.clouds.dispose();
     this.dynamicLights.halos.points.removeFromParent();
     this.dynamicLights.dispose();

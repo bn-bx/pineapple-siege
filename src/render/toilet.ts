@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { WorldData } from "../types";
 import { ResourceDisposal } from "./resource-disposal";
 import manifest from "../world/toilet-manifest.json" with { type: "json" };
+import { markStaticCaster } from "./static-shadows";
 interface Chunk {
   owner: number;
   start: number;
@@ -134,7 +135,8 @@ export class ToiletView {
     }
     this.materials.push(material);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.receiveShadow = true;
+    markStaticCaster(mesh);
     this.group.add(mesh);
     this.geometry = geometry;
     this.original = original;

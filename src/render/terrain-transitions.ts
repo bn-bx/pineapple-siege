@@ -93,6 +93,7 @@ terrainBlendDirection = terrainBlend.y;
     previous.customDepthMaterial = this.depth;
     // The old geometry now belongs to this temporary view until its fade ends.
     previous.castShadow = false;
+    previous.userData.staticShadow = false;
     previous.renderOrder = incoming.renderOrder;
     this.group.add(previous);
     this.retiring.set(key, {

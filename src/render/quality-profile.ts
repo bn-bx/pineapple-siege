@@ -6,6 +6,8 @@ export interface RenderQualityProfile {
   /** Largest sun shadow-box half-extent (m) used when flying high. */
   shadowReach: number;
   debrisShadows: boolean;
+  /** Cached static shadow map sizes: near cascade, far cascade. */
+  staticShadowSizes: readonly [number, number];
   treeDistance: number;
   cosmetics: number;
   /** Local lights from explosions and fires (0 to DYNAMIC_LIGHT_SLOTS). */
@@ -34,6 +36,15 @@ export function qualityProfile(
     shadowInterval: level < 2 ? 1 / 24 : level === 4 ? 1 / 8 : 1 / 12,
     shadowReach: [460, 460, 320, 220, 220][level],
     debrisShadows: level < 2,
+    staticShadowSizes: (
+      [
+        [2048, 2048],
+        [2048, 2048],
+        [2048, 1024],
+        [1024, 1024],
+        [1024, 1024],
+      ] as const
+    )[level],
     treeDistance: [360, 360, 300, 240, 160][level],
     cosmetics: [1, 1, 0.75, 0.5, 0.35][level],
     dynamicLights: [8, 8, 6, 4, 2][level],

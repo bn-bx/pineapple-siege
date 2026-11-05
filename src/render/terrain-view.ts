@@ -13,6 +13,7 @@ import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { markStaticCaster } from "./static-shadows";
 import type { WorldData, TerrainPatch } from "../types";
 import { CONFIG, CHUNKS, clamp, DEFAULT_RENDER_DISTANCE } from "../config";
 interface Chunk {
@@ -25,8 +26,6 @@ interface Chunk {
 }
 export class TerrainView {
   surfaceRevision = 0;
-  /** Chunks nearer the camera than this cast sun shadows (set per frame). */
-  shadowCasterDistance = 260;
   readonly group = new THREE.Group();
   readonly chunks: Chunk[] = [];
   readonly flood: Uint8Array;
@@ -227,7 +226,8 @@ export class TerrainView {
         let mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
         mesh.matrixAutoUpdate = false;
         mesh.receiveShadow = true;
-        mesh.castShadow = true;
+        // Terrain casts into the cached static shadow maps.
+        markStaticCaster(mesh);
 
         this.chunks.push({
           mesh,
@@ -406,7 +406,6 @@ export class TerrainView {
         (c.id % CHUNKS) * 64 + 32 - camera.x,
         Math.floor(c.id / CHUNKS) * 64 + 32 - camera.z,
       );
-      c.mesh.castShadow = d < this.shadowCasterDistance;
       c.mesh.visible = d < renderDistance + 64 && c.step !== 0;
       if (d < renderDistance + 100) visible.push({ c, d });
       else if (d > renderDistance + 500 && c.step !== 0) {
@@ -550,11 +549,6 @@ export class TerrainView {
           if (dirty) this.dirtyTiles.add(key);
           const tile = this.tiles.get(key);
           if (tile) {
-            tile.mesh.castShadow =
-              Math.hypot(x * 256 + 128 - camera.x, z * 256 + 128 - camera.z) <
-              (this.shadowCasterDistance <= 260
-                ? 400
-                : this.shadowCasterDistance + 181);
             if (!tile.mesh.parent) {
               this.transitions.replace(key, tile.mesh, this.coarseTile(key));
               this.group.add(tile.mesh);
@@ -647,6 +641,7 @@ export class TerrainView {
         const mesh = new THREE.Mesh(g, this.material);
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
+        markStaticCaster(mesh);
         this.tiles.set(
           r.tile,
           (tile = { mesh, signature: "", members: new Set() }),
@@ -942,6 +937,7 @@ export class TerrainView {
           const mesh = new THREE.Mesh(geometry, this.material);
           mesh.matrixAutoUpdate = false;
           mesh.receiveShadow = true;
+          markStaticCaster(mesh);
           this.group.add(mesh);
           this.tiles.set(key, (tile = { mesh, signature, members: new Set() }));
         }
@@ -949,7 +945,6 @@ export class TerrainView {
         tile.members = new Set(group.chunks.map((c) => c.id));
         merged++;
       }
-      if (tile) tile.mesh.castShadow = group.distance < this.shadowCasterDistance;
       for (const c of group.chunks) {
         c.mesh.visible = !tile?.members.has(c.id);
         if (c.mesh.visible && c.mesh.parent !== this.group)

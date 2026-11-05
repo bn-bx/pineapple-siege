@@ -178,6 +178,11 @@ export class GameRenderer {
 
   private nextShadow = 0;
   private shadowDirty = true;
+  /** Three's shadow render without the per-frame timing wrapper. */
+  private rawShadowRender!: THREE.WebGLShadowMap["render"];
+  /** Static cascade work queued for the next scene render. */
+  private staticShadowJob?: () => void;
+  private readonly staticView = new THREE.Vector3();
   private lightingHour = NaN;
   private lastArrival = 0;
   private reducedEffects = false;
@@ -350,7 +355,16 @@ export class GameRenderer {
     const shadowRender = this.renderer.shadowMap.render.bind(
       this.renderer.shadowMap,
     );
+    this.rawShadowRender = shadowRender;
     this.renderer.shadowMap.render = (lights, scene, camera) => {
+      // Static cascades must draw inside a scene render: three's shadow pass
+      // relies on that render's state. Run the queued job before the
+      // per-frame map, which then sees the restored caster flags.
+      if (scene === this.scene && this.staticShadowJob) {
+        const job = this.staticShadowJob;
+        this.staticShadowJob = undefined;
+        job();
+      }
       const updating = this.renderer.shadowMap.needsUpdate,
         started = performance.now(),
         programsBefore = this.renderer.info.programs?.length ?? 0;
@@ -443,6 +457,14 @@ export class GameRenderer {
           this.environment.installMaterial(item);
     });
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
+    // Moving actors receive the cached scenery shadows (flying through a
+    // castle's shadow) without the other scenery-only lighting hooks.
+    this.scene.traverse((object) => {
+      const material = (object as THREE.Mesh).material;
+      if (material)
+        for (const item of Array.isArray(material) ? material : [material])
+          this.environment.staticShadows.install(item);
+    });
     if (world.portal) {
       this.portal = new PortalView(world);
       this.scene.add(this.portal.group);
@@ -670,6 +692,9 @@ export class GameRenderer {
       }
       mark("compileWaitMS");
       if (this.disposed || this.graphicsLost) return;
+      // Draw every static cascade now so scenery shadow programs compile
+      // during warmup rather than on the first redraw in flight.
+      this.updateStaticShadows(this.camera.position, true);
       this.renderer.shadowMap.needsUpdate = true;
       this.renderer.render(this.scene, this.camera);
       mark("shadowAndSceneWarmMS");
@@ -731,6 +756,8 @@ export class GameRenderer {
           (mesh as THREE.InstancedMesh).dispose();
       }
       terrainWarmGeometry?.dispose();
+      // Warmup drew the cached maps with every object forced visible.
+      this.environment?.staticShadows.invalidate();
     }
   }
   setCRTMode(mode: CRTMode) {
@@ -2076,12 +2103,6 @@ export class GameRenderer {
       this.environment.sunMask.computeMS,
     );
     this.performance.queues.sunMaskJobs = this.environment.sunMask.jobs;
-    // The original box keeps its original caster radii; larger boxes widen
-    // them to the box's reach so distant terrain and buildings cast too.
-    const shadowGrown = this.environment.shadowExtent > 0;
-    this.terrain.shadowCasterDistance = shadowGrown
-      ? this.environment.shadowReach
-      : 260;
     const terrainStarted = performance.now();
     this.terrain.update(
       this.camera.position,
@@ -2107,13 +2128,10 @@ export class GameRenderer {
         this.camera,
         this.renderDistance,
         this.visualProfile.treeDistance,
-        shadowGrown
-          ? this.environment.shadowReach
-          : this.visualProfile.name === "Recovery"
-            ? 140
-            : 220,
       );
     }
+    // Static scenery shadows: cached maps, redrawn only when needed.
+    this.updateStaticShadows(position);
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowDirty = false;
@@ -2215,7 +2233,9 @@ export class GameRenderer {
     this.performance.queues.sceneWidth = this.presentation.size[0];
     this.performance.queues.postProcessing = this.presentation.passCount;
     this.performance.queues.renderTargetBytes =
-      this.presentation.targetBytes + this.sun.shadow.mapSize.x ** 2 * 8;
+      this.presentation.targetBytes +
+      this.sun.shadow.mapSize.x ** 2 * 8 +
+      this.environment.staticShadows.bytes;
     if (this.resourceTracking && this.elapsed >= this.nextResources) {
       Object.assign(
         this.performance.queues,
@@ -2313,6 +2333,7 @@ export class GameRenderer {
     this.gpu.contextRestored();
     this.terrain.fullTextureUpload();
     this.renderer.shadowMap.needsUpdate = true;
+    this.environment.staticShadows.invalidate();
     this.resize();
     await this.prewarm();
   }
@@ -2344,6 +2365,50 @@ export class GameRenderer {
         "image/png",
       ),
     );
+  }
+  /**
+   * Redraws at most one cached static shadow cascade. `all` draws every
+   * cascade at once (warmup), so scenery shadow programs compile up front.
+   */
+  private updateStaticShadows(position: THREE.Vector3, all = false) {
+    const shadows = this.environment?.staticShadows;
+    if (!shadows) return;
+    shadows.setSizes(this.visualProfile.staticShadowSizes);
+    const focus = position.clone();
+    const ground = Math.max(0, this.terrain.sample(focus.x, focus.z));
+    const view = this.camera.getWorldDirection(this.staticView).clone();
+    const light = this.lighting.lightDirection.clone();
+    const worldRevision =
+      this.worldView.removedRevision + this.terrain.surfaceRevision * 4096;
+    const elapsed = this.elapsed;
+    this.staticShadowJob = () => {
+      const before = shadows.renders;
+      shadows.update(
+        // The shadow map skips work unless asked; keep any pending dynamic
+        // request intact around the static draw.
+        (lights, scene, camera) => {
+          const pending = this.renderer.shadowMap.needsUpdate;
+          this.renderer.shadowMap.needsUpdate = true;
+          this.rawShadowRender(lights, scene, camera);
+          this.renderer.shadowMap.needsUpdate = pending;
+        },
+        this.camera,
+        {
+          focus,
+          ground,
+          view,
+          light,
+          worldRevision,
+          elapsed,
+          now: performance.now() / 1000,
+        },
+        all,
+      );
+      if (shadows.renders !== before)
+        this.performance.record("staticShadowSubmit", shadows.lastMS);
+      this.performance.queues.staticShadowRenders = shadows.renders;
+      this.performance.queues.staticShadowCasters = shadows.lastCasters;
+    };
   }
   inspectCamera(p: number[], target: number[]) {
     this.inspect = {

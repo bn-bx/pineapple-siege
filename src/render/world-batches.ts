@@ -4,6 +4,7 @@ import { installTreeLOD, TREE_LOD_FADE } from "./tree-lod";
 import { installSceneryLOD, SCENERY_LOD_FADE } from "./scenery-lod";
 import { ApprovedGodView } from "./approved-god";
 import { ToiletView } from "./toilet";
+import { markStaticCaster } from "./static-shadows";
 import { statueRole } from "../statue-reaction";
 import type { StatueReaction } from "../types";
 import { isRoof } from "../debris-shape";
@@ -47,6 +48,8 @@ export class WorldBatches {
   private sceneryDistance = { value: 1200 };
   readonly refs = new Map<number, { batch: Batch; index: number }[]>();
   readonly removed = new Set<number>();
+  /** Bumped whenever `removed` changes, so derived views can refresh cheaply. */
+  removedRevision = 0;
   readonly flagGroup = new THREE.Group();
   readonly horizon: IslandHorizon;
   readonly approvedGod: ApprovedGodView;
@@ -215,7 +218,9 @@ export class WorldBatches {
       ) => {
         material = nearMaterial(material);
         let mesh = new THREE.InstancedMesh(geo, material, list.length);
-        mesh.castShadow = mesh.receiveShadow = true;
+        mesh.receiveShadow = true;
+        // Scenery casts into the cached static shadow maps, not the per-frame one.
+        markStaticCaster(mesh);
         mesh.customDepthMaterial = nearDepth(material);
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         let batch: Batch = {
@@ -234,6 +239,7 @@ export class WorldBatches {
             list.length,
           );
           batch.low.receiveShadow = true;
+          markStaticCaster(batch.low);
           batch.low.customDepthMaterial = nearDepth(
             batch.low.material as THREE.Material,
           );
@@ -364,6 +370,7 @@ export class WorldBatches {
   }
   remove(id: number) {
     this.removed.add(id);
+    this.removedRevision++;
     this.approvedGod.remove(id);
     this.toilet.remove(id);
     this.horizon.remove(id);
@@ -401,6 +408,7 @@ export class WorldBatches {
   }
   restore(removed: number[]) {
     this.removed.clear();
+    this.removedRevision++;
     this.approvedGod.restore(removed);
     this.toilet.restore(removed);
     this.horizon.restore([]);
@@ -449,7 +457,6 @@ export class WorldBatches {
     camera: THREE.PerspectiveCamera,
     renderDistance: number,
     treeDistance: number,
-    shadowDistance: number,
   ) {
     this.treeLODCamera.value.set(camera.position.x, camera.position.z);
     this.treeLODDistance.value = treeDistance;
@@ -459,7 +466,6 @@ export class WorldBatches {
         this.materials.window.emissiveIntensity;
     for (const b of this.batches) {
       let d = Math.hypot(b.x - camera.position.x, b.z - camera.position.z);
-      b.mesh.castShadow = d < shadowDistance;
       if (b.low) {
         b.mesh.visible = d < treeDistance + TREE_LOD_FADE + b.radius;
         b.low.visible =

@@ -91,13 +91,14 @@ export function snapShadowCenter(
 /**
  * Leads the box ahead of the aircraft along the camera's horizontal view, so
  * the visible ground gets coverage while the aircraft stays inside the box.
+ * Every size leads: a centred box spends half its texels on ground behind the
+ * camera. The static shadow cascades lead the same way.
  */
 export function leadShadowCenter(
   center: Vector3,
   viewDirection: Vector3,
   half: number,
 ) {
-  if (half <= SHADOW_HALF_EXTENTS[0]) return center;
   // A unit view vector's horizontal part shrinks as the camera looks down:
   // looking straight down needs no lead; looking level leads the most.
   const length = Math.hypot(viewDirection.x, viewDirection.y, viewDirection.z);

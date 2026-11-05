@@ -123,7 +123,7 @@ it("matches Three's shadow camera basis so snapped texels stay put as the box mo
   }
 });
 
-it("leads larger boxes along the view but keeps the aircraft inside", () => {
+it("leads every box along the view but keeps the aircraft inside", () => {
   const half = 660;
   const level = leadShadowCenter(
     new THREE.Vector3(0, 0, 0),
@@ -143,7 +143,8 @@ it("leads larger boxes along the view but keeps the aircraft inside", () => {
     new THREE.Vector3(1, 0, 0),
     SHADOW_HALF_EXTENTS[0],
   );
-  expect(near.x).toBe(5); // The original box is not moved.
+  // The smallest box leads too, so it does not spend texels behind the camera.
+  expect(near.x).toBeCloseTo(5 + SHADOW_HALF_EXTENTS[0] * 0.5);
 });
 
 it("keeps the original world-space bias for the smallest box and scales it up", () => {

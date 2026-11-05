@@ -1,5 +1,5 @@
 {
-  "release": "sky-arc-clouds-open-sea-2026-11-04",
+  "release": "cached-static-scenery-shadows-2026-11-05",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -80,7 +80,8 @@
     "solid-pineapple-god-interior-and-stone-wounds",
     "arcing-sun-and-orbiting-phased-moon",
     "drifting-sky-clouds-and-cloud-deck-from-above",
-    "open-sea-flight-margin-and-4500m-ceiling"
+    "open-sea-flight-margin-and-4500m-ceiling",
+    "cached-static-scenery-shadow-cascades"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

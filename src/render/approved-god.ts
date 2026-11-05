@@ -8,6 +8,7 @@ import {
   type SolidMeta,
 } from "./god-solid";
 import manifest from "../world/approved-god-manifest.json" with { type: "json" };
+import { markStaticCaster } from "./static-shadows";
 interface Chunk {
   owner: number;
   start: number;
@@ -198,7 +199,8 @@ export class ApprovedGodView {
         THREE.BufferGeometry,
         THREE.Material | THREE.Material[]
       >(geometry, material);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.receiveShadow = true;
+      markStaticCaster(mesh);
       this.group.add(mesh);
       for (const c of chunks) {
         const id = this.owners.get(c.owner)!,
