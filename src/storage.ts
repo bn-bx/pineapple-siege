@@ -483,6 +483,7 @@ export function compatible(
         s.moving.count >= 0 &&
         s.moving.buffer.byteLength >= s.moving.count * 50)) &&
     Number.isFinite(s.hour) &&
+    (s.day === undefined || Number.isFinite(s.day)) &&
     Number.isFinite(s.laserCooldown) &&
     s.laserCooldown >= 0 &&
     s.laserDry instanceof Uint32Array &&

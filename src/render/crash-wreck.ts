@@ -16,7 +16,11 @@ export class CrashWreckView {
     landed: boolean;
   }[] = [];
   private cursor = 0;
-  constructor(private aircraft: THREE.Group) {}
+  /** `margin`: metres a wreck may lie beyond the terrain square (open sea). */
+  constructor(
+    private aircraft: THREE.Group,
+    private margin = 0,
+  ) {}
   update(
     plane: PlaneState,
     time: number,
@@ -79,8 +83,10 @@ export class CrashWreckView {
           .addScaledVector(h.velocity, Math.min(age, 2));
         h.mesh.position.y -= 11 * age * age;
       }
-      h.mesh.position.x = clamp(h.mesh.position.x, 1, CONFIG.worldSize - 1);
-      h.mesh.position.z = clamp(h.mesh.position.z, 1, CONFIG.worldSize - 1);
+      const lo = 1 - this.margin,
+        hi = CONFIG.worldSize + this.margin - 1;
+      h.mesh.position.x = clamp(h.mesh.position.x, lo, hi);
+      h.mesh.position.z = clamp(h.mesh.position.z, lo, hi);
       const floor = ground(h.mesh.position.x, h.mesh.position.z) + h.clearance;
       if (h.mesh.position.y <= floor || h.landed) {
         h.mesh.position.y = floor;

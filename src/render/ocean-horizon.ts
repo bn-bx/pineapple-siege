@@ -15,6 +15,7 @@ export function oceanHorizon(height: number) {
 /** Shared linear colors keep the finite water mesh invisible at its far edge. */
 import { AERIAL_FOG_START } from "./aerial-fog";
 import { SKY_BODIES_GLSL } from "./sky-bodies";
+import { CLOUD_SKY_GLSL } from "./clouds";
 
 export const OCEAN_BACKGROUND_GLSL = `
 uniform vec3 sun,zenithColor,horizonColor,waterColor;
@@ -22,6 +23,7 @@ uniform float laserDim,horizonDip,oceanEnabled,oceanBlendEnd;
 // Aerial haze matching AerialFog (0 density disables it, e.g. in Hell).
 uniform float hazeDensity,hazeScale;
 ${SKY_BODIES_GLSL}
+${CLOUD_SKY_GLSL}
 vec3 oceanBackground(vec3 d){
   vec3 sky=mix(zenithColor,horizonColor,pow(1.-max(d.y,0.),3.));
   // For a sphere tangent to local sea level, a ray hits water below -dip.
@@ -41,6 +43,7 @@ vec3 oceanBackground(vec3 d){
       *max(seaDistance-${AERIAL_FOG_START.toFixed(1)},0.);
     water=mix(water,horizonColor,1.-exp(-optical));
   }
-  return mix(sky,water,sea)*(1.-laserDim);
+  // Clouds above (from below the layer) or over the far sea (from above it).
+  return skyClouds(d,mix(sky,water,sea))*(1.-laserDim);
 }
 `;

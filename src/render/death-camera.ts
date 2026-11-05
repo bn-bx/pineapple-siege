@@ -65,9 +65,11 @@ export function clearDeathCamera(
   size: number,
   surface: (x: number, z: number) => number,
   obstacles: Iterable<THREE.Box3>,
+  /** Metres the camera may stray beyond each edge of the [0, size] square. */
+  margin = 0,
 ) {
-  desired.x = THREE.MathUtils.clamp(desired.x, 3, size - 3);
-  desired.z = THREE.MathUtils.clamp(desired.z, 3, size - 3);
+  desired.x = THREE.MathUtils.clamp(desired.x, 3 - margin, size + margin - 3);
+  desired.z = THREE.MathUtils.clamp(desired.z, 3 - margin, size + margin - 3);
   const delta = new THREE.Vector3();
   const ray = new THREE.Ray(previous, new THREE.Vector3()),
     hit = new THREE.Vector3();

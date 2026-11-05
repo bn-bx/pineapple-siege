@@ -433,6 +433,8 @@ export interface SimulationSnapshot {
   time: number;
   plane: PlaneState;
   hour: number;
+  /** Whole game days elapsed; advances the moon. */
+  day?: number;
   aim: Vec3 | null;
   weapon: WeaponId;
   nukeYield: NukeYield;
@@ -529,6 +531,7 @@ export interface SaveSnapshot {
   seed: number;
   revision: number;
   hour: number;
+  day?: number;
   // Packed [sample index, height, ...]; accept older version-3 tuple saves on read.
   terrain: Float32Array | [number, number][];
   removed: number[];

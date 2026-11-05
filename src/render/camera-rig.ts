@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { CONFIG } from "../config";
 import type { CameraMode } from "../types";
 export class CameraRig {
+  /** Photo-mode box: metres beyond the terrain square, and the highest point. */
+  photoBounds = { margin: 0, ceiling: 900 };
   mode: CameraMode = "chase";
   deathShot?: DeathCamera;
   beginDeath(
@@ -79,20 +81,21 @@ export class CameraRig {
             dt * (keys.has("ShiftLeft") || keys.has("ShiftRight") ? 160 : 35),
           ),
       );
+    const { margin, ceiling } = this.photoBounds;
     this.photoPosition.x = THREE.MathUtils.clamp(
       this.photoPosition.x,
-      0,
-      CONFIG.worldSize,
+      -margin,
+      CONFIG.worldSize + margin,
     );
     this.photoPosition.z = THREE.MathUtils.clamp(
       this.photoPosition.z,
-      0,
-      CONFIG.worldSize,
+      -margin,
+      CONFIG.worldSize + margin,
     );
     this.photoPosition.y = THREE.MathUtils.clamp(
       this.photoPosition.y,
       -CONFIG.laserBedrock - 200,
-      900,
+      ceiling,
     );
   }
   cinematic(position: THREE.Vector3, forward: THREE.Vector3, dt: number) {

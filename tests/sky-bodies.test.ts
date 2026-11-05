@@ -3,20 +3,50 @@ import { EnvironmentLighting } from "../src/render/environment-lighting";
 import { OCEAN_BACKGROUND_GLSL } from "../src/render/ocean-horizon";
 import { SKY_BODIES_GLSL, SUN_RADIUS, MOON_RADIUS } from "../src/render/sky-bodies";
 
-it("gives the moon its own path instead of mirroring the sun", () => {
+it("gives the moon its own orbit instead of mirroring the sun", () => {
   const l = new EnvironmentLighting();
-  for (let hour = 0; hour < 24; hour += 0.5) {
-    l.update(hour);
-    const sun = l.sunDirection, moon = l.moonDirection;
-    expect(Math.abs(moon.length() - 1)).toBeLessThan(1e-6);
-    // Roughly opposite (so it rises as the sun sets), but never exactly.
-    const dot = sun.dot(moon);
-    expect(dot).toBeLessThan(-0.6);
-    // (Overhead sun or moon is the one exactly opposite case.)
-    if (Math.abs(sun.y) < 0.95) expect(dot).toBeGreaterThan(-0.9999);
-    // Up exactly when the sun is down.
-    expect(moon.y * sun.y).toBeLessThanOrEqual(0);
-    expect(Math.abs(moon.y + sun.y)).toBeLessThan(1e-9);
+  // First hour after `from` at which the moon clears the horizon.
+  const moonrise = (day: number, from = 0) => {
+    let wasUp = true;
+    for (let h = from; h < from + 30; h += 0.02) {
+      l.update(h % 24, day + Math.floor(h / 24));
+      const up = l.moonDirection.y > 0;
+      if (up && !wasUp) return h;
+      wasUp = up;
+    }
+    return NaN;
+  };
+  const day0 = moonrise(0),
+    day1 = moonrise(1);
+  // About 3 hours later each day (24 h / 8-day cycle).
+  expect(day1 - day0).toBeGreaterThan(2);
+  expect(day1 - day0).toBeLessThan(4.5);
+  let mirrored = true,
+    upByDay = false;
+  const phases = new Set<number>();
+  for (let day = 0; day < 8; day++)
+    for (let hour = 0; hour < 24; hour += 0.5) {
+      l.update(hour, day);
+      const sun = l.sunDirection,
+        moon = l.moonDirection;
+      expect(Math.abs(moon.length() - 1)).toBeLessThan(1e-6);
+      if (Math.abs(moon.y + sun.y) > 0.05) mirrored = false;
+      if (sun.y > 0.3 && moon.y > 0.1) upByDay = true;
+      phases.add(Math.round(l.moonIllumination * 4));
+    }
+  expect(mirrored).toBe(false);
+  expect(upByDay).toBe(true);
+  // New through full over the cycle.
+  expect(phases).toEqual(new Set([0, 1, 2, 3, 4]));
+});
+
+it("keeps nights dark at new moon", () => {
+  const l = new EnvironmentLighting();
+  // Elongation 95 deg + 45 deg/day: new moon (360 deg) falls on day 5 + 21 h.
+  for (let hour = 0; hour < 5.5; hour += 0.5) {
+    l.update(hour, 6);
+    expect(l.moonIllumination).toBeLessThan(0.05);
+    expect(l.sunIntensity).toBeLessThan(0.03);
   }
 });
 
@@ -46,6 +76,7 @@ it("warms the sun toward orange near the horizon", () => {
 it("draws sun, moon and stars in the sky but skips them for open water", () => {
   expect(OCEAN_BACKGROUND_GLSL).toContain(SKY_BODIES_GLSL);
   expect(OCEAN_BACKGROUND_GLSL).toContain("if(sea<1.) sky=skyBodies(d,sky);");
+  expect(OCEAN_BACKGROUND_GLSL).toContain("return skyClouds(d,mix(sky,water,sea))");
   // The old flat dot (the sun mirrored as the moon) is gone.
   expect(OCEAN_BACKGROUND_GLSL).not.toContain("sun.y>=0.?sun:-sun");
   expect(SUN_RADIUS).toBeGreaterThan(0.004);

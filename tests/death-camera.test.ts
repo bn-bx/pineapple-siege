@@ -74,3 +74,14 @@ it("clears swept buildings, terrain ridges, water and world bounds without short
   clearDeathCamera(edge, new THREE.Vector3(3, 20, 9213), 9216, () => 0, []);
   expect(edge.toArray()).toEqual([3, 10, 9213]);
 });
+
+it("lets the camera follow a crash beyond the island when given a margin", async () => {
+  const THREE = await import("three");
+  const { clearDeathCamera } = await import("../src/render/death-camera");
+  const p = new THREE.Vector3(-2000, 40, 500);
+  clearDeathCamera(p, new THREE.Vector3(-1990, 40, 500), 9216, () => 0, [], 5000);
+  expect(p.x).toBe(-2000);
+  const far = new THREE.Vector3(-9000, 40, 500);
+  clearDeathCamera(far, new THREE.Vector3(-4990, 40, 500), 9216, () => 0, [], 5000);
+  expect(far.x).toBe(-4997);
+});

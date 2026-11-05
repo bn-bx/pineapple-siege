@@ -1,16 +1,18 @@
 import { VERTICAL_LIMITS } from "./world/vertical-limits.mjs";
+type Limits = Pick<typeof VERTICAL_LIMITS, "warning" | "assistance" | "hysteresis">;
 export class AltitudeWarning {
   warning = false;
   assistance = false;
-  update(altitude: number) {
+  /** `limits` defaults to the generation limits; the HUD passes the realm's flight limits. */
+  update(altitude: number, limits: Limits = VERTICAL_LIMITS) {
     this.warning =
-      altitude >= VERTICAL_LIMITS.warning ||
+      altitude >= limits.warning ||
       (this.warning &&
-        altitude >= VERTICAL_LIMITS.warning - VERTICAL_LIMITS.hysteresis);
+        altitude >= limits.warning - limits.hysteresis);
     this.assistance =
-      altitude >= VERTICAL_LIMITS.assistance ||
+      altitude >= limits.assistance ||
       (this.assistance &&
-        altitude >= VERTICAL_LIMITS.assistance - VERTICAL_LIMITS.hysteresis);
+        altitude >= limits.assistance - limits.hysteresis);
     return this.assistance
       ? "CEILING ASSISTANCE"
       : this.warning

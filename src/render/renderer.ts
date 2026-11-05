@@ -10,6 +10,8 @@ import {
   clamp,
   CONFIG,
   DEFAULT_RENDER_DISTANCE,
+  flightLimits,
+  insideTerrain,
   normalizeRenderDistance,
 } from "../config";
 import { isRoof } from "../debris-shape";
@@ -288,7 +290,14 @@ export class GameRenderer {
       this.buildingFire = new BuildingFireView(world);
       this.scene.add(this.buildingFire.group);
     }
-    this.crashWrecks = new CrashWreckView(this.jet);
+    this.crashWrecks = new CrashWreckView(
+      this.jet,
+      flightLimits(world.realm).margin,
+    );
+    Object.assign(this.rig.photoBounds, {
+      margin: flightLimits(world.realm).margin,
+      ceiling: Math.max(900, flightLimits(world.realm).ceiling),
+    });
     this.windowGlow = new WindowGlow(world.entities);
     if (world.realm === "hell")
       this.windowGlow.points.material.uniforms.glowColor.value.set("#ff5a20");
@@ -755,8 +764,14 @@ export class GameRenderer {
   }
   setRenderDistance(value: number) {
     this.renderDistance = normalizeRenderDistance(value);
+    // From the far flight edge to the opposite terrain corner, at the ceiling.
+    const limits = flightLimits(this.world.realm);
     this.camera.far =
-      Math.hypot(CONFIG.worldSize, CONFIG.worldSize, CONFIG.ceiling) + 512;
+      Math.hypot(
+        CONFIG.worldSize + limits.margin,
+        CONFIG.worldSize + limits.margin,
+        limits.ceiling,
+      ) + 512;
     this.camera.updateProjectionMatrix();
     this.sky.scale.setScalar((this.camera.far * 0.9) / 2500);
   }
@@ -1795,7 +1810,10 @@ export class GameRenderer {
     this.burningAircraft = p.falling
       ? this.burningAircraftPosition.copy(position)
       : undefined;
-    this.crashWrecks.update(p, snap.time, (x, z) => this.terrain.sample(x, z));
+    // Beyond the terrain square a wreck floats at sea level.
+    this.crashWrecks.update(p, snap.time, (x, z) =>
+      insideTerrain(x, z) ? this.terrain.sample(x, z) : 0,
+    );
     const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);
     for (const flame of this.jet.children) {
       if (flame.name === "flame" || flame.name === "flame-core")
@@ -1841,9 +1859,11 @@ export class GameRenderer {
               (x, z) =>
                 Math.max(
                   this.terrain.sample(x, z),
-                  this.terrain.waterSurface(x, z) ?? -Infinity,
+                  this.terrain.waterSurface(x, z) ??
+                    (insideTerrain(x, z) ? -Infinity : 0),
                 ),
               this.deathObstacles(previous, point, snap),
+              flightLimits(this.world.realm).margin,
             ),
           )
         : undefined;

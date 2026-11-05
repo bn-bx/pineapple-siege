@@ -1,6 +1,6 @@
 import { beforeAll, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { CONFIG, RAPID_FIRE_INTERVAL } from "../src/config";
+import { CONFIG, HELL_FLIGHT, RAPID_FIRE_INTERVAL, SURFACE_FLIGHT } from "../src/config";
 import {
   WeaponDriver,
   type WeaponDriverContext,
@@ -105,15 +105,46 @@ it("reaches the new throttle and boost limits with smooth acceleration", () => {
     sim.step();
   }
   expect(sim.plane.speed).toBeCloseTo(240, 2);
-  sim.plane.p = [3000, 1200, CONFIG.worldSize - 280];
+  const edge = CONFIG.worldSize + SURFACE_FLIGHT.margin;
+  sim.plane.p = [3000, 1200, edge - 280];
   sim.plane.yaw = 0;
   sim.plane.pitch = 0;
   for (let tick = 0; tick < 300; tick++) {
     sim.step();
-    expect(sim.plane.p[2]).toBeLessThan(CONFIG.worldSize);
+    expect(sim.plane.p[2]).toBeLessThan(edge);
     expect(sim.plane.crashed).toBe(0);
   }
   expect(sim.plane.boundary).toBe(false);
+  sim.dispose();
+});
+it("flies over open sea beyond the island and climbs above the clouds", () => {
+  const sim = new Simulation(world, base, () => {});
+  sim.setMonsterCount(0);
+  // Well past the terrain square, nothing steers the aircraft back yet.
+  sim.plane.p = [-3000, 300, 4000];
+  sim.plane.yaw = -Math.PI / 2;
+  sim.plane.pitch = 0;
+  for (let tick = 0; tick < 60; tick++) sim.step();
+  expect(sim.plane.boundary).toBe(false);
+  expect(sim.plane.p[0]).toBeLessThan(-3000);
+  // High altitude is allowed up to the surface ceiling, not the old 1500 m.
+  sim.plane.p = [4000, 3500, 4000];
+  sim.plane.pitch = 0.4;
+  sim.input.y = 1;
+  for (let tick = 0; tick < 120; tick++) sim.step();
+  expect(sim.plane.p[1]).toBeGreaterThan(3500);
+  expect(sim.plane.p[1]).toBeLessThan(SURFACE_FLIGHT.ceiling + 50);
+  expect(HELL_FLIGHT.ceiling).toBe(CONFIG.ceiling);
+  // Out at sea the water surface is the floor.
+  sim.input.y = 0;
+  sim.plane.p = [-2000, 60, 4000];
+  sim.plane.pitch = -0.6;
+  for (let tick = 0; tick < 120 && !sim.plane.crashed; tick++) {
+    expect(sim.plane.p[1]).toBeGreaterThan(-1);
+    sim.step();
+  }
+  expect(sim.plane.crashed).toBeGreaterThan(0);
+  expect(Math.abs(sim.plane.p[1])).toBeLessThan(5);
   sim.dispose();
 });
 it("sweeps enemy shots against jet motion without changing their five-unit hit radius", () => {

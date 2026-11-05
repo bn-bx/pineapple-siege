@@ -6,6 +6,7 @@ import { EnvironmentLighting, SKY_FRAGMENT } from "./environment-lighting";
 import { TerrainSunMask } from "./terrain-sun-mask";
 import { SkyReflection } from "./sky-reflection";
 import { DynamicLights } from "./dynamic-lights";
+import { CloudLayer } from "./clouds";
 import { makeOcean } from "./ocean";
 import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
@@ -49,6 +50,10 @@ export class EnvironmentView {
   shadowReach = SHADOW_HALF_EXTENTS[0] * Math.SQRT2;
   /** Largest half-extent the quality profile allows. */
   shadowMaxHalf: number = SHADOW_HALF_EXTENTS[0];
+  /** Laser-show dimming, shared by the sky and the cloud deck. */
+  private readonly laserDim = { value: 0 };
+  /** Drifting sky clouds (none in Hell). */
+  readonly clouds: CloudLayer;
   /** Normal-island aerial perspective; Hell keeps its own FogExp2. */
   readonly aerialFog?: AerialFog;
   private viewDirection = new THREE.Vector3();
@@ -69,6 +74,11 @@ export class EnvironmentView {
     shadowSize: number,
   ) {
     this.hell = world.realm === "hell";
+    this.clouds = new CloudLayer(!this.hell, {
+      sun: { value: this.lighting.sunDirection },
+      horizonColor: { value: this.lighting.horizonColor },
+      laserDim: this.laserDim,
+    });
     this.disco = new DiscoShow(world.size);
     this.scene.add(this.disco.group);
     this.sunMask = new TerrainSunMask(
@@ -94,6 +104,7 @@ export class EnvironmentView {
           moon: { value: this.lighting.moonDirection },
           sunTint: { value: this.lighting.sunTint },
           starStrength: { value: 0 },
+          skyDaylight: { value: 1 },
           skyTime: { value: 0 },
           zenithColor: { value: this.lighting.zenithColor },
           horizonColor: { value: this.lighting.horizonColor },
@@ -101,9 +112,10 @@ export class EnvironmentView {
           horizonDip: { value: 0 },
           oceanBlendEnd: { value: 7000 },
           oceanEnabled: { value: this.hell ? 0 : 1 },
-          laserDim: { value: 0 },
+          laserDim: this.laserDim,
           hazeDensity: { value: this.hell ? 0 : AERIAL_FOG_DENSITY },
           hazeScale: { value: AERIAL_FOG_SCALE_HEIGHT },
+          ...this.clouds.uniforms,
         },
         vertexShader:
           "varying vec3 vDirection; void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
@@ -112,7 +124,7 @@ export class EnvironmentView {
     );
     this.sky.frustumCulled = false;
     this.sky.renderOrder = -10;
-    this.scene.add(this.sky);
+    this.scene.add(this.sky, this.clouds.deck, this.clouds.whiteout);
 
     this.scene.add(this.sun, this.sun.target, this.ambient, this.dynamicLights.halos.points);
     this.water = makeOcean(
@@ -175,7 +187,7 @@ export class EnvironmentView {
     const horizon = oceanHorizon(camera.position.y);
     this.sky.material.uniforms.horizonDip.value = horizon.dip;
     this.sky.material.uniforms.oceanBlendEnd.value = horizon.blendEnd;
-    this.lighting.update(snap.hour);
+    this.lighting.update(snap.hour, snap.day ?? 0);
     if (this.hell) {
       this.lighting.zenithColor.set("#813728");
       this.lighting.horizonColor.set("#d66b39");
@@ -194,6 +206,9 @@ export class EnvironmentView {
       ? 0
       : this.lighting.starStrength * (1 - show);
     this.sky.material.uniforms.skyTime.value = snap.time;
+    this.sky.material.uniforms.skyDaylight.value = this.lighting.daylight;
+    this.clouds.update(snap.time, this.lighting);
+    this.clouds.place(camera);
     this.lighting.sunIntensity *= 1 - show * .94;
     this.lighting.ambientIntensity *= 1 - show * .65;
     this.aerialFog?.color
@@ -295,6 +310,7 @@ export class EnvironmentView {
   dispose(resources: ResourceDisposal) {
     this.sun.shadow.dispose();
     this.sunMask.dispose();
+    this.clouds.dispose();
     this.dynamicLights.halos.points.removeFromParent();
     this.dynamicLights.dispose();
     for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group, this.coastline?.group]) {

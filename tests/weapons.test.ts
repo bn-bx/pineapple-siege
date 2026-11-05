@@ -1,4 +1,4 @@
-import { BLAST_DEBRIS_LIMIT, CONFIG } from "../src/config";
+import { BLAST_DEBRIS_LIMIT, CONFIG, SURFACE_FLIGHT } from "../src/config";
 import { beforeAll, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -44,7 +44,7 @@ it("turns screen-right for positive pointer or D input and retains boundary assi
   s.input.bank = 1;
   s.step();
   expect(s.plane.yaw).toBeLessThan(0);
-  s.plane.p = [100, 350, 1024];
+  s.plane.p = [100 - SURFACE_FLIGHT.margin, 350, 1024];
   s.plane.yaw = 0;
   s.step();
   expect(s.plane.yaw).toBeGreaterThan(0);

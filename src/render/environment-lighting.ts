@@ -23,12 +23,44 @@ const palette = {
   sunLow: new Color("#ff8326"),
 };
 
+/** Observer latitude: the sun arcs through the southern sky, peaking at 68 deg. */
+export const LATITUDE = MathUtils.degToRad(22);
+/** Game days per lunar cycle; the moon rises about 3 h later each day. */
+export const LUNAR_DAYS = 8;
+/** Sun-moon elongation at day 0, hour 0: a waxing gibbous moon, up by mid-afternoon. */
+export const MOON_START_ELONGATION = MathUtils.degToRad(95);
+/** Largest lunar declination swing, so the moon's arc differs from the sun's. */
+const MOON_DECLINATION = MathUtils.degToRad(18);
+/** World directions of local east (where the sun rises) and north. */
+const EAST = new Vector3(0.8, 0, 0.5).normalize();
+const NORTH = new Vector3(EAST.z, 0, -EAST.x);
+
 /**
- * The moon rides opposite the sun, swung this far around the vertical so it
- * isn't exactly anti-solar: it then shows a gibbous phase and rises later than
- * sunset, which reads as a moon rather than a mirrored sun.
+ * Direction to a body at the given hour angle (0 = due south at its
+ * highest; negative = rising in the east) and declination, as seen from
+ * LATITUDE, in world space.
  */
-export const MOON_AZIMUTH_OFFSET = 0.45;
+export function celestialDirection(
+  hourAngle: number,
+  declination: number,
+  out: Vector3,
+) {
+  const cd = Math.cos(declination),
+    sd = Math.sin(declination),
+    cl = Math.cos(LATITUDE),
+    sl = Math.sin(LATITUDE),
+    ch = Math.cos(hourAngle);
+  const east = -cd * Math.sin(hourAngle),
+    north = cl * sd - sl * cd * ch,
+    up = sl * sd + cl * cd * ch;
+  return out
+    .set(
+      EAST.x * east + NORTH.x * north,
+      up,
+      EAST.z * east + NORTH.z * north,
+    )
+    .normalize();
+}
 
 /** Reused colors/uniform values: hour is authoritative, including in photo mode. */
 export class EnvironmentLighting {
@@ -38,6 +70,8 @@ export class EnvironmentLighting {
   readonly lightDirection = new Vector3();
   /** Sun disc and glow tint: white-gold by day, deep orange at the horizon. */
   readonly sunTint = new Color();
+  /** Lit fraction of the moon's disc (0 new, 1 full). */
+  moonIllumination = 0;
   /** 0 by day, 1 in full night: drives star visibility. */
   starStrength = 0;
   readonly sunColor = new Color();
@@ -52,23 +86,34 @@ export class EnvironmentLighting {
   sunIntensity = 3;
   ambientIntensity = 1.8;
 
-  update(hour: number) {
-    const angle = ((hour - 6) / 24) * Math.PI * 2;
-    this.sunDirection
-      .set(Math.cos(angle) * 0.8, Math.sin(angle), Math.cos(angle) * 0.5)
-      .normalize();
+  /** `day` counts whole game days; it advances the moon's phase and rise time. */
+  update(hour: number, day = 0) {
+    const hourAngle = ((hour - 12) / 24) * Math.PI * 2;
+    celestialDirection(hourAngle, 0, this.sunDirection);
     const height = this.sunDirection.y;
     this.daylight = MathUtils.smoothstep(height, -0.18, 0.24);
     this.twilight =
       (1 - MathUtils.smoothstep(Math.abs(height), 0.04, 0.42)) *
       MathUtils.smoothstep(height, -0.25, -0.04);
     this.night = 1 - MathUtils.smoothstep(height, -0.08, 0.18);
-    const c = Math.cos(MOON_AZIMUTH_OFFSET),
-      s = Math.sin(MOON_AZIMUTH_OFFSET),
-      mx = -this.sunDirection.x,
-      mz = -this.sunDirection.z;
-    this.moonDirection.set(mx * c - mz * s, -this.sunDirection.y, mx * s + mz * c);
-    this.lightDirection.copy(height < 0 ? this.moonDirection : this.sunDirection);
+    // The moon falls behind the sun by a growing angle each day.
+    const elongation =
+      MOON_START_ELONGATION + (Math.PI * 2 * (day + hour / 24)) / LUNAR_DAYS;
+    celestialDirection(
+      hourAngle - elongation,
+      MOON_DECLINATION * Math.sin(elongation * 0.5 + 1),
+      this.moonDirection,
+    );
+    this.moonIllumination = (1 - Math.cos(elongation)) / 2;
+    const moonHeight = this.moonDirection.y;
+    if (height > 0) this.lightDirection.copy(this.sunDirection);
+    else if (moonHeight > 0) this.lightDirection.copy(this.moonDirection);
+    else {
+      // Nothing is up (intensity is 0); keep shadows pointing down from the sky.
+      this.lightDirection.copy(this.moonDirection);
+      this.lightDirection.y = 0.05;
+      this.lightDirection.normalize();
+    }
     // Low sun passes through more air: redder disc and wider, warmer glow.
     const low = 1 - MathUtils.smoothstep(height, 0.02, 0.35);
     this.sunTint.copy(palette.sunDisc).lerp(palette.sunLow, low);
@@ -96,7 +141,14 @@ export class EnvironmentLighting {
     // The light switches from sun to moon as the sun crosses the horizon;
     // fading it out on both sides hides the jump in shadow direction.
     const handoff = MathUtils.smoothstep(Math.abs(height), 0.005, 0.07);
-    this.sunIntensity = (0.55 + this.daylight * 2.45) * handoff;
+    // By night the moon lights the island according to its phase and height.
+    this.sunIntensity =
+      height > 0
+        ? (0.55 + this.daylight * 2.45) * handoff
+        : 0.55 *
+          handoff *
+          this.moonIllumination *
+          MathUtils.smoothstep(moonHeight, 0.005, 0.07);
     this.ambientIntensity = 0.72 + this.daylight * 0.23;
   }
 }

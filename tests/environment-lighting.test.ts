@@ -31,3 +31,38 @@ it("coordinates smooth, periodic lighting through sunrise, sunset and night", ()
     expect(Math.abs(night - lighting.night)).toBeLessThan(0.002);
   }
 });
+
+it("arcs the sun from east through the southern sky to west", () => {
+  const lighting = new EnvironmentLighting();
+  const azimuth = () =>
+    Math.atan2(lighting.sunDirection.x, lighting.sunDirection.z);
+  lighting.update(6.05);
+  const rise = lighting.sunDirection.clone().setY(0).normalize();
+  lighting.update(17.95);
+  const set = lighting.sunDirection.clone().setY(0).normalize();
+  // Rises and sets on opposite sides of the sky.
+  expect(rise.dot(set)).toBeLessThan(-0.99);
+  // The azimuth sweeps steadily instead of sitting still and flipping.
+  let previous: number | undefined;
+  let travelled = 0;
+  for (let hour = 6.1; hour <= 17.9; hour += 0.1) {
+    lighting.update(hour);
+    const a = azimuth();
+    if (previous !== undefined) {
+      const step = Math.atan2(Math.sin(a - previous), Math.cos(a - previous));
+      expect(Math.abs(step)).toBeLessThan(0.2);
+      travelled += step;
+    }
+    previous = a;
+  }
+  expect(Math.abs(travelled)).toBeGreaterThan(Math.PI * 0.9);
+  // Noon is high in the south, not overhead.
+  lighting.update(12);
+  expect(lighting.sunDirection.y).toBeGreaterThan(0.85);
+  expect(lighting.sunDirection.y).toBeLessThan(0.97);
+  // Same moment, two ways: hour 24 of day 0 is hour 0 of day 1.
+  lighting.update(24, 0);
+  const a = lighting.moonDirection.clone();
+  lighting.update(0, 1);
+  expect(lighting.moonDirection.distanceTo(a)).toBeLessThan(1e-9);
+});

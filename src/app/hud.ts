@@ -3,7 +3,7 @@ import {
   BLAST_COSMETIC_LIMIT,
   BLAST_DEBRIS_LIMIT,
   clamp,
-  CONFIG,
+  flightLimits,
   GRAVITY_BOMB,
   LASER,
   RAPID_FIRE_INTERVAL,
@@ -53,11 +53,12 @@ export function updateHUD(ctx: HudContext, now: number): void {
       Math.round(p.p[1] - ctx.view.terrain.sample(p.p[0], p.p[2])),
     ).toString();
     if (p.crashed > 0) ctx.altitudeWarning.reset();
-    const ceilingMessage = ctx.altitudeWarning.update(p.p[1]);
+    const limits = flightLimits(ctx.world.realm);
+    const ceilingMessage = ctx.altitudeWarning.update(p.p[1], limits);
     ctx.$("ceilingWarning").hidden =
       !ctx.session.active || p.crashed > 0 || !ceilingMessage;
     ctx.$("ceilingWarning").textContent = ceilingMessage
-      ? `${ceilingMessage} · ${Math.round(p.p[1])} M ${hell ? "FROM CEILING" : "ABOVE SEA LEVEL"} · LIMIT ${CONFIG.ceiling} M`
+      ? `${ceilingMessage} · ${Math.round(p.p[1])} M ${hell ? "FROM CEILING" : "ABOVE SEA LEVEL"} · LIMIT ${limits.ceiling} M`
       : "";
     ctx.$("throttleFill").style.height =
       clamp(((p.speed - 35) / 85) * 100, 5, 100) + "%";

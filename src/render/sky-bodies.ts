@@ -3,8 +3,9 @@
  *
  * - Sun: a bright disc with limb darkening and a two-lobe glow; the tint
  *   warms toward orange as the sun nears the horizon and the glow widens.
- * - Moon: its own direction (see MOON_AZIMUTH_OFFSET), lit by the sun so it
+ * - Moon: its own orbit (see EnvironmentLighting), lit by the sun so it
  *   shows a phase, with soft maria mottling, faint earthshine and a halo.
+ *   By day only its lit side shows, pale against the blue.
  * - Stars: sparse hashed points that fade in with darkness and near the
  *   horizon, with gentle twinkle.
  *
@@ -16,7 +17,7 @@ export const MOON_RADIUS = 0.02;
 
 export const SKY_BODIES_GLSL = /* glsl */ `
 uniform vec3 moon, sunTint;
-uniform float starStrength, skyTime;
+uniform float starStrength, skyTime, skyDaylight;
 float skyHash(vec3 p){ p=fract(p*vec3(443.897,441.423,437.195)); p+=dot(p,p.yzx+19.19); return fract((p.x+p.y)*p.z); }
 float skyNoise(vec2 p){
   vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
@@ -64,7 +65,9 @@ vec3 skyBodies(vec3 d, vec3 sky){
     float craters=.92+.08*skyNoise(p*11.);
     // Bright enough to read as the moon, dim enough that its markings survive.
     vec3 moonColor=vec3(.8,.84,.92)*maria*maria*craters*(lit*.62+.03);
-    sky=mix(sky,moonColor,mdisc*moonUp);
+    // By day the dark side is the sky's blue and the lit side a pale wash.
+    vec3 dayMoon=sky+vec3(.8,.84,.92)*maria*craters*lit*.6;
+    sky=mix(sky,mix(moonColor,dayMoon,skyDaylight),mdisc*moonUp);
   }
   c+=vec3(.45,.55,.8)*(.1*exp(-tm*24.)+.03*exp(-tm*6.))*moonUp*starStrength;
   // Stars (only on clear, dark sky; the ocean backdrop never asks for them).

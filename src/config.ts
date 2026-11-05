@@ -31,6 +31,41 @@ export const CONFIG = {
   spacing: TERRAIN_SPACING,
   chunkSize: CHUNK_SIZE,
 };
+/**
+ * Where the aircraft may fly. Island generation keeps using VERTICAL_LIMITS;
+ * these only bound flight.
+ * - Normal islands: 5 km of open sea beyond the terrain square on every side,
+ *   and a ceiling well above the cloud layer (see CLOUD_ALTITUDE).
+ * - Hell: unchanged, since its lava sits just below VERTICAL_LIMITS.ceiling
+ *   and nothing exists outside the terrain square.
+ */
+export interface FlightLimits {
+  /** Distance (m) beyond each edge of the terrain square. */
+  margin: number;
+  ceiling: number;
+  assistance: number;
+  warning: number;
+  hysteresis: number;
+}
+export const SURFACE_FLIGHT: FlightLimits = Object.freeze({
+  margin: 5000,
+  ceiling: 4500,
+  assistance: 4350,
+  warning: 4250,
+  hysteresis: 25,
+});
+export const HELL_FLIGHT: FlightLimits = Object.freeze({
+  margin: 0,
+  ceiling: VERTICAL_LIMITS.ceiling,
+  assistance: VERTICAL_LIMITS.assistance,
+  warning: VERTICAL_LIMITS.warning,
+  hysteresis: VERTICAL_LIMITS.hysteresis,
+});
+export const flightLimits = (realm?: string): FlightLimits =>
+  realm === "hell" ? HELL_FLIGHT : SURFACE_FLIGHT;
+/** True inside the generated terrain square (outside is open sea). */
+export const insideTerrain = (x: number, z: number) =>
+  x >= 0 && z >= 0 && x <= WORLD_SIZE && z <= WORLD_SIZE;
 export const FLY_COUNT = 6;
 export const MAX_MONSTER_SPIKES = 600;
 export const MONSTER_SCALE = 2;

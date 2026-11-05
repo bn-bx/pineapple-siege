@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CONFIG } from "../config";
+import { CONFIG, SURFACE_FLIGHT } from "../config";
 import type { TerrainView } from "./terrain-view";
 import { waterPrepass } from "./water-prepass";
 import { OCEAN_BACKGROUND_GLSL } from "./ocean-horizon";
@@ -154,7 +154,11 @@ export function makeOcean(
 ) {
   const material = makeWaterMaterial(terrain, horizon, true);
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(CONFIG.worldSize * 3, CONFIG.worldSize * 3),
+    // Reaches past the sky-drawn backdrop blend even from the far flight edge.
+    new THREE.PlaneGeometry(
+      CONFIG.worldSize * 3 + SURFACE_FLIGHT.margin * 2,
+      CONFIG.worldSize * 3 + SURFACE_FLIGHT.margin * 2,
+    ),
     material,
   );
   mesh.rotation.x = -Math.PI / 2;

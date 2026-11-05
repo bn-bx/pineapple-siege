@@ -11,7 +11,7 @@ import {
 } from "../src/world/generator.mjs";
 import { AltitudeWarning } from "../src/altitude-warning";
 import { terrainSurfaceColor } from "../src/render/terrain-colors";
-import { CONFIG, LASER } from "../src/config";
+import { CONFIG, LASER, SURFACE_FLIGHT } from "../src/config";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
 import { compatible } from "../src/storage";
 import type { WorldData } from "../src/types";
@@ -185,11 +185,12 @@ it("flies over high terrain and applies ceiling assistance at the revised limits
     sim.step();
     expect(sim.plane.pitch).toBeGreaterThan(0.45);
     expect(sim.plane.crashed).toBe(0);
-    sim.plane.p[1] = 1490;
+    // Surface flight limits (the generation ceiling stays at 1500 m).
+    sim.plane.p[1] = SURFACE_FLIGHT.ceiling - 10;
     sim.plane.pitch = 0.5;
     sim.step();
     expect(sim.plane.pitch).toBeLessThanOrEqual(0.081);
-    sim.plane.p[1] = 1510;
+    sim.plane.p[1] = SURFACE_FLIGHT.ceiling + 10;
     sim.plane.pitch = 0.5;
     sim.step();
     expect(sim.plane.pitch).toBeLessThan(0);

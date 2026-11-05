@@ -1,5 +1,5 @@
 {
-  "release": "solid-pineapple-god-debris-2026-10-31",
+  "release": "sky-arc-clouds-open-sea-2026-11-04",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -77,7 +77,10 @@
     "textured-pineapple-god-throne-model",
     "ps7-only-play-older-islands-replaced",
     "textured-pineapple-god-debris",
-    "solid-pineapple-god-interior-and-stone-wounds"
+    "solid-pineapple-god-interior-and-stone-wounds",
+    "arcing-sun-and-orbiting-phased-moon",
+    "drifting-sky-clouds-and-cloud-deck-from-above",
+    "open-sea-flight-margin-and-4500m-ceiling"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

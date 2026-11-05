@@ -13,6 +13,8 @@ import {
   BLAST_DEBRIS_LIMIT,
   CHUNKS,
   CONFIG,
+  flightLimits,
+  insideTerrain,
   HELL_LAVA_LEVEL,
   LASER,
   RAPID_FIRE_INTERVAL,
@@ -65,7 +67,6 @@ import type {
   WorkerMessage,
   WorldData,
 } from "../types";
-import { VERTICAL_LIMITS } from "../world/vertical-limits.mjs";
 import {
   advanceDebris,
   orientedSize,
@@ -234,6 +235,8 @@ export class Simulation {
   };
   plane: PlaneState;
   hour = 15.5;
+  /** Whole game days elapsed (drives the moon's phase); presentation only. */
+  day = 0;
   holdTime = false;
   tick = 0;
   time = 0;
@@ -520,6 +523,7 @@ export class Simulation {
       this.nextShot = Math.max(1, ...this.lasers.map((l) => l.id + 1));
       for (const id of save.removed) this.removed.add(id);
       this.hour = save.hour;
+      this.day = save.day ?? 0;
       this.revision = save.revision;
       this.pendingJobs.push(...structuredClone(save.pendingJobs || []));
       this.supportJobs.push(...structuredClone(save.supportJobs || []));
@@ -1947,13 +1951,14 @@ export class Simulation {
       let x = lerp(a[0], b[0], t),
         y = lerp(a[1], b[1], t),
         z = lerp(a[2], b[2], t);
-      if (
-        y - extent <=
-        Math.max(
-          this.terrain.sample(x, z),
-          this.terrain.surfaceHeight(x, z) ?? -1e5,
-        )
-      ) {
+      // Beyond the terrain square is open sea: its surface is the floor.
+      const floor = insideTerrain(x, z)
+        ? Math.max(
+            this.terrain.sample(x, z),
+            this.terrain.surfaceHeight(x, z) ?? -1e5,
+          )
+        : 0;
+      if (y - extent <= floor) {
         best = t;
         break;
       }
@@ -2058,12 +2063,11 @@ export class Simulation {
     );
     let turn = clamp(this.input.x + this.input.bank * 0.8, -1, 1),
       pitch = clamp(this.input.y, -1, 1);
+    const limits = flightLimits(this.world.realm);
     const boundaryMargin = Math.max(200, p.speed / CONFIG.turnSpeed + 50);
-    p.boundary =
-      p.p[0] < boundaryMargin ||
-      p.p[0] > CONFIG.worldSize - boundaryMargin ||
-      p.p[2] < boundaryMargin ||
-      p.p[2] > CONFIG.worldSize - boundaryMargin;
+    const lo = -limits.margin + boundaryMargin,
+      hi = CONFIG.worldSize + limits.margin - boundaryMargin;
+    p.boundary = p.p[0] < lo || p.p[0] > hi || p.p[2] < lo || p.p[2] > hi;
     if (p.boundary) {
       let desired = Math.atan2(
           CONFIG.worldSize / 2 - p.p[0],
@@ -2080,9 +2084,9 @@ export class Simulation {
       CONFIG.maxPitch,
     );
     if (!pitch) p.pitch = lerp(p.pitch, 0, dt * 0.08);
-    if (p.p[1] > VERTICAL_LIMITS.assistance)
-      p.pitch = Math.min(p.pitch, (CONFIG.ceiling - p.p[1]) * 0.008);
-    if (p.p[1] > CONFIG.ceiling) p.pitch = lerp(p.pitch, -0.2, dt * 2);
+    if (p.p[1] > limits.assistance)
+      p.pitch = Math.min(p.pitch, (limits.ceiling - p.p[1]) * 0.008);
+    if (p.p[1] > limits.ceiling) p.pitch = lerp(p.pitch, -0.2, dt * 2);
     p.roll = lerp(p.roll, -turn * 0.95, 1 - Math.exp(-dt * 5));
     let f: Vec3 = [
       Math.sin(p.yaw) * Math.cos(p.pitch),
@@ -2384,8 +2388,9 @@ export class Simulation {
     );
     p.roll += 1.8 * dt;
     const next = p.p.map((value, i) => value + p.v[i] * dt) as Vec3;
-    next[0] = clamp(next[0], 1, CONFIG.worldSize - 1);
-    next[2] = clamp(next[2], 1, CONFIG.worldSize - 1);
+    const margin = flightLimits(this.world.realm).margin;
+    next[0] = clamp(next[0], 1 - margin, CONFIG.worldSize + margin - 1);
+    next[2] = clamp(next[2], 1 - margin, CONFIG.worldSize + margin - 1);
     const hit = this.aircraftSweep(p.p, next);
     p.p = hit ?? next;
     if (hit) this.impact(hit);
@@ -2817,7 +2822,13 @@ export class Simulation {
     this.time += dt;
     this.portalGrace = Math.max(0, this.portalGrace - dt);
     this.updateCleanup(dt);
-    if (!this.holdTime) this.hour = (this.hour + dt / 60) % 24;
+    if (!this.holdTime) {
+      this.hour += dt / 60;
+      if (this.hour >= 24) {
+        this.hour %= 24;
+        this.day++;
+      }
+    }
     for (const weapon of ["cannon", "nuke", "laser", "gravityBomb"] as const)
       this.cooldowns[weapon] = Math.max(0, this.cooldowns[weapon] - dt);
     const previousPlanePosition = [...this.plane.p] as Vec3;
@@ -3027,6 +3038,7 @@ export class Simulation {
       time: this.time,
       plane: structuredClone(this.plane),
       hour: this.hour,
+      day: this.day,
       aim: this.aim,
       weapon: this.weapon,
       nukeYield: this.nukeYield,
@@ -3131,6 +3143,7 @@ export class Simulation {
       incremental: true,
       revision: startRevision,
       hour: this.hour,
+      day: this.day,
       nuclearFire: this.fires.save(),
       destruction: { ...this.destruction },
       terrain: new Float32Array(),
@@ -3352,6 +3365,7 @@ export class Simulation {
       seed: this.world.seed,
       revision: this.revision,
       hour: this.hour,
+      day: this.day,
       terrain,
       removed: [...this.removed],
       ruins,
