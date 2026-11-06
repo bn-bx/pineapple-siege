@@ -1,5 +1,5 @@
 {
-  "release": "cached-static-scenery-shadows-2026-11-05",
+  "release": "stable-beach-surf-2026-11-06",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -81,7 +81,8 @@
     "arcing-sun-and-orbiting-phased-moon",
     "drifting-sky-clouds-and-cloud-deck-from-above",
     "open-sea-flight-margin-and-4500m-ceiling",
-    "cached-static-scenery-shadow-cascades"
+    "cached-static-scenery-shadow-cascades",
+    "band-limited-depth-biased-beach-surf"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216
