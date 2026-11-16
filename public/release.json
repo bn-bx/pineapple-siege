@@ -1,5 +1,5 @@
 {
-  "release": "stable-beach-surf-2026-11-06",
+  "release": "monster-concrete-truck-2026-11-16",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -82,7 +82,15 @@
     "drifting-sky-clouds-and-cloud-deck-from-above",
     "open-sea-flight-margin-and-4500m-ceiling",
     "cached-static-scenery-shadow-cascades",
-    "band-limited-depth-biased-beach-surf"
+    "band-limited-depth-biased-beach-surf",
+    "drivable-monster-concrete-truck",
+    "parachute-and-rocket-vehicle-swap",
+    "mouse-aimed-truck-turret-on-camera-crosshair",
+    "truck-jet-boost-air-brake-and-ramps",
+    "concrete-pour-and-tree-flattening",
+    "respawn-shield-bubble",
+    "mouse-recapture-prompt",
+    "rivers-capped-to-follow-ground-over-dips"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

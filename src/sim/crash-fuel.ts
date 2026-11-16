@@ -94,6 +94,19 @@ export class CrashFuel {
       (s) => s.age < 30 && !(s.exploded && s.age - s.contactAge! > 12),
     );
   }
+  /**
+   * True near a live spill: its spray lands up to ~50 m from the wreck and
+   * keeps burning, so nothing should be parked there yet.
+   */
+  near(x: number, z: number, margin = 70) {
+    for (const spill of this.spills) {
+      const o = spill.impact ?? spill.drops[0]?.p;
+      if (o && Math.hypot(x - o[0], z - o[2]) < margin) return true;
+      for (const d of spill.drops)
+        if (Math.hypot(x - d.p[0], z - d.p[2]) < d.radius + 12) return true;
+    }
+    return false;
+  }
   snapshot(): FuelDrop[] {
     return this.spills.flatMap((s) =>
       s.drops.map((d) => ({

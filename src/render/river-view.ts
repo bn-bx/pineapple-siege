@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { riverHalfWidth } from "../world/water-geometry.mjs";
+import {
+  cappedRiverSurface,
+  riverHalfWidth,
+} from "../world/water-geometry.mjs";
 import type { WorldData } from "../types";
 import type { TerrainView } from "./terrain-view";
 import { makeWaterMaterial } from "./ocean";
@@ -142,6 +145,9 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       join.ids.add(river.id ?? `river-${riverIndex}`);
       join.width = Math.max(join.width, riverHalfWidth(river, i));
     }
+  // Ground under the water; views built without heights skip the cap.
+  const bed = (x: number, z: number) =>
+    typeof terrain.sample === "function" ? terrain.sample(x, z) : Infinity;
   const tiles = new Map<number, THREE.BufferGeometry[]>();
   const append = (geometry: THREE.BufferGeometry, x: number, z: number) => {
     const key =
@@ -165,27 +171,6 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       if (!length) continue;
       const [startX, startZ] = crossSections[i - 1],
         [endX, endZ] = crossSections[i];
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute(
-        "position",
-        new THREE.Float32BufferAttribute(
-          [
-            a[0] + startX,
-            a[1] + 0.05,
-            a[2] + startZ,
-            a[0] - startX,
-            a[1] + 0.05,
-            a[2] - startZ,
-            b[0] + endX,
-            b[1] + 0.05,
-            b[2] + endZ,
-            b[0] - endX,
-            b[1] + 0.05,
-            b[2] - endZ,
-          ],
-          3,
-        ),
-      );
       const tangent = (at: number) => {
         const before = river.points[Math.max(0, at - 1)],
           after = river.points[Math.min(river.points.length - 1, at + 1)];
@@ -196,14 +181,47 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       };
       const startFlow = tangent(i - 1),
         endFlow = tangent(i);
+      // Split each reach into short pieces so the surface can follow the
+      // ground down where a level reach crosses a dip, instead of hanging
+      // in the air (the simulation applies the same cap).
+      const fine = Math.max(1, Math.ceil(length / 4));
+      let dips = false;
+      for (let k = 0; k <= fine && !dips; k++) {
+        const t = k / fine,
+          level = a[1] + (b[1] - a[1]) * t;
+        dips =
+          cappedRiverSurface(level, bed(a[0] + dx * t, a[2] + dz * t)) <
+          level;
+      }
+      // Ordinary reaches stay single quads; only dips are subdivided.
+      const pieces = dips ? fine : 1;
+      const positions: number[] = [],
+        flows: number[] = [],
+        index: number[] = [];
+      for (let k = 0; k <= pieces; k++) {
+        const t = k / pieces,
+          x = a[0] + dx * t,
+          z = a[2] + dz * t,
+          ox = startX + (endX - startX) * t,
+          oz = startZ + (endZ - startZ) * t,
+          level = a[1] + (b[1] - a[1]) * t,
+          y = cappedRiverSurface(level, bed(x, z)) + 0.05;
+        positions.push(x + ox, y, z + oz, x - ox, y, z - oz);
+        const fx = startFlow[0] + (endFlow[0] - startFlow[0]) * t,
+          fz = startFlow[1] + (endFlow[1] - startFlow[1]) * t;
+        flows.push(fx, fz, fx, fz);
+        if (k < pieces) {
+          const v = k * 2;
+          index.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
       geometry.setAttribute(
-        "flow",
-        new THREE.Float32BufferAttribute(
-          [...startFlow, ...startFlow, ...endFlow, ...endFlow],
-          2,
-        ),
+        "position",
+        new THREE.Float32BufferAttribute(positions, 3),
       );
-      geometry.setIndex([0, 2, 1, 1, 2, 3]);
+      geometry.setAttribute("flow", new THREE.Float32BufferAttribute(flows, 2));
+      geometry.setIndex(index);
       geometry.computeVertexNormals();
       flattenWaterNormals(geometry);
       append(geometry, (a[0] + b[0]) / 2, (a[2] + b[2]) / 2);
@@ -223,7 +241,12 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
     pool.setAttribute("flow", new THREE.BufferAttribute(flow, 2));
     pool.rotateX(-Math.PI / 2);
     flattenWaterNormals(pool);
-    pool.translate(join.p[0], join.p[1] + 0.07, join.p[2]);
+    pool.translate(
+      join.p[0],
+      cappedRiverSurface(join.p[1], bed(join.p[0], join.p[2])) +
+        0.07,
+      join.p[2],
+    );
     append(pool, join.p[0], join.p[2]);
   }
   for (const lake of world.lakes ?? []) {

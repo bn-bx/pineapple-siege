@@ -200,6 +200,10 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         sim.respawn();
         publish();
         break;
+      case "vehicleMode":
+        sim.setVehicleMode(m.mode);
+        publish();
+        break;
       case "setPlane":
         sim.plane = structuredClone(m.plane);
         sim.portalGrace = m.grace ?? 2;

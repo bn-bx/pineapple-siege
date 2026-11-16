@@ -1,3 +1,14 @@
+/**
+ * Deepest a river runs above its bed. Some generated reaches hold a level
+ * surface across a dip in the ground; capping the surface there makes the
+ * water follow the ground down instead of hanging in the air. Real channels
+ * are shallower than this, so ordinary reaches are unchanged.
+ */
+export const RIVER_MAX_DEPTH = 6;
+/** River surface at a point, held within RIVER_MAX_DEPTH of the bed. */
+export function cappedRiverSurface(surface, bed) {
+  return Math.min(surface, bed + RIVER_MAX_DEPTH);
+}
 export function riverHalfWidth(river, index) {
   return river.widths?.[index] ?? river.width;
 }

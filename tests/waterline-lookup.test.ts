@@ -16,7 +16,11 @@ it("resolves river heights by local segment and ocean height from the wet mask",
     256,
     64,
   );
-  expect(water.sample(140, 100, 0, true)).toBeCloseTo(7);
+  // A river bed a few metres under the surface: the level is unchanged.
+  expect(water.sample(140, 100, 3, true)).toBeCloseTo(7);
+  // Over a deep dip the surface stays within RIVER_MAX_DEPTH of the bed
+  // rather than hanging in the air.
+  expect(water.sample(140, 100, -40, true)).toBeCloseTo(-34);
   expect(water.sample(140, 110, 1, true)).toBeUndefined();
   expect(water.sample(20, 20, -5, true)).toBe(0);
   expect(water.sample(20, 20, -5, false)).toBeUndefined();
@@ -40,8 +44,8 @@ it.each([250, 256])(
       size,
       64,
     );
-    expect(water.sample(size, size, 0, true)).toBe(9);
-    expect(water.sample(size - 10, size, 0, true)).toBe(7);
+    expect(water.sample(size, size, 4, true)).toBe(9);
+    expect(water.sample(size - 10, size, 4, true)).toBe(7);
     expect(water.sample(size, 20, -5, true)).toBe(0);
     expect(water.sample(20, size, -5, true)).toBe(0);
     expect(water.sample(size + 1, 20, -5, true)).toBeUndefined();

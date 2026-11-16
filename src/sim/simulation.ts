@@ -7,6 +7,7 @@ import {
 } from "./statue-fracture";
 import { NuclearFire } from "./nuclear-fire";
 import { Flies } from "./flies";
+import { lobSpeed, solveLaunch } from "./ballistics";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { civilianPopulation } from "../civilian-morale";
 import {
@@ -18,6 +19,7 @@ import {
   HELL_LAVA_LEVEL,
   LASER,
   RAPID_FIRE_INTERVAL,
+  TRUCK,
   WEAPONS,
   WRECKAGE_FADE_SECONDS,
   WRECKAGE_FLIGHT_SECONDS,
@@ -63,6 +65,7 @@ import type {
   SimulationSnapshot,
   SupportJob,
   Vec3,
+  VehicleMode,
   WeaponId,
   WorkerMessage,
   WorldData,
@@ -133,6 +136,7 @@ export class Simulation {
         sim.cooldowns = value;
       },
       dropGravityBomb: (plane) => sim.gravityBombs.drop(plane),
+      groundLaunch: (weapon) => sim.groundLaunch(weapon),
       laserAim: (...args) => sim.laserAim(...args),
       startLaser: (...args) => sim.startLaser(...args),
       get destruction() {
@@ -220,6 +224,8 @@ export class Simulation {
   }>(this.bodyPoses);
   private clearingOldRubble = false;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
+  /** Handles of intact-structure colliders, for structure-only sweeps. */
+  private entityColliderHandles = new Set<number>();
   private ruinColliders = new Map<number, RAPIER.Collider>();
   private terrainColliders = new Map<number, RAPIER.Collider>();
   private pendingTerrainColliders = new Set<number>();
@@ -411,6 +417,25 @@ export class Simulation {
   };
   private nextBody = 100000;
   private nextShot = 1;
+  /** Signed ground speed; negative while reversing. */
+  private driveSpeed = 0;
+  /** Front-wheel steering, eased toward the keys (-1..1). */
+  private steerState = 0;
+  /** Seconds spent pinned with the throttle held. */
+  private stuckTime = 0;
+  /** Where the parachuting truck will touch down. */
+  private dropTarget?: [number, number];
+  /** Resting wreckage near the truck, as mounds it can drive up and jump off. */
+  private driveRubble: {
+    x: number;
+    z: number;
+    ex: number;
+    ez: number;
+    rise: number;
+  }[] = [];
+  private driveRubbleAt?: Vec3;
+  /** World point under the truck's crosshair, from the camera ray. */
+  private groundTarget?: Vec3;
   private throttle =
     (62 - CONFIG.minSpeed) / (CONFIG.maxSpeed - CONFIG.minSpeed);
   private changedRemoved: number[] = [];
@@ -588,6 +613,7 @@ export class Simulation {
       .setCollisionGroups(WORLD_COLLISIONS);
     const c = this.physics.createCollider(d);
     this.entityColliders.set(e.id, c);
+    this.entityColliderHandles.add(c.handle);
   }
   private debrisCollider(
     s: Vec3,
@@ -771,6 +797,7 @@ export class Simulation {
         this.addEntityCollider(this.world.entities[id]);
     for (const [id, c] of this.entityColliders)
       if (!wanted.has(id)) {
+        this.entityColliderHandles.delete(c.handle);
         this.physics.removeCollider(c, true);
         this.entityColliders.delete(id);
       }
@@ -831,6 +858,7 @@ export class Simulation {
     this.changedRemoved.push(e.id);
     const c = this.entityColliders.get(e.id);
     if (c) {
+      this.entityColliderHandles.delete(c.handle);
       this.physics.removeCollider(c, true);
       this.entityColliders.delete(e.id);
     }
@@ -1793,12 +1821,20 @@ export class Simulation {
     this.ensureTerrain();
     this.flush(terrain, flood);
   }
+  /**
+   * Swept collision against the world. The ground vehicle narrows it:
+   * `structuresOnly` ignores terrain, water, rubble and loose debris, and
+   * `penetrate: false` lets a sweep that starts touching something move away.
+   */
   private sweep(
     a: Vec3,
     b: Vec3,
     radius = 0,
     halfLength = radius,
+    options: { structuresOnly?: boolean; penetrate?: boolean } = {},
   ): Vec3 | null {
+    const structuresOnly = !!options.structuresOnly,
+      stopAtPenetration = options.penetrate ?? true;
     const delta: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
       len = Math.hypot(...delta);
     if (!len) return null;
@@ -1821,9 +1857,16 @@ export class Simulation {
               : new RAPIER.Ball(radius),
             0,
             1,
-            true,
-            undefined,
+            stopAtPenetration,
+            structuresOnly
+              ? RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC
+              : undefined,
             WORLD_QUERIES,
+            undefined,
+            undefined,
+            structuresOnly
+              ? (c: RAPIER.Collider) => this.entityColliderHandles.has(c.handle)
+              : undefined,
           )
         : null;
     const rayHit =
@@ -1887,7 +1930,7 @@ export class Simulation {
                 { x: 0, y: 0, z: 0 },
                 0,
                 best,
-                true,
+                stopAtPenetration,
               )?.time_of_impact
             : shape.castRay(
                 new RAPIER.Ray(vec(a), vec(delta)),
@@ -1898,7 +1941,9 @@ export class Simulation {
               );
         if (hit !== undefined && hit >= 0 && hit < best) best = hit;
       }
-      for (const r of this.nearbyRuinCandidates(middle, len / 2 + envelope)) {
+      for (const r of structuresOnly
+        ? []
+        : this.nearbyRuinCandidates(middle, len / 2 + envelope)) {
         const extent = this.orientedSize(r.s, r.q);
         if (
           loX > r.p[0] + extent[0] ||
@@ -1944,7 +1989,7 @@ export class Simulation {
         if (hit !== undefined && hit >= 0 && hit < best) best = hit;
       }
     }
-    const steps = Math.ceil(len / 1.5);
+    const steps = structuresOnly ? -1 : Math.ceil(len / 1.5);
     for (let i = 0; i <= steps; i++) {
       let t = i / steps;
       if (t >= best) break;
@@ -1969,6 +2014,22 @@ export class Simulation {
   }
   respawn() {
     this.flies.protect();
+    this.plane.shield = 0;
+    this.dropTarget = undefined;
+    if (this.plane.mode === "ground" && this.world.realm !== "hell") {
+      // A truck respawning on the ground gets a moment to drive clear.
+      this.plane.shield = TRUCK.shield;
+      Object.assign(this.plane, {
+        crashed: 0,
+        falling: false,
+        boundary: false,
+      });
+      if (this.placeOnGround([...this.world.spawn], 0.65)) {
+        this.input.fire = false;
+        return;
+      }
+    }
+    Object.assign(this.plane, { mode: "air", chute: false, launch: 0 });
     let p: Vec3 = [...this.world.spawn];
     p[1] = Math.max(p[1], this.terrain.sample(p[0], p[2]) + 65);
     for (let i = 0; i < 8; i++) {
@@ -2049,6 +2110,10 @@ export class Simulation {
       if (p.falling) this.fall(dt);
       return;
     }
+    if (p.mode === "ground") {
+      this.drive(dt);
+      return;
+    }
     this.throttle = clamp(
       this.throttle + this.input.throttle * dt * 0.35,
       0,
@@ -2062,7 +2127,7 @@ export class Simulation {
       1 - Math.exp(-dt * 2),
     );
     let turn = clamp(this.input.x + this.input.bank * 0.8, -1, 1),
-      pitch = clamp(this.input.y, -1, 1);
+      pitch = p.launch ? 0 : clamp(this.input.y, -1, 1);
     const limits = flightLimits(this.world.realm);
     const boundaryMargin = Math.max(200, p.speed / CONFIG.turnSpeed + 50);
     const lo = -limits.margin + boundaryMargin,
@@ -2084,6 +2149,11 @@ export class Simulation {
       CONFIG.maxPitch,
     );
     if (!pitch) p.pitch = lerp(p.pitch, 0, dt * 0.08);
+    // Rocketing out of the truck holds the nose up for a moment.
+    if (p.launch && p.launch > 0) {
+      p.launch = Math.max(0, p.launch - dt);
+      p.pitch = Math.max(p.pitch, TRUCK.launchPitch * 0.85);
+    }
     if (p.p[1] > limits.assistance)
       p.pitch = Math.min(p.pitch, (limits.ceiling - p.p[1]) * 0.008);
     if (p.p[1] > limits.ceiling) p.pitch = lerp(p.pitch, -0.2, dt * 2);
@@ -2357,6 +2427,544 @@ export class Simulation {
     const lava = a.map((v, i) => v + (b[i] - v) * t) as Vec3;
     return hit && distance(a, hit) < distance(a, lava) ? hit : lava;
   }
+  /**
+   * Switch between the aircraft and the monster concrete truck. The truck
+   * parachutes down from the aircraft's altitude; the aircraft rockets up
+   * out of the truck.
+   */
+  setVehicleMode(mode: VehicleMode): boolean {
+    const p = this.plane;
+    if (p.crashed > 0 || (p.mode ?? "air") === mode || p.chute) return false;
+    if (mode === "ground") {
+      if (this.world.realm === "hell" || !insideTerrain(p.p[0], p.p[2]))
+        return false;
+      // Prefer dry ground nearby; out at sea, splash down where it is.
+      this.dropTarget = this.parkingSpot(p.p[0], p.p[2]) ?? [p.p[0], p.p[2]];
+      const rest = this.waterFloor(p.p[0], p.p[2]) + TRUCK.rideHeight;
+      Object.assign(p, {
+        mode: "ground",
+        p: [p.p[0], Math.max(p.p[1], rest), p.p[2]],
+        v: [p.v[0] * 0.3, Math.min(0, p.v[1]), p.v[2] * 0.3],
+        speed: 0,
+        boundary: false,
+        aimYaw: undefined,
+      aimPitch: undefined,
+      lookYaw: undefined,
+      lookPitch: undefined,
+      chute: true,
+        launch: 0,
+        shield: TRUCK.shield,
+      });
+      this.driveSpeed = 0;
+      this.stuckTime = 0;
+      this.steerState = 0;
+      return true;
+    }
+    const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    const speed = Math.max(Math.abs(this.driveSpeed), TRUCK.launchSpeed);
+    Object.assign(p, {
+      mode: "air",
+      p: [p.p[0], p.p[1] + 3, p.p[2]],
+      v: f.map((v) => v * speed) as Vec3,
+      pitch: TRUCK.launchPitch,
+      roll: 0,
+      speed,
+      boundary: false,
+      aimYaw: undefined,
+      aimPitch: undefined,
+      lookYaw: undefined,
+      lookPitch: undefined,
+      chute: false,
+      launch: TRUCK.launchTime,
+      shield: TRUCK.shield,
+    });
+    this.throttle = clamp(
+      (speed - CONFIG.minSpeed) / (CONFIG.maxSpeed - CONFIG.minSpeed),
+      0,
+      1,
+    );
+    this.driveSpeed = 0;
+    return true;
+  }
+  /** Fire, monster, fly and laser hits are ignored while this is true. */
+  private shielded() {
+    return (this.plane.shield ?? 0) > 0 || !!this.plane.chute;
+  }
+  /**
+   * Ground, or the water surface where it's deeper than the truck's draft:
+   * the monster truck floats, its tyres half under.
+   */
+  private waterFloor(x: number, z: number) {
+    const terrain = this.terrain.sample(x, z);
+    const surface = insideTerrain(x, z)
+      ? this.terrain.surfaceHeight(x, z, terrain)
+      : 0;
+    return surface === undefined
+      ? terrain
+      : Math.max(terrain, surface - TRUCK.draft);
+  }
+  private onWater(x: number, z: number) {
+    return this.waterFloor(x, z) > this.terrain.sample(x, z) + 1e-3;
+  }
+  private deepWater(x: number, z: number) {
+    if (!insideTerrain(x, z)) return true;
+    const ground = this.terrain.sample(x, z),
+      surface = this.terrain.surfaceHeight(x, z, ground);
+    return surface !== undefined && surface - ground > TRUCK.drownDepth;
+  }
+  /**
+   * True when the truck can park here: no intact structure, no burning
+   * ground and no living monster close by.
+   */
+  private parkingClear(x: number, z: number) {
+    const ground = this.terrain.sample(x, z),
+      margin = TRUCK.radius + 3,
+      at: Vec3 = [x, ground, z];
+    for (const id of this.nearbyEntities(at, margin + this.maxEntityExtent)) {
+      if (this.removed.has(id)) continue;
+      const e = this.world.entities[id];
+      if (
+        Math.abs(x - e.p[0]) < e.s[0] + margin &&
+        Math.abs(z - e.p[2]) < e.s[2] + margin &&
+        ground + TRUCK.rideHeight * 2 > e.p[1] - e.s[1] &&
+        ground < e.p[1] + e.s[1]
+      )
+        return false;
+    }
+    for (const f of this.fires.patches)
+      if (Math.hypot(x - f.p[0], z - f.p[2]) < f.radius + 10) return false;
+    if (this.crashFuel.near(x, z)) return false;
+    for (const m of this.monsters.states)
+      if (!m.defeated && Math.hypot(x - m.p[0], z - m.p[2]) < 40) return false;
+    return true;
+  }
+  /** Nearest dry, clear ground within 300 m, spiralling outward. */
+  private parkingSpot(x: number, z: number): [number, number] | null {
+    const ok = (a: number, b: number) =>
+      !this.deepWater(a, b) && this.parkingClear(a, b);
+    if (ok(x, z)) return [x, z];
+    for (let ring = 10; ring <= 300; ring += 10) {
+      const steps = Math.ceil((ring * Math.PI * 2) / 10);
+      for (let i = 0; i < steps; i++) {
+        const t = (i / steps) * Math.PI * 2,
+          a = clamp(x + Math.cos(t) * ring, 1, CONFIG.worldSize - 1),
+          b = clamp(z + Math.sin(t) * ring, 1, CONFIG.worldSize - 1);
+        if (ok(a, b)) return [a, b];
+      }
+    }
+    return null;
+  }
+  /** Put the truck down on open ground at or near (x, z). */
+  private placeOnGround(at: Vec3, yaw: number): boolean {
+    const spot = this.parkingSpot(at[0], at[2]);
+    if (!spot) return false;
+    Object.assign(this.plane, {
+      mode: "ground",
+      p: [
+        spot[0],
+        this.terrain.sample(spot[0], spot[1]) + TRUCK.rideHeight,
+        spot[1],
+      ],
+      v: [0, 0, 0],
+      yaw,
+      pitch: 0,
+      roll: 0,
+      speed: 0,
+      boundary: false,
+      aimYaw: undefined,
+      aimPitch: undefined,
+      lookYaw: undefined,
+      lookPitch: undefined,
+      chute: false,
+      launch: 0,
+    });
+    this.driveSpeed = 0;
+    this.stuckTime = 0;
+    return true;
+  }
+  /** Parachute descent onto the parking spot chosen when V was pressed. */
+  private chuteDrop(dt: number) {
+    const p = this.plane;
+    const target = this.dropTarget ?? [p.p[0], p.p[2]];
+    const rest = (x: number, z: number) =>
+      this.waterFloor(x, z) + TRUCK.rideHeight;
+    const height = Math.max(0, p.p[1] - rest(target[0], target[1]));
+    const sink = clamp(height * 0.6, 14, 120);
+    const vy = lerp(p.v[1], -sink, 1 - Math.exp(-dt * 3));
+    const timeLeft = Math.max(0.25, height / Math.max(1, -vy));
+    let vx = (target[0] - p.p[0]) / timeLeft,
+      vz = (target[1] - p.p[2]) / timeLeft;
+    const horizontal = Math.hypot(vx, vz);
+    if (horizontal > 60) {
+      vx *= 60 / horizontal;
+      vz *= 60 / horizontal;
+    }
+    const next: Vec3 = [
+      p.p[0] + vx * dt,
+      p.p[1] + vy * dt,
+      p.p[2] + vz * dt,
+    ];
+    p.pitch = lerp(p.pitch, 0, 1 - Math.exp(-dt * 3));
+    p.roll = lerp(p.roll, 0, 1 - Math.exp(-dt * 3));
+    p.v = [vx, vy, vz];
+    p.speed = Math.hypot(vx, vz);
+    const floor = rest(next[0], next[2]);
+    if (next[1] <= floor) {
+      next[1] = floor;
+      p.v = [0, 0, 0];
+      p.speed = 0;
+      p.chute = false;
+      this.dropTarget = undefined;
+    }
+    p.p = next;
+  }
+  /**
+   * Knock over every tree the truck's body touches, canopy included, at any
+   * speed. The body is three spheres along its length; each tree is its
+   * trunk plus an ellipsoid crown. Returns true if any fell.
+   */
+  private flattenTrees() {
+    const p = this.plane;
+    const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    const reach = TRUCK.length / 2 + TRUCK.bodyRadius;
+    const body = [-1, 0, 1].map(
+      (k) =>
+        [
+          p.p[0] + f[0] * k * TRUCK.length * 0.33,
+          p.p[1] + TRUCK.bodyLift,
+          p.p[2] + f[2] * k * TRUCK.length * 0.33,
+        ] as Vec3,
+    );
+    let felled = false;
+    for (const id of this.nearbyEntities(p.p, reach + this.maxEntityExtent)) {
+      if (this.removed.has(id)) continue;
+      const e = this.world.entities[id];
+      if (e.kind !== "tree") continue;
+      const R = TRUCK.bodyRadius;
+      // Crown: an ellipsoid over the upper tree, as wide as the drawn leaves.
+      const crown: Vec3 = [e.p[0], e.p[1] + e.s[1] * 0.2, e.p[2]];
+      const rx = e.s[0],
+        ry = e.s[1] * 0.8,
+        trunk = Math.min(2.2, e.s[0] * 0.65) + R;
+      const touched = body.some((c) => {
+        const dx = c[0] - crown[0],
+          dy = c[1] - crown[1],
+          dz = c[2] - crown[2];
+        const scaled = Math.hypot(dx / rx, dy / ry, dz / rx);
+        // Distance from the sphere centre to the crown surface, along the
+        // line to the crown centre.
+        const gap =
+          scaled <= 1 ? 0 : ((scaled - 1) * Math.hypot(dx, dy, dz)) / scaled;
+        return (
+          gap < R ||
+          (Math.hypot(c[0] - e.p[0], c[2] - e.p[2]) < trunk &&
+            c[1] > e.p[1] - e.s[1] - R &&
+            c[1] < e.p[1] + e.s[1] + R)
+        );
+      });
+      if (!touched) continue;
+      this.removeEntity(e);
+      // Topple it away from the truck, harder the faster it was hit.
+      this.staticFragment(
+        e,
+        [p.p[0], e.p[1] - e.s[1] * 0.6, p.p[2]],
+        clamp(Math.abs(this.driveSpeed) * 0.7, 10, 30),
+      );
+      felled = true;
+    }
+    if (felled) this.bump();
+    return felled;
+  }
+  /**
+   * Ground the truck rides on: terrain, raised by nearby rubble piles that
+   * act as mounds with sloped sides, so wreckage makes ramps. Tall chunks
+   * are left to drive through.
+   */
+  private driveFloor(x: number, z: number) {
+    const terrain = this.terrain.sample(x, z);
+    let floor = this.waterFloor(x, z);
+    for (const r of this.driveRubble) {
+      const outside = Math.max(
+        Math.abs(x - r.x) - r.ex,
+        Math.abs(z - r.z) - r.ez,
+        0,
+      );
+      const run = r.rise * TRUCK.rubbleRamp + 2;
+      if (outside >= run) continue;
+      floor = Math.max(floor, terrain + r.rise * (1 - outside / run));
+    }
+    return floor;
+  }
+  /**
+   * Gather resting wreckage around the truck. Debris can number in the
+   * thousands, so this scans a few times a second, over a radius that
+   * covers where the truck will be until the next scan.
+   */
+  private gatherRubble(force = false) {
+    const p = this.plane;
+    const reach = TRUCK.length + 20 + Math.abs(this.driveSpeed) * 0.3;
+    if (
+      !force &&
+      this.tick % 6 !== 0 &&
+      this.driveRubbleAt &&
+      Math.hypot(p.p[0] - this.driveRubbleAt[0], p.p[2] - this.driveRubbleAt[2]) < 10
+    )
+      return;
+    this.driveRubbleAt = [...p.p];
+    this.driveRubble.length = 0;
+    const add = (view: { p: Vec3; s: Vec3; q: Quat }) => {
+      if (Math.abs(view.p[0] - p.p[0]) > reach || Math.abs(view.p[2] - p.p[2]) > reach)
+        return;
+      const e = this.orientedSize(view.s, view.q);
+      const rise =
+        view.p[1] + e[1] - this.terrain.sample(view.p[0], view.p[2]);
+      if (rise < 0.3 || rise > TRUCK.rubbleMax) return;
+      this.driveRubble.push({ x: view.p[0], z: view.p[2], ex: e[0], ez: e[2], rise });
+    };
+    for (const view of this.bodyPoses.views()) {
+      // Pieces still flying aren't ground yet.
+      const moving = this.ballistic.get(view.id);
+      if (moving && !moving.grounded) continue;
+      add(view);
+    }
+    for (const r of this.nearbyRuinCandidates(p.p, reach)) add(r);
+  }
+  /** Shove loose debris bodies out of the truck's path. */
+  private plowDebris(f: Vec3) {
+    const p = this.plane;
+    if (Math.abs(this.driveSpeed) < 3) return;
+    const shove = this.driveSpeed * 0.6;
+    this.physics.intersectionsWithShape(
+      vec(p.p),
+      { x: 0, y: 0, z: 0, w: 1 },
+      new RAPIER.Ball(TRUCK.radius + 1.5),
+      (collider) => {
+        const body = collider.parent();
+        if (!body || !body.isDynamic()) return true;
+        const mass = body.mass();
+        body.applyImpulse(
+          {
+            x: f[0] * shove * mass,
+            y: Math.abs(shove) * 0.35 * mass,
+            z: f[2] * shove * mass,
+          },
+          true,
+        );
+        return true;
+      },
+      RAPIER.QueryFilterFlags.EXCLUDE_FIXED,
+    );
+  }
+  /** Arcade monster-truck handling over the authoritative terrain. */
+  private drive(dt: number) {
+    const p = this.plane;
+    if (p.chute) {
+      this.chuteDrop(dt);
+      return;
+    }
+    this.gatherRubble();
+    const ground = (x: number, z: number) => this.driveFloor(x, z);
+    const rest = (x: number, z: number) => ground(x, z) + TRUCK.rideHeight;
+    let vy = p.v[1];
+    const grounded = p.p[1] <= rest(p.p[0], p.p[2]) + 0.35;
+    // Steer with the tyres whenever they're near the ground, so small hops
+    // over bumps don't flip the handling into its airborne mode.
+    const tyresDown = p.p[1] <= rest(p.p[0], p.p[2]) + TRUCK.tyreReach;
+    const throttle = this.input.throttle;
+    // Shift fires the jet boosters: thrust works on the ground and in the air.
+    const rocket = this.input.boost && throttle >= 0;
+    p.boosting = rocket;
+    if (rocket) {
+      const delta = TRUCK.boostSpeed - this.driveSpeed;
+      this.driveSpeed +=
+        Math.sign(delta) * Math.min(Math.abs(delta), TRUCK.boostAccel * dt);
+    } else if (!grounded && throttle < 0) {
+      // Air brake: S sheds speed mid-air (it never reverses off a jump).
+      this.driveSpeed -=
+        Math.sign(this.driveSpeed) *
+        Math.min(Math.abs(this.driveSpeed), TRUCK.airBrake * dt);
+    } else if (grounded) {
+      // Throttle, brakes and reverse act only through the tyres.
+      // Water drags the tyres: half speed afloat unless the jets are lit.
+      const drag = this.onWater(p.p[0], p.p[2]) ? TRUCK.waterSpeed : 1;
+      const target =
+        throttle > 0
+          ? TRUCK.maxSpeed * drag
+          : throttle < 0
+            ? -TRUCK.reverseSpeed * drag
+            : 0;
+      const braking =
+        throttle !== 0 && Math.sign(this.driveSpeed) === -Math.sign(target);
+      const rate =
+        throttle === 0
+          ? TRUCK.coast
+          : braking
+            ? TRUCK.brake
+            : Math.abs(target) < Math.abs(this.driveSpeed)
+              ? // Bleed off boost speed gently rather than slamming the brakes.
+                TRUCK.boostFade
+              : TRUCK.accel;
+      const delta = target - this.driveSpeed;
+      this.driveSpeed += Math.sign(delta) * Math.min(Math.abs(delta), rate * dt);
+    }
+    // Keys (or the touch stick) steer; the mouse only aims the turret.
+    const wanted = clamp(this.input.bank + this.input.x, -1, 1);
+    const toward = wanted === 0 || Math.sign(wanted) !== Math.sign(this.steerState)
+      ? TRUCK.steerReturn
+      : TRUCK.steerRate;
+    this.steerState +=
+      Math.sign(wanted - this.steerState) *
+      Math.min(Math.abs(wanted - this.steerState), toward * dt);
+    const speed = Math.abs(this.driveSpeed);
+    const dir =
+      this.driveSpeed < -0.1 ? -1 : this.driveSpeed > 0.1 ? 1 : throttle < 0 ? -1 : 1;
+    // Bicycle model: lock narrows with speed so fast turns stay controllable.
+    const lock =
+      (this.steerState * TRUCK.maxSteer) / (1 + speed / TRUCK.steerFalloff);
+    let yawRate = Math.min(
+      (speed / TRUCK.axleSpan) * Math.tan(Math.abs(lock)),
+      TRUCK.maxYawRate,
+    ) * Math.sign(lock);
+    // Big tyres can pivot almost in place while the driver works the pedals.
+    if (tyresDown && this.steerState !== 0)
+      yawRate =
+        Math.sign(lock) *
+        Math.max(Math.abs(yawRate), TRUCK.pivotRate * Math.abs(this.steerState));
+    // In the air the tyres have no grip: steer the truck directly instead,
+    // at a steady rate that doesn't depend on speed.
+    if (!tyresDown) yawRate = this.steerState * TRUCK.airTurnRate * dir;
+    p.yaw -= yawRate * dir * dt;
+    const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    // Ground too steep to climb bleeds speed away rather than pinning the truck.
+    if (grounded && Math.abs(this.driveSpeed) > 0.1) {
+      const ax = p.p[0] + f[0] * dir * 2,
+        az = p.p[2] + f[2] * dir * 2;
+      if ((ground(ax, az) - ground(p.p[0], p.p[2])) / 2 > TRUCK.maxClimb)
+        this.driveSpeed *= 0.85;
+    }
+    // Still stuck with the pedal down? Hop free, monster-truck style.
+    if (grounded && throttle !== 0 && Math.abs(this.driveSpeed) < 1)
+      this.stuckTime += dt;
+    else this.stuckTime = 0;
+    let hopping = false;
+    if (this.stuckTime > TRUCK.unstickAfter) {
+      this.stuckTime = 0;
+      vy = TRUCK.hopSpeed;
+      this.driveSpeed = 6 * Math.sign(throttle);
+      hopping = true;
+    }
+    vy -= (vy > 0 ? TRUCK.gravity : TRUCK.fallGravity) * dt;
+    const next: Vec3 = [
+      p.p[0] + f[0] * this.driveSpeed * dt,
+      p.p[1] + vy * dt,
+      p.p[2] + f[2] * this.driveSpeed * dt,
+    ];
+    const floor = rest(next[0], next[2]);
+    let landed = false;
+    // Ground stick: over crests and bumps the truck follows the ground down
+    // rather than floating off it. Only a real ramp (a strong upward speed)
+    // or a drop steeper than it can follow sends it airborne.
+    if (
+      grounded &&
+      !hopping &&
+      next[1] > floor &&
+      vy < TRUCK.launchThreshold &&
+      next[1] - floor < speed * dt * TRUCK.stickSlope + 0.5
+    )
+      next[1] = floor - 1e-6;
+    if (next[1] <= floor) {
+      // Monster truck: any landing is survivable, however big the jump.
+      // Carry the climb rate so crests and crater lips launch the truck.
+      vy = clamp((floor - p.p[1]) / dt, -40, TRUCK.maxLaunch);
+      next[1] = floor;
+      landed = true;
+    }
+    p.wading = this.onWater(next[0], next[2]);
+    // Trees fall at a touch, before they can block the truck.
+    this.flattenTrees();
+    // Only intact structures stop the truck; it rolls over rubble and terrain.
+    const lift = TRUCK.radius - TRUCK.rideHeight + 1.2;
+    const from: Vec3 = [p.p[0], p.p[1] + lift, p.p[2]],
+      to: Vec3 = [next[0], next[1] + lift, next[2]];
+    const hit = this.sweep(from, to, TRUCK.radius, TRUCK.radius, {
+      structuresOnly: true,
+      penetrate: false,
+    });
+    if (hit) {
+      // Only driving into something wrecks it; coming down on it doesn't.
+      const impact = Math.abs(this.driveSpeed);
+      if (this.flattenTrees()) {
+        this.driveSpeed *= 0.85;
+        next[0] = p.p[0];
+        next[2] = p.p[2];
+      } else if (impact > TRUCK.crashSpeed) {
+        p.p = [hit[0], hit[1] - lift, hit[2]];
+        this.crash(p.p, false);
+        return;
+      } else {
+        // Bounce off and keep the current position.
+        this.driveSpeed *= -0.3;
+        vy = Math.min(vy, 0);
+        next[0] = p.p[0];
+        next[2] = p.p[2];
+        next[1] = Math.max(p.p[1] + vy * dt, rest(p.p[0], p.p[2]));
+      }
+    }
+    next[0] = clamp(next[0], 1, CONFIG.worldSize - 1);
+    next[2] = clamp(next[2], 1, CONFIG.worldSize - 1);
+    // Body attitude follows the four wheel contacts on the ground.
+    const blend = 1 - Math.exp(-dt * (landed ? 12 : 1.5));
+    if (landed) {
+      const r: Vec3 = [Math.cos(p.yaw), 0, -Math.sin(p.yaw)];
+      const at = (a: number, b: number) =>
+        ground(
+          next[0] + f[0] * a + r[0] * b,
+          next[2] + f[2] * a + r[2] * b,
+        );
+      const wb = TRUCK.wheelBase,
+        tr = TRUCK.track;
+      const front = (at(wb, tr) + at(wb, -tr)) / 2,
+        back = (at(-wb, tr) + at(-wb, -tr)) / 2,
+        plusX = (at(wb, tr) + at(-wb, tr)) / 2,
+        minusX = (at(wb, -tr) + at(-wb, -tr)) / 2;
+      p.pitch = lerp(p.pitch, Math.atan2(front - back, 2 * wb), blend);
+      p.roll = lerp(p.roll, Math.atan2(plusX - minusX, 2 * tr), blend);
+    } else {
+      p.pitch = lerp(
+        p.pitch,
+        clamp(Math.atan2(vy, Math.abs(this.driveSpeed) + 8) * 0.6, -0.5, 0.5),
+        blend,
+      );
+      p.roll = lerp(p.roll, 0, blend);
+    }
+    p.v = [f[0] * this.driveSpeed, vy, f[2] * this.driveSpeed];
+    p.speed = Math.abs(this.driveSpeed);
+    p.boundary = false;
+    p.p = next;
+    this.plowDebris(f);
+    // The mouse looks around relative to the truck's heading; the camera
+    // follows this, never the turret, so the mouse always stays in control.
+    p.lookYaw = p.yaw - (this.input.aimYaw ?? 0);
+    p.lookPitch =
+      clamp(this.input.aimPitch ?? 0, TRUCK.aimPitchMin, TRUCK.aimPitchMax) +
+      TRUCK.aimTilt;
+    p.aimYaw = p.lookYaw;
+    p.aimPitch = p.lookPitch;
+    // Find what the crosshair is on: refresh a few times a second, and
+    // always right before a shot.
+    const ready =
+      this.input.fire && this.cooldowns[this.weapon] <= 1e-9;
+    if (ready || this.tick % 4 === 0) this.groundTarget = this.crosshairTarget();
+    if (this.groundTarget) {
+      // Point the turret along the straight line to the target.
+      const m = this.muzzle(this.aimDirection());
+      const d = this.groundTarget.map((v, i) => v - m[i]);
+      p.aimYaw = Math.atan2(d[0], d[2]);
+      p.aimPitch = Math.atan2(d[1], Math.hypot(d[0], d[2]));
+    }
+    this.prepareWeapons();
+    this.weaponDriver!.fire(p, this.aimDirection());
+  }
   private aircraftSweep(from: Vec3, to: Vec3): Vec3 | null {
     const hit = this.sweep(from, to, 2.2);
     const contactLevel = HELL_LAVA_LEVEL - 2.2;
@@ -2397,6 +3005,8 @@ export class Simulation {
   }
   private crash(p: Vec3, airborne = true) {
     if (this.plane.crashed > 0) return;
+    // The truck never glides: any wreck explodes where it stands.
+    if (this.plane.mode === "ground") airborne = false;
     this.plane.crashed = CONFIG.respawnDelay;
     this.plane.falling = airborne;
     if (!airborne) this.impact(p);
@@ -2473,14 +3083,107 @@ export class Simulation {
       },
     });
   }
-  private laserAim(): Vec3 | null {
+  /** Unit vector along the truck turret's aim. */
+  private aimDirection(): Vec3 {
     const p = this.plane,
-      f: Vec3 = [
-        Math.sin(p.yaw) * Math.cos(p.pitch),
-        Math.sin(p.pitch),
-        Math.cos(p.yaw) * Math.cos(p.pitch),
-      ];
-    const a = p.p.map((v, i) => v + f[i] * 12) as Vec3;
+      yaw = p.aimYaw ?? p.yaw,
+      pitch = p.aimPitch ?? 0;
+    return [
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      Math.cos(yaw) * Math.cos(pitch),
+    ];
+  }
+  /** Where shots leave: the truck's roof turret, or the aircraft's nose. */
+  private muzzle(f: Vec3): Vec3 {
+    const p = this.plane;
+    return p.mode === "ground"
+      ? [
+          p.p[0] + f[0] * 6,
+          p.p[1] + TRUCK.turretHeight + f[1] * 6,
+          p.p[2] + f[2] * 6,
+        ]
+      : (p.p.map((v, i) => v + f[i] * 12) as Vec3);
+  }
+  /**
+   * The point under the screen-centre crosshair while driving: the camera's
+   * view ray cast into terrain, structures, flies and monsters. Hits nearer
+   * than the truck (the ground between camera and truck) are skipped.
+   */
+  private crosshairTarget(range = 1500): Vec3 | undefined {
+    const from = this.input.aimFrom,
+      dir = this.input.aimDir;
+    if (!from || !dir) return undefined;
+    const len = Math.hypot(...dir);
+    if (!(len > 1e-6)) return undefined;
+    const f = dir.map((v) => v / len) as Vec3;
+    // Start the ray level with the truck so nothing behind it counts.
+    const skip = Math.max(
+      0,
+      (this.plane.p[0] - from[0]) * f[0] +
+        (this.plane.p[1] - from[1]) * f[1] +
+        (this.plane.p[2] - from[2]) * f[2],
+    );
+    const a = from.map((v, i) => v + f[i] * skip) as Vec3;
+    const b = from.map((v, i) => v + f[i] * range) as Vec3;
+    let hit = this.sweep(a, b, 0);
+    const flyHit = this.flies.intersect(a, b);
+    if (flyHit && (!hit || distance(a, flyHit.p) < distance(a, hit)))
+      hit = flyHit.p;
+    const monsterHit = this.monsters.intersect(a, b);
+    if (monsterHit && (!hit || distance(a, monsterHit.p) < distance(a, hit)))
+      hit = monsterHit.p;
+    return hit ?? b;
+  }
+  /**
+   * Muzzle position and world velocity that land a truck weapon on the
+   * crosshair, allowing for its gravity and the truck's own motion.
+   */
+  groundLaunch(weapon: WeaponId): { p: Vec3; v: Vec3 } {
+    const p = this.plane;
+    const f = this.aimDirection();
+    const target = this.groundTarget;
+    const from = this.muzzle(f);
+    const gravity =
+      weapon === "cannon"
+        ? WEAPONS.cannon.gravity
+        : weapon === "nuke"
+          ? WEAPONS.nuke.gravity
+          : CONFIG.debrisGravity;
+    const reach = target ? distance(from, target) : 600;
+    const speed =
+      weapon === "cannon"
+        ? WEAPONS.cannon.launchSpeed
+        : lobSpeed(reach, gravity, 40, 260);
+    const u =
+      (target && solveLaunch(from, target, speed, gravity, p.v)) ||
+      // Out of range: fire as far as possible toward it.
+      solveLaunch(
+        from,
+        from.map((v, i) => v + f[i] * Math.min(reach, 400)) as Vec3,
+        speed,
+        gravity,
+        p.v,
+      ) ||
+      (f.map((v) => v * speed) as Vec3);
+    return { p: from, v: u.map((v, i) => v + p.v[i]) as Vec3 };
+  }
+  private laserAim(): Vec3 | null {
+    // Driving: the beam lands exactly on the crosshair.
+    if (this.plane.mode === "ground") {
+      const hit = this.crosshairTarget(LASER.range);
+      if (hit) return hit;
+    }
+    const p = this.plane,
+      f: Vec3 =
+        p.mode === "ground"
+          ? this.aimDirection()
+          : [
+              Math.sin(p.yaw) * Math.cos(p.pitch),
+              Math.sin(p.pitch),
+              Math.cos(p.yaw) * Math.cos(p.pitch),
+            ];
+    const a = this.muzzle(f);
     let length = LASER.range;
     for (const axis of [0, 2]) {
       if (Math.abs(f[axis]) > 1e-6)
@@ -2758,6 +3461,11 @@ export class Simulation {
     return performance.now() - start;
   }
   private updateAim() {
+    // Driving: every weapon is solved onto the crosshair point.
+    if (this.plane.mode === "ground") {
+      this.aim = this.groundTarget ?? null;
+      return;
+    }
     if (this.weapon === "gravityBomb") {
       this.aim = null;
       return;
@@ -2821,6 +3529,8 @@ export class Simulation {
     this.tick++;
     this.time += dt;
     this.portalGrace = Math.max(0, this.portalGrace - dt);
+    if (this.plane.shield)
+      this.plane.shield = Math.max(0, this.plane.shield - dt);
     this.updateCleanup(dt);
     if (!this.holdTime) {
       this.hour += dt / 60;
@@ -2863,7 +3573,7 @@ export class Simulation {
       this.plane.p,
       2.2,
     );
-    if ((struck || bodyHit) && this.plane.crashed <= 0) {
+    if ((struck || bodyHit) && this.plane.crashed <= 0 && !this.shielded()) {
       if (bodyHit) {
         const before = this.monsters.active();
         const m = bodyHit.monster;
@@ -2889,7 +3599,7 @@ export class Simulation {
       wasCrashed || this.plane.crashed > 0,
       (a, b, radius) => this.sweep(a, b, radius),
     );
-    if (flyHit && this.plane.crashed <= 0) {
+    if (flyHit && this.plane.crashed <= 0 && !this.shielded()) {
       this.plane.p = flyHit;
       this.crash(flyHit);
     }
@@ -2897,7 +3607,7 @@ export class Simulation {
     const lasersStarted = performance.now();
     this.updateLasers(dt);
     this.stageMS.lasers = performance.now() - lasersStarted;
-    if (this.plane.crashed <= 0) {
+    if (this.plane.crashed <= 0 && !this.shielded()) {
       const hit = this.laserPlaneHit(
         wasCrashed ? this.plane.p : previousPlanePosition,
         this.plane.p,
@@ -2920,7 +3630,7 @@ export class Simulation {
     this.stageMS.destruction = performance.now() - destructionStarted;
     const fireStarted = performance.now();
     this.updateNuclearFire(dt);
-    if (this.plane.crashed <= 0) {
+    if (this.plane.crashed <= 0 && !this.shielded()) {
       const hit = this.fires.sweep(
         wasCrashed ? this.plane.p : previousPlanePosition,
         this.plane.p,

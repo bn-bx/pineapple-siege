@@ -30,6 +30,8 @@ export interface WeaponDriverContext {
   input: InputState;
   cooldowns: Record<WeaponId, number>;
   dropGravityBomb: (plane: PlaneState) => boolean;
+  /** Truck only: muzzle and world velocity solved onto the crosshair. */
+  groundLaunch?: (weapon: WeaponId) => { p: Vec3; v: Vec3 };
   laserAim: () => Vec3 | null;
   startLaser: (p: Vec3) => void;
   destruction: {
@@ -72,7 +74,7 @@ export class WeaponDriver {
       if (
         this.host.input.fire &&
         this.host.cooldowns.gravityBomb <= 1e-9 &&
-        this.host.dropGravityBomb(p)
+        this.host.dropGravityBomb(this.bombRelease(p))
       ) {
         this.host.cooldowns.gravityBomb = this.host.destruction.noCooldown
           ? RAPID_FIRE_INTERVAL
@@ -103,6 +105,9 @@ export class WeaponDriver {
         ? RAPID_FIRE_INTERVAL
         : tuning.cooldown;
       this.host.shots++;
+      // Driving: the solved launch lands the shot on the crosshair.
+      const solved =
+        p.mode === "ground" ? this.host.groundLaunch?.(weapon) : undefined;
       this.host.projectiles.push({
         id: this.host.nextShot++,
         weapon,
@@ -111,17 +116,31 @@ export class WeaponDriver {
           weapon === "nuke"
             ? nukeProfile(this.host.nukeYield, this.host.destruction)
             : undefined,
-        p:
-          weapon === "cannon"
+        p: solved
+          ? solved.p
+          : weapon === "cannon"
             ? (p.p.map((v, i) => v + f[i] * 12) as Vec3)
             : [p.p[0], p.p[1] - 12, p.p[2]],
-        v:
-          weapon === "cannon"
+        v: solved
+          ? solved.v
+          : weapon === "cannon"
             ? (f.map((v) => v * (p.speed + tuning.launchSpeed)) as Vec3)
             : [p.v[0], p.v[1] - 8, p.v[2]],
         age: 0,
       });
     }
+  }
+  /** Gravity bombs drop from the aircraft, or are lobbed by the truck. */
+  private bombRelease(p: PlaneState): PlaneState {
+    const solved =
+      p.mode === "ground" ? this.host.groundLaunch?.("gravityBomb") : undefined;
+    if (!solved) return p;
+    // Bombs release 12 m below the point they are given.
+    return {
+      ...p,
+      p: [solved.p[0], solved.p[1] + 12, solved.p[2]],
+      v: solved.v,
+    };
   }
   update(dt: number): void {
     for (let i = this.host.projectiles.length - 1; i >= 0; i--) {

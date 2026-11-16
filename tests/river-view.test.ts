@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as THREE from "three";
+import { RIVER_MAX_DEPTH } from "../src/world/water-geometry.mjs";
 import {
   makeRivers,
   riverBendReviewCamera,
@@ -112,4 +113,39 @@ it("adds one surface pool only where two rivers share a real junction", () => {
   expect(mesh.geometry.getAttribute("position").count).toBe(22);
   for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
   (mesh.material as THREE.Material).dispose();
+});
+
+it("lets a level river follow the ground down across a dip instead of floating", () => {
+  // A level reach at 50 m crossing a 40 m-deep gully between x = 60 and 100.
+  const ground = (x: number) => (x > 60 && x < 100 ? 10 : 48);
+  const group = makeRivers(
+    {
+      rivers: [
+        {
+          id: "level",
+          width: 8,
+          points: [
+            [0, 50, 0],
+            [64, 50, 0],
+            [128, 50, 0],
+          ],
+        },
+      ],
+    } as any,
+    {
+      heightTexture: new THREE.Texture(),
+      floodTexture: new THREE.Texture(),
+      sample: (x: number) => ground(x),
+    } as any,
+  );
+  const p = (group.children[0] as THREE.Mesh).geometry.getAttribute("position");
+  let worst = 0;
+  for (let i = 0; i < p.count; i++)
+    worst = Math.max(worst, p.getY(i) - ground(p.getX(i)));
+  // Nowhere more than the cap above the ground, and the level is kept
+  // over normal banks.
+  expect(worst).toBeLessThanOrEqual(RIVER_MAX_DEPTH + 0.06);
+  let top = -Infinity;
+  for (let i = 0; i < p.count; i++) top = Math.max(top, p.getY(i));
+  expect(top).toBeCloseTo(50.05, 4);
 });

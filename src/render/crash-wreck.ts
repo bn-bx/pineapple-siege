@@ -8,6 +8,7 @@ export class CrashWreckView {
   readonly group = new THREE.Group();
   private crashed = false;
   private hulks: {
+    source: THREE.Object3D;
     mesh: THREE.Group;
     born: number;
     origin: THREE.Vector3;
@@ -16,9 +17,14 @@ export class CrashWreckView {
     landed: boolean;
   }[] = [];
   private cursor = 0;
-  /** `margin`: metres a wreck may lie beyond the terrain square (open sea). */
+  /**
+   * `vehicle`: the model to copy for a wreck, given the crashed state.
+   * `margin`: metres a wreck may lie beyond the terrain square (open sea).
+   */
   constructor(
-    private aircraft: THREE.Group,
+    private vehicle:
+      | THREE.Object3D
+      | ((plane: PlaneState) => THREE.Object3D),
     private margin = 0,
   ) {}
   update(
@@ -28,9 +34,22 @@ export class CrashWreckView {
   ) {
     const impacted = plane.crashed > 0 && !plane.falling;
     if (impacted && !this.crashed) {
+      const source =
+        typeof this.vehicle === "function"
+          ? this.vehicle(plane)
+          : this.vehicle;
       let hulk = this.hulks[this.cursor];
+      if (hulk && hulk.source !== source) {
+        this.group.remove(hulk.mesh);
+        hulk.mesh.traverse((object) => {
+          if (object instanceof THREE.Mesh)
+            (object.material as THREE.Material).dispose();
+        });
+        this.hulks[this.cursor] = undefined!;
+        hulk = undefined!;
+      }
       if (!hulk) {
-        const mesh = this.aircraft.clone(true);
+        const mesh = source.clone(true) as THREE.Group;
         mesh.traverse((object) => {
           if (!(object instanceof THREE.Mesh)) return;
           if (object.name === "flame" || object.name === "flame-core") {
@@ -45,6 +64,7 @@ export class CrashWreckView {
           object.material = material;
         });
         hulk = {
+          source,
           mesh,
           born: time,
           origin: new THREE.Vector3(),
@@ -52,7 +72,7 @@ export class CrashWreckView {
           clearance: 2,
           landed: false,
         };
-        this.hulks.push(hulk);
+        this.hulks[this.cursor] = hulk;
         this.group.add(mesh);
       }
       const pose = flightPose(undefined, plane, 1);
@@ -71,6 +91,7 @@ export class CrashWreckView {
     }
     this.crashed = impacted;
     for (const h of this.hulks) {
+      if (!h) continue;
       const age = Math.max(0, time - h.born);
       if (age >= 60) {
         h.mesh.visible = false;
@@ -108,6 +129,6 @@ export class CrashWreckView {
   reset() {
     this.crashed = false;
     this.cursor = 0;
-    for (const h of this.hulks) h.mesh.visible = false;
+    for (const h of this.hulks) if (h) h.mesh.visible = false;
   }
 }

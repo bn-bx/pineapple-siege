@@ -1,4 +1,5 @@
 import { SparseIndices } from "./sparse-indices";
+import { cappedRiverSurface } from "../world/water-geometry.mjs";
 import { SparseValues } from "./sparse-values";
 import { CONFIG, CHUNKS, CHUNK_SAMPLES, LASER, clamp } from "../config";
 import { RiverField } from "../world/rivers";
@@ -154,7 +155,8 @@ export class Terrain {
     if (this.laserDry[i]) return undefined;
     const river = this.rivers.cells.get(i),
       h = terrainHeight ?? this.sample(x, z);
-    if (river !== undefined && h < river) return river;
+    if (river !== undefined && h < river)
+      return this.rivers.lakeCells.has(i) ? river : cappedRiverSurface(river, h);
     return this.flooded[i] && h < 0 ? 0 : undefined;
   }
   /** Active inland water only; ocean flooding is deliberately excluded. */
@@ -164,7 +166,7 @@ export class Terrain {
       ? undefined
       : this.rivers.riverCells.get(i);
     return !this.laserDry[i] && surface !== undefined && terrainHeight < surface
-      ? surface
+      ? cappedRiverSurface(surface, terrainHeight)
       : undefined;
   }
   water(x: number, z: number, terrainHeight?: number) {

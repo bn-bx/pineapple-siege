@@ -259,7 +259,9 @@
           ><span><kbd>1 / 2 / 3 / 4</kbd> Select weapon</span
           ><span><kbd>SHIFT</kbd> Boost</span><span><kbd>R</kbd> Respawn</span
           ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
-          ><span><kbd>P</kbd> Photo</span>
+          ><span><kbd>P</kbd> Photo</span
+          ><span><kbd>V</kbd> Drive / fly</span
+          ><span><kbd>F</kbd> Pour concrete</span>
           <span class="touch-help"
             >Touch: left pad steers · hold Fire, Boost, or throttle +/− · tap a
             weapon to select it</span
@@ -389,12 +391,14 @@
         <button data-key="KeyS" aria-label="Lower throttle">−</button>
         <button data-key="KeyW" aria-label="Raise throttle">+</button>
         <button id="touchRespawn">Respawn</button>
+        <button id="touchVehicle" aria-label="Drive or fly">Drive</button>
+        <button data-key="KeyF" aria-label="Pour concrete">Pour</button>
         <button data-key="ShiftLeft">Boost</button>
         <button data-key="Space">Fire 🍍</button>
       </div>
     </aside>
     <section id="deathOverlay" hidden aria-label="Death camera">
-      <p class="eyebrow">AIRCRAFT LOST</p>
+      <p class="eyebrow" id="deathTitle">AIRCRAFT LOST</p>
       <button id="deathRespawn" type="button">Respawn</button>
       <p>Enter / Space / R to respawn</p>
     </section>

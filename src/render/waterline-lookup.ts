@@ -1,5 +1,8 @@
 import type { RiverData, LakeData } from "../types";
-import { inlandWaterHeight } from "../world/water-geometry.mjs";
+import {
+  cappedRiverSurface,
+  inlandWaterHeight,
+} from "../world/water-geometry.mjs";
 
 /** Query the same generated footprint and nearest 2 m sample as the simulation. */
 export class WaterSurfaceLookup {
@@ -17,12 +20,15 @@ export class WaterSurfaceLookup {
   ): number | undefined {
     if (!wet || x < 0 || z < 0 || x > this.worldSize || z > this.worldSize)
       return undefined;
-    const surface = inlandWaterHeight(
-      this.rivers,
-      this.lakes,
-      Math.round(x / 2) * 2,
-      Math.round(z / 2) * 2,
-    );
+    const sx = Math.round(x / 2) * 2,
+      sz = Math.round(z / 2) * 2;
+    const any = inlandWaterHeight(this.rivers, this.lakes, sx, sz),
+      river = inlandWaterHeight(this.rivers, this.lakes, sx, sz, true);
+    // Lakes keep their level; rivers follow the ground down over dips.
+    const surface =
+      Number.isFinite(river) && !(any > river + 1e-6)
+        ? cappedRiverSurface(river, terrainHeight)
+        : any;
     if (Number.isFinite(surface) && surface > terrainHeight) return surface;
     return terrainHeight < 0 ? 0 : undefined;
   }

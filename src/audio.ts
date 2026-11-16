@@ -110,19 +110,31 @@ export class GameAudio {
   pause() {
     this.ctx?.suspend().catch(() => {});
   }
-  update(speed: number, p: Vec3, forward: Vec3, boost = false) {
+  update(
+    speed: number,
+    p: Vec3,
+    forward: Vec3,
+    boost = false,
+    driving = false,
+  ) {
     if (!this.ctx || !this.engine) return;
+    // The hearse's big-block engine rumbles lower and revs harder per m/s.
     this.engine.frequency.setTargetAtTime(
-      45 + speed * 0.6 + (boost ? 25 : 0),
+      driving
+        ? 30 + Math.min(speed, 60) * 1.1 + (boost ? 45 : 0)
+        : 45 + speed * 0.6 + (boost ? 25 : 0),
       this.ctx.currentTime,
       0.2,
     );
     this.filter!.frequency.setTargetAtTime(
-      180 + speed * 2,
+      driving ? 140 + speed * 4 + (boost ? 900 : 0) : 180 + speed * 2,
       this.ctx.currentTime,
       0.2,
     );
-    const throttle = Math.max(0, Math.min(1, (speed - 35) / 85));
+    const throttle = Math.max(
+      0,
+      Math.min(1, driving ? 0.4 + speed / 65 + (boost ? 0.6 : 0) : (speed - 35) / 85),
+    );
     this.engineGain!.gain.setTargetAtTime(
       0.02 + throttle * 0.025,
       this.ctx.currentTime,
@@ -472,6 +484,11 @@ export class GameAudio {
     );
   }
 
+  /** Puff of smoke into the truck, or the rocket roar out of it. */
+  transform(p: Vec3, into: "air" | "ground") {
+    if (into === "ground") this.noise(p, 0.35, 0.55, 700, 3);
+    else this.noise(p, 0.5, 0.9, 260, 3);
+  }
   launch(p: Vec3, weapon: WeaponId = "cannon") {
     if (weapon === "laser") return;
     this.noise(

@@ -1,4 +1,6 @@
 import type { RiverData, LakeData, Vec3 } from "../types";
+export const RIVER_MAX_DEPTH: number;
+export function cappedRiverSurface(surface: number, bed: number): number;
 export function riverHalfWidth(river: RiverData, index: number): number;
 export function segmentWater(
   a: Vec3,

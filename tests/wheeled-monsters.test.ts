@@ -70,7 +70,8 @@ it("honors active river cells and laser drying in the terrain surface helper", (
       lakeCells: new Set<number>(),
     },
     laserDry: new Uint8Array(1),
-    sample: () => -30,
+    // A bed a few metres down; deeper beds are capped (RIVER_MAX_DEPTH).
+    sample: () => 6,
   };
   expect(
     Terrain.prototype.riverSurface.call(terrain as unknown as Terrain, 0, 0),

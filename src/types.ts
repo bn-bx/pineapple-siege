@@ -341,6 +341,12 @@ export interface InputState {
   bank: number;
   boost: boolean;
   fire: boolean;
+  /** Truck turret aim from the mouse: yaw right of the heading, and pitch. */
+  aimYaw?: number;
+  aimPitch?: number;
+  /** Truck crosshair ray: the chase camera's position and view direction. */
+  aimFrom?: Vec3;
+  aimDir?: Vec3;
 }
 export interface PlaneState {
   p: Vec3;
@@ -354,7 +360,29 @@ export interface PlaneState {
   /** Disabled and burning, but still moving toward its final impact. */
   falling?: boolean;
   boundary: boolean;
+  /** Ground mode drives the monster concrete truck; absent means flying. */
+  mode?: VehicleMode;
+  /** The truck is parachuting down after leaving the aircraft. */
+  chute?: boolean;
+  /** Seconds left of the rocket climb out of the truck. */
+  launch?: number;
+  /** Seconds left of protection from fire, monsters, flies and lasers. */
+  shield?: number;
+  /** Truck only: the jet boosters are firing. */
+  boosting?: boolean;
+  /** Truck only: floating on water. */
+  wading?: boolean;
+  /** Truck only: world yaw and pitch the turret is aiming along. */
+  aimYaw?: number;
+  aimPitch?: number;
+  /**
+   * Truck only: world yaw and pitch of the mouse look, which steers the
+   * camera. The turret then aims at whatever that view lands on.
+   */
+  lookYaw?: number;
+  lookPitch?: number;
 }
+export type VehicleMode = "air" | "ground";
 export interface BodyView {
   id: number;
   p: Vec3;
@@ -566,6 +594,7 @@ export type GameCommand =
   | { type: "destructionSettings"; value: DestructionSettings }
   | { type: "monsterCount"; value: number }
   | { type: "respawn" }
+  | { type: "vehicleMode"; mode: VehicleMode }
   | { type: "setPlane"; plane: PlaneState; grace?: number }
   | { type: "reset" }
   | { type: "save"; request: number; port?: MessagePort }

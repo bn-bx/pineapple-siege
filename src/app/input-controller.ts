@@ -1,10 +1,15 @@
 import { GameAudio } from "../audio";
-import { clamp } from "../config";
+import { clamp, TRUCK } from "../config";
 import { pointerSteering } from "../input";
 import { createPhotoSaveAction } from "../photo-save";
 import { GameRenderer } from "../render/renderer";
 import { SessionState } from "../session-state";
-import type { GameCommand, Preferences, SimulationSnapshot } from "../types";
+import type {
+  GameCommand,
+  Preferences,
+  SimulationSnapshot,
+  Vec3,
+} from "../types";
 export interface InputControllerContext {
   snapshot?: SimulationSnapshot;
   touch: {
@@ -16,6 +21,9 @@ export interface InputControllerContext {
   keys: Set<string>;
   steerX: number;
   steerY: number;
+  /** Truck turret aim from the mouse (radians right of heading, and up). */
+  aimYaw: number;
+  aimPitch: number;
   fireUntil: number;
   dragging: boolean;
   send: (message: GameCommand, transfer?: Transferable[]) => void;
@@ -32,6 +40,7 @@ export interface InputControllerContext {
   canvas: HTMLCanvasElement;
   togglePhoto: () => void;
   respawn: () => void;
+  toggleVehicle: () => void;
   pause: () => void;
   cinematic: () => void;
   preferences: () => Preferences;
@@ -40,6 +49,19 @@ const deathControls = new WeakMap<
   InputControllerContext,
   { shown: boolean; pending: boolean }
 >();
+/** When the truck's aim last moved, for easing the view back behind it. */
+const aimActivity = new WeakMap<
+  InputControllerContext,
+  { moved: number; frame: number }
+>();
+const aimState = (ctx: InputControllerContext) => {
+  let state = aimActivity.get(ctx);
+  if (!state) {
+    const now = performance.now();
+    aimActivity.set(ctx, (state = { moved: now, frame: now }));
+  }
+  return state;
+};
 const dead = (ctx: InputControllerContext) =>
   (ctx.snapshot?.plane.crashed ?? 0) > 0;
 const deathState = (ctx: InputControllerContext) => {
@@ -78,6 +100,7 @@ export function clearInput(ctx: InputControllerContext): void {
   ctx.debugInput = undefined;
   ctx.keys.clear();
   ctx.steerX = ctx.steerY = 0;
+  ctx.aimYaw = ctx.aimPitch = 0;
   ctx.fireUntil = 0;
   ctx.dragging = false;
   ctx.send({
@@ -97,18 +120,46 @@ export function input(ctx: InputControllerContext): void {
     ctx.send({ type: "input", input: ctx.debugInput });
     return;
   }
+  // In the truck the mouse aims the turret; only keys and the stick steer.
+  const driving = ctx.snapshot?.plane.mode === "ground";
+  const firing =
+    ctx.keys.has("Mouse0") ||
+    ctx.held("Space") ||
+    performance.now() < ctx.fireUntil;
+  if (driving) {
+    // Leave the mouse alone (and stop firing) and the view eases back
+    // behind the truck.
+    const now = performance.now(),
+      state = aimState(ctx),
+      dt = Math.min(0.1, (now - state.frame) / 1000);
+    state.frame = now;
+    if (firing) state.moved = now;
+    if (now - state.moved > TRUCK.aimReturnDelay * 1000) {
+      const k = 1 - Math.exp(-dt * 2.5);
+      ctx.aimYaw -= ctx.aimYaw * k;
+      ctx.aimPitch -= ctx.aimPitch * k;
+    }
+  }
   ctx.send({
     type: "input",
     input: {
-      x: clamp(ctx.steerX + ctx.touch.steering.x, -1, 1),
-      y: clamp(ctx.steerY + ctx.touch.steering.y, -1, 1),
+      x: driving
+        ? clamp(ctx.touch.steering.x, -1, 1)
+        : clamp(ctx.steerX + ctx.touch.steering.x, -1, 1),
+      y: driving ? 0 : clamp(ctx.steerY + ctx.touch.steering.y, -1, 1),
+      aimYaw: ctx.aimYaw,
+      aimPitch: ctx.aimPitch,
+      // The crosshair is the chase camera's view ray; the sim casts it.
+      ...(driving && ctx.view.rig.mode === "chase"
+        ? {
+            aimFrom: ctx.view.camera.position.toArray() as Vec3,
+            aimDir: ctx.view.cameraDirection(),
+          }
+        : {}),
       throttle: (ctx.held("KeyW") ? 1 : 0) - (ctx.held("KeyS") ? 1 : 0),
       bank: (ctx.keys.has("KeyD") ? 1 : 0) - (ctx.keys.has("KeyA") ? 1 : 0),
       boost: ctx.held("ShiftLeft") || ctx.held("ShiftRight"),
-      fire:
-        ctx.keys.has("Mouse0") ||
-        ctx.held("Space") ||
-        performance.now() < ctx.fireUntil,
+      fire: firing,
     },
   });
 }
@@ -179,10 +230,61 @@ export function respawn(ctx: InputControllerContext): void {
   ctx.$("deathRespawn").blur();
   document.body.classList.remove("cinematic");
   ctx.send({ type: "respawn" });
-  if (!ctx.pointerFallback && document.pointerLockElement !== ctx.canvas)
-    ctx.canvas.requestPointerLock().catch(() => {
-      ctx.pointerFallback = true;
-    });
+  captureMouse(ctx);
+}
+
+/**
+ * Capture the mouse for steering and aiming. Browsers refuse the lock when
+ * the request isn't tied to a fresh click (after an await) or comes within
+ * a second of pressing Esc; rather than dropping to drag-to-steer for good,
+ * ask for a click and capture again from that click.
+ */
+export function captureMouse(ctx: InputControllerContext): void {
+  if (ctx.pointerFallback || document.pointerLockElement === ctx.canvas) return;
+  const request = (() => {
+    try {
+      return ctx.canvas.requestPointerLock() as Promise<void> | undefined;
+    } catch {
+      return undefined;
+    }
+  })();
+  if (request && typeof request.catch === "function")
+    request.then(
+      () => hideCapturePrompt(ctx),
+      () => showCapturePrompt(ctx),
+    );
+}
+function showCapturePrompt(ctx: InputControllerContext) {
+  if (!ctx.session.active || document.pointerLockElement === ctx.canvas) return;
+  const hint = ctx.$("hint");
+  if (!hint?.dataset) return;
+  hint.textContent = "Click to capture the mouse";
+  hint.dataset.capture = "1";
+  hint.hidden = false;
+  hint.style.opacity = "1";
+}
+function hideCapturePrompt(ctx: InputControllerContext) {
+  const hint = ctx.$("hint");
+  if (!hint?.dataset) return;
+  if (hint.dataset.capture !== "1") return;
+  delete hint.dataset.capture;
+  hint.style.opacity = "0";
+}
+
+/** Swap between the aircraft and the monster truck hearse. */
+export function toggleVehicle(ctx: InputControllerContext): void {
+  if (!ctx.session.active || dead(ctx) || !ctx.snapshot) return;
+  const mode = ctx.snapshot.plane.mode === "ground" ? "air" : "ground";
+  ctx.aimYaw = ctx.aimPitch = 0;
+  ctx.steerX = ctx.steerY = 0;
+  ctx.send({ type: "vehicleMode", mode });
+  ctx.$("hint").textContent =
+    mode === "ground"
+      ? "A/D steer · W/S drive · Mouse aims the turret · F pour concrete · V take off"
+      : "Mouse steers · W/S throttle · V drive";
+  ctx.$("hint").hidden = false;
+  ctx.$("hint").style.opacity = "1";
+  setTimeout(() => (ctx.$("hint").style.opacity = "0"), 6000);
 }
 
 export function bind(ctx: InputControllerContext): void {
@@ -215,6 +317,7 @@ export function bind(ctx: InputControllerContext): void {
       if (ctx.session.active) ctx.send({ type: "weapon", weapon });
     };
   ctx.$("touchRespawn").onclick = ctx.respawn;
+  ctx.$("touchVehicle").onclick = ctx.toggleVehicle;
   ctx.$("deathRespawn").onclick = ctx.respawn;
   window.addEventListener("keydown", (e) => {
     if (e.code === "Escape") {
@@ -235,7 +338,7 @@ export function bind(ctx: InputControllerContext): void {
       e.preventDefault();
       return;
     }
-    if (e.repeat && ["KeyP", "KeyC", "KeyH"].includes(e.code)) return;
+    if (e.repeat && ["KeyP", "KeyC", "KeyH", "KeyV"].includes(e.code)) return;
     if (e.code === "KeyP" && (ctx.session.active || ctx.session.photoMode)) {
       e.preventDefault();
       ctx.togglePhoto();
@@ -254,6 +357,11 @@ export function bind(ctx: InputControllerContext): void {
     if (e.code === "KeyC") {
       e.preventDefault();
       ctx.cinematic();
+      return;
+    }
+    if (e.code === "KeyV") {
+      e.preventDefault();
+      ctx.toggleVehicle();
       return;
     }
     if (
@@ -282,6 +390,7 @@ export function bind(ctx: InputControllerContext): void {
         "KeyS",
         "KeyA",
         "KeyD",
+        "KeyF",
         "ShiftLeft",
         "ShiftRight",
         "Space",
@@ -303,6 +412,11 @@ export function bind(ctx: InputControllerContext): void {
       return;
     }
     if (!ctx.session.active || dead(ctx)) return;
+    // Lost the mouse? This click captures it again rather than firing.
+    if (!ctx.pointerFallback && document.pointerLockElement !== ctx.canvas) {
+      captureMouse(ctx);
+      return;
+    }
     ctx.dragging = true;
     if (document.pointerLockElement !== ctx.canvas)
       ctx.canvas.setPointerCapture(e.pointerId);
@@ -328,6 +442,21 @@ export function bind(ctx: InputControllerContext): void {
       (document.pointerLockElement !== ctx.canvas && !ctx.dragging)
     )
       return;
+    if (ctx.snapshot?.plane.mode === "ground") {
+      aimState(ctx).moved = performance.now();
+      const prefs = ctx.preferences(),
+        k = 0.0025 * prefs.sensitivity;
+      ctx.aimYaw = Math.atan2(
+        Math.sin(ctx.aimYaw + e.movementX * k * (prefs.reverseX ? -1 : 1)),
+        Math.cos(ctx.aimYaw + e.movementX * k * (prefs.reverseX ? -1 : 1)),
+      );
+      ctx.aimPitch = clamp(
+        ctx.aimPitch - e.movementY * k * (prefs.reverseY ? -1 : 1),
+        TRUCK.aimPitchMin,
+        TRUCK.aimPitchMax,
+      );
+      return;
+    }
     const steering = pointerSteering(
       ctx.steerX,
       ctx.steerY,
@@ -340,8 +469,10 @@ export function bind(ctx: InputControllerContext): void {
   });
   ctx.canvas.addEventListener("dblclick", () => {
     ctx.steerX = ctx.steerY = 0;
+    ctx.aimYaw = ctx.aimPitch = 0;
   });
   document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement === ctx.canvas) hideCapturePrompt(ctx);
     if (
       document.pointerLockElement !== ctx.canvas &&
       ctx.session.active &&
@@ -350,10 +481,7 @@ export function bind(ctx: InputControllerContext): void {
     )
       ctx.pause();
   });
-  document.addEventListener("pointerlockerror", () => {
-    ctx.pointerFallback = true;
-    ctx.$("status").textContent = "Hold and drag to steer; Space fires.";
-  });
+  document.addEventListener("pointerlockerror", () => showCapturePrompt(ctx));
   window.addEventListener("blur", ctx.pause);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) ctx.pause();

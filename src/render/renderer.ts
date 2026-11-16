@@ -13,6 +13,7 @@ import {
   flightLimits,
   insideTerrain,
   normalizeRenderDistance,
+  TRUCK,
 } from "../config";
 import { isRoof } from "../debris-shape";
 import { discoActive } from "../disco";
@@ -66,6 +67,14 @@ import { WindowGlow } from "./window-glow";
 import { FIRE_LIFETIME } from "../sim/nuclear-fire";
 import { flightPose } from "./flight-pose";
 import { jetExhaustProfile } from "./jet-exhaust";
+import { makeConcreteTruck, type ConcreteTruck } from "./concrete-truck";
+import { ConcretePour } from "./concrete-pour";
+import { ShieldBubble } from "./shield-bubble";
+import {
+  Parachute,
+  SmokePuffs,
+  VehicleTransition,
+} from "./vehicle-transition";
 import { Presentation } from "./presentation";
 import { PortalView } from "./portal";
 import { JetGodView } from "./jet-god";
@@ -131,6 +140,21 @@ export class GameRenderer {
   readonly terrain: TerrainView;
   readonly effects = new Effects();
   readonly jet: THREE.Group;
+  /** The drivable monster concrete truck; absent in hell, which is flight-only. */
+  readonly truck?: ConcreteTruck;
+  /** Set each frame by the game while F is held. */
+  pouring = false;
+  private vehicleTransition = new VehicleTransition();
+  private parachute = new Parachute();
+  private smoke = new SmokePuffs();
+  private concrete = new ConcretePour();
+  private shieldBubble = new ShieldBubble();
+  private shieldCenter = new THREE.Vector3();
+  private lastTruckYaw?: number;
+  private truckEuler = new THREE.Euler(0, 0, 0, "YXZ");
+  private chuteTip = new THREE.Vector3();
+  private chuteDirection = new THREE.Vector3();
+  private truckVelocity = new THREE.Vector3();
   readonly crashWrecks: CrashWreckView;
   readonly aircraftFire = new AircraftFireView();
   readonly performance = new PerformanceMonitor(4096);
@@ -295,8 +319,10 @@ export class GameRenderer {
       this.buildingFire = new BuildingFireView(world);
       this.scene.add(this.buildingFire.group);
     }
+    if (world.realm !== "hell") this.truck = makeConcreteTruck();
     this.crashWrecks = new CrashWreckView(
-      this.jet,
+      (plane) =>
+        plane.mode === "ground" && this.truck ? this.truck.group : this.jet,
       flightLimits(world.realm).margin,
     );
     Object.assign(this.rig.photoBounds, {
@@ -442,6 +468,14 @@ export class GameRenderer {
       this.crashWrecks.group,
       this.aircraftFire.group,
     );
+    this.scene.add(this.shieldBubble.mesh);
+    if (this.truck)
+      this.scene.add(
+        this.truck.group,
+        this.parachute.group,
+        this.smoke.mesh,
+        this.concrete.group,
+      );
     this.worldView = new WorldBatches(this.scene, world, this.materials);
     if (world.realm === "hell") {
       this.jetGod = new JetGodView(world);
@@ -898,6 +932,11 @@ export class GameRenderer {
     this.effects.reset();
     this.environment.reset();
     this.crashWrecks.reset();
+    this.vehicleTransition.reset();
+    this.shieldBubble.reset();
+    this.smoke.reset();
+    this.concrete.reset();
+    this.truck?.reset();
     this.aircraftFire.reset();
     this.muzzleFlashes.reset();
     this.burningAircraft = undefined;
@@ -1829,10 +1868,124 @@ export class GameRenderer {
         ),
       );
     else if (this.rig.mode === "death") this.setChase();
+    const truck = this.truck;
+    const driving = p.mode === "ground" && !!truck;
+    const step = active ? dt : 0;
+    const show = this.vehicleTransition.show;
+    if (truck) this.vehicleTransition.update(p, step);
     if (discontinuity && this.rig.mode !== "death") this.readyCamera = false;
+    const alive = p.crashed <= 0;
+    const jetScale = truck ? show.jet : 1;
     this.jet.position.copy(position);
     this.jet.quaternion.copy(rotation);
-    this.jet.visible = p.crashed <= 0 || !!p.falling;
+    this.jet.scale.setScalar(Math.max(0.001, jetScale));
+    this.jet.visible =
+      (alive || !!p.falling) && jetScale > 0.01;
+    if (truck) {
+      const group = truck.group;
+      group.visible = alive && show.truck > 0.01;
+      group.position.copy(position);
+      group.quaternion.copy(rotation);
+      group.scale.setScalar(Math.max(0.001, show.truck));
+      const yaw = this.truckEuler.setFromQuaternion(rotation, "YXZ").y;
+      const turned =
+        this.lastTruckYaw === undefined || discontinuity
+          ? 0
+          : Math.atan2(
+              Math.sin(yaw - this.lastTruckYaw),
+              Math.cos(yaw - this.lastTruckYaw),
+            );
+      this.lastTruckYaw = yaw;
+      const signed = driving
+        ? p.v[0] * Math.sin(p.yaw) + p.v[2] * Math.cos(p.yaw) || 0
+        : 0;
+      // Yaw falls as the truck turns right, matching its positive steer.
+      const steer =
+        driving && step > 0
+          ? THREE.MathUtils.clamp(
+              (-turned / step / TRUCK.turnRate) * (signed < 0 ? -1 : 1),
+              -1,
+              1,
+            )
+          : 0;
+      const pour = this.pouring && driving && alive && !p.chute;
+      truck.setPour(pour);
+      if (driving && p.aimYaw !== undefined)
+        truck.setAim(
+          Math.atan2(Math.sin(p.aimYaw - p.yaw), Math.cos(p.aimYaw - p.yaw)),
+          (p.aimPitch ?? 0) - p.pitch,
+        );
+      else truck.setAim(0, 0);
+      const rocket = Math.max(show.rocket, driving && p.boosting ? 1 : 0);
+      truck.setRocket(rocket);
+      truck.update(signed, steer, step);
+      if (show.puff)
+        this.smoke.burst(
+          position.clone().add(new THREE.Vector3(0, 2 * TRUCK.scale, 0)),
+          5 * TRUCK.scale,
+          28,
+        );
+      // Rocket exhaust trails little puffs behind the rearing truck.
+      if (rocket > 0.3 && step > 0 && Math.floor(this.elapsed * 30) % 2 === 0) {
+        const back = new THREE.Vector3(0, -0.3, -6)
+          .multiplyScalar(TRUCK.scale)
+          .applyQuaternion(rotation);
+        this.smoke.emit(
+          position.clone().add(back),
+          back.normalize().multiplyScalar(10),
+          0.6,
+          0.5,
+        );
+      }
+      // Bow wave and spray off the tyres while afloat.
+      if (driving && p.wading && p.speed > 3 && step > 0 && this.frame % 3 === 0)
+        for (const side of [-1, 1]) {
+          const at = new THREE.Vector3(side * 3.2, -3, -4)
+            .multiplyScalar(TRUCK.scale)
+            .applyQuaternion(rotation)
+            .add(position);
+          this.smoke.emit(
+            at,
+            new THREE.Vector3(side * 4, 6 + p.speed * 0.08, 0).applyQuaternion(
+              rotation,
+            ),
+            0.6 + p.speed * 0.01,
+            0.6,
+          );
+        }
+            this.parachute.update(
+        group,
+        show.chuteOpen,
+        show.chuteCollapse,
+        this.elapsed,
+      );
+      truck.chuteTip(this.chuteTip);
+      truck.chuteDirection(this.chuteDirection);
+      this.truckVelocity.set(p.v[0], p.v[1], p.v[2]);
+      this.concrete.update(
+        step,
+        pour,
+        this.chuteTip,
+        this.chuteDirection,
+        this.truckVelocity,
+        (x, z) => this.terrain.sample(x, z),
+      );
+      this.smoke.update(step);
+    }
+    // Shield bubble around whichever vehicle is out.
+    const shielded = alive && ((p.shield ?? 0) > 0 || !!p.chute);
+    this.shieldCenter
+      .set(0, driving ? 1.5 * TRUCK.scale : 0, 0)
+      .applyQuaternion(rotation)
+      .add(position);
+    this.shieldBubble.update(
+      shielded,
+      p.chute ? Infinity : (p.shield ?? 0),
+      this.shieldCenter,
+      driving ? TRUCK.length * 0.62 : 10,
+      this.elapsed,
+      step,
+    );
     this.aircraftFire.update(!!p.falling, position, rotation, snap.time);
     this.burningAircraft = p.falling
       ? this.burningAircraftPosition.copy(position)
@@ -1857,12 +2010,43 @@ export class GameRenderer {
         material.opacity = exhaust.coreOpacity;
       }
     }
-    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(rotation);
-    let target = position.clone().addScaledVector(f, 40);
-    let desired = position
+    // In the truck the camera rides behind the turret's aim, so the
+    // centre crosshair is where shots go; blend to and from the air boom.
+    const g = truck ? show.groundCamera : 0;
+    // Follow the mouse look, not the turret (which aims at what the camera
+    // sees; following it would lock the view in a loop).
+    const aimYaw = p.lookYaw ?? p.yaw,
+      aimPitch = p.mode === "ground" ? (p.lookPitch ?? 0) : 0;
+    const f = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(rotation)
+      .lerp(new THREE.Vector3(Math.sin(aimYaw), 0, Math.cos(aimYaw)), g)
+      .normalize();
+    // Air: the usual chase boom along the aircraft's nose.
+    const airTarget = position.clone().addScaledVector(f, 40);
+    const airDesired = position
       .clone()
       .addScaledVector(f, -30)
       .add(new THREE.Vector3(0, 10, 0));
+    // Truck: orbit the turret along the mouse look, a little above it, so
+    // you can aim anywhere from straight down to straight up.
+    const orbitPitch = THREE.MathUtils.clamp(
+      aimPitch - TRUCK.cameraLift,
+      -1.5,
+      1.5,
+    );
+    const look = new THREE.Vector3(
+      Math.sin(aimYaw) * Math.cos(orbitPitch),
+      Math.sin(orbitPitch),
+      Math.cos(aimYaw) * Math.cos(orbitPitch),
+    );
+    const pivot = position
+      .clone()
+      .add(new THREE.Vector3(0, TRUCK.turretHeight, 0));
+    let target = airTarget.lerp(pivot.clone().addScaledVector(look, 40), g);
+    let desired = airDesired.lerp(
+      pivot.clone().addScaledVector(look, -TRUCK.cameraDistance),
+      g,
+    );
     if (this.rig.mode === "cinematic") {
       const shot = this.rig.cinematic(position, f, active ? dt : 0);
       desired.copy(shot.position);
@@ -1904,7 +2088,10 @@ export class GameRenderer {
         ? this.rig.fov
         : this.rig.mode === "cinematic"
           ? 72
-          : 64 + THREE.MathUtils.smoothstep(p.speed, 90, 120) * 5;
+          : driving
+            ? // The jet boost widens the view for a rush of speed.
+              64 + THREE.MathUtils.smoothstep(p.speed, 50, 130) * 16
+            : 64 + THREE.MathUtils.smoothstep(p.speed, 90, 120) * 5;
     if (this.camera.fov !== fov) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();

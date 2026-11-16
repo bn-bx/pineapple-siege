@@ -7,6 +7,7 @@ import {
   GRAVITY_BOMB,
   LASER,
   RAPID_FIRE_INTERVAL,
+  TRUCK,
   WEAPONS,
 } from "../config";
 import { frameStats } from "../frame-stats";
@@ -45,23 +46,45 @@ export function updateHUD(ctx: HudContext, now: number): void {
   const p = snapshot.plane;
   const hell = ctx.world.realm === "hell";
   if (now - ctx.lastHUD > 160) {
-    ctx.$("altitudeLabel").textContent = hell ? "CEILING CLEARANCE M" : "HEIGHT AGL M";
+    const driving = p.mode === "ground";
+    ctx.$("altitudeLabel").textContent = driving
+      ? "TRUCK AIRTIME M"
+      : hell
+        ? "CEILING CLEARANCE M"
+        : "HEIGHT AGL M";
+    ctx.$("touchVehicle").textContent = driving ? "Fly" : "Drive";
+    ctx.$("deathTitle").textContent = driving ? "MIXER WRECKED" : "AIRCRAFT LOST";
     ctx.$("populationPanel").hidden = hell;
     ctx.$("speed").textContent = Math.round(p.speed).toString();
+    // The truck floats, so measure its airtime from the water surface too.
+    const ground = ctx.view.terrain.sample(p.p[0], p.p[2]),
+      water = ctx.view.terrain.waterSurface(p.p[0], p.p[2]);
+    const floor =
+      driving && water !== undefined && water !== null
+        ? Math.max(ground, water - TRUCK.draft)
+        : ground;
     ctx.$("altitude").textContent = Math.max(
       0,
-      Math.round(p.p[1] - ctx.view.terrain.sample(p.p[0], p.p[2])),
+      Math.round(p.p[1] - floor - (driving ? TRUCK.rideHeight : 0)),
     ).toString();
-    if (p.crashed > 0) ctx.altitudeWarning.reset();
+    if (p.crashed > 0 || driving) ctx.altitudeWarning.reset();
     const limits = flightLimits(ctx.world.realm);
-    const ceilingMessage = ctx.altitudeWarning.update(p.p[1], limits);
+    const ceilingMessage = driving
+      ? undefined
+      : ctx.altitudeWarning.update(p.p[1], limits);
     ctx.$("ceilingWarning").hidden =
       !ctx.session.active || p.crashed > 0 || !ceilingMessage;
     ctx.$("ceilingWarning").textContent = ceilingMessage
       ? `${ceilingMessage} · ${Math.round(p.p[1])} M ${hell ? "FROM CEILING" : "ABOVE SEA LEVEL"} · LIMIT ${limits.ceiling} M`
       : "";
     ctx.$("throttleFill").style.height =
-      clamp(((p.speed - 35) / 85) * 100, 5, 100) + "%";
+      clamp(
+        driving
+          ? (p.speed / TRUCK.boostSpeed) * 100
+          : ((p.speed - 35) / 85) * 100,
+        5,
+        100,
+      ) + "%";
     ctx.$("clock").textContent =
       `${String(Math.floor(snapshot.hour)).padStart(2, "0")}:${String(Math.floor((snapshot.hour % 1) * 60)).padStart(2, "0")}`;
     const label = {

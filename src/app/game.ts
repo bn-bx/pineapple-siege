@@ -78,6 +78,8 @@ const damageStore = () => (activeRealm === "hell" ? hellStore : store);
 saveWriter.onPreparation = (ms) => view?.performance.record("saveDispatch", ms);
 let steerX = 0,
   steerY = 0,
+  aimYaw = 0,
+  aimPitch = 0,
   fireUntil = 0,
   dragging = false,
   pointerFallback = false,
@@ -121,6 +123,7 @@ const touch = bindTouchControls(
   preferences,
 );
 const held = (key: string) => keys.has(key) || touch.keys.has(key);
+let lastVehicle: string | undefined;
 function preferences(): Preferences {
   return settings.preferences(context);
 }
@@ -228,7 +231,10 @@ async function enter(event?: Event) {
       localStorage.setItem("siege-control-guide-v1", "1");
     } catch {}
   }
-  setTimeout(() => ($("hint").style.opacity = "0"), 9000);
+  setTimeout(() => {
+    // Keep a "click to capture" prompt up until the mouse is captured.
+    if (!$("hint").dataset.capture) $("hint").style.opacity = "0";
+  }, 9000);
   audio.start().catch(() => {
     $("status").textContent = "Sound is unavailable; flight is still ready.";
   });
@@ -244,8 +250,11 @@ async function enter(event?: Event) {
       return;
     }
     if ((snapshot?.plane.crashed ?? 0) > 0) return;
-    await canvas.requestPointerLock();
+    if (typeof canvas.requestPointerLock !== "function") throw new Error();
+    // A refused lock (Esc cooldown, or no fresh click after an await) asks
+    // for a click to capture instead of giving up on the mouse.
     pointerFallback = false;
+    input_controller.captureMouse(context);
   } catch {
     pointerFallback = true;
     $("hint").hidden = false;
@@ -743,11 +752,18 @@ function frame(now: number) {
   }
   if (!snapshot) return;
   const p = snapshot.plane;
+  view.pouring = held("KeyF");
+  // A whoosh as the jet and the mixer swap places.
+  const vehicle = p.mode === "ground" ? "ground" : "air";
+  if (lastVehicle && vehicle !== lastVehicle && (p.chute || p.launch))
+    audio.transform(p.p, vehicle);
+  lastVehicle = vehicle;
   audio.update(
     p.crashed > 0 ? 0 : p.speed,
     view.camera.position.toArray() as Vec3,
     view.cameraDirection(),
     held("ShiftLeft") || held("ShiftRight"),
+    p.mode === "ground",
   );
   audio.syncLasers(snapshot.lasers, view.camera.position.toArray() as Vec3);
   audio.syncGravityBombs(snapshot.gravityBombs ?? []);
@@ -775,6 +791,9 @@ function cinematic(): void {
 }
 function togglePhoto(): void {
   return input_controller.togglePhoto(context);
+}
+function toggleVehicle(): void {
+  return input_controller.toggleVehicle(context);
 }
 function respawn(): void {
   return input_controller.respawn(context);
@@ -993,6 +1012,18 @@ const context = {
   set steerY(value) {
     steerY = value;
   },
+  get aimYaw() {
+    return aimYaw;
+  },
+  set aimYaw(value) {
+    aimYaw = value;
+  },
+  get aimPitch() {
+    return aimPitch;
+  },
+  set aimPitch(value) {
+    aimPitch = value;
+  },
   get fireUntil() {
     return fireUntil;
   },
@@ -1031,6 +1062,9 @@ const context = {
   },
   get respawn() {
     return respawn;
+  },
+  get toggleVehicle() {
+    return toggleVehicle;
   },
   get pause() {
     return pause;

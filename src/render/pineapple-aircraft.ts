@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { bakeMaterialGroups, sweptPlate } from "./infernal-jet";
 
-function rindTexture() {
+export function rindTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 512;
   const c = canvas.getContext("2d")!;
@@ -29,7 +29,7 @@ function rindTexture() {
 }
 
 /** Curved leaf with a raised center ridge, rather than a cone-shaped crown. */
-function crownLeaf(length: number, width: number, bend: number) {
+export function crownLeaf(length: number, width: number, bend: number) {
   const vertices: number[] = [], uv: number[] = [], indices: number[] = [];
   const steps = 8;
   for (let row = 0; row <= steps; row++) {

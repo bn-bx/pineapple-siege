@@ -2,6 +2,22 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 export const WHEEL_RADIUS = 6; // Local units; monster scale 2 gives a 12 m radius.
+/** Tire and spoked-hub geometry of radius WHEEL_RADIUS, axle along X. */
+export function makeWheelGeometry(tireSegments = 16) {
+  const tire = new THREE.TorusGeometry(4.7, 1.3, 6, tireSegments);
+  tire.rotateY(Math.PI / 2);
+  const hub = new THREE.CylinderGeometry(1.8, 1.8, 3, 12);
+  hub.rotateZ(Math.PI / 2);
+  const pieces: THREE.BufferGeometry[] = [hub];
+  for (let i = 0; i < 6; i++) {
+    const spoke = new THREE.BoxGeometry(2.5, 8.6, 0.65);
+    spoke.rotateX((i * Math.PI) / 3);
+    pieces.push(spoke);
+  }
+  const metal = mergeGeometries(pieces)!;
+  for (const piece of pieces) piece.dispose();
+  return { tire, metal };
+}
 /** Two shared draws for tires and hubs, at either monster detail level. */
 export class MonsterWheelView {
   readonly group = new THREE.Group();
@@ -10,18 +26,7 @@ export class MonsterWheelView {
   private wheel = new THREE.Object3D();
   private matrix = new THREE.Matrix4();
   constructor(capacity: number) {
-    const tire = new THREE.TorusGeometry(4.7, 1.3, 6, 16);
-    tire.rotateY(Math.PI / 2);
-    const hub = new THREE.CylinderGeometry(1.8, 1.8, 3, 12);
-    hub.rotateZ(Math.PI / 2);
-    const pieces: THREE.BufferGeometry[] = [hub];
-    for (let i = 0; i < 6; i++) {
-      const spoke = new THREE.BoxGeometry(2.5, 8.6, 0.65);
-      spoke.rotateX((i * Math.PI) / 3);
-      pieces.push(spoke);
-    }
-    const metal = mergeGeometries(pieces)!;
-    for (const piece of pieces) piece.dispose();
+    const { tire, metal } = makeWheelGeometry();
     this.parts = [
       new THREE.InstancedMesh(
         tire,

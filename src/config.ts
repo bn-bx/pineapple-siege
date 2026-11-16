@@ -31,6 +31,97 @@ export const CONFIG = {
   spacing: TERRAIN_SPACING,
   chunkSize: CHUNK_SIZE,
 };
+/** Monster concrete truck handling (metres, seconds, radians). */
+/** Size of the monster concrete truck relative to its modelled proportions. */
+const TRUCK_SCALE = 1.6;
+export const TRUCK = Object.freeze({
+  scale: TRUCK_SCALE,
+  maxSpeed: 45,
+  reverseSpeed: 15,
+  /** Jet-boost top speed (Shift), its thrust, and the fade after release. */
+  boostSpeed: 130,
+  boostAccel: 45,
+  boostFade: 14,
+  accel: 14,
+  brake: 40,
+  coast: 6,
+  /** Yaw rate used to read steering back from motion on the render side. */
+  turnRate: 1.6,
+  /** Axle-to-axle length for the bicycle steering model. */
+  axleSpan: 6.5 * TRUCK_SCALE,
+  /** Front-wheel lock at a standstill; it narrows as speed builds. */
+  maxSteer: 0.7,
+  /** Speed (m/s) at which the available lock has halved. */
+  steerFalloff: 26,
+  /** How fast the wheel turns toward the key, and back to centre. */
+  steerRate: 7,
+  steerReturn: 6,
+  /** Yaw rate at full lock while airborne (rad/s), whatever the speed. */
+  airTurnRate: 0.9,
+  /** Slowest yaw rate while pivoting at walking pace. */
+  pivotRate: 1.0,
+  /** Ceiling on the ground turn rate, so boost speed isn't twitchy. */
+  maxYawRate: 1.5,
+  /** Gravity while rising, and a heavier pull on the way down so jumps
+   * launch high but land with weight instead of floating. */
+  gravity: 32,
+  fallGravity: 48,
+  /** Upward speed a ramp can throw the truck (m/s). */
+  maxLaunch: 32,
+  /** Below this upward speed the truck stays glued over crests and bumps. */
+  launchThreshold: 10,
+  /** Steepest drop (rise per run) the truck follows down instead of flying. */
+  stickSlope: 0.9,
+  /** Within this height of the ground the tyres still steer. */
+  tyreReach: 1,
+  /** Rubble piles up to this tall are mounds to drive up and jump off. */
+  rubbleMax: 7,
+  /** Run of a rubble mound's slope per metre of its height. */
+  rubbleRamp: 1.6,
+  /** Body for knocking trees: overall length, sphere radius, and lift. */
+  length: 11 * TRUCK_SCALE,
+  bodyRadius: 3 * TRUCK_SCALE,
+  bodyLift: 0.8 * TRUCK_SCALE,
+  /** Height of the collision centre above the ground. */
+  rideHeight: 4 * TRUCK_SCALE,
+  radius: 2.6 * TRUCK_SCALE,
+  /** Half the axle spacing and half the track width, for terrain sampling. */
+  wheelBase: 3.25 * TRUCK_SCALE,
+  track: 2.35 * TRUCK_SCALE,
+  /** Rise per metre beyond which ground ahead acts as a wall. */
+  maxClimb: 2.0,
+  /** Water deeper than this is too deep to wade (used for parking). */
+  drownDepth: 2.5,
+  /** Afloat, the truck sits this far below the surface (tyres half under). */
+  draft: 1.2 * TRUCK_SCALE,
+  /** Top speed fraction on water without the jet boost. */
+  waterSpeed: 0.5,
+  /** Impacts faster than this wreck it rather than bouncing off. */
+  crashSpeed: 52,
+  /** Seconds pinned with the throttle held before the truck hops free. */
+  unstickAfter: 1.5,
+  hopSpeed: 14,
+  /** Protection after a respawn or vehicle swap. */
+  shield: 3,
+  /** Rocket climb out of the truck into the aircraft. */
+  launchSpeed: 70,
+  launchPitch: 0.7,
+  launchTime: 1,
+  /** Upward tilt of the cannon so shots clear the ground. */
+  aimTilt: 0.06,
+  /** Mouse aim limits for the roof turret (radians, relative to level). */
+  aimPitchMin: -1.4,
+  aimPitchMax: 1.4,
+  /** Chase camera: distance behind the turret, and how far it looks down. */
+  cameraDistance: 36,
+  cameraLift: 0.22,
+  /** Seconds without mouse movement before the view drifts back behind. */
+  aimReturnDelay: 2,
+  /** Air brake deceleration while holding S off the ground (m/s²). */
+  airBrake: 30,
+  /** Roof turret muzzle height above the collision centre. */
+  turretHeight: 3.2 * TRUCK_SCALE,
+});
 /**
  * Where the aircraft may fly. Island generation keeps using VERTICAL_LIMITS;
  * these only bound flight.
