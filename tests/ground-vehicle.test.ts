@@ -135,8 +135,14 @@ it("steers right with D, pivots from a standstill and reverses with S", () => {
   try {
     land(sim);
     sim.plane.yaw = 0;
+    // A pivot needs the pedal: D alone only turns the front wheels.
     drive(sim, { bank: 1 }, 30);
-    expect(sim.plane.yaw).toBeLessThan(0);
+    expect(Math.abs(sim.plane.yaw)).toBeLessThan(0.01);
+    const start = [...sim.plane.p];
+    drive(sim, { throttle: 1, bank: 1 }, 20);
+    expect(sim.plane.yaw).toBeLessThan(-0.1);
+    expect(Math.hypot(sim.plane.p[0] - start[0], sim.plane.p[2] - start[2]))
+      .toBeLessThan(3);
     drive(sim, { throttle: 1 }, 120);
     const before = sim.plane.yaw;
     drive(sim, { throttle: 1, bank: 1 }, 30);
@@ -618,6 +624,272 @@ it("aims nearly straight down and straight up", () => {
       sim.step();
       expect(sim.plane.lookPitch).toBeCloseTo(pitch + TRUCK.aimTilt, 6);
     }
+  } finally {
+    sim.dispose();
+  }
+});
+
+/** Angle between the truck's heading and the way it is actually moving. */
+const slipAngle = (sim: Simulation) => {
+  const { v, yaw } = sim.plane;
+  const forward = v[0] * Math.sin(yaw) + v[2] * Math.cos(yaw),
+    side = v[0] * Math.cos(yaw) - v[2] * Math.sin(yaw);
+  return Math.abs(Math.atan2(side, Math.abs(forward)));
+};
+
+it("stays planted turning hard at normal top speed", () => {
+  const sim = makeSim();
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    drive(sim, { throttle: 1 }, 600);
+    let worst = 0;
+    sim.input = { ...idle, throttle: 1, bank: 1 };
+    for (let i = 0; i < 120; i++) {
+      sim.step();
+      worst = Math.max(worst, slipAngle(sim));
+    }
+    expect(worst).toBeLessThan(0.06);
+    expect(sim.plane.crashed).toBe(0);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("steps the tail out turning on the jets, then grips again", () => {
+  const sim = makeSim();
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    drive(sim, { boost: true }, 360);
+    let worst = 0;
+    sim.input = { ...idle, boost: true, bank: 1 };
+    for (let i = 0; i < 60; i++) {
+      sim.step();
+      worst = Math.max(worst, slipAngle(sim));
+    }
+    expect(worst).toBeGreaterThan(0.1);
+    // The drift angle is held in check rather than spinning out.
+    expect(worst).toBeLessThan(TRUCK.maxSlip + 0.15);
+    drive(sim, { throttle: 1 }, 120);
+    expect(slipAngle(sim)).toBeLessThan(0.05);
+    expect(sim.plane.crashed).toBe(0);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("keeps its jump trajectory while yawing in the air", () => {
+  const sim = makeSim();
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    drive(sim, { throttle: 1 }, 600);
+    sim.plane.p[1] += 100;
+    sim.step();
+    const heading = (v: number[]) => Math.atan2(v[0], v[2]);
+    const before = heading(sim.plane.v),
+      yaw = sim.plane.yaw;
+    drive(sim, { bank: 1 }, 30);
+    expect(yaw - sim.plane.yaw).toBeGreaterThan(0.2);
+    expect(Math.abs(heading(sim.plane.v) - before)).toBeLessThan(0.01);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("slows climbing, speeds descending and rolls back down steep slopes", () => {
+  // A 30 degree hill rising north of z = 3100 to a plateau, then down again.
+  const hill = (_x: number, z: number) =>
+    GROUND +
+    Math.max(
+      0,
+      Math.min(60, (z - 3100) * Math.tan(Math.PI / 6), (3400 - z) * Math.tan(Math.PI / 6)),
+    );
+  const sim = makeSim([], hill);
+  try {
+    land(sim, [3000, 2900]);
+    sim.plane.yaw = 0;
+    sim.input = { ...idle, throttle: 1 };
+    let climbing = Infinity,
+      descending = 0;
+    for (let i = 0; i < 1200 && sim.plane.p[2] < 3450; i++) {
+      sim.step();
+      const z = sim.plane.p[2];
+      if (z > 3150 && z < 3190) climbing = Math.min(climbing, sim.plane.speed);
+      if (z > 3330 && z < 3390) descending = Math.max(descending, sim.plane.speed);
+    }
+    expect(sim.plane.crashed).toBe(0);
+    expect(climbing).toBeLessThan(TRUCK.maxSpeed - 3);
+    expect(descending).toBeGreaterThan(TRUCK.maxSpeed + 3);
+  } finally {
+    sim.dispose();
+  }
+  for (const [degrees, rolls] of [
+    [3, false],
+    [35, true],
+  ] as const) {
+    const slope = (_x: number, z: number) =>
+      GROUND + Math.max(0, z - 2800) * Math.tan((degrees * Math.PI) / 180);
+    const s = makeSim([], slope);
+    try {
+      land(s, [3000, 3000]);
+      s.plane.yaw = 0;
+      s.plane.v = [0, 0, 0];
+      const start = s.plane.p[2];
+      drive(s, {}, 120);
+      const moved = start - s.plane.p[2];
+      if (rolls) expect(moved, `${degrees}°`).toBeGreaterThan(2);
+      else expect(Math.abs(moved), `${degrees}°`).toBeLessThan(0.5);
+    } finally {
+      s.dispose();
+    }
+  }
+});
+
+it("pops off a ramp lip a little steeper than the ramp", () => {
+  // A 20 degree ramp up to a 25 m plateau.
+  const tan = Math.tan((20 * Math.PI) / 180);
+  const ramp = (_x: number, z: number) =>
+    GROUND + Math.min(25, Math.max(0, z - 3300) * tan);
+  const sim = makeSim([], ramp);
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    sim.input = { ...idle, throttle: 1 };
+    let launch: number[] | undefined,
+      peak = 0;
+    for (let i = 0; i < 900; i++) {
+      sim.step();
+      const clearance =
+        sim.plane.p[1] - TRUCK.rideHeight - ramp(sim.plane.p[0], sim.plane.p[2]);
+      // Takeoff is when it climbs fastest: gravity only slows it after.
+      if (sim.plane.p[2] > 3300 && (!launch || sim.plane.v[1] > launch[1]))
+        launch = [...sim.plane.v];
+      peak = Math.max(peak, clearance);
+    }
+    expect(sim.plane.crashed).toBe(0);
+    expect(launch).toBeDefined();
+    const [vx, vy, vz] = launch!;
+    const angle = Math.atan2(vy, Math.hypot(vx, vz));
+    // The springs pop it off a little steeper than the ramp, never wildly.
+    expect(angle).toBeGreaterThan((20 * Math.PI) / 180);
+    expect(angle).toBeLessThan(Math.atan(tan * TRUCK.launchPop) * 1.1);
+    expect(peak).toBeGreaterThan(3.5);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("rides rolling ground across the terrain grid without skipping", () => {
+  const bumpy = (x: number, z: number) =>
+    GROUND + 3 * Math.sin(x / 25) * Math.sin(z / 25);
+  const sim = makeSim([], bumpy);
+  try {
+    land(sim);
+    sim.plane.yaw = Math.PI / 4;
+    sim.input = { ...idle, throttle: 1 };
+    let worst = 0;
+    for (let i = 0; i < 600; i++) {
+      sim.step();
+      worst = Math.max(
+        worst,
+        sim.plane.p[1] - TRUCK.rideHeight - bumpy(sim.plane.p[0], sim.plane.p[2]),
+      );
+    }
+    expect(sim.plane.crashed).toBe(0);
+    expect(worst).toBeLessThan(0.5);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("flies off a ledge at speed instead of snapping down it", () => {
+  const ledge = (_x: number, z: number) => (z < 3300 ? GROUND + 10 : GROUND);
+  const sim = makeSim([], ledge);
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    sim.input = { ...idle, throttle: 1 };
+    let air = 0;
+    for (let i = 0; i < 600; i++) {
+      sim.step();
+      if (sim.plane.p[1] - TRUCK.rideHeight - ledge(sim.plane.p[0], sim.plane.p[2]) > 0.5)
+        air++;
+    }
+    expect(air).toBeGreaterThan(10);
+    expect(sim.plane.crashed).toBe(0);
+    expect(sim.plane.p[1]).toBeCloseTo(REST, 1);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("keeps its speed landing on a downslope and loses it landing into a rise", () => {
+  const speedAfterLanding = (sign: number) => {
+    const tan = Math.tan((20 * Math.PI) / 180);
+    const slope = (_x: number, z: number) => GROUND + 100 + sign * (z - 3000) * tan;
+    const sim = makeSim([], slope);
+    try {
+      land(sim, [3000, 3000]);
+      sim.plane.yaw = 0;
+      sim.plane.p[1] += 40;
+      sim.plane.v = [0, -20, 40];
+      sim.input = idle;
+      for (let i = 0; i < 300; i++) {
+        sim.step();
+        const rest = slope(sim.plane.p[0], sim.plane.p[2]) + TRUCK.rideHeight;
+        if (sim.plane.p[1] - rest < 0.01) return sim.plane.speed;
+      }
+      throw new Error("never landed");
+    } finally {
+      sim.dispose();
+    }
+  };
+  const down = speedAfterLanding(-1),
+    up = speedAfterLanding(1);
+  expect(down).toBeGreaterThan(40);
+  expect(up).toBeLessThan(35);
+});
+
+it("squashes the body on landing and springs back", () => {
+  const sim = makeSim();
+  try {
+    land(sim);
+    drive(sim, {}, 120);
+    sim.plane.p[1] = REST + 30;
+    sim.input = idle;
+    const heave: number[] = [];
+    for (let i = 0; i < 240; i++) {
+      sim.step();
+      heave.push(sim.plane.heave ?? 0);
+    }
+    const low = Math.min(...heave);
+    expect(low).toBeLessThan(-0.1);
+    const after = heave.slice(heave.indexOf(low));
+    expect(Math.max(...after)).toBeGreaterThan(0);
+    expect(Math.abs(heave[heave.length - 1])).toBeLessThan(0.02);
+    expect(sim.plane.crashed).toBe(0);
+  } finally {
+    sim.dispose();
+  }
+});
+
+it("pulls hard off the line and tapers into top speed", () => {
+  const sim = makeSim();
+  try {
+    land(sim);
+    sim.plane.yaw = 0;
+    sim.input = { ...idle, throttle: 1 };
+    const speeds = [sim.plane.speed];
+    for (let i = 0; i < 900 && sim.plane.speed < TRUCK.maxSpeed - 0.5; i++) {
+      sim.step();
+      speeds.push(sim.plane.speed);
+    }
+    expect(sim.plane.speed).toBeGreaterThan(TRUCK.maxSpeed - 0.5);
+    const first = speeds[60] - speeds[0],
+      last = speeds[speeds.length - 1] - speeds[speeds.length - 61];
+    expect(first).toBeGreaterThan(last * 3);
   } finally {
     sim.dispose();
   }

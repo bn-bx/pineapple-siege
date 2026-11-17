@@ -372,6 +372,12 @@ export interface PlaneState {
   boosting?: boolean;
   /** Truck only: floating on water. */
   wading?: boolean;
+  /** Truck only: front-wheel steering (-1..1, positive turns right). */
+  steer?: number;
+  /** Truck only: sideways slide speed (m/s), positive toward the truck's left. */
+  slip?: number;
+  /** Truck only: sprung-body heave (m), negative when squashed on landing. */
+  heave?: number;
   /** Truck only: world yaw and pitch the turret is aiming along. */
   aimYaw?: number;
   aimPitch?: number;

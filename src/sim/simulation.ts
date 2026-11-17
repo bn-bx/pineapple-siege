@@ -417,8 +417,15 @@ export class Simulation {
   };
   private nextBody = 100000;
   private nextShot = 1;
-  /** Signed ground speed; negative while reversing. */
-  private driveSpeed = 0;
+  /** The truck is off the ground (jumping or falling), not following it. */
+  private airborne = false;
+  /** Surface metres per horizontal metre along the truck's motion. */
+  private slopeK = 1;
+  /** Sprung body: attitude rates, and the landing heave (m) and its rate. */
+  private pitchVel = 0;
+  private rollVel = 0;
+  private heave = 0;
+  private heaveVel = 0;
   /** Front-wheel steering, eased toward the keys (-1..1). */
   private steerState = 0;
   /** Seconds spent pinned with the throttle held. */
@@ -2455,13 +2462,11 @@ export class Simulation {
         launch: 0,
         shield: TRUCK.shield,
       });
-      this.driveSpeed = 0;
-      this.stuckTime = 0;
-      this.steerState = 0;
+      this.resetDrive();
       return true;
     }
     const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
-    const speed = Math.max(Math.abs(this.driveSpeed), TRUCK.launchSpeed);
+    const speed = Math.max(Math.hypot(p.v[0], p.v[2]), TRUCK.launchSpeed);
     Object.assign(p, {
       mode: "air",
       p: [p.p[0], p.p[1] + 3, p.p[2]],
@@ -2483,7 +2488,7 @@ export class Simulation {
       0,
       1,
     );
-    this.driveSpeed = 0;
+    this.resetDrive();
     return true;
   }
   /** Fire, monster, fly and laser hits are ignored while this is true. */
@@ -2578,8 +2583,7 @@ export class Simulation {
       chute: false,
       launch: 0,
     });
-    this.driveSpeed = 0;
-    this.stuckTime = 0;
+    this.resetDrive();
     return true;
   }
   /** Parachute descent onto the parking spot chosen when V was pressed. */
@@ -2668,7 +2672,7 @@ export class Simulation {
       this.staticFragment(
         e,
         [p.p[0], e.p[1] - e.s[1] * 0.6, p.p[2]],
-        clamp(Math.abs(this.driveSpeed) * 0.7, 10, 30),
+        clamp(Math.hypot(p.v[0], p.v[2]) * 0.7, 10, 30),
       );
       felled = true;
     }
@@ -2702,7 +2706,7 @@ export class Simulation {
    */
   private gatherRubble(force = false) {
     const p = this.plane;
-    const reach = TRUCK.length + 20 + Math.abs(this.driveSpeed) * 0.3;
+    const reach = TRUCK.length + 20 + Math.hypot(p.v[0], p.v[2]) * 0.3;
     if (
       !force &&
       this.tick % 6 !== 0 &&
@@ -2730,10 +2734,13 @@ export class Simulation {
     for (const r of this.nearbyRuinCandidates(p.p, reach)) add(r);
   }
   /** Shove loose debris bodies out of the truck's path. */
-  private plowDebris(f: Vec3) {
+  private plowDebris() {
     const p = this.plane;
-    if (Math.abs(this.driveSpeed) < 3) return;
-    const shove = this.driveSpeed * 0.6;
+    const speed = Math.hypot(p.v[0], p.v[2]);
+    if (speed < 3) return;
+    const ux = p.v[0] / speed,
+      uz = p.v[2] / speed,
+      shove = speed * 0.6;
     this.physics.intersectionsWithShape(
       vec(p.p),
       { x: 0, y: 0, z: 0, w: 1 },
@@ -2744,9 +2751,9 @@ export class Simulation {
         const mass = body.mass();
         body.applyImpulse(
           {
-            x: f[0] * shove * mass,
-            y: Math.abs(shove) * 0.35 * mass,
-            z: f[2] * shove * mass,
+            x: ux * shove * mass,
+            y: shove * 0.35 * mass,
+            z: uz * shove * mass,
           },
           true,
         );
@@ -2754,6 +2761,57 @@ export class Simulation {
       },
       RAPIER.QueryFilterFlags.EXCLUDE_FIXED,
     );
+  }
+  /** Clear the truck's handling state for a fresh start. */
+  private resetDrive() {
+    this.stuckTime = 0;
+    this.steerState = 0;
+    this.airborne = false;
+    this.slopeK = 1;
+    this.pitchVel = this.rollVel = this.heave = this.heaveVel = 0;
+  }
+  /**
+   * The ground under the truck's four wheels at (x, z) facing `yaw`: the
+   * collision-centre height it rests at, the ground gradient in world axes,
+   * the body attitude it settles to, and whether it is on rubble. Averaging
+   * the wheels smooths the 2 m terrain facets a 17 m truck shouldn't feel.
+   */
+  private wheelContact(x: number, z: number, yaw: number) {
+    const fx = Math.sin(yaw),
+      fz = Math.cos(yaw),
+      rx = Math.cos(yaw),
+      rz = -Math.sin(yaw);
+    const wb = TRUCK.wheelBase,
+      tr = TRUCK.track;
+    const at = (a: number, b: number) =>
+      this.driveFloor(x + fx * a + rx * b, z + fz * a + rz * b);
+    const fl = at(wb, tr),
+      fr = at(wb, -tr),
+      bl = at(-wb, tr),
+      br = at(-wb, -tr);
+    const slopeF = (fl + fr - bl - br) / (4 * wb),
+      slopeR = (fl + bl - fr - br) / (4 * tr);
+    const centre = this.driveFloor(x, z);
+    return {
+      // A sharp peak between the wheels still lifts the belly over it.
+      rest:
+        Math.max((fl + fr + bl + br) / 4, centre - TRUCK.bellyClearance) +
+        TRUCK.rideHeight,
+      gx: fx * slopeF + rx * slopeR,
+      gz: fz * slopeF + rz * slopeR,
+      /** Ground height under the front and rear axles. */
+      front: (fl + fr) / 2,
+      back: (bl + br) / 2,
+      pitch: Math.atan(slopeF),
+      roll: Math.atan(slopeR),
+      rubble: centre > this.waterFloor(x, z) + 0.05,
+    };
+  }
+  /** Surface distance per horizontal metre along (vx, vz) on gradient g. */
+  private slopeFactor(vx: number, vz: number, g: { gx: number; gz: number }) {
+    const h = Math.hypot(vx, vz);
+    if (h < 0.01) return 1;
+    return Math.hypot(1, (g.gx * vx + g.gz * vz) / h);
   }
   /** Arcade monster-truck handling over the authoritative terrain. */
   private drive(dt: number) {
@@ -2763,30 +2821,127 @@ export class Simulation {
       return;
     }
     this.gatherRubble();
-    const ground = (x: number, z: number) => this.driveFloor(x, z);
-    const rest = (x: number, z: number) => ground(x, z) + TRUCK.rideHeight;
-    let vy = p.v[1];
-    const grounded = p.p[1] <= rest(p.p[0], p.p[2]) + 0.35;
-    // Steer with the tyres whenever they're near the ground, so small hops
-    // over bumps don't flip the handling into its airborne mode.
-    const tyresDown = p.p[1] <= rest(p.p[0], p.p[2]) + TRUCK.tyreReach;
+    const here = this.wheelContact(p.p[0], p.p[2], p.yaw);
+    // Lifted clear of the ground (a teleport, or the ground blown away).
+    if (!this.airborne && p.p[1] > here.rest + 0.35) this.airborne = true;
+    // Throttle, brakes and grip act through tyres touching the ground; a
+    // little float over bumps doesn't cut them.
+    const traction = p.p[1] <= here.rest + 0.35;
+    // Steer whenever the tyres are near the ground, so small hops over
+    // bumps don't flip the handling into its airborne mode.
+    const tyresDown = p.p[1] <= here.rest + TRUCK.tyreReach;
+    let vx = p.v[0],
+      vy = p.v[1],
+      vz = p.v[2];
+    if (this.airborne) this.slopeK = 1;
+    else {
+      // Keep the speed along the surface as the slope changes, so a ramp
+      // turns forward speed into climb instead of adding to it.
+      const k = this.slopeFactor(vx, vz, here);
+      vx *= this.slopeK / k;
+      vz *= this.slopeK / k;
+      this.slopeK = k;
+    }
     const throttle = this.input.throttle;
     // Shift fires the jet boosters: thrust works on the ground and in the air.
     const rocket = this.input.boost && throttle >= 0;
     p.boosting = rocket;
-    if (rocket) {
-      const delta = TRUCK.boostSpeed - this.driveSpeed;
-      this.driveSpeed +=
-        Math.sign(delta) * Math.min(Math.abs(delta), TRUCK.boostAccel * dt);
-    } else if (!grounded && throttle < 0) {
+    const water = this.onWater(p.p[0], p.p[2]);
+    // Keys (or the touch stick) steer; the mouse only aims the turret.
+    const wanted = clamp(this.input.bank + this.input.x, -1, 1);
+    const toward =
+      wanted === 0 || Math.sign(wanted) !== Math.sign(this.steerState)
+        ? TRUCK.steerReturn
+        : TRUCK.steerRate;
+    this.steerState +=
+      Math.sign(wanted - this.steerState) *
+      Math.min(Math.abs(wanted - this.steerState), toward * dt);
+    let f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    let r: Vec3 = [Math.cos(p.yaw), 0, -Math.sin(p.yaw)];
+    const vf0 = vx * f[0] + vz * f[2],
+      vl0 = vx * r[0] + vz * r[2];
+    const speed = Math.abs(vf0);
+    const dir = vf0 < -0.1 ? -1 : vf0 > 0.1 ? 1 : throttle < 0 ? -1 : 1;
+    // Sideways acceleration the tyres can hold: less once sliding, afloat,
+    // on the jets or on loose rubble.
+    const grip = traction
+      ? (Math.abs(vl0) < TRUCK.slipSpeed ? TRUCK.grip : TRUCK.slideGrip) *
+        (water ? TRUCK.waterGrip : 1) *
+        (rocket ? TRUCK.boostGrip : 1) *
+        (here.rubble ? TRUCK.rubbleGrip : 1)
+      : 0;
+    // Bicycle model: lock narrows with speed so fast turns stay controllable.
+    const lock =
+      (this.steerState * TRUCK.maxSteer) / (1 + speed / TRUCK.steerFalloff);
+    let yawRate =
+      Math.min(
+        (speed / TRUCK.axleSpan) * Math.tan(Math.abs(lock)),
+        TRUCK.maxYawRate,
+      ) * Math.sign(lock);
+    // Big tyres can pivot almost in place while the driver works the
+    // pedals; the pivot fades out as the truck gets rolling.
+    if (tyresDown && this.steerState !== 0 && throttle !== 0) {
+      const pivot =
+        TRUCK.pivotRate *
+        Math.abs(this.steerState) *
+        clamp(1 - speed / TRUCK.pivotFade, 0, 1);
+      yawRate = Math.sign(lock) * Math.max(Math.abs(yawRate), pivot);
+    }
+    if (traction && speed > 1) {
+      // The nose can't swing much faster than the tyres can bend the path:
+      // past grip it steps out into a slide, up to a limited drift angle.
+      const slip = Math.abs(Math.atan2(vl0, speed));
+      const cap =
+        grip / speed +
+        TRUCK.slideYaw * clamp(1 - slip / TRUCK.maxSlip, 0, 1);
+      yawRate = clamp(yawRate, -cap, cap);
+    }
+    // In the air the tyres have no grip: steer the truck directly instead,
+    // at a steady rate that doesn't depend on speed.
+    if (!tyresDown) yawRate = this.steerState * TRUCK.airTurnRate * dir;
+    p.yaw -= yawRate * dir * dt;
+    f = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    r = [Math.cos(p.yaw), 0, -Math.sin(p.yaw)];
+    // Gravity along the ground: climbs slow, descents speed up, and steep
+    // side slopes push sideways against the grip.
+    if (traction) {
+      const pull = TRUCK.slopePull * TRUCK.gravity * dt;
+      vx -= here.gx * pull;
+      vz -= here.gz * pull;
+    }
+    let vf = vx * f[0] + vz * f[2],
+      vl = vx * r[0] + vz * r[2];
+    // Engine and brakes push along the nose, in speed along the surface.
+    const kf = traction ? Math.hypot(1, here.gx * f[0] + here.gz * f[2]) : 1;
+    let sf = vf * kf;
+    const toward2 = (target: number, rate: number) => {
+      const delta = target - sf;
+      sf += Math.sign(delta) * Math.min(Math.abs(delta), rate * dt);
+    };
+    const pull = (accel: number, top: number) =>
+      accel *
+      Math.max(TRUCK.accelTail, 1 - Math.abs(sf / top) ** TRUCK.accelCurve);
+    // Above a target, shed speed like drag: quick at boost speed, gentle
+    // near cruise.
+    const fade = () =>
+      TRUCK.boostFade * (sf / TRUCK.boostSpeed) ** 2 + TRUCK.coast * 0.5;
+    if (rocket)
+      toward2(
+        TRUCK.boostSpeed,
+        sf > TRUCK.boostSpeed ? fade() : pull(TRUCK.boostAccel, TRUCK.boostSpeed),
+      );
+    else if (!traction && throttle < 0) {
       // Air brake: S sheds speed mid-air (it never reverses off a jump).
-      this.driveSpeed -=
-        Math.sign(this.driveSpeed) *
-        Math.min(Math.abs(this.driveSpeed), TRUCK.airBrake * dt);
-    } else if (grounded) {
-      // Throttle, brakes and reverse act only through the tyres.
+      const h = Math.hypot(vx, vz);
+      const keep = h > 0 ? Math.max(0, h - TRUCK.airBrake * dt) / h : 0;
+      vx *= keep;
+      vz *= keep;
+      vf *= keep;
+      vl *= keep;
+      sf = vf * kf;
+    } else if (traction) {
       // Water drags the tyres: half speed afloat unless the jets are lit.
-      const drag = this.onWater(p.p[0], p.p[2]) ? TRUCK.waterSpeed : 1;
+      const drag = water ? TRUCK.waterSpeed : 1;
       const target =
         throttle > 0
           ? TRUCK.maxSpeed * drag
@@ -2794,90 +2949,133 @@ export class Simulation {
             ? -TRUCK.reverseSpeed * drag
             : 0;
       const braking =
-        throttle !== 0 && Math.sign(this.driveSpeed) === -Math.sign(target);
-      const rate =
+        throttle !== 0 && Math.sign(sf) === -Math.sign(target);
+      toward2(
+        target,
         throttle === 0
           ? TRUCK.coast
           : braking
             ? TRUCK.brake
-            : Math.abs(target) < Math.abs(this.driveSpeed)
-              ? // Bleed off boost speed gently rather than slamming the brakes.
-                TRUCK.boostFade
-              : TRUCK.accel;
-      const delta = target - this.driveSpeed;
-      this.driveSpeed += Math.sign(delta) * Math.min(Math.abs(delta), rate * dt);
+            : Math.abs(target) < Math.abs(sf)
+              ? fade()
+              : pull(TRUCK.accel, target),
+      );
     }
-    // Keys (or the touch stick) steer; the mouse only aims the turret.
-    const wanted = clamp(this.input.bank + this.input.x, -1, 1);
-    const toward = wanted === 0 || Math.sign(wanted) !== Math.sign(this.steerState)
-      ? TRUCK.steerReturn
-      : TRUCK.steerRate;
-    this.steerState +=
-      Math.sign(wanted - this.steerState) *
-      Math.min(Math.abs(wanted - this.steerState), toward * dt);
-    const speed = Math.abs(this.driveSpeed);
-    const dir =
-      this.driveSpeed < -0.1 ? -1 : this.driveSpeed > 0.1 ? 1 : throttle < 0 ? -1 : 1;
-    // Bicycle model: lock narrows with speed so fast turns stay controllable.
-    const lock =
-      (this.steerState * TRUCK.maxSteer) / (1 + speed / TRUCK.steerFalloff);
-    let yawRate = Math.min(
-      (speed / TRUCK.axleSpan) * Math.tan(Math.abs(lock)),
-      TRUCK.maxYawRate,
-    ) * Math.sign(lock);
-    // Big tyres can pivot almost in place while the driver works the pedals.
-    if (tyresDown && this.steerState !== 0)
-      yawRate =
-        Math.sign(lock) *
-        Math.max(Math.abs(yawRate), TRUCK.pivotRate * Math.abs(this.steerState));
-    // In the air the tyres have no grip: steer the truck directly instead,
-    // at a steady rate that doesn't depend on speed.
-    if (!tyresDown) yawRate = this.steerState * TRUCK.airTurnRate * dir;
-    p.yaw -= yawRate * dir * dt;
-    const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
-    // Ground too steep to climb bleeds speed away rather than pinning the truck.
-    if (grounded && Math.abs(this.driveSpeed) > 0.1) {
-      const ax = p.p[0] + f[0] * dir * 2,
-        az = p.p[2] + f[2] * dir * 2;
-      if ((ground(ax, az) - ground(p.p[0], p.p[2])) / 2 > TRUCK.maxClimb)
-        this.driveSpeed *= 0.85;
+    vf = sf / kf;
+    // Tyres scrub the sideways slide away, up to their grip.
+    if (traction) vl -= Math.sign(vl) * Math.min(Math.abs(vl), grip * dt);
+    vx = f[0] * vf + r[0] * vl;
+    vz = f[2] * vf + r[2] * vl;
+    // Ground too steep to climb is a wall: the leading wheels stop against
+    // it and slide along it rather than walking up a cliff.
+    if (traction) {
+      const h = Math.hypot(vx, vz);
+      if (h > 0.05) {
+        const ux = vx / h,
+          uz = vz / h,
+          lx = p.p[0] + ux * TRUCK.wheelBase,
+          lz = p.p[2] + uz * TRUCK.wheelBase,
+          reach = 2 + h * dt;
+        const rise =
+          (this.driveFloor(lx + ux * reach, lz + uz * reach) -
+            this.driveFloor(lx, lz)) /
+          reach;
+        if (rise > TRUCK.maxClimb) {
+          const ax = lx + ux * reach,
+            az = lz + uz * reach;
+          let wx =
+              this.driveFloor(ax + 1, az) - this.driveFloor(ax - 1, az),
+            wz = this.driveFloor(ax, az + 1) - this.driveFloor(ax, az - 1);
+          const wl = Math.hypot(wx, wz) || 1;
+          wx /= wl;
+          wz /= wl;
+          const into = vx * wx + vz * wz;
+          if (into > 0) {
+            vx -= wx * into * 1.2;
+            vz -= wz * into * 1.2;
+          }
+        }
+      }
     }
     // Still stuck with the pedal down? Hop free, monster-truck style.
-    if (grounded && throttle !== 0 && Math.abs(this.driveSpeed) < 1)
+    if (traction && throttle !== 0 && Math.hypot(vx, vz) < 1)
       this.stuckTime += dt;
     else this.stuckTime = 0;
-    let hopping = false;
     if (this.stuckTime > TRUCK.unstickAfter) {
       this.stuckTime = 0;
       vy = TRUCK.hopSpeed;
-      this.driveSpeed = 6 * Math.sign(throttle);
-      hopping = true;
+      vx = f[0] * 6 * Math.sign(throttle);
+      vz = f[2] * 6 * Math.sign(throttle);
+      this.airborne = true;
     }
-    vy -= (vy > 0 ? TRUCK.gravity : TRUCK.fallGravity) * dt;
-    const next: Vec3 = [
-      p.p[0] + f[0] * this.driveSpeed * dt,
-      p.p[1] + vy * dt,
-      p.p[2] + f[2] * this.driveSpeed * dt,
-    ];
-    const floor = rest(next[0], next[2]);
+    const next: Vec3 = [p.p[0] + vx * dt, p.p[1], p.p[2] + vz * dt];
+    let there = this.wheelContact(next[0], next[2], p.yaw);
+    if (this.airborne && there.rest > p.p[1] + Math.max(0, vy * dt) + 1.5) {
+      // Flying into a terrain wall: bounce off it rather than pop on top.
+      vx *= -0.2;
+      vz *= -0.2;
+      next[0] = p.p[0];
+      next[2] = p.p[2];
+      there = here;
+    }
     let landed = false;
-    // Ground stick: over crests and bumps the truck follows the ground down
-    // rather than floating off it. Only a real ramp (a strong upward speed)
-    // or a drop steeper than it can follow sends it airborne.
-    if (
-      grounded &&
-      !hopping &&
-      next[1] > floor &&
-      vy < TRUCK.launchThreshold &&
-      next[1] - floor < speed * dt * TRUCK.stickSlope + 0.5
-    )
-      next[1] = floor - 1e-6;
-    if (next[1] <= floor) {
-      // Monster truck: any landing is survivable, however big the jump.
-      // Carry the climb rate so crests and crater lips launch the truck.
-      vy = clamp((floor - p.p[1]) / dt, -40, TRUCK.maxLaunch);
-      next[1] = floor;
-      landed = true;
+    if (!this.airborne) {
+      // Follow the ground, unless it falls away faster than gravity can
+      // pull the truck down after it: then it flies off the crest, lip or
+      // ledge with the climb it had. Either axle still climbing keeps
+      // pushing it up, so it leaves a ramp when the rear wheels clear the
+      // lip, at the full climb, not when the front wheels do.
+      const follow = (there.rest - p.p[1]) / dt;
+      const support = Math.max(
+        follow,
+        (there.front - here.front) / dt,
+        (there.back - here.back) / dt,
+      );
+      const g = vy > 0 ? TRUCK.gravity : TRUCK.fallGravity,
+        hold = g * TRUCK.stickFactor;
+      const lip = (vy - support) / dt > hold && vy > TRUCK.minLaunch,
+        ledge = (vy - follow) / dt > hold && follow < -TRUCK.minLaunch;
+      if (lip || ledge) {
+        this.airborne = true;
+        this.slopeK = 1;
+        // Leaving the ground while climbing, the springs unload and kick it
+        // higher, monster-truck style. Rolling off a ledge just drops.
+        vy = Math.min(
+          vy > TRUCK.minLaunch ? vy * TRUCK.launchPop : vy,
+          TRUCK.maxLaunch,
+        );
+      } else {
+        vy = Math.min(support, TRUCK.maxLaunch);
+        next[1] = there.rest;
+        landed = true;
+      }
+    }
+    if (this.airborne) {
+      vy -= (vy > 0 ? TRUCK.gravity : TRUCK.fallGravity) * dt;
+      next[1] = p.p[1] + vy * dt;
+      if (next[1] <= there.rest) {
+        // Touchdown. The suspension soaks up the speed into the ground;
+        // the speed along it carries on, so landing on a downslope keeps
+        // the pace and landing into a rise costs it. Any landing is
+        // survivable.
+        let nx = -there.gx,
+          nz = -there.gz;
+        const nl = Math.hypot(nx, 1, nz);
+        nx /= nl;
+        const ny = 1 / nl;
+        nz /= nl;
+        const vn = vx * nx + vy * ny + vz * nz;
+        if (vn < 0) {
+          vx -= vn * nx;
+          vy -= vn * ny;
+          vz -= vn * nz;
+          this.heaveVel -= Math.min(-vn, 40) * TRUCK.landingKick;
+        }
+        next[1] = there.rest;
+        this.airborne = false;
+        this.slopeK = this.slopeFactor(vx, vz, there);
+        landed = true;
+      }
     }
     p.wading = this.onWater(next[0], next[2]);
     // Trees fall at a touch, before they can block the truck.
@@ -2892,9 +3090,10 @@ export class Simulation {
     });
     if (hit) {
       // Only driving into something wrecks it; coming down on it doesn't.
-      const impact = Math.abs(this.driveSpeed);
+      const impact = Math.hypot(vx, vz);
       if (this.flattenTrees()) {
-        this.driveSpeed *= 0.85;
+        vx *= 0.85;
+        vz *= 0.85;
         next[0] = p.p[0];
         next[2] = p.p[2];
       } else if (impact > TRUCK.crashSpeed) {
@@ -2903,45 +3102,43 @@ export class Simulation {
         return;
       } else {
         // Bounce off and keep the current position.
-        this.driveSpeed *= -0.3;
+        vx *= -0.3;
+        vz *= -0.3;
         vy = Math.min(vy, 0);
         next[0] = p.p[0];
         next[2] = p.p[2];
-        next[1] = Math.max(p.p[1] + vy * dt, rest(p.p[0], p.p[2]));
+        next[1] = Math.max(p.p[1] + vy * dt, here.rest);
       }
     }
     next[0] = clamp(next[0], 1, CONFIG.worldSize - 1);
     next[2] = clamp(next[2], 1, CONFIG.worldSize - 1);
-    // Body attitude follows the four wheel contacts on the ground.
-    const blend = 1 - Math.exp(-dt * (landed ? 12 : 1.5));
-    if (landed) {
-      const r: Vec3 = [Math.cos(p.yaw), 0, -Math.sin(p.yaw)];
-      const at = (a: number, b: number) =>
-        ground(
-          next[0] + f[0] * a + r[0] * b,
-          next[2] + f[2] * a + r[2] * b,
-        );
-      const wb = TRUCK.wheelBase,
-        tr = TRUCK.track;
-      const front = (at(wb, tr) + at(wb, -tr)) / 2,
-        back = (at(-wb, tr) + at(-wb, -tr)) / 2,
-        plusX = (at(wb, tr) + at(-wb, tr)) / 2,
-        minusX = (at(wb, -tr) + at(-wb, -tr)) / 2;
-      p.pitch = lerp(p.pitch, Math.atan2(front - back, 2 * wb), blend);
-      p.roll = lerp(p.roll, Math.atan2(plusX - minusX, 2 * tr), blend);
-    } else {
-      p.pitch = lerp(
-        p.pitch,
-        clamp(Math.atan2(vy, Math.abs(this.driveSpeed) + 8) * 0.6, -0.5, 0.5),
-        blend,
-      );
-      p.roll = lerp(p.roll, 0, blend);
-    }
-    p.v = [f[0] * this.driveSpeed, vy, f[2] * this.driveSpeed];
-    p.speed = Math.abs(this.driveSpeed);
+    // Sprung body: attitude springs toward the four wheel contacts on the
+    // ground (and eases toward the flight path in the air), overshooting a
+    // little; landings squash the body down onto the wheels.
+    const stiff = landed ? TRUCK.suspensionK : TRUCK.suspensionK * 0.15,
+      damp = landed ? TRUCK.suspensionDamp : TRUCK.suspensionDamp * 0.4;
+    const pitchTarget = landed
+      ? there.pitch
+      : clamp(Math.atan2(vy, Math.hypot(vx, vz) + 8) * 0.6, -0.5, 0.5);
+    const rollTarget = landed ? there.roll : 0;
+    this.pitchVel +=
+      ((pitchTarget - p.pitch) * stiff - this.pitchVel * damp) * dt;
+    this.rollVel += ((rollTarget - p.roll) * stiff - this.rollVel * damp) * dt;
+    p.pitch += this.pitchVel * dt;
+    p.roll += this.rollVel * dt;
+    this.heaveVel +=
+      (-this.heave * TRUCK.suspensionK - this.heaveVel * TRUCK.suspensionDamp) *
+      dt;
+    this.heave += this.heaveVel * dt;
+    p.heave = this.heave;
+    p.steer = this.steerState;
+    p.slip = vx * r[0] + vz * r[2];
+    p.v = [vx, vy, vz];
+    // Speed along the ground while driving; ground speed in the air.
+    p.speed = Math.hypot(vx, vz) * (this.airborne ? 1 : this.slopeK);
     p.boundary = false;
     p.p = next;
-    this.plowDebris(f);
+    this.plowDebris();
     // The mouse looks around relative to the truck's heading; the camera
     // follows this, never the turret, so the mouse always stays in control.
     p.lookYaw = p.yaw - (this.input.aimYaw ?? 0);

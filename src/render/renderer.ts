@@ -150,8 +150,6 @@ export class GameRenderer {
   private concrete = new ConcretePour();
   private shieldBubble = new ShieldBubble();
   private shieldCenter = new THREE.Vector3();
-  private lastTruckYaw?: number;
-  private truckEuler = new THREE.Euler(0, 0, 0, "YXZ");
   private chuteTip = new THREE.Vector3();
   private chuteDirection = new THREE.Vector3();
   private truckVelocity = new THREE.Vector3();
@@ -1887,27 +1885,12 @@ export class GameRenderer {
       group.position.copy(position);
       group.quaternion.copy(rotation);
       group.scale.setScalar(Math.max(0.001, show.truck));
-      const yaw = this.truckEuler.setFromQuaternion(rotation, "YXZ").y;
-      const turned =
-        this.lastTruckYaw === undefined || discontinuity
-          ? 0
-          : Math.atan2(
-              Math.sin(yaw - this.lastTruckYaw),
-              Math.cos(yaw - this.lastTruckYaw),
-            );
-      this.lastTruckYaw = yaw;
       const signed = driving
         ? p.v[0] * Math.sin(p.yaw) + p.v[2] * Math.cos(p.yaw) || 0
         : 0;
-      // Yaw falls as the truck turns right, matching its positive steer.
-      const steer =
-        driving && step > 0
-          ? THREE.MathUtils.clamp(
-              (-turned / step / TRUCK.turnRate) * (signed < 0 ? -1 : 1),
-              -1,
-              1,
-            )
-          : 0;
+      // The wheels show the steering input, which no longer matches the
+      // yaw rate while the truck slides.
+      const steer = driving ? (p.steer ?? 0) : 0;
       const pour = this.pouring && driving && alive && !p.chute;
       truck.setPour(pour);
       if (driving && p.aimYaw !== undefined)
@@ -1918,7 +1901,10 @@ export class GameRenderer {
       else truck.setAim(0, 0);
       const rocket = Math.max(show.rocket, driving && p.boosting ? 1 : 0);
       truck.setRocket(rocket);
-      truck.update(signed, steer, step);
+      truck.update(signed, steer, step, {
+        heave: driving ? (p.heave ?? 0) : 0,
+        slip: driving ? (p.slip ?? 0) : 0,
+      });
       if (show.puff)
         this.smoke.burst(
           position.clone().add(new THREE.Vector3(0, 2 * TRUCK.scale, 0)),

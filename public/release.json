@@ -1,5 +1,5 @@
 {
-  "release": "monster-concrete-truck-2026-11-16",
+  "release": "truck-handling-physics-2026-11-17",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -90,7 +90,8 @@
     "concrete-pour-and-tree-flattening",
     "respawn-shield-bubble",
     "mouse-recapture-prompt",
-    "rivers-capped-to-follow-ground-over-dips"
+    "rivers-capped-to-follow-ground-over-dips",
+    "truck-tyre-grip-slopes-suspension-and-ramp-pop"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

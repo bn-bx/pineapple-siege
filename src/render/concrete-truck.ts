@@ -199,8 +199,16 @@ function fenderArch(inner: number, outer: number, width: number) {
 
 export interface ConcreteTruck {
   group: THREE.Group;
-  /** Signed ground speed (m/s), steering (-1..1), frame time. */
-  update(speed: number, steer: number, dt: number): void;
+  /**
+   * Signed ground speed (m/s), steering (-1..1), frame time, and the sim's
+   * body heave (m) and sideways slide (m/s).
+   */
+  update(
+    speed: number,
+    steer: number,
+    dt: number,
+    body?: { heave: number; slip: number },
+  ): void;
   setPour(on: boolean): void;
   /** Turret yaw relative to the heading (+ is left) and barrel pitch (+ up). */
   setAim(yaw: number, pitch: number): void;
@@ -661,7 +669,7 @@ export function makeConcreteTruck(): ConcreteTruck {
     flicker = 0;
   return {
     group,
-    update(speed, steer, dt) {
+    update(speed, steer, dt, body) {
       if (dt <= 0) return;
       spin = (spin + (speed / TRUCK_TYRE_RADIUS) * dt) % (Math.PI * 2);
       // +X is the truck's left, so a right turn yaws the wheels negative.
@@ -685,13 +693,18 @@ export function makeConcreteTruck(): ConcreteTruck {
       const step = Math.min(dt, 0.05);
       pitchVelocity += ((targetPitch - pitch) * 60 - pitchVelocity * 7) * step;
       pitch += pitchVelocity * step;
+      // Lean out of the turn, and further the way the truck is sliding
+      // (slip is toward its left, like a right turn's lean).
       const targetRoll = THREE.MathUtils.clamp(
-        -steer * Math.abs(speed) * 0.002,
-        -0.07,
-        0.07,
+        -(steer * Math.abs(speed) * 0.002 + (body?.slip ?? 0) * 0.004),
+        -0.1,
+        0.1,
       );
       roll += (targetRoll - roll) * (1 - Math.exp(-dt * 4));
       sprung.rotation.set(pitch, 0, roll);
+      // Landings squash the body down onto the wheels (model units).
+      sprung.position.y =
+        THREE.MathUtils.clamp(body?.heave ?? 0, -0.6, 0.6) / TRUCK.scale;
       flicker += dt * 40;
       for (const [i, flame] of flames.entries()) {
         flame.visible = rocket > 0.02;

@@ -45,8 +45,6 @@ export const TRUCK = Object.freeze({
   accel: 14,
   brake: 40,
   coast: 6,
-  /** Yaw rate used to read steering back from motion on the render side. */
-  turnRate: 1.6,
   /** Axle-to-axle length for the bicycle steering model. */
   axleSpan: 6.5 * TRUCK_SCALE,
   /** Front-wheel lock at a standstill; it narrows as speed builds. */
@@ -58,8 +56,10 @@ export const TRUCK = Object.freeze({
   steerReturn: 6,
   /** Yaw rate at full lock while airborne (rad/s), whatever the speed. */
   airTurnRate: 0.9,
-  /** Slowest yaw rate while pivoting at walking pace. */
+  /** Yaw rate while pivoting at a standstill with the throttle held. */
   pivotRate: 1.0,
+  /** Speed (m/s) by which the pivot has faded into ordinary steering. */
+  pivotFade: 8,
   /** Ceiling on the ground turn rate, so boost speed isn't twitchy. */
   maxYawRate: 1.5,
   /** Gravity while rising, and a heavier pull on the way down so jumps
@@ -68,10 +68,44 @@ export const TRUCK = Object.freeze({
   fallGravity: 48,
   /** Upward speed a ramp can throw the truck (m/s). */
   maxLaunch: 32,
-  /** Below this upward speed the truck stays glued over crests and bumps. */
-  launchThreshold: 10,
-  /** Steepest drop (rise per run) the truck follows down instead of flying. */
-  stickSlope: 0.9,
+  /**
+   * The truck leaves the ground when following it would need a downward
+   * pull above gravity times this: crests at speed, ramp lips and ledges.
+   */
+  stickFactor: 1.1,
+  /** Suspension rebound off a lip or crest: takeoff climb is scaled by this. */
+  launchPop: 1.35,
+  /**
+   * Kicks below this upward speed (m/s) are soaked up by the suspension
+   * instead of launching, so the truck doesn't skip over terrain facets.
+   */
+  minLaunch: 6,
+  /** Fraction of `gravity` pulling along slopes (uphill drag, downhill push). */
+  slopePull: 0.45,
+  /** Sideways acceleration (m/s²) the tyres hold, and once sliding. */
+  grip: 80,
+  slideGrip: 70,
+  /** Sideways speed (m/s) at which the tyres break loose. */
+  slipSpeed: 6,
+  /** Grip multipliers afloat, on the jets and on loose rubble. */
+  waterGrip: 0.5,
+  boostGrip: 0.75,
+  rubbleGrip: 0.85,
+  /** Yaw rate (rad/s) the nose may swing beyond grip, up to a drift angle. */
+  slideYaw: 0.15,
+  maxSlip: 0.25,
+  /**
+   * Acceleration tapers as (speed / top)^accelCurve nears a top speed,
+   * leaving at least accelTail of it so the top is still reached.
+   */
+  accelCurve: 4,
+  accelTail: 0.15,
+  /** Body springs: stiffness, damping and the landing squash per m/s. */
+  suspensionK: 120,
+  suspensionDamp: 14,
+  landingKick: 0.2,
+  /** Peaks narrower than the wheels may rise this far before lifting the belly. */
+  bellyClearance: 1.5 * TRUCK_SCALE,
   /** Within this height of the ground the tyres still steer. */
   tyreReach: 1,
   /** Rubble piles up to this tall are mounds to drive up and jump off. */
