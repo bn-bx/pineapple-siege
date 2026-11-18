@@ -2,6 +2,7 @@ import type { Color } from "three";
 import type { RegionFields } from "../types";
 import { regionAt } from "../world/landscape.mjs";
 import { clamp } from "../config";
+import type { RiverBankSample } from "../world/water-geometry.mjs";
 
 /** Smooth center and shoulder masks for the existing canonical road distance. */
 export function terrainRoadWeights(distance: number): [number, number] {
@@ -21,6 +22,7 @@ export function terrainSurfaceColor(
   slope: number,
   regions?: RegionFields,
   surfaceGrain = true,
+  bank?: RiverBankSample,
 ) {
   const grain = surfaceGrain
     ? Math.sin(x * 0.04 + z * 0.019) * Math.sin(z * 0.063 - x * 0.02) * 0.5 +
@@ -48,6 +50,8 @@ export function terrainSurfaceColor(
   color.g += (grey * 1.02 - color.g) * blend;
   color.b += (grey * 0.95 - color.b) * blend;
 
+  if (bank) riverBankColor(color, bank, height, slope, grain);
+
   // Broad, warm beaches on gentle shores; exposed slopes retain stone faces.
   // This shared path shades both the horizon mesh and streamed terrain tiles.
   const coastal = !region || region.coast > 0;
@@ -67,6 +71,41 @@ export function terrainSurfaceColor(
     color.g += (stone * 0.94 - color.g) * cliff;
     color.b += (stone * 0.8 - color.b) * cliff;
   }
+}
+
+/**
+ * River margins: dark wet mud and gravel at the waterline, a pale pebble
+ * shoulder on gentle banks, then damp, lusher grass fading into the land.
+ * Banks well above the water (gorges) keep their rock.
+ */
+function riverBankColor(
+  color: Color,
+  bank: RiverBankSample,
+  height: number,
+  slope: number,
+  grain: number,
+) {
+  const above = height - bank.level,
+    near = 1 - clamp((above - 1.2) / 3.5, 0, 1),
+    gentle = 1 - clamp((slope - 0.35) / 0.5, 0, 1),
+    jitter = Math.sin(bank.edge * 0.9 + grain * 6) * 0.8;
+  const lush = (1 - clamp((bank.edge - 10) / 12, 0, 1)) * near * 0.6;
+  color.r *= 1 - lush * 0.2;
+  color.g *= 1 + lush * 0.08;
+  color.b *= 1 - lush * 0.1;
+  const shoulder =
+    (1 - clamp((bank.edge + jitter - 3) / 6, 0, 1)) * near * gentle;
+  const pebble = 0.4 + grain * 0.12;
+  color.r += (pebble - color.r) * shoulder * 0.85;
+  color.g += (pebble * 0.93 - color.g) * shoulder * 0.85;
+  color.b += (pebble * 0.76 - color.b) * shoulder * 0.85;
+  const wet =
+    (1 - clamp((bank.edge + jitter * 0.5 - 0.5) / 2.5, 0, 1)) *
+    (1 - clamp((above - 0.4) / 1.4, 0, 1));
+  const mud = 0.17 + grain * 0.06;
+  color.r += (mud * 1.08 - color.r) * wet;
+  color.g += (mud - color.g) * wet;
+  color.b += (mud * 0.72 - color.b) * wet;
 }
 
 export function terrainScarColor(

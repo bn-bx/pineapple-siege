@@ -214,6 +214,8 @@ export interface ConcreteTruck {
   setAim(yaw: number, pitch: number): void;
   /** Rocket flame strength, 0..1. */
   setRocket(level: number): void;
+  /** Afloat: inflate the side floats and bob; ashore: deflate and tuck them. */
+  setAfloat(afloat: boolean): void;
   /** World position of the chute's lip, where poured concrete leaves. */
   chuteTip(out: THREE.Vector3): THREE.Vector3;
   /** World direction the chute points. */
@@ -343,12 +345,11 @@ export function makeConcreteTruck(): ConcreteTruck {
   for (const side of [-1, 1]) {
     // Door window and the logo panel below it.
     box(body, [0.04, 1.0, 1.45], glass, [side * 1.46, 1.8, 2.6]);
-    const logo = add(
-      body,
-      new THREE.PlaneGeometry(1.5, 1.1),
-      door,
-      [side * 1.465, 0.42, 2.6],
-    );
+    const logo = add(body, new THREE.PlaneGeometry(1.5, 1.1), door, [
+      side * 1.465,
+      0.42,
+      2.6,
+    ]);
     logo.rotation.y = side * (Math.PI / 2);
     // Door seam and handle.
     box(body, [0.03, 2.4, 0.04], darkSteel, [side * 1.465, 0.95, 1.8]);
@@ -401,11 +402,12 @@ export function makeConcreteTruck(): ConcreteTruck {
     band.rotation.x = Math.PI / 2;
   }
   for (let i = 0; i < 9; i++) {
-    const leaf = add(turretPitch, crownLeaf(0.6, 0.11, 0.25), leafGreen, [
-      0,
-      0.55,
-      0,
-    ]);
+    const leaf = add(
+      turretPitch,
+      crownLeaf(0.6, 0.11, 0.25),
+      leafGreen,
+      [0, 0.55, 0],
+    );
     leaf.rotation.y = i * 2.39996;
   }
   cylinder(turretPitch, 0.13, 2.1, darkSteel, [0, 0, 1.25], "z", 14);
@@ -432,10 +434,18 @@ export function makeConcreteTruck(): ConcreteTruck {
   // Axles, coil-over shocks and differentials.
   for (const z of AXLES) {
     cylinder(frame, 0.2, WHEEL_X * 2, darkSteel, [0, WHEEL_Y, z], "x", 12);
-    add(frame, new THREE.SphereGeometry(0.42, 14, 10), darkSteel, [0, WHEEL_Y, z]);
+    add(frame, new THREE.SphereGeometry(0.42, 14, 10), darkSteel, [
+      0,
+      WHEEL_Y,
+      z,
+    ]);
     for (const side of [-1, 1]) {
       const bottom = new THREE.Vector3(side * 1.45, WHEEL_Y, z);
-      const top = new THREE.Vector3(side * 0.85, -0.75, z + (z > 0 ? -0.35 : 0.35));
+      const top = new THREE.Vector3(
+        side * 0.85,
+        -0.75,
+        z + (z > 0 ? -0.35 : 0.35),
+      );
       const axis = top.clone().sub(bottom);
       const length = axis.length();
       const q = new THREE.Quaternion().setFromUnitVectors(
@@ -443,7 +453,11 @@ export function makeConcreteTruck(): ConcreteTruck {
         axis.normalize(),
       );
       const mid = bottom.clone().add(top).multiplyScalar(0.5);
-      const shaft = cylinder(frame, 0.08, length, chrome, [mid.x, mid.y, mid.z]);
+      const shaft = cylinder(frame, 0.08, length, chrome, [
+        mid.x,
+        mid.y,
+        mid.z,
+      ]);
       shaft.quaternion.copy(q);
       const coil = new THREE.CatmullRomCurve3(
         Array.from({ length: 49 }, (_, i) => {
@@ -531,12 +545,17 @@ export function makeConcreteTruck(): ConcreteTruck {
   // Drum pedestals: a front A-frame and a rear roller stand.
   box(frame, [2.0, 1.6, 0.22], darkSteel, [0, -0.15, 1.45]);
   for (const side of [-1, 1]) {
-    const leg = box(frame, [0.22, 3.3, 0.26], darkSteel, [side * 0.75, 0.2, -4.2]);
+    const leg = box(frame, [0.22, 3.3, 0.26], darkSteel, [
+      side * 0.75,
+      0.2,
+      -4.2,
+    ]);
     leg.rotation.z = side * 0.18;
   }
   box(frame, [1.9, 0.24, 0.5], darkSteel, [0, 1.75, -4.3]);
   // Hopper funnel and the discharge chute behind the drum.
-  const rearAxis = new THREE.Vector3(0, 0, -6.0).applyEuler(drumTilt.rotation)
+  const rearAxis = new THREE.Vector3(0, 0, -6.0)
+    .applyEuler(drumTilt.rotation)
     .add(drumTilt.position);
   const hopper = add(
     frame,
@@ -546,8 +565,10 @@ export function makeConcreteTruck(): ConcreteTruck {
   );
   hopper.rotation.x = -0.35;
   // Ladder up to the hopper platform.
-  for (const x of [0.95, 1.4]) box(frame, [0.06, 3.6, 0.06], steel, [x, 0.55, -5.55]);
-  for (let i = 0; i < 9; i++) box(frame, [0.5, 0.05, 0.05], steel, [1.18, -1 + i * 0.4, -5.55]);
+  for (const x of [0.95, 1.4])
+    box(frame, [0.06, 3.6, 0.06], steel, [x, 0.55, -5.55]);
+  for (let i = 0; i < 9; i++)
+    box(frame, [0.5, 0.05, 0.05], steel, [1.18, -1 + i * 0.4, -5.55]);
   box(frame, [1.8, 0.08, 0.7], steel, [0.4, 2.35, -5.4]);
 
   const chutePivot = new THREE.Group();
@@ -555,7 +576,16 @@ export function makeConcreteTruck(): ConcreteTruck {
   // Half-pipe trough running back along -Z with its open side up.
   const chute = add(
     chutePivot,
-    new THREE.CylinderGeometry(0.42, 0.42, 2.4, 14, 1, true, -Math.PI / 2, Math.PI)
+    new THREE.CylinderGeometry(
+      0.42,
+      0.42,
+      2.4,
+      14,
+      1,
+      true,
+      -Math.PI / 2,
+      Math.PI,
+    )
       .rotateX(Math.PI / 2)
       .translate(0, 0, -1.2),
     sheet,
@@ -597,9 +627,15 @@ export function makeConcreteTruck(): ConcreteTruck {
     color: "#1c1d1f",
     roughness: 0.95,
   });
-  const rimDish = new THREE.CylinderGeometry(1.0, 1.0, 0.18, 28).rotateZ(Math.PI / 2);
-  const rimRing = new THREE.TorusGeometry(1.0, 0.08, 8, 28).rotateY(Math.PI / 2);
-  const hub = new THREE.CylinderGeometry(0.34, 0.4, 0.34, 16).rotateZ(Math.PI / 2);
+  const rimDish = new THREE.CylinderGeometry(1.0, 1.0, 0.18, 28).rotateZ(
+    Math.PI / 2,
+  );
+  const rimRing = new THREE.TorusGeometry(1.0, 0.08, 8, 28).rotateY(
+    Math.PI / 2,
+  );
+  const hub = new THREE.CylinderGeometry(0.34, 0.4, 0.34, 16).rotateZ(
+    Math.PI / 2,
+  );
   const lugs = mergeGeometries(
     Array.from({ length: 8 }, (_, i) => {
       const a = (i / 8) * Math.PI * 2;
@@ -608,7 +644,8 @@ export function makeConcreteTruck(): ConcreteTruck {
         .translate(0, Math.cos(a) * 0.55, Math.sin(a) * 0.55);
     }),
   )!;
-  const wheels: { steer: THREE.Group; spin: THREE.Group; front: boolean }[] = [];
+  const wheels: { steer: THREE.Group; spin: THREE.Group; front: boolean }[] =
+    [];
   for (const z of AXLES)
     for (const side of [-1, 1]) {
       const steer = new THREE.Group();
@@ -634,6 +671,67 @@ export function makeConcreteTruck(): ConcreteTruck {
       model.add(steer);
       wheels.push({ steer, spin, front: z > 0 });
     }
+
+  // Two big inflatable floats that shoot out of the sides on water.
+  const floatRubber = new THREE.MeshStandardMaterial({
+    color: "#ff5a1f",
+    roughness: 0.5,
+    metalness: 0,
+  });
+  const floatStripe = new THREE.MeshStandardMaterial({
+    color: "#f4efe4",
+    roughness: 0.55,
+    metalness: 0,
+  });
+  const floatTube = new THREE.CapsuleGeometry(1.15, 7.4, 8, 22).rotateX(
+    Math.PI / 2,
+  );
+  const floatBand = new THREE.TorusGeometry(1.17, 0.13, 8, 26);
+  const floatValve = new THREE.CylinderGeometry(0.16, 0.2, 0.42, 10);
+  const floatArm = new THREE.BoxGeometry(2.4, 0.28, 0.42);
+  const floats = [-1, 1].map((side) => {
+    const pontoon = new THREE.Group();
+    const tube = new THREE.Mesh(floatTube, floatRubber);
+    pontoon.add(tube);
+    for (const z of [-3.1, 0, 3.1]) {
+      const band = new THREE.Mesh(floatBand, floatStripe);
+      band.position.z = z;
+      pontoon.add(band);
+    }
+    const valve = new THREE.Mesh(floatValve, floatStripe);
+    valve.position.set(0, 1.2, -1.6);
+    pontoon.add(valve);
+    // Steel arms from the chassis rails out to each float.
+    for (const z of [-2.2, 2.2]) {
+      const arm = new THREE.Mesh(floatArm, darkSteel);
+      arm.position.set(-side * 1.35, 0.55, z);
+      arm.rotation.z = side * 0.32;
+      pontoon.add(arm);
+    }
+    pontoon.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.castShadow = o.receiveShadow = true;
+    });
+    pontoon.visible = false;
+    model.add(pontoon);
+    return { pontoon, side };
+  });
+  // Float centres sit at the waterline when afloat (model units).
+  const FLOAT_Y = -BASE_RIDE + TRUCK.draft / TRUCK.scale + 0.25;
+  const placeFloats = (inflate: number) => {
+    const shown = inflate > 0.02;
+    for (const { pontoon, side } of floats) {
+      pontoon.visible = shown;
+      if (!shown) continue;
+      // Pop out of the side, swell round, then stretch to full length.
+      const swell = Math.max(0.05, inflate);
+      pontoon.position.set(
+        side * (2.3 + 1.9 * Math.min(1.1, inflate)),
+        FLOAT_Y,
+        0.1,
+      );
+      pontoon.scale.set(swell, swell, 0.45 + 0.55 * Math.min(1, inflate));
+    }
+  };
 
   // Bake the static parts into one mesh per material.
   const bake = (source: THREE.Group, target: THREE.Group) => {
@@ -666,7 +764,11 @@ export function makeConcreteTruck(): ConcreteTruck {
     pouring = false,
     chuteAngle = 1.15,
     rocket = 0,
-    flicker = 0;
+    flicker = 0,
+    afloat = false,
+    inflate = 0,
+    inflateVelocity = 0,
+    bob = 0;
   return {
     group,
     update(speed, steer, dt, body) {
@@ -684,7 +786,8 @@ export function makeConcreteTruck(): ConcreteTruck {
       drumAngle = (drumAngle + drumRate * dt) % (Math.PI * 2);
       drumSpin.rotation.z = drumAngle;
       // Chute folds up for the road and swings down to pour.
-      chuteAngle += ((pouring ? -0.45 : 1.15) - chuteAngle) * (1 - Math.exp(-dt * 4));
+      chuteAngle +=
+        ((pouring ? -0.45 : 1.15) - chuteAngle) * (1 - Math.exp(-dt * 4));
       chutePivot.rotation.x = chuteAngle;
       // Positive X rotation dips the nose, so acceleration lifts it.
       const accel = (speed - lastSpeed) / dt;
@@ -705,6 +808,20 @@ export function makeConcreteTruck(): ConcreteTruck {
       // Landings squash the body down onto the wheels (model units).
       sprung.position.y =
         THREE.MathUtils.clamp(body?.heave ?? 0, -0.6, 0.6) / TRUCK.scale;
+      // A springy inflate overshoots a little, like a bouncy castle filling.
+      const inflateStep = Math.min(dt, 0.05);
+      inflateVelocity +=
+        (((afloat ? 1 : 0) - inflate) * (afloat ? 90 : 40) -
+          inflateVelocity * (afloat ? 9 : 12)) *
+        inflateStep;
+      inflate = Math.max(0, inflate + inflateVelocity * inflateStep);
+      placeFloats(inflate);
+      // Afloat, the whole truck bobs and rocks gently on the swell.
+      bob += dt;
+      const sway = Math.min(1, inflate);
+      model.position.y = Math.sin(bob * 1.6) * 0.14 * sway;
+      model.rotation.z = Math.sin(bob * 1.1 + 0.7) * 0.025 * sway;
+      model.rotation.x = Math.sin(bob * 0.9) * 0.015 * sway;
       flicker += dt * 40;
       for (const [i, flame] of flames.entries()) {
         flame.visible = rocket > 0.02;
@@ -726,15 +843,16 @@ export function makeConcreteTruck(): ConcreteTruck {
     setRocket(level) {
       rocket = THREE.MathUtils.clamp(level, 0, 1);
     },
+    setAfloat(value) {
+      afloat = value;
+    },
     chuteTip(out) {
       group.updateMatrixWorld(true);
       return tip.getWorldPosition(out);
     },
     chuteDirection(out) {
       group.updateMatrixWorld(true);
-      return out
-        .set(0, 0, -1)
-        .transformDirection(chutePivot.matrixWorld);
+      return out.set(0, 0, -1).transformDirection(chutePivot.matrixWorld);
     },
     reset() {
       spin = steerAngle = lastSpeed = pitch = pitchVelocity = roll = 0;
@@ -743,6 +861,11 @@ export function makeConcreteTruck(): ConcreteTruck {
       pouring = false;
       chuteAngle = 1.15;
       rocket = 0;
+      afloat = false;
+      inflate = inflateVelocity = 0;
+      placeFloats(0);
+      model.position.y = 0;
+      model.rotation.set(0, 0, 0);
       sprung.rotation.set(0, 0, 0);
       for (const flame of flames) flame.visible = false;
     },

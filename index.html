@@ -25,305 +25,310 @@
       </div>
     </header>
     <main id="overlay">
-      <section class="menu" id="menuHome" aria-labelledby="title">
-        <div class="menu-heading">
-          <div>
-            <h1 id="title">Pineapple Siege</h1>
-            <p class="intro" id="intro">
-              Fly, fire, and reshape your island. Progress saves locally.
-            </p>
-          </div>
+      <div class="menu-rail">
+        <section class="menu" id="menuHome" aria-labelledby="title">
+          <h1 id="title" class="wordmark">
+            <span>Pineapple</span><span>Siege</span>
+          </h1>
+          <p class="tagline">Fly it. Bomb it. Pour concrete on it.</p>
           <div class="actions">
-            <button class="primary" id="enter" disabled>
-              <span id="enterLabel">Loading world…</span><span>↗</span></button
-            ><button class="secondary" id="newWorld" hidden>New island</button>
+            <button class="primary play" id="enter" disabled>
+              <span id="enterLabel">Loading world…</span
+              ><kbd aria-hidden="true">Enter</kbd>
+            </button>
+            <button class="secondary" id="newWorld" hidden>New island</button>
           </div>
-        </div>
-      </section>
-      <nav class="menu-tabs" role="tablist" aria-label="Pause menu">
-        <button
-          id="openSettings"
-          role="tab"
-          aria-controls="menuSettings"
-          aria-selected="true"
-        >
-          Settings
-        </button>
-        <button
-          id="openMap"
-          role="tab"
-          aria-controls="menuMap"
-          aria-selected="false"
-          tabindex="-1"
-          disabled
-        >
-          Map
-        </button>
-        <button
-          id="openControls"
-          role="tab"
-          aria-controls="menuControls"
-          aria-selected="false"
-          tabindex="-1"
-        >
-          Controls guide
-        </button>
-      </nav>
-      <section
-        id="menuSettings"
-        class="menu-view"
-        role="tabpanel"
-        aria-labelledby="openSettings"
-      >
-        <div class="settings-heading">
-          <h2 id="settingsTitle">Settings</h2>
-          <button id="defaultSettings" class="secondary" type="button" disabled>
-            Reset settings to defaults
+          <p class="intro" id="intro">
+            Fly, fire, and reshape your island. Progress saves locally.
+          </p>
+        </section>
+        <nav class="menu-tabs" role="tablist" aria-label="Pause menu">
+          <button
+            id="openSettings"
+            role="tab"
+            aria-controls="menuSettings"
+            aria-selected="true"
+          >
+            <span class="tab-index" aria-hidden="true">01</span>Settings
           </button>
-        </div>
-        <div id="settings">
-          <section
-            class="settings-section settings-flight"
-            id="panel-flight"
-            aria-labelledby="heading-flight"
+          <button
+            id="openMap"
+            role="tab"
+            aria-controls="menuMap"
+            aria-selected="false"
+            tabindex="-1"
+            disabled
           >
-            <h3 id="heading-flight">Controls</h3>
-            <label class="check rapid-fire"
-              >Rapid fire · 0.1 sec<input id="noCooldown" type="checkbox"
-            /></label>
-
-            <div class="settings-grid">
-              <label
-                >Steering sensitivity<input
-                  id="sensitivity"
-                  type="range"
-                  min="0.3"
-                  max="2.5"
-                  step="0.1"
-                  value="1"
-              /></label>
-              <label class="check"
-                >Reverse horizontal steering<input
-                  id="reverseX"
-                  type="checkbox"
-              /></label>
-              <label class="check"
-                >Reverse vertical steering<input id="invert" type="checkbox"
-              /></label>
-              <label class="check"
-                >Reduce camera shake<input id="reduceShake" type="checkbox"
-              /></label>
+            <span class="tab-index" aria-hidden="true">02</span>Map
+          </button>
+          <button
+            id="openControls"
+            role="tab"
+            aria-controls="menuControls"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span class="tab-index" aria-hidden="true">03</span>Controls
+          </button>
+        </nav>
+        <footer class="menu-footer">
+          <p id="status" role="status">Loading world…</p>
+          <p class="asset-credits">
+            <a href="/assets/CREDITS.md" target="_blank" rel="noopener"
+              >Sound and asset credits</a
+            >
+          </p>
+          <p id="buildVersion" aria-label="Game version">__BUILD_VERSION__</p>
+        </footer>
+      </div>
+      <div class="menu-stage">
+          <section
+            id="menuSettings"
+            class="menu-view"
+            role="tabpanel"
+            aria-labelledby="openSettings"
+          >
+            <div class="settings-heading">
+              <h2 id="settingsTitle">Settings</h2>
+              <button id="defaultSettings" class="secondary" type="button" disabled>
+                Reset settings to defaults
+              </button>
             </div>
-          </section>
-          <section
-            class="settings-section settings-graphics"
-            id="panel-graphics"
-            aria-labelledby="heading-graphics"
-          >
-            <h3 id="heading-graphics">Graphics</h3>
-            <div class="settings-grid">
-              <label
-                >Render quality<select id="quality">
-                  <option value="auto">Auto</option>
-                  <option value="720">Balanced · 720p</option>
-                  <option value="1080">High · 1080p</option>
-                  <option value="1440">Ultra · 1440p</option>
-                </select></label
+            <div id="settings">
+              <section
+                class="settings-section settings-flight"
+                id="panel-flight"
+                aria-labelledby="heading-flight"
               >
-              <label
-                >CRT filter<select id="crtMode">
-                  <option value="off">Off</option>
-                  <option value="subtle" selected>Subtle</option>
-                  <option value="retro">Retro TV</option>
-                </select></label
-              >
-              <label
-                >Detail distance
-                <output id="renderDistanceValue" for="renderDistance"
-                  >1,200 m</output
-                >
-                <input
-                  id="renderDistance"
-                  type="range"
-                  min="600"
-                  max="3000"
-                  step="100"
-                  value="1200"
-                  aria-describedby="renderDistanceHelp"
-                />
-                <small id="renderDistanceHelp"
-                  >The whole island stays visible. Higher distances add more
-                  nearby detail and may reduce FPS.</small
-                >
-              </label>
-              <label class="check"
-                >Reduce effects<input id="reduceEffects" type="checkbox"
-              /></label>
-              <details class="advanced">
-                <summary>Advanced</summary>
-                <label class="check"
-                  >Show performance<input id="showPerf" type="checkbox"
+                <h3 id="heading-flight">Controls</h3>
+                <label class="check rapid-fire"
+                  >Rapid fire · 0.1 sec<input id="noCooldown" type="checkbox"
                 /></label>
-              </details>
+
+                <div class="settings-grid">
+                  <label
+                    >Steering sensitivity<input
+                      id="sensitivity"
+                      type="range"
+                      min="0.3"
+                      max="2.5"
+                      step="0.1"
+                      value="1"
+                  /></label>
+                  <label class="check"
+                    >Reverse horizontal steering<input
+                      id="reverseX"
+                      type="checkbox"
+                  /></label>
+                  <label class="check"
+                    >Reverse vertical steering<input id="invert" type="checkbox"
+                  /></label>
+                  <label class="check"
+                    >Reduce camera shake<input id="reduceShake" type="checkbox"
+                  /></label>
+                </div>
+              </section>
+              <section
+                class="settings-section settings-graphics"
+                id="panel-graphics"
+                aria-labelledby="heading-graphics"
+              >
+                <h3 id="heading-graphics">Graphics</h3>
+                <div class="settings-grid">
+                  <label
+                    >Render quality<select id="quality">
+                      <option value="auto">Auto</option>
+                      <option value="720">Balanced · 720p</option>
+                      <option value="1080">High · 1080p</option>
+                      <option value="1440">Ultra · 1440p</option>
+                    </select></label
+                  >
+                  <label
+                    >CRT filter<select id="crtMode">
+                      <option value="off">Off</option>
+                      <option value="subtle" selected>Subtle</option>
+                      <option value="retro">Retro TV</option>
+                    </select></label
+                  >
+                  <label
+                    >Detail distance
+                    <output id="renderDistanceValue" for="renderDistance"
+                      >1,200 m</output
+                    >
+                    <input
+                      id="renderDistance"
+                      type="range"
+                      min="600"
+                      max="3000"
+                      step="100"
+                      value="1200"
+                      aria-describedby="renderDistanceHelp"
+                    />
+                    <small id="renderDistanceHelp"
+                      >The whole island stays visible. Higher distances add more
+                      nearby detail and may reduce FPS.</small
+                    >
+                  </label>
+                  <label class="check"
+                    >Reduce effects<input id="reduceEffects" type="checkbox"
+                  /></label>
+                  <details class="advanced">
+                    <summary>Advanced</summary>
+                    <label class="check"
+                      >Show performance<input id="showPerf" type="checkbox"
+                    /></label>
+                  </details>
+                </div>
+              </section>
+              <section
+                class="settings-section settings-audio"
+                id="panel-audio"
+                aria-labelledby="heading-audio"
+              >
+                <h3 id="heading-audio">Audio</h3>
+                <div class="settings-grid">
+                  <label
+                    >Sound volume<input
+                      id="volume"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value="0.35"
+                  /></label>
+                  <label class="check"
+                    >Mute<input id="mute" type="checkbox"
+                  /></label>
+                </div>
+              </section>
+              <section
+                class="settings-section settings-world"
+                id="panel-world"
+                aria-labelledby="heading-world"
+              >
+                <h3 id="heading-world">World</h3>
+                <div class="island-sharing">
+                  <label
+                    >Island seed<input
+                      id="currentSeed"
+                      readonly
+                      aria-label="Current island seed"
+                  /></label>
+                  <div>
+                    <button id="copySeed">Copy seed</button
+                    ><button id="copyIslandLink">Copy island link</button>
+                  </div>
+                  <input
+                    id="shareFallback"
+                    readonly
+                    hidden
+                    aria-label="Select and copy this island code or link"
+                  />
+                  <p id="islandShareStatus" role="status"></p>
+                  <button id="createIsland" class="primary">New island</button>
+                </div>
+                <div class="settings-grid">
+                  <label
+                    >Pineapple monsters
+                    <output id="monsterCountValue" for="monsterCount">120</output
+                    ><input
+                      id="monsterCount"
+                      type="range"
+                      min="0"
+                      max="400"
+                      step="1"
+                      value="120"
+                  /></label>
+                  <label
+                    >Time of day<input
+                      id="time"
+                      type="range"
+                      min="0"
+                      max="23.99"
+                      step="0.1"
+                      value="15.5"
+                  /></label>
+                  <label class="check"
+                    >Hold time<input id="holdTime" type="checkbox" /></label
+                  ><button id="reset" class="danger">Reset world</button>
+                </div>
+              </section>
             </div>
           </section>
           <section
-            class="settings-section settings-audio"
-            id="panel-audio"
-            aria-labelledby="heading-audio"
+            id="menuControls"
+            class="menu-view help-view"
+            hidden
+            role="tabpanel"
+            aria-labelledby="openControls"
           >
-            <h3 id="heading-audio">Audio</h3>
-            <div class="settings-grid">
-              <label
-                >Sound volume<input
-                  id="volume"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value="0.35"
-              /></label>
-              <label class="check"
-                >Mute<input id="mute" type="checkbox"
-              /></label>
+            <button class="menu-back" id="backFromControls">← Back to menu</button>
+            <h2 id="controlsTitle" tabindex="-1">Controls</h2>
+            <p class="help-intro">Everything you need to take flight.</p>
+            <div class="controls">
+              <span><kbd>MOUSE / A, D</kbd> Steer</span
+              ><span><kbd>W / S</kbd> Throttle</span
+              ><span><kbd>CLICK / SPACE</kbd> Fire</span
+              ><span><kbd>1 / 2 / 3 / 4</kbd> Select weapon</span
+              ><span><kbd>SHIFT</kbd> Boost</span><span><kbd>R</kbd> Respawn</span
+              ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
+              ><span><kbd>P</kbd> Photo</span
+              ><span><kbd>V</kbd> Drive / fly</span
+              ><span><kbd>F</kbd> Pour concrete</span>
+              <span class="touch-help"
+                >Touch: left pad steers · hold Fire, Boost, or throttle +/− · tap a
+                weapon to select it</span
+              >
             </div>
+            <p class="help-note">
+              Without mouse capture, drag to steer and use Space to fire.
+              Double-click to center steering.
+            </p>
           </section>
           <section
-            class="settings-section settings-world"
-            id="panel-world"
-            aria-labelledby="heading-world"
+            id="menuMap"
+            class="menu-view map-view"
+            hidden
+            role="tabpanel"
+            aria-labelledby="openMap"
           >
-            <h3 id="heading-world">World</h3>
-            <div class="island-sharing">
-              <label
-                >Island seed<input
-                  id="currentSeed"
-                  readonly
-                  aria-label="Current island seed"
-              /></label>
-              <div>
-                <button id="copySeed">Copy seed</button
-                ><button id="copyIslandLink">Copy island link</button>
-              </div>
-              <input
-                id="shareFallback"
-                readonly
-                hidden
-                aria-label="Select and copy this island code or link"
-              />
-              <p id="islandShareStatus" role="status"></p>
-              <button id="createIsland" class="primary">New island</button>
+            <div class="map-heading">
+              <h2>Island map</h2>
+              <p id="mapPosition" role="status"></p>
             </div>
-            <div class="settings-grid">
+            <p class="map-description">
+              Terrain and landmarks of your island. Damage and enemies are not
+              shown.
+            </p>
+            <div class="map-tools">
+              <button id="zoomMapIn" type="button" aria-label="Zoom in">+</button>
+              <button id="zoomMapOut" type="button" aria-label="Zoom out">−</button>
+              <button id="resetMap" type="button">Fit island</button>
               <label
-                >Pineapple monsters
-                <output id="monsterCountValue" for="monsterCount">120</output
-                ><input
-                  id="monsterCount"
-                  type="range"
-                  min="0"
-                  max="400"
-                  step="1"
-                  value="120"
-              /></label>
-              <label
-                >Time of day<input
-                  id="time"
-                  type="range"
-                  min="0"
-                  max="23.99"
-                  step="0.1"
-                  value="15.5"
-              /></label>
-              <label class="check"
-                >Hold time<input id="holdTime" type="checkbox" /></label
-              ><button id="reset" class="danger">Reset world</button>
+                >Landmark
+                <select id="mapLandmark">
+                  <option value="">Choose a landmark…</option>
+                </select></label
+              >
+              <button id="clearWaypoint" type="button">Clear waypoint</button>
             </div>
+            <p id="mapWaypoint" role="status">
+              Select a landmark to set a waypoint.
+            </p>
+            <canvas
+              id="pauseMap"
+              width="768"
+              height="768"
+              role="img"
+              aria-label="Island terrain, roads, rivers, landmarks, and aircraft position"
+            ></canvas>
+            <p class="map-legend">
+              Gold arrow: your aircraft · White arrow: flight start · Gold squares:
+              castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring:
+              waypoint. Scroll to zoom; drag to pan.
+            </p>
           </section>
-        </div>
-      </section>
-      <section
-        id="menuControls"
-        class="menu-view help-view"
-        hidden
-        role="tabpanel"
-        aria-labelledby="openControls"
-      >
-        <button class="menu-back" id="backFromControls">← Back to menu</button>
-        <h2 id="controlsTitle" tabindex="-1">Controls</h2>
-        <p class="help-intro">Everything you need to take flight.</p>
-        <div class="controls">
-          <span><kbd>MOUSE / A, D</kbd> Steer</span
-          ><span><kbd>W / S</kbd> Throttle</span
-          ><span><kbd>CLICK / SPACE</kbd> Fire</span
-          ><span><kbd>1 / 2 / 3 / 4</kbd> Select weapon</span
-          ><span><kbd>SHIFT</kbd> Boost</span><span><kbd>R</kbd> Respawn</span
-          ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
-          ><span><kbd>P</kbd> Photo</span
-          ><span><kbd>V</kbd> Drive / fly</span
-          ><span><kbd>F</kbd> Pour concrete</span>
-          <span class="touch-help"
-            >Touch: left pad steers · hold Fire, Boost, or throttle +/− · tap a
-            weapon to select it</span
-          >
-        </div>
-        <p class="help-note">
-          Without mouse capture, drag to steer and use Space to fire.
-          Double-click to center steering.
-        </p>
-      </section>
-      <section
-        id="menuMap"
-        class="menu-view map-view"
-        hidden
-        role="tabpanel"
-        aria-labelledby="openMap"
-      >
-        <div class="map-heading">
-          <h2>Island map</h2>
-          <p id="mapPosition" role="status"></p>
-        </div>
-        <p class="map-description">
-          Terrain and landmarks of your island. Damage and enemies are not
-          shown.
-        </p>
-        <div class="map-tools">
-          <button id="zoomMapIn" type="button" aria-label="Zoom in">+</button>
-          <button id="zoomMapOut" type="button" aria-label="Zoom out">−</button>
-          <button id="resetMap" type="button">Fit island</button>
-          <label
-            >Landmark
-            <select id="mapLandmark">
-              <option value="">Choose a landmark…</option>
-            </select></label
-          >
-          <button id="clearWaypoint" type="button">Clear waypoint</button>
-        </div>
-        <p id="mapWaypoint" role="status">
-          Select a landmark to set a waypoint.
-        </p>
-        <canvas
-          id="pauseMap"
-          width="768"
-          height="768"
-          role="img"
-          aria-label="Island terrain, roads, rivers, landmarks, and aircraft position"
-        ></canvas>
-        <p class="map-legend">
-          Gold arrow: your aircraft · White arrow: flight start · Gold squares:
-          castles · Cyan dots: harbors · Ivory dots: landmarks · Red ring:
-          waypoint. Scroll to zoom; drag to pan.
-        </p>
-      </section>
-      <footer class="menu-footer">
-        <p class="asset-credits">
-          <a href="/assets/CREDITS.md" target="_blank" rel="noopener"
-            >Sound and asset credits</a
-          >
-        </p>
-        <p id="buildVersion" aria-label="Game version">__BUILD_VERSION__</p>
-        <p id="status" role="status">Loading world…</p>
-      </footer>
+      </div>
     </main>
     <div id="flightHUD" hidden>
       <div id="navigationStatus" role="status"></div>

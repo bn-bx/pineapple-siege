@@ -12,6 +12,7 @@ import {
 import type { TerrainJob, TerrainResult } from "./terrain-mesh-worker";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
+import { riverBankIndex } from "../world/water-geometry.mjs";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { markStaticCaster } from "./static-shadows";
 import type { WorldData, TerrainPatch } from "../types";
@@ -89,6 +90,7 @@ export class TerrainView {
   private castleBounds: WorldData["castleBounds"][];
   private pathBounds: number[];
   private roadDistance: (x: number, z: number) => number;
+  private riverBank: ReturnType<typeof riverBankIndex>;
   private waterSurfaceLookup: WaterSurfaceLookup;
   private fullHeightUpload = true;
   private fullFloodUpload = true;
@@ -128,6 +130,7 @@ export class TerrainView {
           paths: world.paths,
           castleBounds: world.castleBounds,
           castles: world.castles,
+          rivers: world.rivers,
         },
       });
       this.worker.onmessage = (event: MessageEvent<TerrainResult>) => {
@@ -170,6 +173,7 @@ export class TerrainView {
       };
     }
     this.roadDistance = pathIndex(world.paths);
+    this.riverBank = riverBankIndex(world.rivers ?? []);
     const points = world.paths.flat();
     this.pathBounds = [
       Math.min(...points.map((p) => p[0])) - 6,
@@ -796,6 +800,8 @@ export class TerrainView {
           base,
           slope,
           this.world.regions,
+          true,
+          this.riverBank(x, z),
         );
         if (
           this.pathDistance(x, z) < 3.2 ||

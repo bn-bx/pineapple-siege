@@ -1,8 +1,8 @@
 import { fieldSample } from "./landscape.mjs";
 import {
-  inlandWaterHeight,
   riverHalfWidth,
   pointInLake,
+  segmentWater,
 } from "./water-geometry.mjs";
 export { inlandWaterHeight as waterHeight } from "./water-geometry.mjs";
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -24,7 +24,9 @@ function rect(field, grid, step, x0, z0, x1, z1, fn) {
     )
       fn(x * step, z * step, z * grid + x);
 }
-export function carveWater(field, grid, step, rivers, lakes) {
+/** For each cell near a river: [distance beyond its edge, water, half-width, distance]. */
+function nearestRiverEdges(field, grid, step, rivers) {
+  const nearest = new Map();
   for (const river of rivers)
     for (let i = 1; i < river.points.length; i++) {
       const a = river.points[i - 1],
@@ -40,27 +42,80 @@ export function carveWater(field, grid, step, rivers, lakes) {
         field,
         grid,
         step,
-        Math.min(a[0], b[0]) - w - 24,
-        Math.min(a[2], b[2]) - w - 24,
-        Math.max(a[0], b[0]) + w + 24,
-        Math.max(a[2], b[2]) + w + 24,
+        Math.min(a[0], b[0]) - w - RIVER_BANK,
+        Math.min(a[2], b[2]) - w - RIVER_BANK,
+        Math.max(a[0], b[0]) + w + RIVER_BANK,
+        Math.max(a[2], b[2]) + w + RIVER_BANK,
         (x, z, id) => {
           const t = clamp(((x - a[0]) * dx + (z - a[2]) * dz) / l, 0, 1),
             distance = Math.hypot(x - a[0] - t * dx, z - a[2] - t * dz),
             width = mix(wa, wb, t),
-            water = mix(a[1], b[1], t);
-          if (distance < width + 24)
-            field[id] = Math.min(
-              field[id],
-              mix(
-                water - 3 + (0.4 * distance) / width,
-                field[id],
-                smooth(width, width + 24, distance),
-              ),
-            );
+            edge = distance - width;
+          if (edge >= RIVER_BANK) return;
+          const best = nearest.get(id);
+          if (best && best[0] <= edge) return;
+          nearest.set(id, [edge, mix(a[1], b[1], t), width, distance]);
         },
       );
     }
+  return nearest;
+}
+/**
+ * Site and road grading can fill a channel or lower the ground beside it.
+ * Afterwards, cut the channel back out and hold the first few metres past
+ * the waterline at least level with the water, so no reach is buried or
+ * left standing above its banks.
+ */
+export function containRivers(field, grid, step, rivers, lakes) {
+  for (const [id, [edge, water, width, distance]] of nearestRiverEdges(
+    field,
+    grid,
+    step,
+    rivers,
+  )) {
+    if (edge < 0) {
+      field[id] = Math.min(
+        field[id],
+        riverChannelHeight(water, width, distance, field[id]),
+      );
+      continue;
+    }
+    // At the coast the sea holds the water; raising the shore there would
+    // build a bar across the river mouth.
+    if (edge < 1 || edge > 5 || water < 1 || field[id] <= 0) continue;
+    const x = (id % grid) * step,
+      z = Math.floor(id / grid) * step;
+    if (lakes.some((lake) => pointInLake(lake, x, z))) continue;
+    field[id] = Math.max(field[id], water + (edge - 1) * 0.2);
+  }
+}
+/** Distance beyond the water's edge over which a river bank meets the land. */
+const RIVER_BANK = 18;
+/**
+ * Rounded channel: deepest mid-stream (wider rivers run deeper), shelving to
+ * a few decimetres at the generated half-width so the waterline sits close
+ * to it, then a bank that rises back into the surrounding ground.
+ */
+export function riverChannelHeight(water, width, distance, ground) {
+  const depth = 1.5 + width * 0.12,
+    edge = water - 0.3;
+  if (distance < width) {
+    const u = distance / width;
+    return edge - depth * (1 - u * u) * (1 - 0.35 * u * u);
+  }
+  const bank = smooth(width, width + RIVER_BANK, distance);
+  return mix(edge + (distance - width) * 0.12, ground, bank);
+}
+export function carveWater(field, grid, step, rivers, lakes) {
+  // Each cell takes its channel from the nearest river edge only. Taking the
+  // lowest cut of every segment in reach let steep downstream segments dig
+  // into the banks of the reach above them, leaving its water perched.
+  const nearest = nearestRiverEdges(field, grid, step, rivers);
+  for (const [id, [, water, width, distance]] of nearest)
+    field[id] = Math.min(
+      field[id],
+      riverChannelHeight(water, width, distance, field[id]),
+    );
   for (const lake of lakes) {
     const [cx, cz] = lake.center,
       r = lake.radius;
@@ -87,6 +142,53 @@ export function carveWater(field, grid, step, rivers, lakes) {
     );
   }
 }
+/**
+ * Grid cells covered by river or lake water, matching inlandWaterHeight at
+ * every grid sample. Grading asks this for hundreds of thousands of cells,
+ * so it is rasterized once per pass instead of searched per cell.
+ */
+function wetCells(grid, step, rivers, lakes) {
+  const wet = new Uint8Array(grid * grid);
+  const cover = (x0, z0, x1, z1, test) => {
+    for (
+      let z = Math.max(0, Math.ceil(z0 / step));
+      z <= Math.min(grid - 1, Math.floor(z1 / step));
+      z++
+    )
+      for (
+        let x = Math.max(0, Math.ceil(x0 / step));
+        x <= Math.min(grid - 1, Math.floor(x1 / step));
+        x++
+      ) {
+        const id = z * grid + x;
+        if (!wet[id] && test(x * step, z * step)) wet[id] = 1;
+      }
+  };
+  for (const river of rivers)
+    for (let i = 1; i < river.points.length; i++) {
+      const a = river.points[i - 1],
+        b = river.points[i],
+        wa = riverHalfWidth(river, i - 1),
+        wb = riverHalfWidth(river, i),
+        w = Math.max(wa, wb);
+      cover(
+        Math.min(a[0], b[0]) - w,
+        Math.min(a[2], b[2]) - w,
+        Math.max(a[0], b[0]) + w,
+        Math.max(a[2], b[2]) + w,
+        (x, z) => segmentWater(a, b, wa, wb, x, z) !== undefined,
+      );
+    }
+  for (const lake of lakes)
+    cover(
+      lake.center[0] - lake.radius,
+      lake.center[1] - lake.radius,
+      lake.center[0] + lake.radius,
+      lake.center[1] + lake.radius,
+      (x, z) => pointInLake(lake, x, z),
+    );
+  return wet;
+}
 function padSize(site, castles) {
   const castle = castles.find((c) => c.id === site.id);
   return castle
@@ -99,6 +201,7 @@ function padSize(site, castles) {
       : [site.radius, site.radius];
 }
 export function gradeSites(field, grid, step, sites, castles, rivers, lakes) {
+  const wet = wetCells(grid, step, rivers, lakes);
   for (const site of sites) {
     if (["bridge", "crossing"].includes(site.kind)) continue;
     const [x, y, z] = site.p,
@@ -114,6 +217,15 @@ export function gradeSites(field, grid, step, sites, castles, rivers, lakes) {
       ),
     );
     const blend = clamp(50 + relief * 2.5, 50, 180);
+    // Only sites overlapping this pad's footprint can shield cells from it.
+    const others = sites.filter(
+      (other) =>
+        other !== site &&
+        other.bounds.max[0] >= x - hx - blend &&
+        other.bounds.min[0] <= x + hx + blend &&
+        other.bounds.max[1] >= z - hz - blend &&
+        other.bounds.min[1] <= z + hz + blend,
+    );
     rect(
       field,
       grid,
@@ -123,15 +235,10 @@ export function gradeSites(field, grid, step, sites, castles, rivers, lakes) {
       x + hx + blend,
       z + hz + blend,
       (wx, wz, id) => {
+        if (field[id] < 1 || wet[id]) return;
         if (
-          field[id] < 1 ||
-          Number.isFinite(inlandWaterHeight(rivers, lakes, wx, wz))
-        )
-          return;
-        if (
-          sites.some(
+          others.some(
             (other) =>
-              other !== site &&
               wx >= other.bounds.min[0] &&
               wx <= other.bounds.max[0] &&
               wz >= other.bounds.min[1] &&
@@ -146,6 +253,7 @@ export function gradeSites(field, grid, step, sites, castles, rivers, lakes) {
   }
 }
 export function gradeRoads(field, grid, step, paths, sites, rivers, lakes) {
+  const wet = wetCells(grid, step, rivers, lakes);
   const bridges = sites.filter((s) => ["bridge", "crossing"].includes(s.kind));
   const deckAt = (x, z) =>
     bridges.find(
@@ -215,7 +323,7 @@ export function gradeRoads(field, grid, step, paths, sites, rivers, lakes) {
             distance = Math.hypot(x - a.x - dx * t, z - a.z - dz * t);
           if (
             distance < 12 &&
-            !Number.isFinite(inlandWaterHeight(rivers, lakes, x, z))
+            !wet[id]
           ) {
             field[id] = mix(
               mix(a.y, b.y, t),
@@ -268,6 +376,7 @@ export function gradeRoads(field, grid, step, paths, sites, rivers, lakes) {
   }
 }
 export function flattenSites(field, grid, step, sites, castles, rivers, lakes) {
+  const wet = wetCells(grid, step, rivers, lakes);
   for (const site of sites) {
     if (["crossing", "bridge", "watermill"].includes(site.kind)) continue;
     const [x, y, z] = site.p,
@@ -276,7 +385,7 @@ export function flattenSites(field, grid, step, sites, castles, rivers, lakes) {
       if (
         Math.abs(wx - x) <= hx &&
         Math.abs(wz - z) <= hz &&
-        !Number.isFinite(inlandWaterHeight(rivers, lakes, wx, wz))
+        !wet[id]
       )
         field[id] = y;
     });

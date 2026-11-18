@@ -16,6 +16,28 @@ function flattenWaterNormals(geometry: THREE.BufferGeometry) {
   geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 }
 
+/** Surface speed (m/s) and white-water amount for a reach of the given grade. */
+export function riverCurrent(grade: number): [number, number] {
+  const g = Math.max(0, grade),
+    rush = Math.min(1, Math.max(0, (g - 0.1) / 0.4));
+  return [0.45 + Math.min(3.2, g * 18), rush * rush * (3 - 2 * rush) * 0.85];
+}
+
+/** Same `current` value at every vertex of a piece of water. */
+function fillCurrent(
+  geometry: THREE.BufferGeometry,
+  speed: number,
+  rush: number,
+) {
+  const count = geometry.getAttribute("position").count,
+    data = new Float32Array(count * 2);
+  for (let i = 0; i < count; i++) {
+    data[i * 2] = speed;
+    data[i * 2 + 1] = rush;
+  }
+  geometry.setAttribute("current", new THREE.BufferAttribute(data, 2));
+}
+
 /** Shared miters keep adjacent water reaches joined at bends without wider pools. */
 export function riverCrossSections(
   points: readonly (readonly [number, number, number])[],
@@ -50,6 +72,42 @@ export function riverCrossSections(
       reach = Math.min(halfWidth / Math.max(0.25, projection), halfWidth * 1.6);
     return [normalX * reach, normalZ * reach] as const;
   });
+}
+
+/**
+ * Bank offsets that never run backwards. On a bend tighter than the river is
+ * wide, the inner miter points of consecutive cross-sections cross over and
+ * the strip folds onto itself, drawing overlapping layers. Holding the inner
+ * bank at its last point instead turns the bend into a fan about that point,
+ * which covers the same water once. Returns [left, right] offsets per point.
+ */
+export function unfoldRiverBanks(
+  points: readonly (readonly [number, number, number])[],
+  sections: readonly (readonly [number, number])[],
+  width: number | readonly number[],
+) {
+  const left = sections.map(([x, z]) => [x, z] as [number, number]),
+    right = sections.map(([x, z]) => [-x, -z] as [number, number]);
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i],
+      q = points[i - 1],
+      tx = p[0] - q[0],
+      tz = p[2] - q[2],
+      length = Math.hypot(tx, tz);
+    if (!length) continue;
+    const reach = (typeof width === "number" ? width : width[i]) * 1.6;
+    for (const side of [left, right]) {
+      const bx = q[0] + side[i - 1][0],
+        bz = q[2] + side[i - 1][1],
+        ax = p[0] + side[i][0],
+        az = p[2] + side[i][1];
+      // Advance of this bank along the reach; a fold moves it upstream.
+      if (((ax - bx) * tx + (az - bz) * tz) / length >= 0) continue;
+      if (Math.hypot(bx - p[0], bz - p[2]) > reach) continue;
+      side[i] = [bx - p[0], bz - p[2]];
+    }
+  }
+  return [left, right] as const;
 }
 
 /** Review camera for the sharpest bend in a reach, avoiding straight-only samples. */
@@ -108,7 +166,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
           roughness: 0.55,
           side: THREE.DoubleSide,
         })
-      : makeWaterMaterial(terrain);
+      : makeWaterMaterial(terrain, undefined, false, true);
   if (world.realm === "hell") material.userData.time = { value: 0 };
   group.userData.material = material;
   group.userData.time = material.userData.time;
@@ -156,11 +214,46 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
     if (!list) tiles.set(key, (list = []));
     list.push(geometry);
   };
+  // White water spreads downstream of each fall's foot and settles over
+  // about one and a half river widths.
+  const plunges = (world.waterfalls ?? []).map((fall) => ({
+    x: fall.bottom[0],
+    z: fall.bottom[2],
+    reach: fall.width * 1.5 + 6,
+  }));
+  const plunge = (x: number, z: number) => {
+    let churn = 0;
+    for (const p of plunges) {
+      const d = Math.hypot(x - p.x, z - p.z);
+      if (d < p.reach) churn = Math.max(churn, 0.85 * (1 - d / p.reach));
+    }
+    return churn;
+  };
   for (const river of riverList) {
-    const crossSections = riverCrossSections(
+    const [leftBank, rightBank] = unfoldRiverBanks(
       river.points,
+      riverCrossSections(river.points, river.widths ?? river.width),
       river.widths ?? river.width,
     );
+    // Generated rivers alternate level pools and short drops, so the grade
+    // at each sample is the drop over about 20 m either side; the current
+    // then changes smoothly instead of flickering reach by reach.
+    const run = [0];
+    for (let i = 1; i < river.points.length; i++) {
+      const a = river.points[i - 1],
+        b = river.points[i];
+      run.push(run[i - 1] + Math.hypot(b[0] - a[0], b[2] - a[2]));
+    }
+    const pointGrade = river.points.map((_, i) => {
+      let lo = i,
+        hi = i;
+      while (lo > 0 && run[i] - run[lo] < 20) lo--;
+      while (hi < river.points.length - 1 && run[hi] - run[i] < 20) hi++;
+      const span = run[hi] - run[lo];
+      return span > 0
+        ? Math.max(0, (river.points[lo][1] - river.points[hi][1]) / span)
+        : 0;
+    });
     // Separate reaches retain tight culling bounds and meet at shared corner pools.
     for (let i = 1; i < river.points.length; i++) {
       const a = river.points[i - 1],
@@ -169,8 +262,10 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         dz = b[2] - a[2],
         length = Math.hypot(dx, dz);
       if (!length) continue;
-      const [startX, startZ] = crossSections[i - 1],
-        [endX, endZ] = crossSections[i];
+      const [startLX, startLZ] = leftBank[i - 1],
+        [endLX, endLZ] = leftBank[i],
+        [startRX, startRZ] = rightBank[i - 1],
+        [endRX, endRZ] = rightBank[i];
       const tangent = (at: number) => {
         const before = river.points[Math.max(0, at - 1)],
           after = river.points[Math.min(river.points.length - 1, at + 1)];
@@ -193,23 +288,47 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
           cappedRiverSurface(level, bed(a[0] + dx * t, a[2] + dz * t)) <
           level;
       }
-      // Ordinary reaches stay single quads; only dips are subdivided.
-      const pieces = dips ? fine : 1;
+      // Ordinary reaches stay single quads; dips and the water just below a
+      // fall are subdivided so the surface and the churn can vary along them.
+      const churned = plunge(a[0], a[2]) > 0 || plunge(b[0], b[2]) > 0;
+      const pieces = dips || churned ? fine : 1;
       const positions: number[] = [],
         flows: number[] = [],
+        currents: number[] = [],
         index: number[] = [];
+      const surfaceAt = (t: number) =>
+        cappedRiverSurface(
+          a[1] + (b[1] - a[1]) * t,
+          bed(a[0] + dx * t, a[2] + dz * t),
+        );
       for (let k = 0; k <= pieces; k++) {
         const t = k / pieces,
           x = a[0] + dx * t,
           z = a[2] + dz * t,
-          ox = startX + (endX - startX) * t,
-          oz = startZ + (endZ - startZ) * t,
-          level = a[1] + (b[1] - a[1]) * t,
-          y = cappedRiverSurface(level, bed(x, z)) + 0.05;
-        positions.push(x + ox, y, z + oz, x - ox, y, z - oz);
+          lx = startLX + (endLX - startLX) * t,
+          lz = startLZ + (endLZ - startLZ) * t,
+          rx = startRX + (endRX - startRX) * t,
+          rz = startRZ + (endRZ - startRZ) * t,
+          y = surfaceAt(t) + 0.05;
+        positions.push(x + lx, y, z + lz, x + rx, y, z + rz);
         const fx = startFlow[0] + (endFlow[0] - startFlow[0]) * t,
           fz = startFlow[1] + (endFlow[1] - startFlow[1]) * t;
         flows.push(fx, fz, fx, fz);
+        // Water that follows the ground down a dip runs as fast as its slope.
+        let grade =
+          pointGrade[i - 1] + (pointGrade[i] - pointGrade[i - 1]) * t;
+        if (dips) {
+          const step = 1 / pieces,
+            t0 = Math.max(0, t - step),
+            t1 = Math.min(1, t + step);
+          grade = Math.max(
+            grade,
+            (surfaceAt(t0) - surfaceAt(t1)) / ((t1 - t0) * length),
+          );
+        }
+        const [speed, rapids] = riverCurrent(grade),
+          rush = Math.max(rapids, plunge(x, z));
+        currents.push(speed, rush, speed, rush);
         if (k < pieces) {
           const v = k * 2;
           index.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
@@ -221,6 +340,10 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
         new THREE.Float32BufferAttribute(positions, 3),
       );
       geometry.setAttribute("flow", new THREE.Float32BufferAttribute(flows, 2));
+      geometry.setAttribute(
+        "current",
+        new THREE.Float32BufferAttribute(currents, 2),
+      );
       geometry.setIndex(index);
       geometry.computeVertexNormals();
       flattenWaterNormals(geometry);
@@ -239,6 +362,7 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       flow[i + 1] = join.flow[1];
     }
     pool.setAttribute("flow", new THREE.BufferAttribute(flow, 2));
+    fillCurrent(pool, ...riverCurrent(0));
     pool.rotateX(-Math.PI / 2);
     flattenWaterNormals(pool);
     pool.translate(
@@ -268,53 +392,76 @@ export function makeRivers(world: WorldData, terrain: TerrainView) {
       "flow",
       new THREE.Float32BufferAttribute(new Float32Array(shape.length * 2), 2),
     );
+    // Lakes are still: no drift, no white water.
+    fillCurrent(geometry, 0, 0);
     geometry.setIndex(indices);
     flattenWaterNormals(geometry);
     append(geometry, lake.center[0], lake.center[1]);
   }
-  // Cascades use the same clipped material and residency as their parent reach.
+  // Cascades use the same clipped material and residency as their parent
+  // reach: a curved sheet that rolls over the lip and drops steeply. The
+  // reach below churns white where it lands (see `plunge`).
   for (const fall of world.waterfalls ?? []) {
     const a = fall.top,
       b = fall.bottom,
       dx = b[0] - a[0],
       dz = b[2] - a[2],
-      length = Math.hypot(dx, dz) || 1;
-    const nx = (-dz / length) * fall.width,
-      nz = (dx / length) * fall.width;
+      length = Math.hypot(dx, dz) || 1,
+      fx = dx / length,
+      fz = dz / length,
+      // Hold the sheet within reach of the ground like the reaches it joins,
+      // so a capped pool above never leaves the fall sticking out of a bank.
+      top = cappedRiverSurface(a[1], bed(a[0], a[2])),
+      bottom = Math.min(top, cappedRiverSurface(b[1], bed(b[0], b[2]))),
+      drop = top - bottom;
+    // After capping some falls are only a riffle; the reach's rapids cover it.
+    if (drop < 2) continue;
+    const nx = -fz * fall.width,
+      nz = fx * fall.width;
+    const rows = 8,
+      positions: number[] = [],
+      flows: number[] = [],
+      currents: number[] = [],
+      index: number[] = [];
+    for (let k = 0; k <= rows; k++) {
+      const t = k / rows,
+        // Most of the drop happens past the lip, like water leaving a ledge.
+        fallen = t * t * (3 - 2 * t) * 0.35 + t * t * 0.65,
+        // The sheet narrows a little as it falls and fans out at the base.
+        spread = 1 - 0.12 * Math.sin(Math.PI * t),
+        x = a[0] + dx * t,
+        z = a[2] + dz * t,
+        y = top - drop * fallen + 0.12;
+      positions.push(
+        x + nx * spread,
+        y,
+        z + nz * spread,
+        x - nx * spread,
+        y,
+        z - nz * spread,
+      );
+      flows.push(fx, fz, fx, fz);
+      const speed = 2.5 + 5 * t;
+      currents.push(speed, 0.8, speed, 0.8);
+      if (k < rows) {
+        const v = k * 2;
+        index.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
+      }
+    }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute(
       "position",
-      new THREE.Float32BufferAttribute(
-        [
-          a[0] + nx,
-          a[1] + 0.12,
-          a[2] + nz,
-          a[0] - nx,
-          a[1] + 0.12,
-          a[2] - nz,
-          b[0] + nx,
-          b[1] + 0.12,
-          b[2] + nz,
-          b[0] - nx,
-          b[1] + 0.12,
-          b[2] - nz,
-        ],
-        3,
-      ),
+      new THREE.Float32BufferAttribute(positions, 3),
     );
+    geometry.setAttribute("flow", new THREE.Float32BufferAttribute(flows, 2));
     geometry.setAttribute(
-      "flow",
-      new THREE.Float32BufferAttribute(
-        Array.from({ length: 4 }, () => [
-          (dx / length) * 2,
-          (dz / length) * 2,
-        ]).flat(),
-        2,
-      ),
+      "current",
+      new THREE.Float32BufferAttribute(currents, 2),
     );
-    geometry.setIndex([0, 2, 1, 1, 2, 3]);
+    geometry.setIndex(index);
     geometry.computeVertexNormals();
     append(geometry, (a[0] + b[0]) / 2, (a[2] + b[2]) / 2);
+
   }
   for (const list of tiles.values()) {
     const geometry = mergeGeometries(list)!;

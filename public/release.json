@@ -1,5 +1,5 @@
 {
-  "release": "truck-handling-physics-2026-11-17",
+  "release": "rivers-faster-islands-title-menu-2026-11-18",
   "worldVersion": 13,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -91,7 +91,18 @@
     "respawn-shield-bubble",
     "mouse-recapture-prompt",
     "rivers-capped-to-follow-ground-over-dips",
-    "truck-tyre-grip-slopes-suspension-and-ramp-pop"
+    "truck-tyre-grip-slopes-suspension-and-ramp-pop",
+    "flowing-rivers-depth-foam-rapids-and-waterfalls",
+    "meandering-rivers-from-narrow-springs",
+    "river-levels-settled-below-their-banks",
+    "rounded-river-beds-and-coloured-banks",
+    "rivers-meet-the-sea-without-beach-sand-bars",
+    "blast-damage-dries-river-water",
+    "faster-island-grading-and-fewer-layout-retries",
+    "halved-load-time-shader-warmup",
+    "see-through-canopy-while-driving",
+    "inflatable-truck-floats-on-deep-water",
+    "title-screen-main-menu"
   ],
   "generatorVersion": 7,
   "mapSizeMeters": 9216

@@ -801,10 +801,10 @@ body.photo #perf {
   min-width: 0;
   width: 100%;
   padding: 10px;
-  border: 1px solid #6e7c65;
-  border-radius: 8px;
-  background: #172a22;
-  color: #f4e8c4;
+  border: 1px solid #ffffff24;
+  border-radius: 4px;
+  background: #0a161b;
+  color: #f3efe2;
   font: inherit;
 }
 .island-sharing > div {
@@ -835,7 +835,7 @@ body.photo #perf {
   width: 100%;
   height: 8px;
   margin-top: 16px;
-  accent-color: #d5bc70;
+  accent-color: #f2b705;
 }
 #islandMap {
   display: block;
@@ -843,7 +843,7 @@ body.photo #perf {
   max-height: clamp(140px, calc(100dvh - 360px), 480px);
   object-fit: contain;
   background: #1d4c5f;
-  border-radius: 12px;
+  border-radius: 4px;
 }
 #islandMap[hidden],
 #islandReplacePrompt[hidden] {
@@ -869,8 +869,9 @@ body.photo #perf {
 #islandReplacePrompt {
   margin-top: 16px;
   padding: 14px;
-  border: 1px solid #ad7953;
-  border-radius: 8px;
+  border: 1px solid #ff6a3d66;
+  border-left: 3px solid #ff6a3d;
+  border-radius: 4px;
 }
 #islandReplacePrompt > div {
   display: flex;
@@ -899,23 +900,35 @@ body.photo #perf {
 }
 #islandPreview button,
 .island-sharing button {
-  border: 1px solid #d6dbb755;
-  background: #203d40;
-  color: #e7e9d6;
-  padding: 11px 15px;
-  border-radius: 5px;
+  min-height: 42px;
+  border: 1px solid #ffffff2c;
+  background: none;
+  color: var(--menu-ink, #f3efe2);
+  padding: 0 16px;
+  border-radius: 4px;
   font: inherit;
+  font-size: 14px;
   cursor: pointer;
 }
-#islandPreview button.primary,
-.island-sharing button.primary {
-  background: #f0ecd2;
-  color: #23342b;
-  border-color: #f0ecd2;
+#islandPreview button:hover:not(:disabled),
+.island-sharing button:hover:not(:disabled) {
+  border-color: #ffffff5c;
+  background: #ffffff08;
+}
+#islandPreview button.primary {
+  background: var(--rind, #f2b705);
+  border-color: var(--rind, #f2b705);
+  color: #1a1404;
+  font-weight: 600;
+}
+#islandPreview button.primary:hover:not(:disabled) {
+  background: var(--rind-hot, #ffca2b);
+  border-color: var(--rind-hot, #ffca2b);
 }
 #islandPreview button.danger {
-  background: #73472f;
-  color: #fff0d7;
+  border-color: var(--burn, #ff6a3d);
+  background: none;
+  color: var(--burn, #ff6a3d);
 }
 #islandPreview button:disabled {
   opacity: 0.4;
@@ -923,7 +936,7 @@ body.photo #perf {
 }
 #islandPreview :focus-visible,
 .island-sharing :focus-visible {
-  outline: 2px solid #dfc574;
+  outline: 2px solid var(--rind, #f2b705);
   outline-offset: 3px;
 }
 
@@ -984,156 +997,300 @@ select:focus-visible {
   }
 }
 
-/* Full-screen menu surfaces. Gameplay HUD and photo controls keep their own styles. */
+/* Full-screen menu: a title-screen rail on the left, the chosen page on the
+   right, over the live island. Gameplay HUD and photo controls keep their
+   own styles. */
+:root {
+  --menu-ink: #f3efe2;
+  --menu-muted: #a9b8b8;
+  --menu-faint: #6f8285;
+  --menu-line: #ffffff17;
+  --menu-sea: #0d1b20;
+  --menu-panel: #0f2026f2;
+  --menu-field: #0a161b;
+  --rind: #f2b705;
+  --rind-hot: #ffca2b;
+  --burn: #ff6a3d;
+  --display:
+    "Bahnschrift SemiCondensed", "Bahnschrift", "Avenir Next Condensed",
+    "DIN Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
 #overlay {
   position: fixed;
   inset: 0;
   z-index: 4;
-  overflow-y: auto;
-  padding: 100px 4vw 32px;
-  background: #101e26f5;
-  scrollbar-width: thin;
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  overflow: hidden;
+  color: var(--menu-ink);
+  /* The island stays visible behind the rail and fades under the page. */
+  background: linear-gradient(
+    90deg,
+    #071216ee 0,
+    #071216c4 min(400px, 32vw),
+    #0b181de8 calc(min(400px, 32vw) + 80px)
+  );
 }
 body:has(#overlay:not([hidden])) header {
-  inset: 0 0 auto;
-  padding: 20px 30px;
-  min-height: 76px;
-  background: #101e26e6;
-  border-bottom: 1px solid #ffffff12;
+  inset: 0 0 auto auto;
+  padding: 22px 28px;
+  background: none;
+  border: 0;
 }
-#menuHome,
-.menu-view,
-.menu-tabs,
-.menu-footer {
-  width: 100%;
-  max-width: 1680px;
-  margin: 0 auto;
+body:has(#overlay:not([hidden])) header .brand {
+  display: none;
 }
-.menu-heading {
+#clock {
+  font-family: var(--mono);
+  color: var(--menu-muted);
+  letter-spacing: 0.08em;
+}
+
+/* Left rail: wordmark, the one big action, then the numbered menu. */
+.menu-rail {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 36px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(32px, 7vh, 72px) 40px 28px 44px;
+  scrollbar-width: none;
+}
+.wordmark {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-stretch: condensed;
+  text-transform: uppercase;
+  line-height: 0.84;
+  letter-spacing: -0.01em;
+}
+.wordmark span {
+  display: block;
+}
+.wordmark span:first-child {
+  font-size: clamp(46px, 5.4vw, 74px);
+  color: var(--rind);
+}
+.wordmark span:last-child {
+  font-size: clamp(62px, 7.6vw, 104px);
+  color: var(--menu-ink);
+  -webkit-text-stroke: 0;
+}
+.tagline {
+  margin: 14px 0 0;
+  font-size: 15px;
+  color: var(--menu-muted);
+}
+#menuHome .actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 30px;
+}
+#overlay .play {
+  display: flex;
   align-items: center;
-  gap: 32px;
+  justify-content: space-between;
+  min-height: 60px;
+  padding: 0 20px 0 22px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--rind);
+  color: #1a1404;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  box-shadow: 0 3px 0 #9c7400;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s,
+    background 0.12s;
 }
-.menu-heading .intro {
-  margin-bottom: 0;
+#overlay .play:hover:not(:disabled) {
+  background: var(--rind-hot);
 }
-.menu-heading .actions {
-  display: flex;
-  gap: 12px;
-  flex-shrink: 0;
+#overlay .play:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #9c7400;
 }
-#enter {
-  min-width: 200px;
-  gap: 32px;
+#overlay .play:disabled {
+  cursor: wait;
+  opacity: 1;
+  background: #2a3a3e;
+  color: var(--menu-muted);
+  box-shadow: none;
 }
+#overlay .play kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 7px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: none;
+  opacity: 0.55;
+  min-width: 0;
+}
+#overlay .play:disabled kbd {
+  display: none;
+}
+#overlay #newWorld {
+  justify-content: flex-start;
+}
+#overlay .intro {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--menu-faint);
+}
+
 .menu-tabs {
   display: flex;
-  gap: 8px;
-  padding: 20px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #ffffff16;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
-.menu-tabs button {
-  min-width: 120px;
+#overlay .menu-tabs button {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  min-height: 48px;
+  padding: 10px 0 10px 18px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--menu-muted);
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  text-align: left;
+  transition:
+    color 0.12s,
+    padding 0.12s;
+}
+#overlay .menu-tabs button::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  background: transparent;
+  transition: background 0.12s;
+}
+#overlay .menu-tabs button:hover:not(:disabled) {
+  color: var(--menu-ink);
+  padding-left: 22px;
+  background: none;
 }
 #overlay .menu-tabs [aria-selected="true"] {
-  background: #edc77716;
-  border-color: #edc77760;
-  color: #edc777;
+  color: var(--menu-ink);
+  background: none;
 }
-#overlay h1,
-#overlay h2,
-#overlay h3,
-dialog h2,
-#fatal h2 {
-  font-family: inherit;
-  letter-spacing: -0.035em;
-  font-weight: 600;
-  line-height: 1.2;
+#overlay .menu-tabs [aria-selected="true"]::before {
+  background: var(--rind);
 }
-#overlay h1 {
-  font-size: clamp(28px, 4vw, 36px);
+#overlay .menu-tabs button:disabled {
+  color: var(--menu-faint);
+  opacity: 0.6;
+  cursor: default;
+}
+.tab-index {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--menu-faint);
+}
+[aria-selected="true"] .tab-index {
+  color: var(--rind);
+}
+.menu-footer {
+  margin-top: auto;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--menu-faint);
+}
+.menu-footer p {
   margin: 0;
+}
+#status {
+  color: var(--menu-muted);
+  font-size: 13px;
+}
+#buildVersion {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.asset-credits a {
+  color: var(--menu-faint);
+}
+.asset-credits a:hover {
+  color: var(--menu-ink);
+}
+
+/* Right stage: the chosen page, on a solid panel for legibility. */
+.menu-stage {
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(32px, 7vh, 72px) clamp(24px, 4vw, 64px) 40px;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff22 transparent;
+}
+.menu-view {
+  max-width: 980px;
 }
 #overlay h2 {
-  font-size: 26px;
   margin: 0;
+  font-family: var(--display);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
 }
 #overlay h3 {
-  font-size: 18px;
-  margin: 0 0 16px;
-}
-#overlay .intro,
-.help-intro,
-.help-note {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #b8c6cc;
-  margin: 12px 0 20px;
-}
-#overlay button,
-dialog button,
-#fatal button {
-  min-height: 44px;
-  border: 1px solid #ffffff26;
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 14px;
-  letter-spacing: 0;
-  color: #e6edf0;
-  background: #ffffff06;
-}
-#overlay button:hover,
-dialog button:hover {
-  background: #ffffff10;
-}
-#overlay .primary,
-dialog .primary,
-#fatal .primary {
-  background: #edc777;
-  border-color: #edc777;
-  color: #19252b;
+  margin: 0 0 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rind);
+  font-family: var(--mono);
+  font-size: 11px;
   font-weight: 600;
-}
-#overlay .primary:hover,
-dialog .primary:hover {
-  background: #f4d698;
-}
-#enter {
-  min-height: 52px;
-}
-#overlay .danger,
-dialog .danger {
-  color: #edc777;
-  border-color: #edc77766;
-}
-#overlay .menu-back {
-  border: 0;
-  padding-left: 0;
-  margin: -8px 0 20px;
-  color: #b8c6cc;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rind);
 }
 .settings-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 36px;
 }
+
+/* Settings: rows, not cards. Two columns when there is room. */
 #settings {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  /* Each column stacks tightly: Controls then Audio, Graphics then World. */
+  grid-template-areas: "flight graphics" "audio graphics" "audio world";
+  column-gap: 48px;
+  row-gap: 40px;
   align-items: start;
 }
 .settings-section {
   min-width: 0;
-  padding: 24px;
-  background: #ffffff04;
-  border: 1px solid #ffffff18;
-  border-radius: 12px;
 }
 .settings-flight {
   grid-area: flight;
@@ -1147,108 +1304,334 @@ dialog .danger {
 .settings-world {
   grid-area: world;
 }
-#settings {
-  grid-template-areas: "flight graphics" "audio world";
-}
-@media (min-width: 1100px) {
-  #settings {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas: "flight graphics world" "audio graphics world";
-  }
-}
 .settings-section .settings-grid {
+  display: grid;
   grid-template-columns: 1fr;
-  margin-top: 0;
-  gap: 12px;
-  font-size: 14px;
+  gap: 0;
+  margin: 0;
+  font-size: 15px;
 }
-.settings-grid .check,
-.rapid-fire {
-  gap: 12px;
-  min-height: 44px;
-}
-.rapid-fire {
-  display: flex;
-  justify-content: space-between;
+.settings-grid > label,
+.settings-grid > .advanced,
+.settings-grid > button,
+.rapid-fire,
+.island-sharing > label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  font-size: 14px;
-  margin-bottom: 20px;
+  column-gap: 16px;
+  row-gap: 8px;
+  min-height: 52px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--menu-line);
+  color: var(--menu-ink);
+  font-size: 15px;
+  margin: 0;
 }
-#overlay select,
-#overlay input:not([type="checkbox"]),
-dialog input {
-  min-height: 44px;
+/* Sliders and selects take the full row under their label. */
+.settings-grid > label:has(input[type="range"]),
+.settings-grid > label:has(select),
+.island-sharing > label {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
-#overlay select,
-.island-sharing input,
-.island-seed-form input {
-  border: 1px solid #ffffff30;
-  border-radius: 8px;
-  background: #101e26;
-  color: #e6edf0;
-  font-size: 14px;
+.settings-grid > label > input[type="range"],
+.settings-grid > label > select,
+.settings-grid > label > small,
+.island-sharing > label > input {
+  grid-column: 1 / -1;
 }
+.settings-grid output {
+  grid-column: 2;
+  grid-row: 1;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--rind);
+  font-variant-numeric: tabular-nums;
+}
+.settings-grid small {
+  color: var(--menu-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Switches instead of browser checkboxes. */
 #overlay input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  border-radius: 12px;
+  border: 1px solid #ffffff2e;
+  background: radial-gradient(
+      circle at 11px 50%,
+      #c4cfcf 7px,
+      transparent 7.5px
+    )
+    #ffffff0d;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+#overlay input[type="checkbox"]:checked {
+  border-color: var(--rind);
+  background: radial-gradient(
+      circle at 30px 50%,
+      #1a1404 7px,
+      transparent 7.5px
+    )
+    var(--rind);
+}
+#overlay input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--rind);
+  outline-offset: 3px;
 }
 #overlay label.check {
   cursor: pointer;
 }
-#overlay .advanced {
-  margin-top: 0;
+
+/* Sliders: a thin track filled in pineapple yellow. */
+#overlay input[type="range"] {
+  width: 100%;
+  min-height: 24px;
+  margin: 0;
+  accent-color: var(--rind);
+  cursor: pointer;
 }
-#overlay .advanced summary {
-  min-height: 44px;
+#overlay select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 42px;
+  padding: 0 38px 0 12px;
+  border: 1px solid #ffffff24;
+  border-radius: 4px;
+  background: var(--menu-field)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23f2b705' stroke-width='1.8'/%3E%3C/svg%3E")
+    no-repeat right 13px center;
+  color: var(--menu-ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+#overlay select:hover {
+  border-color: #ffffff44;
+}
+
+/* Buttons inside pages: quiet outlines; one filled action per page at most. */
+#overlay button,
+dialog button,
+#fatal button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #ffffff2c;
+  border-radius: 4px;
+  background: none;
+  color: var(--menu-ink);
   font-size: 14px;
   letter-spacing: 0;
 }
+#overlay button:hover:not(:disabled),
+dialog button:hover:not(:disabled) {
+  border-color: #ffffff5c;
+  background: #ffffff08;
+}
+#overlay .primary,
+dialog .primary,
+#fatal .primary {
+  border-color: var(--rind);
+  background: var(--rind);
+  color: #1a1404;
+  font-weight: 600;
+}
+#overlay .primary:hover:not(:disabled),
+dialog .primary:hover:not(:disabled) {
+  border-color: var(--rind-hot);
+  background: var(--rind-hot);
+}
+#overlay .danger,
+dialog .danger {
+  border-color: #ff6a3d66;
+  color: var(--burn);
+  background: none;
+}
+#overlay .danger:hover:not(:disabled),
+dialog .danger:hover:not(:disabled) {
+  border-color: var(--burn);
+  background: #ff6a3d14;
+}
+#overlay #defaultSettings {
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  color: var(--menu-muted);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #ffffff40;
+}
+#overlay #defaultSettings:hover:not(:disabled) {
+  background: none;
+  color: var(--menu-ink);
+}
+.settings-grid > #reset {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  border: 1px solid #ff6a3d66;
+  min-height: 44px;
+  padding: 0 16px;
+}
+.rapid-fire {
+  display: grid;
+}
+#overlay .advanced {
+  margin: 0;
+  display: block;
+}
+#overlay .advanced summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 32px;
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--menu-muted);
+  cursor: pointer;
+  list-style: none;
+}
+#overlay .advanced summary::-webkit-details-marker {
+  display: none;
+}
 #overlay .advanced summary::after {
   content: "+";
+  font-family: var(--mono);
+  color: var(--rind);
 }
 #overlay .advanced[open] summary::after {
   content: "−";
 }
+#overlay .advanced .check {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* World: the island code reads like a call sign. */
+.island-sharing {
+  display: grid;
+  gap: 0;
+}
+.island-sharing > label {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.island-sharing input {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #ffffff24;
+  border-radius: 4px;
+  background: var(--menu-field);
+  color: var(--rind);
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+.island-sharing > div {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 0;
+}
+.island-sharing > div button {
+  flex: 1;
+}
+.island-sharing p:empty {
+  display: none;
+}
+#islandShareStatus {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--menu-muted);
+}
+#overlay #createIsland {
+  margin: 12px 0 8px;
+  background: none;
+  color: var(--rind);
+  font-weight: 600;
+}
+#overlay #createIsland:hover:not(:disabled) {
+  background: #f2b70514;
+}
+
+/* Controls guide. */
+#overlay .menu-back {
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  margin: 0 0 18px;
+  color: var(--menu-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+#overlay .menu-back:hover:not(:disabled) {
+  background: none;
+  color: var(--menu-ink);
+}
+.help-intro,
+.help-note {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--menu-muted);
+}
 #overlay .controls {
-  margin: 0;
-  padding: 20px 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  font-size: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 48px;
+  margin: 28px 0 0;
+  padding: 0;
+  font-size: 15px;
 }
 #overlay .controls span {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--menu-line);
+  color: var(--menu-ink);
 }
 #overlay kbd {
-  font-size: 11px;
-  padding: 8px;
-  min-width: 130px;
+  order: 2;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid #ffffff30;
+  border-bottom-width: 3px;
+  border-radius: 4px;
+  background: #ffffff08;
+  color: var(--menu-ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 #overlay .controls .touch-help {
   display: block;
+  grid-column: 1 / -1;
+  padding: 14px 0;
   line-height: 1.6;
-  color: #b8c6cc;
+  color: var(--menu-muted);
 }
 .help-note {
-  margin: 20px 0 0;
+  margin-top: 20px;
 }
-.menu-footer {
-  margin: 24px auto 0;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-}
-#buildVersion {
-  margin: 0;
-  color: #a6b6be;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
+
+/* Map. */
 .map-heading {
   display: flex;
   gap: 16px;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
 }
 .map-description,
@@ -1256,118 +1639,159 @@ dialog input {
 #mapPosition {
   font-size: 13px;
   line-height: 1.6;
-  color: #b8c6cc;
+  color: var(--menu-muted);
+}
+#mapPosition {
+  font-family: var(--mono);
+  margin: 0;
 }
 #pauseMap {
   display: block;
-  width: min(100%, 768px);
+  width: min(100%, 720px);
   height: auto;
-  margin: 24px auto;
-  border: 1px solid #ffffff26;
-  border-radius: 12px;
+  margin: 20px 0;
+  border: 1px solid #ffffff1f;
+  border-radius: 4px;
 }
 .map-legend {
-  text-align: center;
+  max-width: 720px;
 }
-#overlay .touch-help {
-  grid-column: 1 / -1;
-}
-#status {
-  color: #c1ccd1;
-  margin: 10px 0 0;
-}
-.asset-credits {
-  margin: 0;
-  font-size: 12px;
-}
-.asset-credits a {
-  color: #a6b6be;
-}
+
+/* Dialogs share the menu's surfaces. */
 dialog {
   width: min(460px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   overflow: auto;
-  border: 1px solid #ffffff26;
-  border-radius: 16px;
-  background: #14242c;
-  color: #e6edf0;
+  border: 1px solid #ffffff1f;
+  border-top: 3px solid var(--rind);
+  border-radius: 6px;
+  background: #0f1f25;
+  color: var(--menu-ink);
   padding: 28px;
+  box-shadow: 0 30px 80px #0009;
 }
 dialog::backdrop {
-  background: #0b1726b8;
+  background: #050d10c4;
   backdrop-filter: none;
+}
+#overlay h1,
+dialog h2,
+#fatal h2 {
+  letter-spacing: 0;
 }
 dialog h2,
 #fatal h2 {
-  font-size: 26px;
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
 }
 dialog > div {
   flex-wrap: wrap;
 }
 dialog p:not(.eyebrow) {
-  color: #b8c6cc;
+  color: var(--menu-muted);
+}
+dialog .eyebrow {
+  font-family: var(--mono);
+  color: var(--burn);
+  letter-spacing: 0.16em;
 }
 #fatal > div {
-  background: #14242c;
-  border: 1px solid #ffffff26;
-  border-radius: 16px;
+  background: #0f1f25;
+  border: 1px solid #ffffff1f;
+  border-top: 3px solid var(--burn);
+  border-radius: 6px;
   width: calc(100% - 32px);
 }
-#islandPreview .island-preview-actions {
-  background: #14242c;
-}
-@media (max-width: 1000px) {
-  #overlay .controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 650px) {
-  body:has(#overlay:not([hidden])) header {
-    padding: 16px 20px;
-  }
-  #overlay {
-    padding: 96px 20px 24px;
-  }
-  .menu-heading {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 20px;
-  }
-  .menu-heading .actions {
-    flex-wrap: wrap;
-  }
-  #enter {
-    flex: 1;
-  }
-  .menu-tabs {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  #overlay .menu-tabs button {
-    min-width: 0;
-    flex: 1;
-    padding: 12px 10px;
-  }
-  .settings-heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+
+@media (max-width: 1100px) {
   #settings {
     grid-template-columns: 1fr;
     grid-template-areas: "flight" "graphics" "audio" "world";
   }
-  .settings-section {
-    padding: 20px;
+}
+/* Phones and narrow windows: the rail becomes a header above the page. */
+@media (max-width: 760px) {
+  #overlay {
+    display: block;
+    overflow-y: auto;
+    background: #0a171cf2;
+  }
+  /* The menu scrolls under the fixed header here; the clock would sit on
+     top of settings, and the menu doesn't need it. */
+  body:has(#overlay:not([hidden])) #clock {
+    display: none;
+  }
+  .menu-rail {
+    overflow: visible;
+    gap: 22px;
+    padding: 28px 18px 0;
+  }
+  .wordmark span:first-child {
+    font-size: 44px;
+  }
+  .wordmark span:last-child {
+    font-size: 60px;
+  }
+  #menuHome .actions {
+    margin-top: 22px;
+  }
+  .menu-tabs {
+    flex-direction: row;
+    gap: 0;
+    border-bottom: 1px solid var(--menu-line);
+  }
+  #overlay .menu-tabs button {
+    flex: 1;
+    justify-content: center;
+    gap: 6px;
+    min-height: 46px;
+    padding: 8px 4px 12px;
+    font-size: 18px;
+  }
+  #overlay .menu-tabs button:hover:not(:disabled) {
+    padding-left: 4px;
+  }
+  #overlay .menu-tabs button::before {
+    left: 20%;
+    right: 20%;
+    top: auto;
+    bottom: -1px;
+    width: auto;
+    height: 3px;
+  }
+  .tab-index {
+    display: none;
+  }
+  /* Status and credits sit under the Play button; the tabs lead the page. */
+  .menu-footer {
+    order: 2;
+    margin-top: -8px;
+    grid-auto-flow: column;
+    justify-content: start;
+    gap: 14px;
+    align-items: baseline;
+  }
+  .menu-tabs {
+    order: 3;
+  }
+  .menu-stage {
+    overflow: visible;
+    padding: 26px 18px 24px;
+  }
+  #overlay h2 {
+    font-size: 32px;
+  }
+  .settings-heading {
+    margin-bottom: 24px;
   }
   #overlay .controls {
     grid-template-columns: 1fr;
   }
-  #overlay .controls span {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .map-heading,
-  .menu-footer {
+  .map-heading {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1466,6 +1890,21 @@ dialog p:not(.eyebrow) {
 #islandSeedDetails summary {
   cursor: pointer;
   width: fit-content;
+  padding: 2px 0;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--menu-muted, #a9b8b8);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #ffffff40;
+  list-style: none;
+}
+#islandSeedDetails summary::-webkit-details-marker {
+  display: none;
+}
+#islandSeedDetails summary:hover {
+  color: var(--menu-ink, #f3efe2);
 }
 #islandSeedDetails .island-seed-form {
   margin-top: 10px;

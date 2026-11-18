@@ -4,6 +4,8 @@ import { SparseValues } from "./sparse-values";
 import { CONFIG, CHUNKS, CHUNK_SAMPLES, LASER, clamp } from "../config";
 import { RiverField } from "../world/rivers";
 import type { RiverData, TerrainPatch, WorldData } from "../types";
+/** Blast depth below the original ground at which inland water is gone. */
+export const BLAST_DRY_DEPTH = 1;
 export class Terrain {
   readonly base: Float32Array;
   readonly heights: Float32Array;
@@ -146,6 +148,29 @@ export class Terrain {
       ? a + (b - a) * u + (c - a) * v
       : d + (c - d) * (1 - u) + (b - d) * (1 - v);
   }
+  /**
+   * Rivers and lakes do not refill blast damage: wherever the ground has
+   * been blown more than BLAST_DRY_DEPTH below its original height, the
+   * inland water there is gone. Derived from the terrain alone, so saves and
+   * replays need nothing extra.
+   */
+  private blastDry(i: number) {
+    return this.heights[i] < this.base[i] - BLAST_DRY_DEPTH;
+  }
+  /** Inland water cells among `indices` that a terrain edit has just dried. */
+  drainInland(indices: Uint32Array) {
+    const dried: number[] = [];
+    for (const i of indices)
+      if (
+        this.rivers.cells.has(i) &&
+        !this.laserDry[i] &&
+        this.blastDry(i) &&
+        !this.flooded[i]
+      )
+        dried.push(i);
+    if (dried.length) this.invalidateWater(new Uint32Array(dried));
+    return new Uint32Array(dried);
+  }
   surfaceHeight(
     x: number,
     z: number,
@@ -153,6 +178,7 @@ export class Terrain {
   ): number | undefined {
     const i = this.rivers.index(x, z);
     if (this.laserDry[i]) return undefined;
+    if (this.blastDry(i)) return this.flooded[i] && this.heights[i] < 0 ? 0 : undefined;
     const river = this.rivers.cells.get(i),
       h = terrainHeight ?? this.sample(x, z);
     if (river !== undefined && h < river)
@@ -165,7 +191,10 @@ export class Terrain {
     const surface = this.rivers.lakeCells.has(i)
       ? undefined
       : this.rivers.riverCells.get(i);
-    return !this.laserDry[i] && surface !== undefined && terrainHeight < surface
+    return !this.laserDry[i] &&
+      !this.blastDry(i) &&
+      surface !== undefined &&
+      terrainHeight < surface
       ? cappedRiverSurface(surface, terrainHeight)
       : undefined;
   }
@@ -175,7 +204,8 @@ export class Terrain {
   waterMask() {
     const mask = this.flooded.slice();
     for (const [i, h] of this.rivers.cells)
-      if (!this.laserDry[i] && this.heights[i] < h) mask[i] = 1;
+      if (!this.laserDry[i] && !this.blastDry(i) && this.heights[i] < h)
+        mask[i] = 1;
     for (let i = 0; i < mask.length; i++)
       mask[i] = mask[i] && !this.laserDry[i] ? 255 : 0;
     return mask;

@@ -18,3 +18,12 @@ export function inlandWaterHeight(
   z: number,
   riverOnly?: boolean,
 ): number;
+export interface RiverBankSample {
+  edge: number;
+  level: number;
+}
+export function riverBankIndex(
+  rivers?: RiverData[],
+  reach?: number,
+  cellSize?: number,
+): (x: number, z: number) => RiverBankSample | undefined;

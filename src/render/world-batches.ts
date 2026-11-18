@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { installFoliageMotion } from "./foliage-motion";
 import { installTreeLOD, TREE_LOD_FADE } from "./tree-lod";
+import { installCanopyCut, makeCanopyCut } from "./canopy-cut";
 import { installSceneryLOD, SCENERY_LOD_FADE } from "./scenery-lod";
 import { ApprovedGodView } from "./approved-god";
 import { ToiletView } from "./toilet";
@@ -43,6 +44,8 @@ export class WorldBatches {
   private windowMaterial?: THREE.MeshStandardMaterial;
   readonly batches: Batch[] = [];
   readonly foliageTime = { value: 0 };
+  /** See-through tunnel in the trees between the camera and the truck. */
+  readonly canopyCut = makeCanopyCut();
   private treeLODCamera = { value: new THREE.Vector2() };
   private treeLODDistance = { value: 360 };
   private sceneryDistance = { value: 1200 };
@@ -103,6 +106,8 @@ export class WorldBatches {
       true,
     );
     installTreeLOD(lowFoliage, this.treeLODCamera, this.treeLODDistance, false);
+    installCanopyCut(livingFoliage, this.canopyCut);
+    installCanopyCut(lowFoliage, this.canopyCut);
 
     const nearMaterials = new Map<THREE.Material, THREE.Material>();
     const nearDepths = new Map<THREE.Material, THREE.MeshDepthMaterial>();

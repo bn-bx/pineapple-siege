@@ -5,6 +5,7 @@ import {
 } from "./terrain-colors";
 import * as THREE from "three";
 import { pathIndex } from "../world/generator.mjs";
+import { riverBankIndex } from "../world/water-geometry.mjs";
 import { CONFIG, CHUNKS, clamp } from "../config";
 import type { WorldData } from "../types";
 export interface MeshChunk {
@@ -25,14 +26,19 @@ export interface SectionData {
 }
 export class TerrainMesher {
   private roadDistance: (x: number, z: number) => number;
+  private riverBank: ReturnType<typeof riverBankIndex>;
   private regions: WorldData["regions"];
   private castleBounds: WorldData["castleBounds"][];
   section?: SectionData;
   constructor(
-    world: Pick<WorldData, "paths" | "castleBounds" | "castles" | "regions">,
+    world: Pick<
+      WorldData,
+      "paths" | "castleBounds" | "castles" | "regions" | "rivers"
+    >,
   ) {
     this.regions = world.regions;
     this.roadDistance = pathIndex(world.paths);
+    this.riverBank = riverBankIndex(world.rivers ?? []);
     this.castleBounds = world.castles?.map((c) => c.bounds) ?? [
       world.castleBounds,
     ];
@@ -95,7 +101,16 @@ export class TerrainMesher {
       positions.push(wx, h, wz);
       normals.push(dx / length, 4 / length, dz / length);
       uv.push(wx * 0.07, wz * 0.07);
-      terrainSurfaceColor(c, wx, wz, baseHeight, slope, this.regions);
+      terrainSurfaceColor(
+        c,
+        wx,
+        wz,
+        baseHeight,
+        slope,
+        this.regions,
+        true,
+        this.riverBank(wx, wz),
+      );
       const [roadCore, roadVerge] = terrainRoadWeights(
         this.pathDistance(wx, wz),
       );

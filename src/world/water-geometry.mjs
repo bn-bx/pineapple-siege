@@ -103,3 +103,58 @@ export function inlandWaterHeight(rivers, lakes, x, z, riverOnly = false) {
   }
   return result;
 }
+/**
+ * Nearest river bank for terrain shading: `edge` is metres beyond the water's
+ * edge (negative inside the channel) and `level` the water surface there.
+ * Returns undefined farther than `reach` metres from any river.
+ */
+export function riverBankIndex(rivers = [], reach = 24, cellSize = 128) {
+  const cells = new Map();
+  for (const river of rivers)
+    for (let i = 1; i < river.points.length; i++) {
+      const a = river.points[i - 1],
+        b = river.points[i],
+        wa = riverHalfWidth(river, i - 1),
+        wb = riverHalfWidth(river, i),
+        pad = Math.max(wa, wb) + reach;
+      for (
+        let z = Math.floor((Math.min(a[2], b[2]) - pad) / cellSize);
+        z <= Math.floor((Math.max(a[2], b[2]) + pad) / cellSize);
+        z++
+      )
+        for (
+          let x = Math.floor((Math.min(a[0], b[0]) - pad) / cellSize);
+          x <= Math.floor((Math.max(a[0], b[0]) + pad) / cellSize);
+          x++
+        ) {
+          const key = z * 1000 + x,
+            list = cells.get(key);
+          if (list) list.push([a, b, wa, wb]);
+          else cells.set(key, [[a, b, wa, wb]]);
+        }
+    }
+  return (x, z) => {
+    let edge = reach,
+      level = 0,
+      found = false;
+    for (const [a, b, wa, wb] of cells.get(
+      Math.floor(z / cellSize) * 1000 + Math.floor(x / cellSize),
+    ) ?? []) {
+      const dx = b[0] - a[0],
+        dz = b[2] - a[2],
+        l = dx * dx + dz * dz,
+        t = l
+          ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[2]) * dz) / l))
+          : 0,
+        d =
+          Math.hypot(x - a[0] - dx * t, z - a[2] - dz * t) -
+          (wa + (wb - wa) * t);
+      if (d < edge) {
+        edge = d;
+        level = a[1] + (b[1] - a[1]) * t;
+        found = true;
+      }
+    }
+    return found ? { edge, level } : undefined;
+  };
+}

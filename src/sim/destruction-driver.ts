@@ -86,11 +86,12 @@ export class DestructionDriver {
           this.host.revision,
           id,
         );
-        const flood = this.host.terrain.floodChanged(patch.indices);
+        const flood = this.host.terrain.floodChanged(patch.indices),
+          dry = this.host.terrain.drainInland(patch.indices);
         for (const changed of patch.chunks)
           if (this.host.terrainColliders.has(changed))
             this.host.invalidateTerrainCollider(changed);
-        this.host.flush(patch, flood);
+        this.host.flush(patch, flood, dry);
       } else if (job.phase === "entities") {
         if (job.cursor >= job.entities.length) {
           job.phase = "support";

@@ -82,6 +82,8 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
     properties: { get: () => ({ currentProgram: { isReady: () => false } }) },
     shadowMap: {},
     render: vi.fn(),
+    getRenderTarget: () => null,
+    setRenderTarget: vi.fn(),
   };
   const a = view.prewarm(),
     b = view.prewarm();
@@ -98,7 +100,9 @@ it("shares paused warmup ownership and restores scene state when interrupted", a
   expect(view.renderer.compile).toHaveBeenCalledOnce();
 });
 
-it("prepares active and inactive effect-light variants before flight and restores ownership", async () => {
+it("keeps the idle effect light in place while warming and restores ownership", async () => {
+  // The laser light idles at zero intensity rather than hiding, so the light
+  // count baked into lit shaders never changes and one variant suffices.
   const view = Object.create(GameRenderer.prototype) as any;
   const light = new THREE.PointLight(),
     group = new THREE.Group();
@@ -126,12 +130,56 @@ it("prepares active and inactive effect-light variants before flight and restore
     compile: () => new Set(),
     shadowMap: {},
     render: () => rendered.push(group.visible && light.visible),
+    getRenderTarget: () => null,
+    setRenderTarget() {},
   };
   await view.prewarm();
-  expect(rendered).toContain(true);
-  expect(rendered).toContain(false);
+  expect(rendered.length).toBeGreaterThan(0);
+  expect(rendered.every(Boolean)).toBe(true);
   expect(group.visible).toBe(false);
   expect(light.visible).toBe(true);
+});
+
+it("compiles scene shaders against the presentation target gameplay draws into", async () => {
+  const view = Object.create(GameRenderer.prototype) as any;
+  const sceneTarget = new THREE.WebGLRenderTarget(1, 1);
+  view.scene = new THREE.Scene();
+  view.camera = new THREE.PerspectiveCamera();
+  view.terrain = { heightTexture: {}, floodTexture: {}, prewarm: async () => {} };
+  view.effects = { group: new THREE.Group(), prewarm() {}, prewarmMeshes: [] };
+  view.fallenCanopy = () => {};
+  view.worldView = {
+    batches: [],
+    approvedGod: { load: async () => {}, materials: [] },
+    toilet: { load: async () => {}, materials: [] },
+  };
+  view.fragmentMaterials = {};
+  view.auto = new AutoQuality(4);
+  view.quality = "auto";
+  view.presentation = {
+    sceneTarget,
+    configure() {},
+    prewarm() {},
+    render() {},
+  };
+  let target: THREE.WebGLRenderTarget | null = null;
+  const seen: (THREE.WebGLRenderTarget | null)[] = [];
+  view.renderer = {
+    initTexture() {},
+    compile: () => {
+      seen.push(target);
+      return new Set();
+    },
+    shadowMap: {},
+    render: () => seen.push(target),
+    getRenderTarget: () => target,
+    setRenderTarget: (t: THREE.WebGLRenderTarget | null) => (target = t),
+  };
+  await view.prewarm();
+  expect(seen.length).toBeGreaterThanOrEqual(2);
+  expect(seen.every((t) => t === sceneTarget)).toBe(true);
+  // The renderer's own target is handed back afterwards.
+  expect(target).toBeNull();
 });
 
 it("warms the mapped non-instanced terrain shadow layout before tiles arrive", async () => {
@@ -166,6 +214,8 @@ it("warms the mapped non-instanced terrain shadow layout before tiles arrive", a
     initTexture() {},
     compile: () => new Set(),
     shadowMap: {},
+    getRenderTarget: () => null,
+    setRenderTarget() {},
     render: () => {
       proxy = view.scene.children.find(
         (o: THREE.Object3D) => (o as THREE.Mesh).material === terrainMaterial,

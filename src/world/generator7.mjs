@@ -19,6 +19,7 @@ import {
 } from "./landscape.mjs";
 import {
   carveWater,
+  containRivers,
   gradeSites,
   gradeRoads,
   flattenSites,
@@ -134,6 +135,50 @@ export function pathIndex(paths, cellSize = 128, padding = 20) {
     }
     return d;
   };
+}
+/**
+ * Water levels from the ground the river actually runs through. The drainage
+ * graph fills every hollow to its spill height, which left long reaches held
+ * level above lower banks. Here the surface stays a little below the lower
+ * of the two banks at every sample and never rises downstream; carving then
+ * cuts the channel down to it. Tributaries meet the trunk at its level.
+ */
+export function settleRiverLevels(rivers, sample, freeboard = 0.6) {
+  const settled = new Map();
+  for (const river of rivers) {
+    const P = river.points,
+      // Rivers that reach the sea, including basins below sea level, keep
+      // their mouth at sea level and drop to it over the last reach.
+      mouth = P.at(-1)[1] === 0;
+    let water = Infinity;
+    for (let i = 0; i < P.length; i++) {
+      const [x, , z] = P[i],
+        a = P[Math.max(0, i - 1)],
+        b = P[Math.min(P.length - 1, i + 1)],
+        length = Math.hypot(b[0] - a[0], b[2] - a[2]) || 1,
+        nx = -(b[2] - a[2]) / length,
+        nz = (b[0] - a[0]) / length,
+        width = river.widths?.[i] ?? river.width;
+      let bank = Infinity;
+      for (const d of [width + 1.5, width + 5])
+        for (const side of [-1, 1])
+          bank = Math.min(bank, sample(x + nx * d * side, z + nz * d * side));
+      water = Math.min(water, bank - freeboard);
+      P[i][1] = quantize(Math.max(0, water));
+    }
+    if (mouth) P.at(-1)[1] = 0;
+    // A tributary ends on a point of a river settled before it.
+    const join = settled.get(P.at(-1)[0] + ":" + P.at(-1)[2]);
+    if (join !== undefined) {
+      P.at(-1)[1] = join;
+      for (let i = P.length - 2; i >= 0; i--)
+        P[i][1] = Math.max(P[i][1], P[i + 1][1]);
+    }
+    for (const p of P) {
+      const key = p[0] + ":" + p[2];
+      if (!settled.has(key)) settled.set(key, p[1]);
+    }
+  }
 }
 export function planIsland7(request, report = () => {}) {
   const { seed } = request;
@@ -378,28 +423,95 @@ function generateCandidate(request, report, attempt) {
     const id = drainageOrder[i];
     if (parent[id] >= 0) catchment[parent[id]] += catchment[id];
   }
-  function roundRiver(points) {
-    const out = [points[0]];
-    for (let i = 1; i < points.length - 1; i++) {
-      const a = points[i - 1],
-        b = points[i],
-        c = points[i + 1];
-      if ((b[0] - a[0]) * (c[2] - b[2]) === (b[2] - a[2]) * (c[0] - b[0])) {
-        out.push(b);
-        continue;
-      }
-      const q = b.map((v, k) => mix(v, a[k], 0.4)),
-        r = b.map((v, k) => mix(v, c[k], 0.4));
-      for (let j = 0; j <= 6; j++) {
-        const t = j / 6;
-        out.push(
-          q.map((v, k) =>
-            quantize((1 - t) ** 2 * v + 2 * (1 - t) * t * b[k] + t * t * r[k]),
-          ),
+  /**
+   * Turn a 64 m drainage path into a natural channel: a centripetal
+   * Catmull-Rom curve through the drainage nodes, resampled about every
+   * 16 m, with a gentle hashed meander that fades out at the source, at the
+   * mouth or join (so tributaries still meet the trunk exactly) and on steep
+   * reaches. Small level changes are spread along each reach; drops big
+   * enough to be falls stay concentrated at the end of their reach.
+   */
+  function meanderRiver(points, salt) {
+    if (points.length < 3) return points.map((p) => p.map(quantize));
+    const spacing = 16,
+      fallDrop = 8;
+    const node = (i) => points[clamp(i, 0, points.length - 1)];
+    const curve = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = node(i - 1),
+        p1 = node(i),
+        p2 = node(i + 1),
+        p3 = node(i + 2);
+      const knot = (a, b) =>
+        Math.max(1e-3, Math.hypot(b[0] - a[0], b[2] - a[2]) ** 0.5);
+      const t1 = knot(p0, p1),
+        t2 = t1 + knot(p1, p2),
+        t3 = t2 + knot(p2, p3);
+      const at = (t, k) => {
+        // Barry-Goldman evaluation of the centripetal spline on x/z.
+        const a1 = (p0[k] * (t1 - t)) / t1 + (p1[k] * t) / t1,
+          a2 = (p1[k] * (t2 - t) + p2[k] * (t - t1)) / (t2 - t1),
+          a3 = (p2[k] * (t3 - t) + p3[k] * (t - t2)) / (t3 - t2),
+          b1 = (a1 * (t2 - t)) / t2 + (a2 * t) / t2,
+          b2 = (a2 * (t3 - t) + a3 * (t - t1)) / (t3 - t1);
+        return (b1 * (t2 - t) + b2 * (t - t1)) / (t2 - t1);
+      };
+      const run = Math.hypot(p2[0] - p1[0], p2[2] - p1[2]),
+        steps = Math.max(1, Math.round(run / spacing)),
+        drop = p1[1] - p2[1];
+      for (let j = i === 0 ? 0 : 1; j <= steps; j++) {
+        const u = j / steps,
+          t = t1 + (t2 - t1) * u,
+          // A fall keeps the upper level until the last sample of its reach.
+          y = drop > fallDrop ? (j < steps ? p1[1] : p2[1]) : p1[1] - drop * u;
+        curve.push(
+          i === 0 && j === 0
+            ? [p1[0], p1[1], p1[2]]
+            : j === steps
+              ? [p2[0], y, p2[2]]
+              : [at(t, 0), y, at(t, 2)],
         );
       }
     }
-    out.push(points.at(-1));
+    // Arc length and local grade drive where the river may wander.
+    const run = [0];
+    for (let i = 1; i < curve.length; i++)
+      run.push(
+        run[i - 1] +
+          Math.hypot(
+            curve[i][0] - curve[i - 1][0],
+            curve[i][2] - curve[i - 1][2],
+          ),
+      );
+    const total = run.at(-1),
+      phase = drainageHash(salt, 431) * Math.PI * 2,
+      phase2 = drainageHash(salt, 433) * Math.PI * 2,
+      wave = 210 + drainageHash(salt, 437) * 120;
+    const out = curve.map((p, i) => {
+      if (i === 0 || i === curve.length - 1) return p.map(quantize);
+      const before = curve[Math.max(0, i - 2)],
+        after = curve[Math.min(curve.length - 1, i + 2)],
+        tx = after[0] - before[0],
+        tz = after[2] - before[2],
+        length = Math.hypot(tx, tz) || 1,
+        grade = Math.max(0, before[1] - after[1]) / length;
+      const ends = smooth(0, 140, run[i]) * smooth(0, 140, total - run[i]),
+        flat = 1 - smooth(0.04, 0.16, grade),
+        s = run[i] / wave;
+      const offset =
+        (Math.sin(s * Math.PI * 2 + phase) * 11 +
+          Math.sin(s * Math.PI * 4.7 + phase2) * 5) *
+        ends *
+        flat;
+      return [
+        quantize(p[0] - (tz / length) * offset),
+        quantize(p[1]),
+        quantize(p[2] + (tx / length) * offset),
+      ];
+    });
+    // Levels never rise downstream.
+    for (let i = 1; i < out.length; i++)
+      out[i][1] = Math.min(out[i][1], out[i - 1][1]);
     return out;
   }
   const drainageHash = hashFor(
@@ -471,21 +583,31 @@ function generateCandidate(request, report, attempt) {
     rivers.push({
       id: `river-${r + 1}`,
       width: 12 + drainageHash(r, 99) * 6,
-      points: roundRiver(points),
+      points: meanderRiver(points, r),
     });
   }
+  // Rivers rise as a spring-fed trickle and widen as their catchment grows.
   for (const river of rivers) {
-    let lastWidth = 7;
-    river.widths = river.points.map(([x, , z]) => {
+    const P = river.points;
+    let lastWidth = 2,
+      run = 0;
+    river.widths = P.map(([x, , z], i) => {
+      if (i) run += Math.hypot(x - P[i - 1][0], z - P[i - 1][2]);
       const id =
         clamp(Math.round(z / 64), 0, R - 1) * R +
         clamp(Math.round(x / 64), 0, R - 1);
-      return (lastWidth = quantize(
-        Math.max(lastWidth, Math.min(23, 6 + Math.sqrt(catchment[id]) * 0.65)),
-      ));
+      lastWidth = Math.max(
+        lastWidth,
+        Math.min(23, 6 + Math.sqrt(catchment[id]) * 0.65),
+      );
+      // Never narrower than a couple of terrain cells, so the channel and
+      // its banks can be resolved on the 2 m height grid.
+      const spring = 0.2 + 0.8 * smooth(0, 520, run);
+      return quantize(Math.max(2.4, lastWidth * spring));
     });
     river.width = Math.max(...river.widths);
   }
+  settleRiverLevels(rivers, sample);
   const lakes = makeLakes(rivers, sample, drainageHash, settings.lakes);
   const waterfalls = makeWaterfalls(rivers);
   report("Carving rivers, lakes and cascades", 0.2);
@@ -1168,7 +1290,25 @@ function generateCandidate(request, report, attempt) {
           continue;
         const distance = diagonal ? Math.SQRT2 * 64 : 64;
         const slope = Math.abs(roadH[id] - roadH[j]) / distance;
-        if (slope > 0.5 && !bridgeCells.has(id) && !bridgeCells.has(j))
+        // Raw ground is graded to a road afterwards (at most 0.4 along the
+        // route). Next to either end a steep climb is allowed at a heavy
+        // cost, so a landmark on a headland can get out of its pocket
+        // instead of the whole layout being thrown away; elsewhere roads
+        // keep to gentler ground.
+        const nearEnd =
+          Math.max(
+            Math.abs((j % R) - (start % R)),
+            Math.abs(Math.floor(j / R) - Math.floor(start / R)),
+          ) <= 3 ||
+          Math.max(
+            Math.abs((j % R) - (goal % R)),
+            Math.abs(Math.floor(j / R) - Math.floor(goal / R)),
+          ) <= 3;
+        if (
+          slope > (nearEnd ? 0.9 : 0.5) &&
+          !bridgeCells.has(id) &&
+          !bridgeCells.has(j)
+        )
           continue;
         if (!edgeClear(id, j)) continue;
         const v =
@@ -1274,6 +1414,7 @@ function generateCandidate(request, report, attempt) {
   }
   flattenSites(heights, GRID, STEP, sites, castles, rivers, lakes);
   gradeRoads(heights, GRID, STEP, paths, sites, rivers, lakes);
+  containRivers(heights, GRID, STEP, rivers, lakes);
   const main = castles[0],
     gateOffset = main.halfZ * main.scaleZ + 140;
   const spawn = [
@@ -1366,6 +1507,7 @@ export function materializeIsland7(plan, report = () => {}) {
   gradeSites(heights, GRID, STEP, sites, castles, rivers, lakes);
   flattenSites(heights, GRID, STEP, sites, castles, rivers, lakes);
   gradeRoads(heights, GRID, STEP, paths, sites, rivers, lakes);
+  containRivers(heights, GRID, STEP, rivers, lakes);
   const riverDistance = pathIndex(
     rivers.map((r) => r.points.map((p) => [p[0], p[2]])),
     128,

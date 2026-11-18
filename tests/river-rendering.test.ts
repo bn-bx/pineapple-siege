@@ -37,11 +37,16 @@ it("merges river reaches into spatial batches while retaining original elevation
   (
     (group.children[0] as THREE.Mesh).material as THREE.Material
   ).onBeforeCompile(shader, {} as any);
+  // Rivers blend the four surrounding wet cells for smooth banks.
   expect(shader.fragmentShader).toContain(
-    "texture2D(prepassWet,sampleUV).r<.5",
+    "prepassWetSmooth(prepassWaterWorld.xz)<.5",
   );
   expect(shader.fragmentShader).toContain(
-    "texture2D(prepassHeight,sampleUV).r>=prepassWaterWorld.y",
+    "texture2D(prepassWet,(pixel+.5)/",
+  );
+  // ...and clip against the ground on the terrain mesh's own triangles.
+  expect(shader.fragmentShader).toContain(
+    "prepassGround(prepassWaterWorld.xz)>=prepassWaterWorld.y",
   );
   for (const child of group.children) (child as THREE.Mesh).geometry.dispose();
 });

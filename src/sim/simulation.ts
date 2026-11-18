@@ -1753,7 +1753,8 @@ export class Simulation {
     const ground = this.terrain.sample(p[0], p[2]),
       height = Math.max(0, p[1] - ground);
     let terrain: ReturnType<Terrain["crater"]> | undefined,
-      flood: Uint32Array | undefined;
+      flood: Uint32Array | undefined,
+      dry: Uint32Array | undefined;
     if (height < 20) {
       terrain = this.terrain.crater(
         p[0],
@@ -1763,6 +1764,7 @@ export class Simulation {
         this.revision,
       );
       flood = this.terrain.floodChanged(terrain.indices);
+      dry = this.terrain.drainInland(terrain.indices);
       for (const id of terrain.chunks)
         if (this.terrainColliders.has(id)) this.invalidateTerrainCollider(id);
     }
@@ -1826,7 +1828,7 @@ export class Simulation {
           this.tick + e.id,
         );
     this.ensureTerrain();
-    this.flush(terrain, flood);
+    this.flush(terrain, flood, dry);
   }
   /**
    * Swept collision against the world. The ground vehicle narrows it:

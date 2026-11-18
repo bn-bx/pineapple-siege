@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { TerrainView } from "./terrain-view";
 import { terrainSurfaceColor } from "./terrain-colors";
+import { riverBankIndex } from "../world/water-geometry.mjs";
 import { makeCoastalSurf } from "./coastal-surf";
 import { markStaticCaster } from "./static-shadows";
 
@@ -96,6 +97,11 @@ export class CoastlineView {
     const base = (x: number, z: number) => terrain.sample(x, z, terrain.base);
     const segments = shorelineSegments(size, base);
     const sites = terrain.world.sites ?? [];
+    // Beaches, ledges and boulders stay out of river mouths so the river
+    // meets the sea instead of ending against a sand bar.
+    const riverBank = riverBankIndex(terrain.world.rivers ?? [], 30);
+    const nearRiver = (x: number, z: number, margin: number) =>
+      (riverBank(x, z)?.edge ?? Infinity) < margin;
     const seed = terrain.world.seed ?? 1;
     const random = (x: number, z: number, salt: number) => {
       const n =
@@ -141,6 +147,8 @@ export class CoastlineView {
             base(x, z),
             0.2,
             terrain.world.regions,
+            true,
+            riverBank(x, z),
           );
         else color.setRGB(shade, shade * 0.94, shade * 0.81);
         cliffColors.push(color.r, color.g, color.b);
@@ -148,6 +156,16 @@ export class CoastlineView {
     };
     for (const segment of segments) {
       const frames = segment.map(frame);
+      // A strip runs up to ~90 m inland; where it crosses a river it keeps
+      // only the sand and leaves out ledges and boulders.
+      const crossesRiver = frames.some((f) => {
+        const width = widthAt(f);
+        for (let j = 0; j <= 4; j++) {
+          const d = -9 + ((width + 9) * j) / 4;
+          if (nearRiver(f.x + f.nx * d, f.z + f.nz * d, 12)) return true;
+        }
+        return false;
+      });
       const start = positions.length / 3;
       for (const f of frames) {
         const width = widthAt(f);
@@ -156,15 +174,36 @@ export class CoastlineView {
           const distance = -9 + (width + 9) * t;
           const x = f.x + f.nx * distance,
             z = f.z + f.nz * distance;
-          const h = base(x, z);
-          positions.push(x, h + 0.12 + Math.sin(t * Math.PI) * 0.48, z);
+          const h = base(x, z),
+            bank = riverBank(x, z);
+          // Approaching a river the sand fades into the ground colour and
+          // sinks under it, so the river and its banks show through without
+          // a hard seam.
+          const riverFade = bank
+            ? 1 - THREE.MathUtils.smoothstep(bank.edge, 8, 22)
+            : 0;
+          const lift = THREE.MathUtils.lerp(
+            0.12 + Math.sin(t * Math.PI) * 0.48,
+            -0.8,
+            riverFade,
+          );
+          positions.push(x, h + lift, z);
           const dry = THREE.MathUtils.smoothstep(h, -0.5, 3.5);
           color.setRGB(0.37 + dry * 0.34, 0.26 + dry * 0.25, 0.13 + dry * 0.13);
           // Feather the dunes into the existing vegetation at the inland edge.
           const fade = THREE.MathUtils.smoothstep(t, 0.72, 1);
           const ground = new THREE.Color();
-          terrainSurfaceColor(ground, x, z, h, f.slope, terrain.world.regions);
-          color.lerp(ground, fade);
+          terrainSurfaceColor(
+            ground,
+            x,
+            z,
+            h,
+            f.slope,
+            terrain.world.regions,
+            true,
+            bank,
+          );
+          color.lerp(ground, Math.max(fade, riverFade));
           colors.push(color.r, color.g, color.b);
         }
       }
@@ -181,6 +220,7 @@ export class CoastlineView {
       const nx = (a.nx + b.nx) * 0.5,
         nz = (a.nz + b.nz) * 0.5;
       const rugged = exposure(x, z);
+      if (crossesRiver) continue;
       // Keep docks, coastal buildings and their approach water unobstructed.
       if (
         sites.some(

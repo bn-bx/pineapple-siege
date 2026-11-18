@@ -70,6 +70,10 @@ it("honors active river cells and laser drying in the terrain surface helper", (
       lakeCells: new Set<number>(),
     },
     laserDry: new Uint8Array(1),
+    // Undamaged ground: blast drying only applies below the original height.
+    heights: new Float32Array([6]),
+    base: new Float32Array([6]),
+    blastDry: (Terrain.prototype as any).blastDry,
     // A bed a few metres down; deeper beds are capped (RIVER_MAX_DEPTH).
     sample: () => 6,
   };

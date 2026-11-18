@@ -68,6 +68,7 @@ import { FIRE_LIFETIME } from "../sim/nuclear-fire";
 import { flightPose } from "./flight-pose";
 import { jetExhaustProfile } from "./jet-exhaust";
 import { makeConcreteTruck, type ConcreteTruck } from "./concrete-truck";
+import { installCanopyCut } from "./canopy-cut";
 import { ConcretePour } from "./concrete-pour";
 import { ShieldBubble } from "./shield-bubble";
 import {
@@ -153,6 +154,7 @@ export class GameRenderer {
   private chuteTip = new THREE.Vector3();
   private chuteDirection = new THREE.Vector3();
   private truckVelocity = new THREE.Vector3();
+  private canopyCutLift = new THREE.Vector3();
   readonly crashWrecks: CrashWreckView;
   readonly aircraftFire = new AircraftFireView();
   readonly performance = new PerformanceMonitor(4096);
@@ -475,6 +477,15 @@ export class GameRenderer {
         this.concrete.group,
       );
     this.worldView = new WorldBatches(this.scene, world, this.materials);
+    // Knocked-down trees (base foliage and wood) and flying debris also clear
+    // out of the driving view. Standing scenery made its own copies of these
+    // materials above, so buildings stay solid.
+    for (const material of new Set([
+      this.materials.foliage,
+      this.materials.wood,
+      ...Object.values(this.fragmentMaterials),
+    ]))
+      if (material) installCanopyCut(material, this.worldView.canopyCut);
     if (world.realm === "hell") {
       this.jetGod = new JetGodView(world);
       this.scene.add(this.jetGod.group);
@@ -706,6 +717,13 @@ export class GameRenderer {
       if (o instanceof THREE.InstancedMesh) o.count = 1;
     });
     mark("variantAssemblyMS");
+    // Gameplay draws the scene into the presentation's offscreen target, whose
+    // linear output and tone mapping are baked into every shader. Compile
+    // against that target, or the warmup prepares on-screen variants that are
+    // never used and the real ones compile synchronously on first draw.
+    this.presentation?.configure(this.visualProfile, this.reducedEffects, false);
+    const previousTarget = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.presentation?.sceneTarget ?? null);
     try {
       // Keep polling cancellable: Three's compileAsync continues polling old
       // programs after a context loss/disposal. These properties are pinned to
@@ -729,6 +747,7 @@ export class GameRenderer {
       this.updateStaticShadows(this.camera.position, true);
       this.renderer.shadowMap.needsUpdate = true;
       this.renderer.render(this.scene, this.camera);
+      this.renderer.setRenderTarget(previousTarget);
       mark("shadowAndSceneWarmMS");
       this.presentation?.prewarm();
       this.presentation?.configure(
@@ -738,21 +757,9 @@ export class GameRenderer {
       );
       this.presentation?.render();
       mark("postWarmMS");
-      // The laser's light disappears with its inactive group. That changes
-      // Three's light-count shader defines, so prepare the inactive variant as
-      // well as the active one before normal flight can submit either.
-      this.effects.group.traverse((object) => {
-        if (object instanceof THREE.PointLight) object.visible = false;
-      });
-      this.renderer.render(this.scene, this.camera);
-      this.presentation?.prewarm();
-      this.presentation?.configure(
-        this.visualProfile,
-        this.reducedEffects,
-        false,
-      );
-      this.presentation?.render();
-      mark("inactiveEffectsWarmMS");
+      // The laser's point light stays in the scene at zero intensity when
+      // idle, so the light count (and every lit shader) never changes and no
+      // second "lights off" set of programs needs compiling.
       // Wait asynchronously for queued preparation, only while gameplay is
       // paused. This does not block the driver or call finish/readPixels.
       if (typeof this.renderer.getContext === "function") {
@@ -772,6 +779,7 @@ export class GameRenderer {
       }
       mark("gpuCompletionWaitMS");
     } finally {
+      if (!this.graphicsLost) this.renderer.setRenderTarget(previousTarget);
       for (const state of states) {
         state.object.visible = state.visible;
         state.object.frustumCulled = state.culled;
@@ -1901,6 +1909,20 @@ export class GameRenderer {
       else truck.setAim(0, 0);
       const rocket = Math.max(show.rocket, driving && p.boosting ? 1 : 0);
       truck.setRocket(rocket);
+      // Floats pop out when the truck is riding on water deeper than its
+      // draft (the sim floats it there), and tuck away again ashore.
+      const ground = this.terrain.sample(position.x, position.z),
+        surface =
+          this.terrain.waterSurface(position.x, position.z) ??
+          (insideTerrain(position.x, position.z) ? undefined : 0);
+      truck.setAfloat(
+        driving &&
+          alive &&
+          !p.chute &&
+          surface !== undefined &&
+          surface - ground > TRUCK.draft * 0.9 &&
+          position.y < surface - TRUCK.draft + TRUCK.rideHeight + 2,
+      );
       truck.update(signed, steer, step, {
         heave: driving ? (p.heave ?? 0) : 0,
         slip: driving ? (p.slip ?? 0) : 0,
@@ -2195,6 +2217,18 @@ export class GameRenderer {
       this.cameraTarget.lerp(target, 1 - Math.exp(-dt * 10));
     }
     this.camera.position.copy(this.cameraPosition);
+    // While driving, open a see-through tunnel in the trees from the camera
+    // to the truck; it eases in and out with the ground camera.
+    const cut = this.worldView.canopyCut;
+    const cutWanted =
+      driving && !deathShot && this.rig.mode === "chase" ? g : 0;
+    cut.strength.value +=
+      (cutWanted - cut.strength.value) * (1 - Math.exp(-dt * 6));
+    if (cut.strength.value < 0.01 && cutWanted === 0) cut.strength.value = 0;
+    cut.start.value.copy(this.cameraPosition);
+    cut.end.value
+      .copy(position)
+      .add(this.canopyCutLift.set(0, TRUCK.turretHeight * 0.6, 0));
     this.camera.up.copy(
       this.world.realm === "hell" ? down : (deathShot?.up ?? up),
     );

@@ -67,6 +67,10 @@ export class Presentation {
   get size() {
     return [this.width, this.height] as const;
   }
+  /** The offscreen target the scene pass draws into. */
+  get sceneTarget() {
+    return this.composer.readBuffer;
+  }
   get passCount() {
     return this.composer.passes.filter((p) => p.enabled).length;
   }
