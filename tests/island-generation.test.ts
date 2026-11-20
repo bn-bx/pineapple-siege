@@ -150,7 +150,11 @@ it("generates varied valid landscapes across boundary seeds and placement retrie
         .filter((e) => e.kind === "tree")
         .map((e) => e.treeSpecies),
     );
-    expect(species).toEqual(new Set(["pine", "broadleaf", "riverside"]));
+    // PS8 adds coastal palms; about one island in five has a climate too cool for them.
+    for (const required of ["pine", "broadleaf", "riverside"])
+      expect(species.has(required as never)).toBe(true);
+    for (const kind of species)
+      expect(["pine", "broadleaf", "riverside", "palm"]).toContain(kind);
     expect(
       candidate.world.entities.filter((e) => e.kind === "tree").length,
     ).toBeLessThanOrEqual(30000);
@@ -236,7 +240,7 @@ it("rejects damage belonging to another seed or generator and round trips island
 });
 it("gives every tree species distinct bounded high and low geometry", () => {
   const bounds = [];
-  for (const species of ["pine", "broadleaf", "riverside"] as const) {
+  for (const species of ["pine", "broadleaf", "riverside", "palm"] as const) {
     const high = treeCrownGeometry(species),
       low = treeCrownLowGeometry(species);
     high.computeBoundingBox();
@@ -252,6 +256,7 @@ it("gives every tree species distinct bounded high and low geometry", () => {
   }
   expect(bounds[0]).not.toEqual(bounds[1]);
   expect(bounds[1]).not.toEqual(bounds[2]);
+  expect(bounds[3]).not.toEqual(bounds[0]);
 });
 
 it("spawns the maximum monster population on usable island land outside every fortress", () => {

@@ -15,10 +15,15 @@ import {
   materializeIsland7,
   validateIsland7,
 } from "./generator7.mjs";
+import {
+  planIsland8,
+  materializeIsland8,
+  validateIsland8,
+} from "./generator8.mjs";
 import { PRESETS } from "./landscape.mjs";
 export { PRESETS } from "./landscape.mjs";
-export const GENERATOR_VERSION = 7;
-export const WORLD_VERSION = 13;
+export const GENERATOR_VERSION = 8;
+export const WORLD_VERSION = 14;
 export const SIZE = 9216,
   STEP = 2,
   GRID = 4609;
@@ -37,7 +42,7 @@ export function generationRequest(input) {
   )
     throw Error("Island seed must be an unsigned 32-bit integer.");
   request.generatorVersion ??= GENERATOR_VERSION;
-  if ([4, 6, 7].includes(request.generatorVersion)) request.preset = undefined;
+  if ([4, 6, 7, 8].includes(request.generatorVersion)) request.preset = undefined;
   else if (request.generatorVersion === 5) {
     request.preset ??= "B";
     if (!Object.hasOwn(PRESETS, request.preset))
@@ -47,7 +52,7 @@ export function generationRequest(input) {
 }
 export function parseIslandCode(code) {
   const text = code.trim().toUpperCase();
-  let match = /^PS([67])-([\dA-F]{8})$/.exec(text);
+  let match = /^PS([678])-([\dA-F]{8})$/.exec(text);
   if (match)
     return generationRequest({
       generatorVersion: Number(match[1]),
@@ -67,7 +72,7 @@ export function parseIslandCode(code) {
       seed: parseInt(match[1], 16),
     });
   throw Error(
-    "This seed is malformed or uses an older or unsupported layout. Enter a PS7, PS6, PS5, or PS4 island code.",
+    "This seed is malformed or uses an older or unsupported layout. Enter a PS8, PS7, PS6, PS5, or PS4 island code.",
   );
 }
 /** Play-time parse; older codes remain readable through parseIslandCode for tooling. */
@@ -111,6 +116,7 @@ export function supportedIsland(world) {
     ((world.generatorVersion === 4 && world.version === 10) ||
       (world.generatorVersion === 6 && world.version === 12) ||
       (world.generatorVersion === 7 && world.version === 13) ||
+      (world.generatorVersion === 8 && world.version === 14) ||
       (world.generatorVersion === 5 &&
         world.version === 11 &&
         Object.hasOwn(PRESETS, world.generationPreset)))
@@ -132,14 +138,18 @@ export function planIsland(input, report = () => {}) {
     ? planIsland5(request, report)
     : request.generatorVersion === 6
       ? planIsland6(request, report)
-      : planIsland7(request, report);
+      : request.generatorVersion === 7
+        ? planIsland7(request, report)
+        : planIsland8(request, report);
 }
 export function materializeIsland(plan, report = () => {}) {
   return plan.request.generatorVersion === 5
     ? materializeIsland5(plan, report)
     : plan.request.generatorVersion === 6
       ? materializeIsland6(plan, report)
-      : materializeIsland7(plan, report);
+      : plan.request.generatorVersion === 7
+        ? materializeIsland7(plan, report)
+        : materializeIsland8(plan, report);
 }
 export function generateIsland(input, report = () => {}) {
   const request = generationRequest(input);
@@ -158,5 +168,7 @@ export function validateIsland(world, heights) {
       ? validateIsland5(world, heights)
       : world.generatorVersion === 6
         ? validateIsland6(world, heights)
-        : validateIsland7(world, heights);
+        : world.generatorVersion === 7
+          ? validateIsland7(world, heights)
+          : validateIsland8(world, heights);
 }

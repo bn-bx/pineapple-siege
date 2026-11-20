@@ -3,6 +3,7 @@ import { applyCosmetics } from "./cosmetics";
 import type { ItemSlot } from "../economy/pricing";
 import { CrashWreckView } from "./crash-wreck";
 import { TruckWreckView } from "./truck-wreck";
+import { GrassField, grassRadius } from "./grass-field";
 import { AircraftFireView } from "./aircraft-fire";
 import { clearDeathCamera } from "./death-camera";
 import { terrainGPUTexture } from "./terrain-pages";
@@ -144,6 +145,8 @@ export class GameRenderer {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(64, 1, 0.5, 2800);
   readonly terrain: TerrainView;
+  /** Near-camera 3D grass; absent in hell. */
+  readonly grass?: GrassField;
   readonly effects = new Effects();
   readonly jet: THREE.Group;
   /** The drivable monster concrete truck; absent in hell, which is flight-only. */
@@ -470,6 +473,13 @@ export class GameRenderer {
         material.emissiveIntensity = 0.22;
       }
     this.terrain.enableStreamingUploads();
+    if (world.realm !== "hell") {
+      this.grass = new GrassField(
+        this.terrain,
+        grassRadius(this.visualProfile.treeDistance),
+      );
+      this.scene.add(this.grass.mesh);
+    }
     this.environment = new EnvironmentView(
       this.scene,
       this.terrain,
@@ -641,6 +651,8 @@ export class GameRenderer {
     this.renderer.initTexture(terrainGPUTexture(this.terrain.floodTexture));
     this.fallenCanopy("broadleaf");
     this.fallenCanopy("riverside");
+    if (this.world?.entities?.some((e) => e.treeSpecies === "palm"))
+      this.fallenCanopy("palm");
     this.effects.prewarm();
     this.godPieces()?.prewarm();
     // Roof fragments omit instance colors, unlike ordinary airborne chunks.
@@ -1352,7 +1364,7 @@ export class GameRenderer {
     }
     return geo;
   }
-  private crownGeometry(species: "pine" | "broadleaf" | "riverside") {
+  private crownGeometry(species: import("../types").TreeSpecies) {
     this.crownGeometries ??= new Map();
     let geometry = this.crownGeometries.get(species);
     if (!geometry) {
@@ -1365,7 +1377,7 @@ export class GameRenderer {
     return geometry;
   }
   private fallenCanopy(
-    species: "pine" | "broadleaf" | "riverside",
+    species: import("../types").TreeSpecies,
     needed = 0,
   ) {
     if (species === "pine") return this.fallenPines;
@@ -1441,7 +1453,7 @@ export class GameRenderer {
       const needed = new Map<string, number>();
       let treeCount = 0;
       const speciesNeeded = new Map<
-        "pine" | "broadleaf" | "riverside",
+        import("../types").TreeSpecies,
         number
       >();
       const codes = (this.bodyNeeded ??= new Uint32Array(
@@ -2377,6 +2389,12 @@ export class GameRenderer {
         this.visualProfile.treeDistance,
       );
     }
+    if (this.grass) {
+      const grassStarted = performance.now();
+      this.grass.setRadius(grassRadius(this.visualProfile.treeDistance));
+      this.grass.update(this.camera.position, this.elapsed);
+      this.performance.record("grass", performance.now() - grassStarted);
+    }
     // Static scenery shadows: cached maps, redrawn only when needed.
     this.updateStaticShadows(position);
     if (this.elapsed >= this.nextShadow && (active || this.shadowDirty)) {
@@ -2535,6 +2553,7 @@ export class GameRenderer {
     this.ruinBuild?.return(undefined);
     this.gpu.dispose();
     this.terrain.dispose();
+    this.grass?.dispose();
     const resources = new ResourceDisposal();
     this.godDebris?.dispose();
     this.worldView.dispose(resources);

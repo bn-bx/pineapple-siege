@@ -29,7 +29,7 @@ try {
         lanternVale.state.snapshot &&
         !document.getElementById("enter").disabled,
     );
-  await page.goto(`${base}?island=PS7-0000A301#debug`);
+  await page.goto(`${base}?island=PS8-0000A301#debug`);
   await page.waitForFunction(
     () => !document.getElementById("keepIsland").disabled,
   );
@@ -127,8 +127,8 @@ try {
         far,
         restored,
         checks: [
-          "PS7 exact far-grid damage persists through IndexedDB reload",
-          "PS7 portal round trip retains surface terrain",
+          "PS8 exact far-grid damage persists through IndexedDB reload",
+          "PS8 portal round trip retains surface terrain",
           "laser presentation compiles after realm replacement",
         ],
         errors,
@@ -138,7 +138,7 @@ try {
     ),
   );
   console.log(
-    "PS7 exact terrain save, realm travel and laser integration passed",
+    "PS8 exact terrain save, realm travel and laser integration passed",
   );
 } finally {
   await browser.close();

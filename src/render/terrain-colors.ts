@@ -30,6 +30,23 @@ export function terrainSurfaceColor(
     : 0.5;
   color.setRGB(0.18 + grain * 0.1, 0.31 + grain * 0.13, 0.075 + grain * 0.045);
   const region = regions ? regionAt(regions, x, z) : undefined;
+  // Broad meadow patches: lush dark-green hollows and sun-dried golden swards.
+  // Warped products of sines avoid a visible grid at kilometre and 300 m scales.
+  const broad =
+      Math.sin(x * 0.0047 + Math.sin(z * 0.0031) * 1.7) *
+      Math.sin(z * 0.0053 - x * 0.0021 + Math.sin(x * 0.0027) * 1.3),
+    local = Math.sin(x * 0.019 + z * 0.011) * Math.sin(z * 0.023 - x * 0.008),
+    dryness = clamp(
+      0.45 +
+        broad * 0.32 +
+        local * 0.13 +
+        (region ? (0.5 - region.moisture) * 0.5 + region.exposure * 0.15 : 0),
+      0,
+      1,
+    );
+  color.r += (dryness - 0.45) * 0.11;
+  color.g += (dryness - 0.45) * 0.035 - Math.max(0, 0.3 - dryness) * 0.05;
+  color.b -= (dryness - 0.45) * 0.025;
   if (region) {
     const forest = region.woodland,
       wet = Math.max(0, (region.moisture - 0.62) * 2.6);

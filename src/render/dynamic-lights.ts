@@ -204,10 +204,15 @@ for ( int i = 0; i < ${DYNAMIC_LIGHT_SLOTS}; i ++ ) {
   vec3 irradiance = dynamicLightColor[ i ] * ( falloff * ndl );
   reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseColor );
   // Cheap Blinn-Phong highlight so metal (gold, aircraft) and water catch it.
-  vec3 h = normalize( l + geometryViewDir );
+  // Guard against NaN, which renders black: a light straight behind the
+  // surface from the camera gives a zero half-vector, and fully rough
+  // materials (foliage, roughness 1) give shine 0, where pow( 0.0, 0.0 ) is
+  // undefined in GLSL.
+  vec3 halfway = l + geometryViewDir;
+  vec3 h = halfway * inversesqrt( max( dot( halfway, halfway ), 1e-8 ) );
   float rough = max( material.roughness, 0.08 );
-  float shine = 2.0 / ( rough * rough * rough * rough ) - 2.0;
-  float spec = pow( saturate( dot( geometryNormal, h ) ), shine ) * ( shine + 8.0 ) * 0.0398;
+  float shine = max( 2.0 / ( rough * rough * rough * rough ) - 2.0, 1.0 );
+  float spec = pow( max( dot( geometryNormal, h ), 1e-4 ), shine ) * ( shine + 8.0 ) * 0.0398;
   reflectedLight.directSpecular += irradiance * material.specularColor * spec;
 }
 #endif

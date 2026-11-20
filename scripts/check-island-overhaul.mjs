@@ -23,7 +23,7 @@ const cases = (
     : quick
       ? seeds.slice(0, 6)
       : seeds
-).map((seed) => ({ seed, generatorVersion: 7 }));
+).map((seed) => ({ seed, generatorVersion: 8 }));
 const rows = [];
 let failures = 0;
 function check(request) {

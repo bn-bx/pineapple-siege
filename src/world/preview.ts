@@ -121,7 +121,7 @@ function drawMap(
       ctx.arc(
         e.p[0],
         e.p[2],
-        e.treeSpecies === "broadleaf" ? 17 : 12,
+        e.treeSpecies === "broadleaf" ? 17 : e.treeSpecies === "palm" ? 10 : 12,
         0,
         Math.PI * 2,
       );

@@ -154,7 +154,7 @@ export class WorldBatches {
     const statueMaterials = new Map<string, THREE.MeshStandardMaterial>();
     const crowns = new Map<string, THREE.BufferGeometry>();
     const crown = (
-      species: "pine" | "broadleaf" | "riverside",
+      species: import("../types").TreeSpecies,
       low = false,
     ) => {
       const key = `${species}:${low}`;
@@ -170,7 +170,7 @@ export class WorldBatches {
     };
     const deadGeometries = new Map<string, THREE.BufferGeometry>();
     const deadGeometry = (
-      species: "pine" | "broadleaf" | "riverside",
+      species: import("../types").TreeSpecies,
       low = false,
     ) => {
       const key = `${species}:${low}`;

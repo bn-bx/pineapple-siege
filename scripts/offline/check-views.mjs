@@ -29,7 +29,7 @@ const baseRef = opt("--base");
 const out = path.resolve(repo, opt("--out", "artifacts/views/latest"));
 const only = opt("--views")?.split(",").map(Number);
 const settle = Number(opt("--settle", 20)) * 1000;
-const seed = opt("--seed", "PS7-0000A301");
+const seed = opt("--seed", "PS8-0000A301");
 
 // Each view: hour, target feature, camera bearing (fraction of π) and
 // distance/height from it. Names say what the view is for.

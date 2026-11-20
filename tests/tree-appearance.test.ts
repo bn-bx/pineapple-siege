@@ -5,7 +5,7 @@ import {
   treeCanopyScale,
 } from "../src/render/tree-appearance";
 
-it.each(["pine", "broadleaf", "riverside"] as const)(
+it.each(["pine", "broadleaf", "riverside", "palm"] as const)(
   "varies %s crown proportions deterministically within a restrained range",
   (treeSpecies) => {
     const tree = {
@@ -27,7 +27,7 @@ it.each(["pine", "broadleaf", "riverside"] as const)(
   },
 );
 
-it.each(["pine", "broadleaf", "riverside"] as const)(
+it.each(["pine", "broadleaf", "riverside", "palm"] as const)(
   "keeps %s crown width, depth, and height variation independent",
   (treeSpecies) => {
     const crowns = Array.from({ length: 16 }, (_, i) =>
@@ -64,4 +64,24 @@ it("keeps tree color variation deterministic and distinct across species and see
   expect(pineA.equals(pineB)).toBe(false);
   expect(pineA.equals(broadleaf)).toBe(false);
   expect(pineA.getHSL({ h: 0, s: 0, l: 0 }).s).toBeGreaterThan(0.2);
+});
+
+it("gives neighbouring trees a shared stand tint and distant stands a different one", () => {
+  const hsl = (p: number[], variant = 0.5) =>
+    setTreeCanopyColor(new THREE.Color(), {
+      treeSpecies: "broadleaf",
+      variant,
+      p,
+    }).getHSL({ h: 0, s: 0, l: 0 });
+  const a = hsl([1010, 40, 1010]),
+    neighbour = hsl([1040, 40, 1045]);
+  expect(neighbour).toEqual(a);
+  const stands = new Set(
+    Array.from({ length: 12 }, (_, i) => hsl([i * 400 + 10, 40, 2010]).h.toFixed(4)),
+  );
+  expect(stands.size).toBeGreaterThan(6);
+  // Unplaced trees (no position) still color deterministically.
+  expect(
+    setTreeCanopyColor(new THREE.Color(), { treeSpecies: "palm", variant: 0.3 }),
+  ).toEqual(setTreeCanopyColor(new THREE.Color(), { treeSpecies: "palm", variant: 0.3 }));
 });

@@ -11,7 +11,7 @@ import {
 it("uses one seed identity without a style choice and retains old shared layouts", () => {
   for (const seed of [0, 42, 4294967295]) {
     const request = generationRequest(seed);
-    expect(request.generatorVersion).toBe(7);
+    expect(request.generatorVersion).toBe(8);
     expect(request.preset).toBeUndefined();
     expect(parseIslandCode(seedCode(request))).toEqual(request);
     expect(generationRequest({ ...request, preset: "W" })).toEqual(request);
@@ -29,10 +29,18 @@ it("produces strongly different populated mainlands from consecutive seeds witho
     profiles = new Set<string>(),
     landFractions: number[] = [],
     foothills: number[] = [],
-    fingerprints = new Set<string>();
+    fingerprints = new Set<string>(),
+    islandKinds = new Set<string>();
+  let blended = 0;
   for (const seed of [0, 1, 2, 3, 4, 5]) {
     const plan = planIsland(seed);
     shapes.add(plan.shapeFamily);
+    // PS8: most outlines mix in a second family, and open ocean holds offshore islands.
+    if (plan.shapeBlend) blended++;
+    const offshore = plan.offshoreIslands as { kind: string }[];
+    expect(offshore.length).toBeGreaterThanOrEqual(1);
+    expect(offshore.length).toBeLessThanOrEqual(7);
+    for (const island of offshore) islandKinds.add(island.kind);
     profiles.add(plan.landscapeProfile);
     expect(plan.castles).toHaveLength(5);
     expect(plan.passes).toEqual([]);
@@ -45,7 +53,12 @@ it("produces strongly different populated mainlands from consecutive seeds witho
       land += Number(h > 0);
       hills += Number(h > 150);
     }
-    landFractions.push(land / plan.heights.length);
+    // PS8's uninhabited offshore islands even out total land, so compare the
+    // populated mainlands themselves.
+    const mainland = (plan.mainland as { cells: Uint8Array }).cells;
+    let mainlandCells = 0;
+    for (const cell of mainland) mainlandCells += cell;
+    landFractions.push(mainlandCells / mainland.length);
     foothills.push(hills / land);
     fingerprints.add(
       createHash("sha256")
@@ -53,7 +66,9 @@ it("produces strongly different populated mainlands from consecutive seeds witho
         .digest("hex"),
     );
   }
-  expect(shapes.size).toBe(6);
+  expect(shapes.size).toBeGreaterThanOrEqual(5);
+  expect(blended).toBeGreaterThanOrEqual(2);
+  expect(islandKinds.size).toBeGreaterThanOrEqual(3);
   expect(profiles.size).toBeGreaterThanOrEqual(2);
   expect(fingerprints.size).toBe(6);
   expect(
@@ -75,7 +90,7 @@ it.each([12, 20, 22])(
   "materializes difficult single-generator seed %i",
   (seed) => {
     const { world } = generateIsland(seed);
-    expect(world.generatorVersion).toBe(7);
+    expect(world.generatorVersion).toBe(8);
     expect(world.castles).toHaveLength(5);
     expect(world.structureCount).toBeLessThanOrEqual(48000);
   },

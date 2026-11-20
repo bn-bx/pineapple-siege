@@ -1410,7 +1410,7 @@ function inspect() {
       world.lights[0]?.p ??
       world.castle
     ).slice();
-  else if (["pine", "broadleaf", "riverside"].includes(kind))
+  else if (["pine", "broadleaf", "riverside", "palm"].includes(kind))
     p = (
       world.entities.find(
         (e) => e.kind === "tree" && (e.treeSpecies ?? "pine") === kind,

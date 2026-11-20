@@ -5,7 +5,7 @@ import { IslandHorizon } from "../src/render/island-horizon";
 import type { WorldData } from "../src/types";
 
 it("preserves each species silhouette and baked crown shading beyond the detail distance", () => {
-  const entities = (["pine", "broadleaf", "riverside"] as const).map(
+  const entities = (["pine", "broadleaf", "riverside", "palm"] as const).map(
     (treeSpecies, id) => ({
       id,
       kind: "tree",
@@ -18,7 +18,7 @@ it("preserves each species silhouette and baked crown shading beyond the detail 
   );
   const horizon = new IslandHorizon(
     { entities } as unknown as WorldData,
-    [{ allIds: [0, 1, 2], kind: "pine", x: 3030, z: 3000, radius: 100 }],
+    [{ allIds: [0, 1, 2, 3], kind: "pine", x: 3030, z: 3000, radius: 100 }],
     { foliage: new THREE.MeshStandardMaterial() } as any,
   );
   for (const [index, entity] of entities.entries()) {

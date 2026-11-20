@@ -429,7 +429,9 @@ export function compatible(
       ? 5
       : worldVersion === 12
         ? 6
-        : GENERATOR_VERSION,
+        : worldVersion === 13
+          ? 7
+          : GENERATOR_VERSION,
   generationPreset: SaveSnapshot["generationPreset"] = generatorVersion === 5
     ? "B"
     : undefined,
@@ -445,7 +447,7 @@ export function compatible(
     (worldVersion < 9 ||
       (s.generatorVersion === generatorVersion &&
         ((generatorVersion === 4 && worldVersion === 10) ||
-          ([6, 7].includes(generatorVersion) &&
+          ([6, 7, 8].includes(generatorVersion) &&
             worldVersion === generatorVersion + 6 &&
             s.generationPreset === undefined) ||
           (generatorVersion === 5 &&

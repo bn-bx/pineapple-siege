@@ -1,5 +1,5 @@
 // Steady-state frame-time benchmark for fixed views, run inside the game page
-// (open it with ?island=PS7-0000A301#debug). Load with
+// (open it with ?island=PS8-0000A301#debug). Load with
 //   await import("/bench-views.js")   // when copied next to the preview's index.html
 // then call  benchStart()  and poll  window.__benchResult  (null while running).
 // Each view: the camera is placed, the sun's shadow focus is pinned to the view,

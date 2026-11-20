@@ -150,15 +150,32 @@ export function createMaterials() {
 }
 /** Baked crown light adds depth without extra materials, textures, or draw calls. */
 function shadeCrown(geometry: THREE.BufferGeometry, shade = 1) {
-  const positions = geometry.attributes.position;
+  const positions = geometry.attributes.position,
+    normals = geometry.attributes.normal;
   const colors: number[] = [];
   for (let i = 0; i < positions.count; i++) {
-    const normalY = geometry.attributes.normal?.getY(i) ?? 0;
+    const x = positions.getX(i),
+      y = positions.getY(i),
+      z = positions.getZ(i),
+      nx = normals?.getX(i) ?? 0,
+      normalY = normals?.getY(i) ?? 0,
+      nz = normals?.getZ(i) ?? 0;
+    // Leaves facing into the crown, or tucked near the trunk, sit in the
+    // crown's own shade; the outer shell stays bright. Crown centre ~0.62.
+    const cy = y - 0.62,
+      reach = Math.hypot(x, cy, z),
+      outward = reach > 1e-4 ? (nx * x + normalY * cy + nz * z) / reach : 1,
+      rim = Math.min(1, Math.hypot(x, z) / 0.5),
+      occlusion =
+        0.7 + 0.36 * Math.max(0.5 + outward * 0.5, rim * 0.85, y < 0.12 ? 0.6 : 0);
     const light =
       shade *
-      (0.76 + Math.max(0, positions.getY(i)) * 0.24) *
+      occlusion *
+      (0.76 + Math.max(0, y) * 0.24) *
       (0.84 + Math.max(0, normalY) * 0.16);
-    colors.push(light, light, light * 0.96);
+    // Sunlit upper leaves warm toward yellow-green; undersides stay cool.
+    const warm = Math.max(0, Math.min(1, (normalY - 0.2) * 1.25)) * Math.max(0, Math.min(1, y));
+    colors.push(light * (1 + warm * 0.07), light * (1 + warm * 0.05), light * (0.96 - warm * 0.12));
   }
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   return geometry;
@@ -166,7 +183,21 @@ function shadeCrown(geometry: THREE.BufferGeometry, shade = 1) {
 function mergeCrowns(pieces: THREE.BufferGeometry[]) {
   const result = mergeGeometries(pieces)!;
   const positions = result.attributes.position,
-    colors = result.attributes.color;
+    colors = result.attributes.color,
+    normals = result.attributes.normal;
+  // Collapsed triangles (a lathe's tip, a frond's point) get zero normals,
+  // which normalize to NaN in the shader and render black under fire light.
+  // Point them outward and up from the trunk instead.
+  for (let i = 0; i < normals.count; i++) {
+    const nx = normals.getX(i),
+      ny = normals.getY(i),
+      nz = normals.getZ(i);
+    if (nx * nx + ny * ny + nz * nz > 1e-6) continue;
+    const x = positions.getX(i),
+      z = positions.getZ(i),
+      length = Math.hypot(x, 0.6, z);
+    normals.setXYZ(i, x / length, 0.6 / length, z / length);
+  }
   const flex = new Float32Array(positions.count);
   for (let i = 0; i < positions.count; i++)
     flex[i] =
@@ -177,7 +208,7 @@ function mergeCrowns(pieces: THREE.BufferGeometry[]) {
   for (const piece of pieces) piece.dispose();
   return result;
 }
-type TreeSpecies = "pine" | "broadleaf" | "riverside";
+type TreeSpecies = import("../types").TreeSpecies;
 function barkLimb(
   from: number[],
   to: number[],
@@ -870,9 +901,13 @@ export function fractureMaterials(
 
 /** Ground-origin crowns keep standing, falling, and distant trees aligned. */
 export function treeCrownGeometry(
-  species: "pine" | "broadleaf" | "riverside" = "pine",
+  species: TreeSpecies = "pine",
 ) {
-  return species === "pine" ? pineGeometry() : leafyCrown(species, false);
+  return species === "pine"
+    ? pineGeometry()
+    : species === "palm"
+      ? palmCrown(false)
+      : leafyCrown(species, false);
 }
 function leafyCrown(species: "broadleaf" | "riverside", low: boolean) {
   const oak = species === "broadleaf";
@@ -911,7 +946,102 @@ function leafyCrown(species: "broadleaf" | "riverside", low: boolean) {
   return mergeCrowns(pieces);
 }
 export function treeCrownLowGeometry(
-  species: "pine" | "broadleaf" | "riverside" = "pine",
+  species: TreeSpecies = "pine",
 ) {
-  return species === "pine" ? pineCrown(true) : leafyCrown(species, true);
+  return species === "pine"
+    ? pineCrown(true)
+    : species === "palm"
+      ? palmCrown(true)
+      : leafyCrown(species, true);
+}
+/** One arching, V-folded frond from the crown, as a spine with two leaflet edges. */
+function palmFrond(
+  origin: readonly number[],
+  angle: number,
+  length: number,
+  rise: number,
+  droop: number,
+  width: number,
+  segments: number,
+) {
+  const dx = Math.cos(angle),
+    dz = Math.sin(angle),
+    sx = -dz,
+    sz = dx;
+  const point = (t: number, side: number) => {
+    const r = length * t,
+      // A narrow, non-zero tip keeps every triangle's normal defined.
+      w = width * Math.max(0.12, Math.sin(Math.PI * Math.min(0.95, t * 1.1))) * side,
+      y = origin[1] + length * (rise * t - droop * t * t) - Math.abs(side) * width * 0.35;
+    return [origin[0] + dx * r + sx * w, Math.max(0, y), origin[2] + dz * r + sz * w];
+  };
+  const positions: number[] = [],
+    uvs: number[] = [];
+  for (let k = 0; k < segments; k++) {
+    const t0 = k / segments,
+      t1 = (k + 1) / segments;
+    for (const side of [-1, 1]) {
+      const a = point(t0, 0),
+        b = point(t0, side),
+        c = point(t1, side),
+        d = point(t1, 0);
+      for (const [v, u] of [
+        [a, 0],
+        [b, 1],
+        [c, 1],
+        [a, 0],
+        [c, 1],
+        [d, 0],
+      ] as const) {
+        positions.push(...v);
+        uvs.push(u, t0);
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  g.computeVertexNormals();
+  return g;
+}
+/** Coastal palm: a curved, slender trunk under a drooping rosette of fronds. */
+function palmCrown(low: boolean) {
+  const pieces: THREE.BufferGeometry[] = [];
+  const trunk = (t: number) => [0.2 * t * t, 0.86 * t, 0.02 * Math.sin(t * 3)];
+  const parts = low ? 1 : 4;
+  for (let i = 0; i < parts; i++) {
+    const a = i / parts,
+      b = (i + 1) / parts;
+    pieces.push(
+      barkLimb(trunk(a), trunk(b), 0.05 - a * 0.018, 0.05 - b * 0.018, low ? 4 : 6),
+    );
+  }
+  const top = trunk(1),
+    fronds = low ? 6 : 9;
+  for (let i = 0; i < fronds; i++) {
+    const upper = !low && i % 3 === 0,
+      angle = i * 2.399963 + 0.4,
+      g = palmFrond(
+        top,
+        angle,
+        upper ? 0.42 : 0.56,
+        upper ? 0.62 : 0.34,
+        upper ? 0.95 : 0.8,
+        low ? 0.07 : 0.085,
+        low ? 2 : 5,
+      );
+    pieces.push(shadeCrown(g, 0.94 + (i % 3) * 0.04));
+  }
+  if (!low)
+    // A cluster of coconuts under the fronds, coloured like bark.
+    for (let i = 0; i < 3; i++) {
+      const a = i * 2.1,
+        nut = new THREE.IcosahedronGeometry(0.028, 0);
+      nut.translate(top[0] + Math.cos(a) * 0.035, top[1] - 0.03, top[2] + Math.sin(a) * 0.035);
+      const colors: number[] = [];
+      for (let v = 0; v < nut.attributes.position.count; v++) colors.push(0.5, 0.3, 0.14);
+      nut.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+      pieces.push(nut);
+    }
+  return mergeCrowns(pieces);
 }

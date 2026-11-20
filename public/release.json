@@ -1,6 +1,6 @@
 {
-  "release": "rivers-faster-islands-title-menu-2026-11-18",
-  "worldVersion": 13,
+  "release": "ps8-islands-forests-grass-2026-11-20",
+  "worldVersion": 14,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
   "includes": [
@@ -102,8 +102,14 @@
     "halved-load-time-shader-warmup",
     "see-through-canopy-while-driving",
     "inflatable-truck-floats-on-deep-water",
-    "title-screen-main-menu"
+    "title-screen-main-menu",
+    "ps8-blended-coasts-and-offshore-islands",
+    "coastal-palms-meadows-and-denser-woods",
+    "near-camera-wind-blown-grass",
+    "stand-tinted-self-shaded-tree-crowns",
+    "fire-light-nan-fix-for-distant-trees",
+    "golden-pineapples-without-light-beams"
   ],
-  "generatorVersion": 7,
+  "generatorVersion": 8,
   "mapSizeMeters": 9216
 }

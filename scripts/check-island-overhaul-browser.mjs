@@ -100,9 +100,9 @@ try {
     (await page.evaluate(() => lanternVale.state.snapshot.stats.removed)) > 0,
   );
   await page.locator("#createIsland").click();
-  for (const code of ["PS4-0000002A", "PS5-R-0000002A", "PS6-0000002A"])
+  for (const code of ["PS4-0000002A", "PS5-R-0000002A", "PS6-0000002A", "PS7-0000002A"])
     await rejected(code);
-  await exact("PS7-00000001");
+  await exact("PS8-00000001");
   await page
     .locator("#islandPreview")
     .screenshot({ path: out + "/seed-final-preview.png" });
@@ -223,7 +223,7 @@ try {
     await page.evaluate(() => lanternVale.pause());
   }
   await page.locator("#createIsland").click();
-  await exact("PS7-00000007");
+  await exact("PS8-00000007");
   await page.locator("#keepIsland").click();
   assert(await page.locator("#islandReplacePrompt").isVisible());
   await page.locator("#backToIsland").click();
@@ -274,7 +274,7 @@ try {
   );
   await context.newPage().then(async (touch) => {
     await touch.setViewportSize({ width: 390, height: 844 });
-    await touch.goto(`${base}?island=PS7-00000005#debug`);
+    await touch.goto(`${base}?island=PS8-00000005#debug`);
     await touch.locator("#islandPreview").waitFor({ state: "visible" });
     await touch.waitForFunction(
       () => !document.getElementById("keepIsland").disabled,

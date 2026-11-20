@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Entity } from "../types";
 
-type Species = "pine" | "broadleaf" | "riverside";
+type Species = import("../types").TreeSpecies;
 
 /** Leafless geometry uses the same ground-origin, unit-height space as crowns. */
 export function deadTreeGeometry(species: Species, low = false) {
@@ -15,6 +15,22 @@ export function deadTreeGeometry(species: Species, low = false) {
     geometry.translate(...from.clone().add(to).multiplyScalar(.5).toArray());
     pieces.push(geometry);
   };
+  if (species === "palm") {
+    // A bare curved trunk with a few snapped, hanging frond spines.
+    const trunk = (t: number) => new THREE.Vector3(.2 * t * t, .86 * t, .02 * Math.sin(t * 3));
+    const parts = low ? 2 : 4;
+    for (let i = 0; i < parts; i++)
+      limb(trunk(i / parts), trunk((i + 1) / parts), .05 - i / parts * .018, .05 - (i + 1) / parts * .018, low ? 3 : 5);
+    const top = trunk(1);
+    for (let i = 0; i < (low ? 3 : 6); i++) {
+      const a = i * 2.399963;
+      limb(top, top.clone().add(new THREE.Vector3(Math.cos(a) * .22, -.16, Math.sin(a) * .22)), .014, .004);
+    }
+    const result = mergeGeometries(pieces)!;
+    for (const piece of pieces) piece.dispose();
+    result.name = `dead-palm${low ? "-low" : ""}`;
+    return result;
+  }
   const lean = species === "riverside" ? .12 : species === "broadleaf" ? -.06 : .025;
   const stem = (t: number) => new THREE.Vector3(lean * t * t, t, Math.sin(t * 5) * .025);
   const stemParts = low ? 2 : 4;

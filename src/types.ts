@@ -1,3 +1,4 @@
+export type TreeSpecies = "pine" | "broadleaf" | "riverside" | "palm";
 import type { CivilianPopulation } from "./civilian-morale";
 import type { EconomyView } from "./economy/earnings";
 import type { Wallet } from "./economy/wallet";
@@ -169,7 +170,7 @@ export interface Entity {
   foundation: boolean;
   supports: number[];
   variant: number;
-  treeSpecies?: "pine" | "broadleaf" | "riverside";
+  treeSpecies?: TreeSpecies;
   visual?: {
     anatomyRevision?: number;
     sculptOwner?: number;
@@ -279,6 +280,14 @@ export interface RiverData {
 export interface WorldData {
   portalAnchor?: Vec3;
   shapeFamily?: string;
+  /** PS8: a second coast family mixed into the outline, by weight. */
+  shapeBlend?: { family: string; weight: number } | null;
+  /** PS8: uninhabited offshore islands (centre x/z, radius in metres). */
+  offshoreIslands?: {
+    kind: "hill" | "cay" | "stacks" | "atoll";
+    p: [number, number];
+    extent: number;
+  }[];
   regions?: RegionFields;
   mainland?: MainlandMask;
   flightCorridors?: FlightCorridor[];

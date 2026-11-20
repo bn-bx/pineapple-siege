@@ -27,7 +27,7 @@ try {
     page.setDefaultTimeout(120000);
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(
-      `${base}?island=PS7-${seed.toString(16).padStart(8, "0")}#debug`,
+      `${base}?island=PS8-${seed.toString(16).padStart(8, "0")}#debug`,
     );
     await page.waitForFunction(
       () => !document.getElementById("keepIsland").disabled,

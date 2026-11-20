@@ -1,10 +1,29 @@
 # Island generation
 
-New islands use one seed-driven generator (revision 7 / world 13). There is no style selector or candidate picker. One complete island appears automatically; **New island** generates another and **Start flying** accepts it. Code import is tucked inside **Have an island code?**. Replacing saved progress still requires confirmation.
+New islands use one seed-driven generator (revision 8 / world 14). There is no style selector or candidate picker. One complete island appears automatically; **New island** generates another and **Start flying** accepts it. Code import is tucked inside **Have an island code?**. Replacing saved progress still requires confirmation.
 
 Coastlines vary between long bent islands, branching peninsulas, deep horseshoe bays, irregular mainlands, crescents, and hammerhead coasts, with independent proportions, orientation, secondary bays and headlands. Mountain ranges have broader connected foothills, longer ridges, sharp crests and branching spurs. Terrain is no longer flattened to force low passes or cross-island flight lanes. Ecology and relief vary independently of the silhouette.
 
-Play requires PS7 / world 13. The PS4 / world 10, original PS5 / world 11 and PS6 / world 12 generators remain frozen with their dependencies for validation, tests and tooling only. A saved island from an older generator is replaced automatically on load, without the recovery prompt, and its damage is discarded. Older island codes and links are rejected with a notice. New codes use `PS7-XXXXXXXX`. Complete revision, world, seed and legacy-preset identity still protects damage and realm caches.
+Play requires PS8 / world 14. The PS4 / world 10, original PS5 / world 11, PS6 / world 12 and PS7 / world 13 generators remain frozen with their dependencies for validation, tests and tooling only. A saved island from an older generator is replaced automatically on load, without the recovery prompt, and its damage is discarded. Older island codes and links are rejected with a notice. New codes use `PS8-XXXXXXXX`. Complete revision, world, seed and legacy-preset identity still protects damage and realm caches.
+
+## Coasts, offshore islands and forests (2026-11-20)
+
+Revision 8 widens island shapes, adds offshore islands and reworks vegetation.
+
+- **More coast families.** `twin` (two unequal lobes joined by an isthmus), `fingers` (long peninsulas between fjord-like sounds) and `teardrop` join the six PS7 families.
+- **Blended outlines.** About 70% of islands mix a second family into the outline, at a weight of up to 0.45. Coast-warp strength and scale, and bay count and depth, vary per seed.
+- **Room at sea.** The mainland is a little smaller (scale 1.30–1.40 rather than PS7's fixed 1.41). On about 80% of seeds it sits 350–750 m off-centre, opening a wide stretch of sea on one side.
+- **Retries.** Placement retries fall back step by step to keep every seed playable: from attempt 4 there is no blend, from 8 the centred PS7 size, from 10 the PS7 warp and bays, and from 12 a PS7 family. A layout that fails full-resolution grading (for example a road graded too steeply) continues with the next attempt instead of failing the seed.
+- **Offshore islands.** 3–7 uninhabited islands replace the four corner islets. Hilly isles (300–660 m) are the most common type. They have irregular coasts with headlands and coves, one to three summits joined by saddles, rolling ground and a sandy apron. About 85% of seeds first try for up to two large satellite islands (760–1,180 m, summits up to 230 m). The other types are low sandy cays, clusters of sea stacks, and atolls with shallow lagoons and reef gaps. They are placed only in open ocean, away from the mainland and the map edge, and are listed in `world.offshoreIslands`. Islands grow their own woods as well as palms, but have no settlements, roads or monster spawns.
+- **Coastal palms.** A new `palm` species (19–30 m) grows in belts on gentle ground below 26 m within about 110 m of the sea, including beaches and offshore islands. About one island in five has a climate too cool for palms.
+- **Denser woods with meadows.** Acceptance is higher than PS7, and dense cores get an extra offset candidate. Meadow clearings open only in thinner woods, with occasional broad specimen trees. Grove margins hold slightly younger, shorter trees. Riverside trees thin out gradually between 45 and 115 m from a river.
+- **River beds.** A final pass keeps every river centreline below its own water surface where two rivers run close together.
+
+Presentation changes apply to every revision and never change saves:
+
+- Tree crowns carry baked self-shading (inner leaves darker, sunlit tops warmer), and trees in the same ~150 m stand share a tint. A few broadleaf stands turn early, and high conifers take a cooler cast.
+- Terrain grass varies between lush and sun-dried meadow patches at kilometre and 300 m scales, biased by regional moisture and exposure.
+- `GrassField` (`src/render/grass-field.ts`) draws wind-blown 3D grass clumps on green, undamaged ground near the camera. The radius follows the quality profile (72 m at High/Ultra, none in Recovery). The grass hides above 140 m over the ground and in hell, avoids roads, water, castles and blast-altered ground, and regrows a tile when its terrain chunk is edited. It is never an entity, collider or saved state.
 
 ## Rolling relief (2026-10-25)
 

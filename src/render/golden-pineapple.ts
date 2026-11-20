@@ -3,11 +3,10 @@ import { makePineapple } from "./assets";
 import type { Vec3 } from "../types";
 
 const SIZE = 14;
-const BEAM_HEIGHT = 320;
 
 /**
- * Collectible golden pineapples: a spinning gold fruit with a soft light beam
- * so they can be spotted from a distance. Collected ones are hidden.
+ * Collectible golden pineapples: a spinning gold fruit. Collected ones are
+ * hidden.
  */
 export class GoldenPineapples {
   readonly group = new THREE.Group();
@@ -19,16 +18,6 @@ export class GoldenPineapples {
     metalness: 0.85,
     roughness: 0.25,
   });
-  private beamMaterial = new THREE.MeshBasicMaterial({
-    color: "#ffd95a",
-    transparent: true,
-    opacity: 0.16,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    fog: false,
-  });
-  private beam = new THREE.CylinderGeometry(2.5, 6, BEAM_HEIGHT, 10, 1, true);
 
   constructor() {
     this.group.name = "golden-pineapples";
@@ -46,10 +35,7 @@ export class GoldenPineapples {
             o.castShadow = false;
           }
         });
-        const beam = new THREE.Mesh(this.beam, this.beamMaterial);
-        beam.position.y = BEAM_HEIGHT / 2;
-        beam.renderOrder = 2;
-        item.add(fruit, beam);
+        item.add(fruit);
         this.items.push(item);
         this.group.add(item);
       }

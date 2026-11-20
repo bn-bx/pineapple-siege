@@ -83,11 +83,11 @@ export class IslandHorizon {
           : forest
             ? dead
               ? deadTreeGeometry(
-                  species as "pine" | "broadleaf" | "riverside",
+                  species as import("../types").TreeSpecies,
                   true,
                 )
               : treeCrownLowGeometry(
-                  species as "pine" | "broadleaf" | "riverside",
+                  species as import("../types").TreeSpecies,
                 )
             : key === "roof" || key === "slate"
               ? new THREE.ConeGeometry(Math.SQRT2, 2, 4).rotateY(Math.PI / 4)

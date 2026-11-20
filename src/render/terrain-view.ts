@@ -300,6 +300,38 @@ export class TerrainView {
       ? a + (b - a) * u + (c - a) * v
       : d + (c - d) * (1 - u) + (b - d) * (1 - v);
   }
+  /** Generated (undamaged) ground height; ground cover hides where blasts changed it. */
+  baseHeight(x: number, z: number) {
+    return this.sample(x, z, this.base);
+  }
+  /** Changes whenever a blast edits the 64 m terrain chunk under this point. */
+  editRevisionAt(x: number, z: number) {
+    const cx = clamp(Math.floor(x / CONFIG.chunkSize), 0, CHUNKS - 1),
+      cz = clamp(Math.floor(z / CONFIG.chunkSize), 0, CHUNKS - 1);
+    return this.editRevisions[cz * CHUNKS + cx];
+  }
+  roadDistanceAt(x: number, z: number) {
+    return this.pathDistance(x, z);
+  }
+  insideCastle(x: number, z: number) {
+    return this.castleBounds.some(
+      (b) => x > b.min[0] && x < b.max[0] && z > b.min[1] && z < b.max[1],
+    );
+  }
+  /** Undamaged surface color, matching the streamed terrain tiles. */
+  groundColor(color: THREE.Color, x: number, z: number, slope: number) {
+    terrainSurfaceColor(
+      color,
+      x,
+      z,
+      this.baseHeight(x, z),
+      slope,
+      this.world.regions,
+      true,
+      this.riverBank(x, z),
+    );
+    return color;
+  }
   waterSurface(x: number, z: number) {
     const ix = clamp(Math.round(x / CONFIG.spacing), 0, CONFIG.grid - 1),
       iz = clamp(Math.round(z / CONFIG.spacing), 0, CONFIG.grid - 1),

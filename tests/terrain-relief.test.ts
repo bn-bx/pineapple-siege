@@ -16,10 +16,10 @@ it("preserves PS6 geography while giving new islands distinct identity and rolli
       .update(new Uint8Array((old.baseHeights as Float32Array).buffer))
       .digest("hex"),
   ).toBe("1d43028b89a5499935ba51083a3985d5fd99b85d25f007a59e33548727eb8b09");
-  expect(seedCode(current.request)).toBe("PS7-0000A301");
+  expect(seedCode(current.request)).toBe("PS8-0000A301");
   expect(parseIslandCode(seedCode(current.request))).toEqual(current.request);
   expect(
-    baselineKey({ seed: 41729, generatorVersion: 7, version: 13 }),
+    baselineKey({ seed: 41729, generatorVersion: 8, version: 14 }),
   ).not.toBe(baselineKey({ seed: 41729, generatorVersion: 6, version: 12 }));
 
   // Measure actual lowland slopes before roads and terraces alter the surface.
