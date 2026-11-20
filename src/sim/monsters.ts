@@ -253,6 +253,37 @@ export class Monsters {
     this.spikes.length = 0;
     this.bursts.clear();
   }
+  /** Defeated monsters whose wreckage has been cleaned up. */
+  revivable() {
+    return this.states
+      .slice(0, this.count)
+      .filter((m) => m.defeated && m.cleared).length;
+  }
+  /** Brings back up to `limit` cleaned-up monsters at their spawn points. */
+  revive(limit: number) {
+    let revived = 0;
+    for (const m of this.states.slice(0, this.count)) {
+      if (revived >= limit) break;
+      if (!m.defeated || !m.cleared) continue;
+      Object.assign(m, {
+        p: this.spawn(m.id),
+        health: 5,
+        defeated: false,
+        phase: 0,
+        windup: 0,
+        stagger: 0,
+        cleanupAge: undefined,
+        cleanupScale: undefined,
+        cleared: undefined,
+        fragments: undefined,
+        ragdoll: undefined,
+      });
+      this.cooldowns[m.id] = 1;
+      revived++;
+    }
+    this.navigationRevision++;
+    return revived;
+  }
   active() {
     return this.states.slice(0, this.count).filter((m) => !m.defeated);
   }

@@ -1,4 +1,8 @@
+import { GoldenPineapples } from "./golden-pineapple";
+import { applyCosmetics } from "./cosmetics";
+import type { ItemSlot } from "../economy/pricing";
 import { CrashWreckView } from "./crash-wreck";
+import { TruckWreckView } from "./truck-wreck";
 import { AircraftFireView } from "./aircraft-fire";
 import { clearDeathCamera } from "./death-camera";
 import { terrainGPUTexture } from "./terrain-pages";
@@ -47,6 +51,7 @@ import {
   fractureMaterials,
   makeFlyingPineapple,
   makeJet,
+  makePineapple,
   pineGeometry,
   roofFragmentGeometry,
   roofGeometry,
@@ -150,12 +155,24 @@ export class GameRenderer {
   private smoke = new SmokePuffs();
   private concrete = new ConcretePour();
   private shieldBubble = new ShieldBubble();
+  /** Collectible golden pineapples (pineapple bucks). */
+  readonly goldenPineapples = new GoldenPineapples();
+  /** The Decoy Pineapple gadget, shown while monsters chase it. */
+  private decoy = makePineapple(22);
+  private equipped: Partial<Record<ItemSlot, string>> = {};
+  /** Applies bought paint, flames, blasts, clouds and HUD theme. */
+  setCosmetics(equipped: Partial<Record<ItemSlot, string>>) {
+    this.equipped = { ...equipped };
+    applyCosmetics({ jet: this.jet, truck: this.truck?.group }, this.equipped);
+  }
   private shieldCenter = new THREE.Vector3();
   private chuteTip = new THREE.Vector3();
   private chuteDirection = new THREE.Vector3();
   private truckVelocity = new THREE.Vector3();
   private canopyCutLift = new THREE.Vector3();
   readonly crashWrecks: CrashWreckView;
+  /** A wrecked truck's flying wheels and fire. */
+  readonly truckWreck = new TruckWreckView();
   readonly aircraftFire = new AircraftFireView();
   readonly performance = new PerformanceMonitor(4096);
   warmupStages: Record<string, number> = {};
@@ -466,9 +483,16 @@ export class GameRenderer {
       this.effects.group,
       this.jet,
       this.crashWrecks.group,
+      this.truckWreck.group,
       this.aircraftFire.group,
     );
-    this.scene.add(this.shieldBubble.mesh);
+    this.scene.add(
+      this.shieldBubble.mesh,
+      this.goldenPineapples.group,
+      this.decoy,
+    );
+    this.decoy.visible = false;
+    applyCosmetics({ jet: this.jet, truck: this.truck?.group }, this.equipped);
     if (this.truck)
       this.scene.add(
         this.truck.group,
@@ -938,6 +962,7 @@ export class GameRenderer {
     this.effects.reset();
     this.environment.reset();
     this.crashWrecks.reset();
+    this.truckWreck.reset();
     this.vehicleTransition.reset();
     this.shieldBubble.reset();
     this.smoke.reset();
@@ -996,6 +1021,7 @@ export class GameRenderer {
       lights.add(l.x, l.y, l.z, 0xff7428, l.intensity, l.range, true);
     }
     this.buildingFire?.collectLights(lights, snap.time);
+    this.truckWreck.collectLights(lights);
     for (const drop of snap.fuel ?? []) {
       const l = fuelLight(drop);
       if (l)
@@ -1994,12 +2020,26 @@ export class GameRenderer {
       this.elapsed,
       step,
     );
+    this.goldenPineapples.update(this.elapsed);
+    const decoy = snap.economy?.decoy;
+    this.decoy.visible = !!decoy;
+    if (decoy) {
+      this.decoy.position.set(
+        decoy[0],
+        decoy[1] + 6 + Math.abs(Math.sin(this.elapsed * 5)) * 4,
+        decoy[2],
+      );
+      this.decoy.rotation.y = this.elapsed * 3;
+    }
     this.aircraftFire.update(!!p.falling, position, rotation, snap.time);
     this.burningAircraft = p.falling
       ? this.burningAircraftPosition.copy(position)
       : undefined;
     // Beyond the terrain square a wreck floats at sea level.
     this.crashWrecks.update(p, snap.time, (x, z) =>
+      insideTerrain(x, z) ? this.terrain.sample(x, z) : 0,
+    );
+    this.truckWreck.update(p, truck?.group, snap.time, (x, z) =>
       insideTerrain(x, z) ? this.terrain.sample(x, z) : 0,
     );
     const exhaust = jetExhaustProfile(p.speed, this.elapsed * 42);

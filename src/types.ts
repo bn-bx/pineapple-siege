@@ -1,4 +1,6 @@
 import type { CivilianPopulation } from "./civilian-morale";
+import type { EconomyView } from "./economy/earnings";
+import type { Wallet } from "./economy/wallet";
 export type ProjectileWeapon = "cannon" | "nuke";
 export type WeaponId = ProjectileWeapon | "laser" | "gravityBomb";
 export interface GravityBombState {
@@ -368,6 +370,10 @@ export interface PlaneState {
   launch?: number;
   /** Seconds left of protection from fire, monsters, flies and lasers. */
   shield?: number;
+  /** Vehicle health, 0..VEHICLE.maxHealth; absent means full. */
+  health?: number;
+  /** Seconds since the vehicle last took damage. */
+  hurtAge?: number;
   /** Truck only: the jet boosters are firing. */
   boosting?: boolean;
   /** Truck only: floating on water. */
@@ -455,6 +461,8 @@ export interface FragmentEffect {
   spread: number;
 }
 export interface SimulationSnapshot {
+  /** Pineapple bucks; absent when the simulation runs without a wallet. */
+  economy?: EconomyView;
   statueReaction?: StatueReaction;
   statueRageNoticeRemaining?: number;
   fires?: FirePatch[];
@@ -592,7 +600,28 @@ export type GameCommand =
       debug?: boolean;
       destruction?: DestructionSettings;
       monsterCount?: number;
+      /** The global pineapple-bucks wallet; omitted means weapons are free. */
+      wallet?: Wallet;
     }
+  | { type: "buyUpgrade"; id: import("./economy/pricing").UpgradeId }
+  | {
+      type: "service";
+      id: import("./economy/pricing").ServiceId;
+      /** Fast travel destination (x, z). */
+      to?: [number, number];
+    }
+  | { type: "buyItem"; id: string }
+  | {
+      type: "equip";
+      slot: import("./economy/pricing").ItemSlot;
+      id?: string;
+    }
+  | { type: "gadget" }
+  | { type: "buyGems"; id: import("./economy/pricing").GemBundleId }
+  | { type: "openCrate" }
+  | { type: "exchangeDust" }
+  | { type: "daily"; day: number }
+  | { type: "revive" }
   | { type: "input"; input: InputState }
   | { type: "pause"; paused: boolean }
   | { type: "weapon"; weapon: WeaponId }
@@ -626,6 +655,12 @@ export interface ContactSound {
   action: "fracture" | "impact" | "settle" | "roll";
 }
 export type WorkerMessage =
+  | { type: "earn"; amount: number; label: string; p?: Vec3 }
+  | { type: "wallet"; wallet: Wallet }
+  | { type: "crate"; result: import("./economy/earnings").CrateResult }
+  | { type: "daily"; count: number; bucks: number; gems: number }
+  /** Golden pineapple positions and the indices already collected. */
+  | { type: "gold"; points: Vec3[]; collected: number[] }
   | { type: "portalEnter"; plane: PlaneState }
   | { type: "statueRage"; p: Vec3 }
   | { type: "settlementEvent"; p: Vec3; kind: "cheer" | "sad" }

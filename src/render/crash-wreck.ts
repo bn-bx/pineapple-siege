@@ -50,6 +50,13 @@ export class CrashWreckView {
       }
       if (!hulk) {
         const mesh = source.clone(true) as THREE.Group;
+        // A wrecked truck's wheels have flown off (TruckWreckView throws
+        // them); the hulk settles on its belly.
+        const wheels: THREE.Object3D[] = [];
+        mesh.traverse((object) => {
+          if (object.name === "wheel") wheels.push(object);
+        });
+        for (const wheel of wheels) wheel.removeFromParent();
         mesh.traverse((object) => {
           if (!(object instanceof THREE.Mesh)) return;
           if (object.name === "flame" || object.name === "flame-core") {

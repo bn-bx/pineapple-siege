@@ -1,3 +1,4 @@
+import { islandKey } from "../economy/wallet";
 import { PerformanceMonitor } from "../performance";
 import { fixedDestruction } from "../destruction-settings";
 import { StepScheduler } from "./step-scheduler";
@@ -143,6 +144,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         true,
       );
       sim.setMonsterCount(m.monsterCount ?? DEFAULT_MONSTER_COUNT);
+      sim.setWallet(m.wallet);
       while (
         sim.supportJobs.length ||
         sim.pendingJobs.length ||
@@ -176,6 +178,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         break;
       case "pause":
         paused = m.paused;
+        if (paused) sim.economy?.flush();
         if (!paused) stepSamples.length = 0;
         scheduler.reset(performance.now());
         if (paused) publish(true);
@@ -196,8 +199,47 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         sim.setMonsterCount(m.value);
         publish();
         break;
+      case "buyUpgrade":
+        sim.buyUpgrade(m.id);
+        publish(paused);
+        break;
+      case "buyItem":
+        sim.buyItem(m.id);
+        publish(paused);
+        break;
+      case "equip":
+        sim.equip(m.slot, m.id);
+        publish(paused);
+        break;
+      case "buyGems":
+        sim.economy?.buyGems(m.id);
+        publish(paused);
+        break;
+      case "openCrate":
+        sim.economy?.openCrate();
+        publish(paused);
+        break;
+      case "exchangeDust":
+        sim.economy?.exchangeDust();
+        publish(paused);
+        break;
+      case "daily":
+        sim.economy?.claimDaily(m.day);
+        publish(paused);
+        break;
+      case "revive":
+        sim.buyRevive();
+        break;
+      case "gadget":
+        if (!paused) sim.useGadget();
+        break;
+      case "service":
+        sim.buyService(m.id, m.to);
+        publish(paused);
+        break;
       case "respawn":
         sim.respawn();
+        sim.applyRevive();
         publish();
         break;
       case "vehicleMode":
@@ -273,6 +315,10 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         retireIslandWork();
         const settings = sim.destruction;
         const count = sim.monsterCount;
+        // The wallet is global: an island reset keeps every pineapple buck.
+        const wallet = sim.economy?.wallet;
+        // Resetting the island also restarts its golden pineapples and contracts.
+        if (wallet) delete wallet.islands[islandKey(world)];
         sim.dispose();
         sim = new Simulation(
           world,
@@ -287,6 +333,7 @@ self.onmessage = async (event: MessageEvent<GameCommand>) => {
         sim.nukeYield = "valley";
         sim.setDestruction(settings);
         sim.setMonsterCount(count);
+        sim.setWallet(wallet);
         paused = true;
         ready();
         send({ type: "resetDone" });

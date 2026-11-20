@@ -3,6 +3,12 @@ import type { Explosion } from "../types";
 import { jetCloudPuffs, type JetCloudPart } from "./jet-cloud";
 export type CloudShape = "pineapple" | "jet";
 const jetColors = { hull: "#d0c6b4", wing: "#9faeb4", engine: "#ed995a" };
+const DEFAULT_CLOUD = { body: "#e1b24c", band: "#8b692e", leaf: "#628654" };
+/** Mushroom-cloud colors over land; a cosmetic can replace them. */
+let cloudTheme = DEFAULT_CLOUD;
+export function setCloudTheme(theme?: typeof DEFAULT_CLOUD) {
+  cloudTheme = theme ?? DEFAULT_CLOUD;
+}
 const dummy = new THREE.Object3D();
 const vertex = `varying vec2 vUv;varying vec3 vColor;void main(){vUv=uv;vColor=instanceColor;vec4 center=modelViewMatrix*instanceMatrix*vec4(0.,0.,0.,1.);center.xy+=position.xy*vec2(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz));gl_Position=projectionMatrix*center;}`;
 const fragment = `uniform float opacity,time,daylight;uniform vec3 cloudLight;varying vec2 vUv;varying vec3 vColor;
@@ -93,7 +99,7 @@ export class NukeCloud {
         const bands =
           Math.sin(angle * 7 + y * 38) * Math.sin(angle * 7 - y * 38) > 0.25;
         color
-          .set(event.water ? "#b9b68e" : bands ? "#8b692e" : "#e1b24c")
+          .set(event.water ? "#b9b68e" : bands ? cloudTheme.band : cloudTheme.body)
           .multiplyScalar(0.85 + rand(i + 4) * 0.3);
         add(
           new THREE.Vector3(
@@ -111,7 +117,7 @@ export class NukeCloud {
             a = (leaf * Math.PI * 2) / 7,
             r = height * 0.25 * t * t;
           color
-            .set(event.water ? "#849d86" : "#628654")
+            .set(event.water ? "#849d86" : cloudTheme.leaf)
             .multiplyScalar(0.75 + rand(leaf * 71 + i) * 0.4);
           add(
             new THREE.Vector3(
@@ -172,10 +178,10 @@ export class NukeCloud {
           this.puffs[i].leaf
             ? event.water
               ? "#849d86"
-              : "#628654"
+              : cloudTheme.leaf
             : event.water
               ? "#b9b68e"
-              : "#e1b24c",
+              : cloudTheme.body,
         );
         this.smoke.setColorAt(i, color.multiplyScalar(0.85 + (i % 13) / 40));
       }

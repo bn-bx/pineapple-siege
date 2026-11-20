@@ -649,6 +649,8 @@ export function makeConcreteTruck(): ConcreteTruck {
   for (const z of AXLES)
     for (const side of [-1, 1]) {
       const steer = new THREE.Group();
+      // Named so a wreck can strip the wheels off a copy of the truck.
+      steer.name = "wheel";
       steer.position.set(side * WHEEL_X, WHEEL_Y, z);
       const spin = new THREE.Group();
       const t = new THREE.Mesh(tyre, tyreMaterial);

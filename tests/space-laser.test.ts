@@ -1,5 +1,5 @@
 import { CHUNKS } from "../src/config";
-import { CONFIG, LASER } from "../src/config";
+import { CONFIG, LASER, VEHICLE } from "../src/config";
 import { beforeAll, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -439,8 +439,15 @@ it("the active laser destroys the aircraft once and allows the normal respawn", 
   s.step();
   expect(s.plane.crashed).toBe(0); // Charging is harmless.
   for (let i = 1; i < 240; i++) s.step();
+  // The beam burns health away rather than killing in one touch.
   s.plane.p = [256, 300, 256];
   s.step();
+  expect(s.plane.crashed).toBe(0);
+  expect(s.plane.health!).toBeLessThan(VEHICLE.maxHealth);
+  for (let i = 0; i < 120 && s.plane.crashed === 0; i++) {
+    s.plane.p = [256, 300, 256];
+    s.step();
+  }
   expect(s.plane.crashed).toBe(2);
   for (let i = 0; i < 60; i++) s.step();
   expect(s.plane.crashed).toBe(2);

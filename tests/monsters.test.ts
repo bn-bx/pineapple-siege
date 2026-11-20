@@ -5,7 +5,7 @@ import {
   MONSTER_BODY_RADIUS,
   Monsters,
 } from "../src/sim/monsters";
-import { CONFIG, DEFAULT_MONSTER_COUNT } from "../src/config";
+import { CONFIG, DEFAULT_MONSTER_COUNT, VEHICLE } from "../src/config";
 import { discoActive } from "../src/disco";
 import { Terrain } from "../src/sim/terrain";
 import { Simulation, initializePhysics } from "../src/sim/simulation";
@@ -220,6 +220,7 @@ describe("giant pineapple monsters", () => {
     sim.plane.yaw = 0;
     sim.plane.pitch = 0;
     sim.plane.speed = 120;
+    sim.plane.health = 1;
     sim.step();
     expect(m.health).toBe(0);
     expect(m.defeated).toBe(true);
@@ -255,10 +256,30 @@ describe("giant pineapple monsters", () => {
       p: [...sim.plane.p],
       v: [0, 0, 0],
     });
+    sim.plane.health = 1;
     sim.step();
     expect(sim.plane.crashed).toBeGreaterThan(0);
     expect(m.health).toBe(5);
     expect(m.defeated).toBe(false);
+    sim.dispose();
+  });
+
+  it("a spike at full health costs health instead of the aircraft", () => {
+    const sim = new Simulation(world, base, () => {});
+    sim.setMonsterCount(1);
+    const m = sim.monsters.states[0];
+    m.stagger = 1;
+    sim.plane.p = [m.p[0], m.p[1] + MONSTER_BODY_HEIGHT + 80, m.p[2]];
+    sim.plane.pitch = 0;
+    sim.monsters.spikes.push({
+      id: 0,
+      age: 0,
+      p: [...sim.plane.p],
+      v: [0, 0, 0],
+    });
+    sim.step();
+    expect(sim.plane.crashed).toBe(0);
+    expect(sim.plane.health).toBe(VEHICLE.maxHealth - VEHICLE.monsterSwipe);
     sim.dispose();
   });
 

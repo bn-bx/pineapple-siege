@@ -38,6 +38,8 @@ it.each(["terrain", "structure", "laser", "fire", "enemy", "fly"])(
     try {
       sim.setMonsterCount(0);
       sim.plane.p = [1000, kind === "terrain" ? 11 : 300, 1000];
+      // Hazards wear health down; start on the last sliver so one is fatal.
+      sim.plane.health = 1;
       if (kind === "laser") {
         sim.startLaser([1000, 10, 1000]);
         sim.lasers[0].age = 4;

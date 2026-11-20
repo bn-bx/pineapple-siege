@@ -37,7 +37,13 @@ import * as island_coordinator from "./island-coordinator";
 import * as save_coordinator from "./save-coordinator";
 import * as settings from "./settings";
 import { bindMenu } from "./menu";
+import { loadWallet, storeWallet } from "../economy/wallet";
+import { bindShop, noteSpend, renderWallet, showEarning } from "./wallet-ui";
+import { bindPremium, showCrate, showDaily, today } from "./monetization-ui";
 const menu = bindMenu(() => snapshot?.plane);
+bindShop({ send: (command) => send(command), waypoint: () => menu.waypoint() });
+bindPremium({ send: (command) => send(command), respawn: () => respawn() });
+renderWallet(loadWallet());
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("world"),
@@ -525,6 +531,25 @@ async function handle(message: WorkerMessage) {
     case "contactSound":
       audio.contact(message);
       break;
+    case "wallet":
+      storeWallet(message.wallet);
+      view?.setCosmetics(message.wallet.equipped);
+      renderWallet(message.wallet);
+      break;
+    case "crate":
+      showCrate(message.result);
+      break;
+    case "daily":
+      showDaily(message.count, message.bucks, message.gems);
+      break;
+    case "gold":
+      view.goldenPineapples.set(message.points, message.collected);
+      break;
+    case "earn":
+      showEarning(message.amount, message.label);
+      if (message.amount < 0) noteSpend(message.label, -message.amount);
+      else audio.coin(message.amount);
+      break;
     case "settlementEvent":
       audio.settlement(message.p, message.kind);
       break;
@@ -566,6 +591,7 @@ async function handle(message: WorkerMessage) {
       send({ type: "nukeYield", value: nukeYield });
       send({ type: "holdTime", hold: !!extras.holdTime });
       send({ type: "monsterCount", value: monsterCount });
+      send({ type: "daily", day: today() });
       view.effects.fragments.setLimit(COSMETIC_LIMITS[destruction.cosmetics]);
       enterButton.disabled = false;
       $<HTMLButtonElement>("defaultSettings").disabled = false;

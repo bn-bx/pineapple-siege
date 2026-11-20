@@ -130,8 +130,9 @@ export const TRUCK = Object.freeze({
   draft: 1.2 * TRUCK_SCALE,
   /** Top speed fraction on water without the jet boost. */
   waterSpeed: 0.5,
-  /** Impacts faster than this wreck it rather than bouncing off. */
-  crashSpeed: 52,
+  /** Seconds after the truck is wrecked until its fuel tank explodes. */
+  cookOffDelay: 1.2,
+  cookOffPower: 2.5,
   /** Seconds pinned with the throttle held before the truck hops free. */
   unstickAfter: 1.5,
   hopSpeed: 14,
@@ -155,6 +156,30 @@ export const TRUCK = Object.freeze({
   airBrake: 30,
   /** Roof turret muzzle height above the collision centre. */
   turretHeight: 3.2 * TRUCK_SCALE,
+});
+/**
+ * Vehicle health, shared by the aircraft and the truck. Hazards wear it down
+ * instead of killing outright; it refills after a quiet spell.
+ */
+export const VEHICLE = Object.freeze({
+  maxHealth: 100,
+  /** Seconds after a discrete hit when further discrete hits are ignored. */
+  hitGrace: 0.6,
+  /** Seconds without damage before health starts refilling. */
+  regenDelay: 4,
+  /** Health per second refilled once regenerating. */
+  regenRate: 12,
+  monsterSwipe: 35,
+  /** Ramming a monster's body (the monster is defeated either way). */
+  monsterRam: 25,
+  fly: 20,
+  /** Per second inside a laser beam or nuclear fire. */
+  laserPerSecond: 160,
+  firePerSecond: 70,
+  /** Truck into a structure: harmless below this horizontal speed (m/s)... */
+  ramSafeSpeed: 15,
+  /** ...then this much health per m/s above it. */
+  ramPerSpeed: 1.25,
 });
 /**
  * Where the aircraft may fly. Island generation keeps using VERTICAL_LIMITS;

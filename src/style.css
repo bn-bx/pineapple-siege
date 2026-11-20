@@ -327,6 +327,47 @@ input[type="checkbox"] {
   height: 50%;
   background: #e6c270;
 }
+.telemetry > .health {
+  gap: 7px;
+  padding-bottom: 4px;
+}
+.health-track {
+  width: 120px;
+  height: 6px;
+  background: #dce9df29;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.health-track i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: #8fd18a;
+  transition:
+    width 160ms ease-out,
+    background-color 240ms;
+}
+.health.warn .health-track i {
+  background: #e6c270;
+}
+.health.low .health-track i {
+  background: #ef6a4c;
+  animation: health-pulse 0.7s ease-in-out infinite alternate;
+}
+.health.hit .health-track {
+  box-shadow: 0 0 0 1px #ef6a4c, 0 0 10px #ef6a4c99;
+}
+@keyframes health-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+@media (max-width: 600px) {
+  .health-track {
+    width: 80px;
+  }
+}
 .weapon {
   position: fixed;
   right: 32px;
@@ -1951,4 +1992,513 @@ dialog .eyebrow {
     padding: 10px;
     font-size: 13px;
   }
+}
+
+/* Pineapple bucks: HUD wallet, payout feed and the Shop tab. */
+#ammo.broke {
+  color: #ff8a6a;
+}
+.wallet-status {
+  position: fixed;
+  top: 150px;
+  right: 32px;
+  width: 148px;
+  padding: 8px 12px;
+  border: 1px solid #f2b70555;
+  border-radius: 8px;
+  background: #13262fbd;
+  color: #eeeeda;
+  font-size: 11px;
+  pointer-events: none;
+}
+.wallet-status span {
+  display: block;
+  color: #eeeedaad;
+}
+.wallet-status strong {
+  display: block;
+  margin-top: 2px;
+  color: #f6cf5a;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wallet-status em {
+  display: block;
+  margin-top: 4px;
+  color: #ffb347;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.earn-feed {
+  position: fixed;
+  top: 212px;
+  right: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  pointer-events: none;
+}
+.earn-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #13262fa0;
+  color: #eeeeda;
+  font-size: 10px;
+  letter-spacing: 1px;
+  animation: earn-rise 2.4s ease-out forwards;
+}
+.earn-line strong {
+  color: #f6cf5a;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.earn-line.big strong {
+  font-size: 17px;
+}
+@keyframes earn-rise {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  10%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .earn-line {
+    animation: none;
+  }
+}
+@media (max-width: 650px) {
+  .wallet-status {
+    top: 136px;
+    right: 16px;
+    width: 134px;
+    padding: 7px 10px;
+  }
+  .earn-feed {
+    top: 196px;
+    right: 16px;
+  }
+}
+.shop-balance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.shop-balance div {
+  padding: 12px 14px;
+  border: 1px solid var(--menu-line);
+  border-radius: 8px;
+}
+.shop-balance span {
+  display: block;
+  color: var(--menu-muted);
+  font-size: 12px;
+}
+.shop-balance strong {
+  display: block;
+  margin-top: 4px;
+  color: #f6cf5a;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.shop-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px;
+  margin-top: 24px;
+}
+.shop-columns h3 {
+  margin: 0 0 6px;
+  color: var(--menu-ink);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.shop-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.shop-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--menu-line);
+  color: var(--menu-ink);
+  font-size: 14px;
+}
+.shop-list strong {
+  color: #f6cf5a;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 650px) {
+  .shop-balance,
+  .shop-columns {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+.earn-line.spent strong {
+  color: #ff9b7a;
+}
+.shop-status {
+  min-height: 1.4em;
+  margin: 12px 0 0;
+  color: #f6cf5a;
+  font-size: 14px;
+}
+.shop-list li.shop-buy {
+  align-items: center;
+}
+.shop-buy span em {
+  color: var(--menu-muted);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.shop-buy small {
+  display: block;
+  margin-top: 3px;
+  color: var(--menu-muted);
+  font-size: 12px;
+}
+#overlay .shop-buy button {
+  min-height: 0;
+  padding: 7px 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wallet-status {
+  width: 210px;
+}
+.wallet-status small {
+  display: block;
+  margin-top: 4px;
+  color: #f6cf5acc;
+}
+.wallet-contracts {
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid #f2b70533;
+  list-style: none;
+}
+.wallet-contracts li {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 0 4px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.wallet-contracts li span {
+  display: inline;
+  color: #eeeeda;
+}
+.wallet-contracts li strong {
+  display: inline;
+  margin: 0;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.wallet-contracts li i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: #f6cf5a;
+}
+.earn-feed {
+  top: 300px;
+}
+.shop-contracts {
+  margin-top: 24px;
+}
+.shop-contracts h3 {
+  margin: 0 0 6px;
+  color: var(--menu-ink);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@media (max-width: 650px) {
+  .wallet-status {
+    width: 170px;
+  }
+  .wallet-contracts {
+    display: none;
+  }
+  .earn-feed {
+    top: 210px;
+  }
+}
+/* Bought HUD themes tint each HUD panel (not the root, so fixed panels keep their place). */
+body[data-hud-theme="ruby"] #flightHUD > * {
+  filter: hue-rotate(-45deg) saturate(1.4);
+}
+body[data-hud-theme="mint"] #flightHUD > * {
+  filter: hue-rotate(80deg) saturate(1.2);
+}
+body[data-hud-theme="ice"] #flightHUD > * {
+  filter: hue-rotate(160deg) saturate(1.1);
+}
+.shop-items h4 {
+  margin: 18px 0 2px;
+  color: var(--menu-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.shop-gadget {
+  display: block;
+  margin-top: 4px;
+  color: #f6cf5acc;
+}
+#overlay .shop-buy button.equipped {
+  border-color: #f6cf5a;
+  color: #f6cf5a;
+}
+
+/* The Premium Store. Satire: there is no real money anywhere. */
+.shop-inflation {
+  margin: 10px 0 0;
+  color: #ff9b7a;
+  font-size: 12px;
+}
+.shop-premium {
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid #f6cf5a66;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f6cf5a14, #b06bff14);
+}
+.premium-head {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.premium-head h3 {
+  margin: 0;
+  color: #f6cf5a;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+.premium-head strong {
+  color: #a8f0ff;
+  font-size: 20px;
+}
+.premium-head span,
+.shop-streak {
+  color: var(--menu-muted);
+  font-size: 13px;
+}
+.shop-streak {
+  margin: 6px 0 0;
+  color: #ffb347;
+}
+.shop-premium .shop-columns {
+  margin-top: 10px;
+}
+.shop-premium h3 {
+  margin: 0 0 6px;
+  color: var(--menu-ink);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.gem-bundle mark,
+.flash-sale mark {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #ff5fa2;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.shop-buy button s,
+.gem-bundle button s,
+.flash-sale s {
+  margin-right: 4px;
+  opacity: 0.55;
+  font-size: 0.85em;
+}
+.crate-box p {
+  margin: 0 0 10px;
+  color: var(--menu-ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+#overlay .crate-box button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.crate-pity {
+  color: #ffb347 !important;
+}
+.crate-odds {
+  margin-top: 10px !important;
+  color: var(--menu-muted) !important;
+  font-size: 8px !important;
+  line-height: 1.3 !important;
+  opacity: 0.6;
+}
+.premium-modal {
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid #f6cf5a88;
+  border-radius: 14px;
+  background: #10242a;
+  color: #f3efe2;
+  text-align: center;
+}
+.premium-modal::backdrop {
+  background: #000a;
+}
+.premium-modal h2 {
+  margin: 0 0 14px;
+  color: #f6cf5a;
+}
+.premium-modal button {
+  margin: 6px;
+  padding: 10px 18px;
+}
+.crate-reel {
+  position: relative;
+  overflow: hidden;
+  height: 76px;
+  border: 1px solid #ffffff22;
+  border-radius: 8px;
+  background: #0a171b;
+}
+.crate-strip {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  will-change: transform;
+}
+.crate-strip .tile {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  font-size: 28px;
+  font-style: normal;
+}
+.tile.common {
+  background: #3d4a50;
+}
+.tile.rare {
+  background: #2f6fd0;
+}
+.tile.epic {
+  background: #8a3fd6;
+}
+.tile.legendary {
+  background: linear-gradient(135deg, #ffd34a, #ff6ad5, #6ad1ff);
+}
+.crate-pointer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
+}
+.crate-prize {
+  margin: 16px 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.crate-prize[data-rarity="rare"] {
+  color: #6aa8ff;
+}
+.crate-prize[data-rarity="epic"] {
+  color: #c48aff;
+}
+.crate-prize[data-rarity="legendary"] {
+  color: #ffd34a;
+}
+.daily-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.daily-days li {
+  padding: 6px 2px;
+  border: 1px solid #ffffff22;
+  border-radius: 6px;
+  font-size: 10px;
+  white-space: pre-line;
+}
+.daily-days li.done {
+  opacity: 0.45;
+}
+.daily-days li.today {
+  border-color: #f6cf5a;
+  background: #f6cf5a22;
+  color: #f6cf5a;
+}
+.flash-sale {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid #ff5fa2;
+  border-radius: 8px;
+  background: #ff5fa21a;
+}
+.flash-sale[hidden] {
+  display: none;
+}
+.flash-title {
+  color: #ff5fa2;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  animation: flash-pulse 1s ease-in-out infinite;
+}
+@keyframes flash-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-title {
+    animation: none;
+  }
+}
+#deathOverlay .flash-decline {
+  display: block;
+  margin: 6px auto 0;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: #f5dfab88;
+  font-size: 11px;
+  text-decoration: underline;
 }

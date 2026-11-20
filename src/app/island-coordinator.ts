@@ -1,4 +1,5 @@
 import { AltitudeWarning } from "../altitude-warning";
+import { loadWallet } from "../economy/wallet";
 import { GameAudio } from "../audio";
 import { normalizePreferences } from "../preferences";
 import { GameRenderer } from "../render/renderer";
@@ -150,6 +151,7 @@ export function initializeWorld(
       debug: ctx.debug,
       destruction: ctx.destruction,
       monsterCount: ctx.monsterCount,
+      wallet: loadWallet(),
     },
     [terrainBytes],
   );

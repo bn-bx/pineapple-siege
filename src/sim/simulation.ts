@@ -20,6 +20,7 @@ import {
   LASER,
   RAPID_FIRE_INTERVAL,
   TRUCK,
+  VEHICLE,
   WEAPONS,
   WRECKAGE_FADE_SECONDS,
   WRECKAGE_FLIGHT_SECONDS,
@@ -88,6 +89,19 @@ import { StaticBlockerIndex } from "./static-blockers";
 import { Terrain } from "./terrain";
 import { GravityBombs, gravityRadius, gravityVelocity } from "./gravity-bombs";
 import { WeaponDriver } from "./weapon-driver";
+import { Economy } from "../economy/earnings";
+import type { Wallet } from "../economy/wallet";
+import {
+  AIRSTRIKE_BLASTS,
+  CLUSTER_SHELLS,
+  DECOY_SECONDS,
+  REVIVE_BUNDLE,
+  SHIELD_SERVICE_SECONDS,
+  WAVE_SIZE,
+  type ItemSlot,
+  type ServiceId,
+  type UpgradeId,
+} from "../economy/pricing";
 const vec = (p: Vec3) => ({ x: p[0], y: p[1], z: p[2] });
 const identity = { x: 0, y: 0, z: 0, w: 1 };
 // Membership in the upper 16 bits, permitted partners in the lower 16 bits.
@@ -111,6 +125,152 @@ interface Shot {
 }
 export class Simulation {
   readonly gravityBombs: GravityBombs;
+  /** Pineapple bucks; absent means every weapon fires for free. */
+  economy?: Economy;
+  setWallet(wallet: Wallet | undefined) {
+    this.economy = wallet
+      ? new Economy(this.world, this.removed, wallet, this.emit)
+      : undefined;
+    this.economy?.flush();
+    this.economy?.announceGold();
+  }
+  /** A dropped decoy pineapple that monsters chase instead of the player. */
+  decoy?: { p: Vec3; t: number };
+  /** Pending airstrike blasts, each detonating when its timer runs out. */
+  private airstrike: { p: Vec3; t: number }[] = [];
+  /** Uses the equipped gadget if it is ready and affordable. */
+  useGadget() {
+    const p = this.plane;
+    if (!this.economy || p.crashed > 0 || p.falling) return false;
+    const item = this.economy.useGadget();
+    if (!item) return false;
+    const speed = Math.hypot(...p.v);
+    const forward: Vec3 =
+      p.mode === "ground"
+        ? this.aimDirection()
+        : speed > 1
+          ? [p.v[0] / speed, p.v[1] / speed, p.v[2] / speed]
+          : [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
+    if (item.id === "gadget-cluster") {
+      const launch = WEAPONS.cannon.launchSpeed * 0.7 + speed;
+      for (let i = 0; i < CLUSTER_SHELLS; i++) {
+        const spread = (i - (CLUSTER_SHELLS - 1) / 2) * 0.07,
+          c = Math.cos(spread),
+          sn = Math.sin(spread),
+          dir: Vec3 = [
+            forward[0] * c + forward[2] * sn,
+            forward[1] - 0.04 * (i % 2),
+            -forward[0] * sn + forward[2] * c,
+          ];
+        this.projectiles.push({
+          id: this.nextShot++,
+          weapon: "cannon",
+          yield: this.nukeYield,
+          p: p.p.map((v, k) => v + dir[k] * 14) as Vec3,
+          v: dir.map((v) => v * launch) as Vec3,
+          age: 0,
+        });
+      }
+      this.shots++;
+    } else if (item.id === "gadget-airstrike") {
+      const flat = Math.hypot(forward[0], forward[2]) || 1;
+      for (let i = 0; i < AIRSTRIKE_BLASTS; i++) {
+        const d = 150 + i * 40,
+          x = p.p[0] + (forward[0] / flat) * d,
+          z = p.p[2] + (forward[2] / flat) * d;
+        if (x < 0 || z < 0 || x > CONFIG.worldSize || z > CONFIG.worldSize)
+          break;
+        this.airstrike.push({ p: [x, 0, z], t: 0.6 + i * 0.12 });
+      }
+    } else if (item.id === "gadget-decoy") {
+      const x = clamp(p.p[0], 0, CONFIG.worldSize),
+        z = clamp(p.p[2], 0, CONFIG.worldSize);
+      this.decoy = {
+        p: [x, this.terrain.sample(x, z) + 2, z],
+        t: DECOY_SECONDS,
+      };
+    }
+    this.bump();
+    return true;
+  }
+  private stepGadgets(dt: number) {
+    if (this.decoy && (this.decoy.t -= dt) <= 0) this.decoy = undefined;
+    for (let i = this.airstrike.length - 1; i >= 0; i--) {
+      const a = this.airstrike[i];
+      if ((a.t -= dt) > 0) continue;
+      this.airstrike.splice(i, 1);
+      this.explode(
+        [a.p[0], this.terrain.sample(a.p[0], a.p[2]) + 1, a.p[2]],
+        1.8,
+      );
+    }
+  }
+  /** An owned upgrade's stat multiplier; 1 without a wallet. */
+  upgrade(id: UpgradeId) {
+    return this.economy?.bonus(id) ?? 1;
+  }
+  buyUpgrade(id: UpgradeId) {
+    return this.economy?.buyUpgrade(id) ?? false;
+  }
+  /** Shield seconds granted at the next respawn by a paid revive bundle. */
+  private reviveShield = 0;
+  /** Pays for the death-screen revive bundle; only while wrecked. */
+  buyRevive() {
+    if (!this.economy || this.plane.crashed <= 0 || this.reviveShield) return false;
+    if (!this.economy.payRevive()) return false;
+    this.reviveShield = REVIVE_BUNDLE.shield;
+    return true;
+  }
+  /** Applies a paid revive's shield after the respawn it bought. */
+  applyRevive() {
+    if (!this.reviveShield || this.plane.crashed > 0) return;
+    this.plane.shield = Math.max(this.plane.shield ?? 0, this.reviveShield);
+    this.reviveShield = 0;
+  }
+  buyItem(id: string) {
+    return this.economy?.buyItem(id) ?? false;
+  }
+  equip(slot: ItemSlot, id?: string) {
+    return this.economy?.equip(slot, id) ?? false;
+  }
+  /** Charges for and applies a service; nothing is charged if it can't apply. */
+  buyService(id: ServiceId, to?: [number, number]) {
+    if (!this.economy) return false;
+    const p = this.plane;
+    const alive = p.crashed <= 0 && !p.falling;
+    const travel =
+      to &&
+      to.every(Number.isFinite) &&
+      this.world.realm !== "hell" &&
+      p.mode !== "ground";
+    const ready =
+      id === "repair"
+        ? alive && (p.health ?? VEHICLE.maxHealth) < VEHICLE.maxHealth
+        : id === "shield"
+          ? alive
+          : id === "travel"
+            ? alive && !!travel
+            : this.monsters.revivable() > 0;
+    if (!ready || !this.economy.payService(id)) return false;
+    if (id === "repair") {
+      p.health = VEHICLE.maxHealth;
+      p.hurtAge = 0;
+    } else if (id === "shield")
+      p.shield = Math.max(p.shield ?? 0, SHIELD_SERVICE_SECONDS);
+    else if (id === "travel") {
+      const x = clamp(to![0], 200, CONFIG.worldSize - 200),
+        z = clamp(to![1], 200, CONFIG.worldSize - 200);
+      p.p = [x, Math.max(this.terrain.sample(x, z), 0) + 300, z];
+      p.v = [Math.sin(p.yaw) * p.speed, 0, Math.cos(p.yaw) * p.speed];
+      p.pitch = 0;
+      this.portalGrace = 2;
+    } else {
+      this.monsters.revive(WAVE_SIZE);
+      this.civilians.rebaseline(this.monsters.active());
+    }
+    this.bump();
+    return true;
+  }
   private maxEntityExtent = 0;
   private weaponDriver?: WeaponDriver;
   private destructionDriver?: DestructionDriver;
@@ -136,6 +296,9 @@ export class Simulation {
         sim.cooldowns = value;
       },
       dropGravityBomb: (plane) => sim.gravityBombs.drop(plane),
+      canAfford: (weapon) => sim.economy?.canAfford(weapon) ?? true,
+      upgrade: (id) => sim.upgrade(id),
+      charge: (weapon) => sim.economy?.charge(weapon),
       groundLaunch: (weapon) => sim.groundLaunch(weapon),
       laserAim: (...args) => sim.laserAim(...args),
       startLaser: (...args) => sim.startLaser(...args),
@@ -225,7 +388,8 @@ export class Simulation {
   private clearingOldRubble = false;
   readonly entityColliders = new Map<number, RAPIER.Collider>();
   /** Handles of intact-structure colliders, for structure-only sweeps. */
-  private entityColliderHandles = new Set<number>();
+  /** Collider handle -> entity id, for every intact entity collider. */
+  private entityColliderHandles = new Map<number, number>();
   private ruinColliders = new Map<number, RAPIER.Collider>();
   private terrainColliders = new Map<number, RAPIER.Collider>();
   private pendingTerrainColliders = new Set<number>();
@@ -443,6 +607,10 @@ export class Simulation {
   private driveRubbleAt?: Vec3;
   /** World point under the truck's crosshair, from the camera ray. */
   private groundTarget?: Vec3;
+  /** Seconds before another discrete hit can damage the vehicle. */
+  private hitGrace = 0;
+  /** A wrecked truck's fuel tank, cooking off after a short delay. */
+  private truckCookOff?: { p: Vec3; t: number };
   private throttle =
     (62 - CONFIG.minSpeed) / (CONFIG.maxSpeed - CONFIG.minSpeed);
   private changedRemoved: number[] = [];
@@ -620,7 +788,7 @@ export class Simulation {
       .setCollisionGroups(WORLD_COLLISIONS);
     const c = this.physics.createCollider(d);
     this.entityColliders.set(e.id, c);
-    this.entityColliderHandles.add(c.handle);
+    this.entityColliderHandles.set(c.handle, e.id);
   }
   private debrisCollider(
     s: Vec3,
@@ -853,10 +1021,12 @@ export class Simulation {
     this.bump();
     const site = this.world.sites.find((s) => s.kind === "pineapple-god");
     if (site) this.emit({ type: "statueRage", p: [...site.p] });
+    this.economy?.statueEnraged(site ? [...site.p] : undefined);
   }
   private removeEntity(e: Entity) {
     if (this.removed.has(e.id)) return;
     const role = statueRole(e, this.world);
+    this.economy?.entityRemoved(e, role);
     if (role === "figure" || role === "eye") this.enrageStatue();
     this.monsters.navigationRevision++;
     this.removed.add(e.id);
@@ -1833,16 +2003,22 @@ export class Simulation {
   /**
    * Swept collision against the world. The ground vehicle narrows it:
    * `structuresOnly` ignores terrain, water, rubble and loose debris, and
-   * `penetrate: false` lets a sweep that starts touching something move away.
+   * `penetrate: false` lets a sweep that starts touching something move away,
+   * and `ignoreTrees` passes through trees (the truck fells them instead).
    */
   private sweep(
     a: Vec3,
     b: Vec3,
     radius = 0,
     halfLength = radius,
-    options: { structuresOnly?: boolean; penetrate?: boolean } = {},
+    options: {
+      structuresOnly?: boolean;
+      penetrate?: boolean;
+      ignoreTrees?: boolean;
+    } = {},
   ): Vec3 | null {
     const structuresOnly = !!options.structuresOnly,
+      ignoreTrees = !!options.ignoreTrees,
       stopAtPenetration = options.penetrate ?? true;
     const delta: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
       len = Math.hypot(...delta);
@@ -1874,7 +2050,13 @@ export class Simulation {
             undefined,
             undefined,
             structuresOnly
-              ? (c: RAPIER.Collider) => this.entityColliderHandles.has(c.handle)
+              ? (c: RAPIER.Collider) => {
+                  const id = this.entityColliderHandles.get(c.handle);
+                  return (
+                    id !== undefined &&
+                    !(ignoreTrees && this.world.entities[id].kind === "tree")
+                  );
+                }
               : undefined,
           )
         : null;
@@ -1910,6 +2092,7 @@ export class Simulation {
       for (const id of this.nearbyEntities(middle, len / 2 + envelope)) {
         if (this.removed.has(id)) continue;
         const e = this.world.entities[id];
+        if (ignoreTrees && e.kind === "tree") continue;
         if (
           loX > e.p[0] + e.s[0] ||
           hiX < e.p[0] - e.s[0] ||
@@ -2024,6 +2207,9 @@ export class Simulation {
   respawn() {
     this.flies.protect();
     this.plane.shield = 0;
+    this.plane.health = VEHICLE.maxHealth;
+    this.plane.hurtAge = 0;
+    this.hitGrace = 0;
     this.dropTarget = undefined;
     if (this.plane.mode === "ground" && this.world.realm !== "hell") {
       // A truck respawning on the ground gets a moment to drive clear.
@@ -2131,8 +2317,12 @@ export class Simulation {
     p.speed = lerp(
       p.speed,
       this.input.boost
-        ? CONFIG.boostSpeed
-        : lerp(CONFIG.minSpeed, CONFIG.maxSpeed, this.throttle),
+        ? CONFIG.boostSpeed * this.upgrade("afterburner")
+        : lerp(
+            CONFIG.minSpeed,
+            CONFIG.maxSpeed * this.upgrade("engine"),
+            this.throttle,
+          ),
       1 - Math.exp(-dt * 2),
     );
     let turn = clamp(this.input.x + this.input.bank * 0.8, -1, 1),
@@ -2303,6 +2493,7 @@ export class Simulation {
     laserColumn = false,
   ) {
     for (const f of this.flies.damage(p, radius, amount, laserColumn)) {
+      if (f.defeated) this.economy?.defeated("fly", [...f.p]);
       this.bump();
       this.emit({
         type: "monsterEvent",
@@ -2315,7 +2506,15 @@ export class Simulation {
     for (const m of laserColumn
       ? this.monsters.burn(p, radius, amount)
       : this.monsters.blast(p, radius, amount)) {
-      if (m.defeated) this.monsterRagdolls.start(m, p);
+      if (m.defeated) {
+        this.monsterRagdolls.start(m, p);
+        this.economy?.defeated(
+          "monster",
+          [...m.p],
+          this.monsters.enraged,
+          this.plane.mode === "ground",
+        );
+      }
       this.bump();
       this.emit({
         type: "monsterEvent",
@@ -2493,6 +2692,26 @@ export class Simulation {
     this.resetDrive();
     return true;
   }
+  /**
+   * Damage the vehicle; at zero health it is wrecked (and true is returned).
+   * Discrete hits such as a swipe or a fly are ignored for a moment after
+   * one lands; continuous damage (fire, lasers) passes `discrete = false`
+   * with a per-step amount.
+   */
+  private hurt(amount: number, at: Vec3, airborne = true, discrete = true) {
+    const p = this.plane;
+    if (p.crashed > 0 || amount <= 0) return false;
+    amount *= Math.max(0.1, 2 - this.upgrade("armor"));
+    if (discrete) {
+      if (this.hitGrace > 0) return false;
+      this.hitGrace = VEHICLE.hitGrace;
+    }
+    p.health = Math.max(0, (p.health ?? VEHICLE.maxHealth) - amount);
+    p.hurtAge = 0;
+    if (p.health > 0) return false;
+    this.crash(at, airborne);
+    return true;
+  }
   /** Fire, monster, fly and laser hits are ignored while this is true. */
   private shielded() {
     return (this.plane.shield ?? 0) > 0 || !!this.plane.chute;
@@ -2627,22 +2846,26 @@ export class Simulation {
   /**
    * Knock over every tree the truck's body touches, canopy included, at any
    * speed. The body is three spheres along its length; each tree is its
-   * trunk plus an ellipsoid crown. Returns true if any fell.
+   * trunk plus an ellipsoid crown; the tyres crush any trunk standing taller
+   * than the ground under them. `at` is where the truck is (or is about to
+   * be). Returns true if any fell.
    */
-  private flattenTrees() {
+  private flattenTrees(at: Vec3 = this.plane.p) {
     const p = this.plane;
     const f: Vec3 = [Math.sin(p.yaw), 0, Math.cos(p.yaw)];
     const reach = TRUCK.length / 2 + TRUCK.bodyRadius;
     const body = [-1, 0, 1].map(
       (k) =>
         [
-          p.p[0] + f[0] * k * TRUCK.length * 0.33,
-          p.p[1] + TRUCK.bodyLift,
-          p.p[2] + f[2] * k * TRUCK.length * 0.33,
+          at[0] + f[0] * k * TRUCK.length * 0.33,
+          at[1] + TRUCK.bodyLift,
+          at[2] + f[2] * k * TRUCK.length * 0.33,
         ] as Vec3,
     );
+    // Lowest point the tyres reach.
+    const tyres = at[1] - TRUCK.rideHeight - 1;
     let felled = false;
-    for (const id of this.nearbyEntities(p.p, reach + this.maxEntityExtent)) {
+    for (const id of this.nearbyEntities(at, reach + this.maxEntityExtent)) {
       if (this.removed.has(id)) continue;
       const e = this.world.entities[id];
       if (e.kind !== "tree") continue;
@@ -2665,7 +2888,7 @@ export class Simulation {
           gap < R ||
           (Math.hypot(c[0] - e.p[0], c[2] - e.p[2]) < trunk &&
             c[1] > e.p[1] - e.s[1] - R &&
-            c[1] < e.p[1] + e.s[1] + R)
+            tyres < e.p[1] + e.s[1])
         );
       });
       if (!touched) continue;
@@ -2673,7 +2896,7 @@ export class Simulation {
       // Topple it away from the truck, harder the faster it was hit.
       this.staticFragment(
         e,
-        [p.p[0], e.p[1] - e.s[1] * 0.6, p.p[2]],
+        [at[0], e.p[1] - e.s[1] * 0.6, at[2]],
         clamp(Math.hypot(p.v[0], p.v[2]) * 0.7, 10, 30),
       );
       felled = true;
@@ -3080,8 +3303,12 @@ export class Simulation {
       }
     }
     p.wading = this.onWater(next[0], next[2]);
-    // Trees fall at a touch, before they can block the truck.
-    this.flattenTrees();
+    // Trees fall at a touch, where the truck is and where it's going, and
+    // never block it: the crash sweep below passes through them.
+    if (this.flattenTrees() || this.flattenTrees(next)) {
+      vx *= 0.97;
+      vz *= 0.97;
+    }
     // Only intact structures stop the truck; it rolls over rubble and terrain.
     const lift = TRUCK.radius - TRUCK.rideHeight + 1.2;
     const from: Vec3 = [p.p[0], p.p[1] + lift, p.p[2]],
@@ -3089,18 +3316,20 @@ export class Simulation {
     const hit = this.sweep(from, to, TRUCK.radius, TRUCK.radius, {
       structuresOnly: true,
       penetrate: false,
+      ignoreTrees: true,
     });
     if (hit) {
-      // Only driving into something wrecks it; coming down on it doesn't.
-      const impact = Math.hypot(vx, vz);
-      if (this.flattenTrees()) {
-        vx *= 0.85;
-        vz *= 0.85;
-        next[0] = p.p[0];
-        next[2] = p.p[2];
-      } else if (impact > TRUCK.crashSpeed) {
-        p.p = [hit[0], hit[1] - lift, hit[2]];
-        this.crash(p.p, false);
+      // Only driving into something hurts it; coming down on it doesn't.
+      const impact = Math.hypot(vx, vz),
+        at: Vec3 = [hit[0], hit[1] - lift, hit[2]];
+      if (
+        this.hurt(
+          (impact - VEHICLE.ramSafeSpeed) * VEHICLE.ramPerSpeed,
+          at,
+          false,
+        )
+      ) {
+        p.p = at;
         return;
       } else {
         // Bounce off and keep the current position.
@@ -3209,6 +3438,25 @@ export class Simulation {
     this.plane.crashed = CONFIG.respawnDelay;
     this.plane.falling = airborne;
     if (!airborne) this.impact(p);
+    if (this.plane.mode === "ground") {
+      // The truck goes up in flames on the spot, then its tank blows.
+      const ground = this.terrain.sample(p[0], p[2]);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + this.plane.yaw;
+        this.fires.igniteFuel([
+          p[0] + Math.sin(a) * 6,
+          ground,
+          p[2] + Math.cos(a) * 6,
+        ]);
+      }
+      this.truckCookOff = { p: [...p], t: TRUCK.cookOffDelay };
+    }
+  }
+  private stepTruckCookOff(dt: number) {
+    const c = this.truckCookOff;
+    if (!c || (c.t -= dt) > 0) return;
+    this.truckCookOff = undefined;
+    this.explode(c.p, TRUCK.cookOffPower, "fuel");
   }
   private impact(p: Vec3) {
     this.plane.falling = false;
@@ -3259,7 +3507,15 @@ export class Simulation {
             !this.monsters.damage(m, 1)
           )
             continue;
-          if (m.defeated) this.monsterRagdolls.start(m, m.p);
+          if (m.defeated) {
+            this.monsterRagdolls.start(m, m.p);
+            this.economy?.defeated(
+          "monster",
+          [...m.p],
+          this.monsters.enraged,
+          this.plane.mode === "ground",
+        );
+          }
           this.bump();
           this.emit({
             type: "monsterEvent",
@@ -3271,6 +3527,7 @@ export class Simulation {
           (f) => touches(f.p, [21, 12, 21]),
           1,
         )) {
+          if (f.defeated) this.economy?.defeated("fly", [...f.p]);
           this.bump();
           this.emit({
             type: "monsterEvent",
@@ -3414,9 +3671,13 @@ export class Simulation {
       p[2] > CONFIG.worldSize
     )
       return;
+    const profile = laserProfile(this.destruction),
+      lens = this.upgrade("laserSize");
+    profile.radius *= lens;
+    profile.beamRadius *= lens;
     this.lasers.push({
       id: this.nextShot++,
-      profile: laserProfile(this.destruction),
+      profile,
       p: [...p],
       age: 0,
       phase: "charging",
@@ -3730,6 +3991,17 @@ export class Simulation {
     this.portalGrace = Math.max(0, this.portalGrace - dt);
     if (this.plane.shield)
       this.plane.shield = Math.max(0, this.plane.shield - dt);
+    this.hitGrace = Math.max(0, this.hitGrace - dt);
+    this.stepTruckCookOff(dt);
+    if (this.plane.crashed <= 0) {
+      const age = (this.plane.hurtAge ?? Infinity) + dt;
+      this.plane.hurtAge = age;
+      if (age > VEHICLE.regenDelay)
+        this.plane.health = Math.min(
+          VEHICLE.maxHealth,
+          (this.plane.health ?? VEHICLE.maxHealth) + VEHICLE.regenRate * dt,
+        );
+    }
     this.updateCleanup(dt);
     if (!this.holdTime) {
       this.hour += dt / 60;
@@ -3751,15 +4023,18 @@ export class Simulation {
       this.civilians.sweep(previousPlanePosition, this.plane.p, [4, 2, 4]);
     this.stageMS.flight = performance.now() - stepStarted;
     const monstersStarted = performance.now();
-    const struck = this.monsters.step(
-      dt,
-      this.plane.p,
-      this.plane.crashed > 0,
-      this.blockedMonster,
-      discoActive(this.lasers),
-      this.plane.v,
-      wasCrashed ? this.plane.p : previousPlanePosition,
-    );
+    // A decoy pulls every monster toward it; its blows land on the decoy.
+    const decoy = this.decoy?.p;
+    const struck =
+      this.monsters.step(
+        dt,
+        decoy ?? this.plane.p,
+        !decoy && this.plane.crashed > 0,
+        this.blockedMonster,
+        discoActive(this.lasers),
+        decoy ? [0, 0, 0] : this.plane.v,
+        decoy ?? (wasCrashed ? this.plane.p : previousPlanePosition),
+      ) && !decoy;
     this.stageMS.monsters = performance.now() - monstersStarted;
     for (const p of this.monsters.throws)
       this.emit({
@@ -3778,6 +4053,12 @@ export class Simulation {
         const m = bodyHit.monster;
         this.monsters.damage(m, m.health);
         this.monsterRagdolls.start(m, previousPlanePosition);
+        this.economy?.defeated(
+          "monster",
+          [...m.p],
+          this.monsters.enraged,
+          this.plane.mode === "ground",
+        );
         this.bump();
         this.emit({
           type: "monsterEvent",
@@ -3787,7 +4068,11 @@ export class Simulation {
         this.civilians.defeats(before, this.monsters.active());
         this.plane.p = bodyHit.p;
       }
-      this.crash(this.plane.p, !bodyHit);
+      this.hurt(
+        bodyHit ? VEHICLE.monsterRam : VEHICLE.monsterSwipe,
+        this.plane.p,
+        !bodyHit,
+      );
       this.emit({ type: "monsterEvent", p: [...this.plane.p], kind: "swipe" });
     }
     const flyHit = this.flies.step(
@@ -3799,8 +4084,7 @@ export class Simulation {
       (a, b, radius) => this.sweep(a, b, radius),
     );
     if (flyHit && this.plane.crashed <= 0 && !this.shielded()) {
-      this.plane.p = flyHit;
-      this.crash(flyHit);
+      if (this.hurt(VEHICLE.fly, flyHit)) this.plane.p = flyHit;
     }
     if (this.tick % 60 === 0 && this.monsterCount) this.bump();
     const lasersStarted = performance.now();
@@ -3811,14 +4095,17 @@ export class Simulation {
         wasCrashed ? this.plane.p : previousPlanePosition,
         this.plane.p,
       );
-      if (hit) {
+      if (hit && this.hurt(VEHICLE.laserPerSecond * dt, hit, true, false))
         this.plane.p = hit;
-        this.crash(hit);
-      }
     }
     const projectilesStarted = performance.now();
     this.prepareWeapons();
     this.weaponDriver!.update(dt);
+    this.stepGadgets(dt);
+    if (this.economy) {
+      if (this.plane.crashed <= 0) this.economy.collect(this.plane.p);
+      this.economy.step(dt);
+    }
     this.stageMS.projectiles = performance.now() - projectilesStarted;
     const destructionStarted = performance.now();
     const laserMS = this.processLaserWork(1);
@@ -3834,10 +4121,8 @@ export class Simulation {
         wasCrashed ? this.plane.p : previousPlanePosition,
         this.plane.p,
       );
-      if (hit) {
+      if (hit && this.hurt(VEHICLE.firePerSecond * dt, hit, true, false))
         this.plane.p = hit;
-        this.crash(hit);
-      }
     }
     this.stageMS.nuclearFire = performance.now() - fireStarted;
     this.destructionMS += laserMS;
@@ -3940,6 +4225,10 @@ export class Simulation {
       terrainHeightJournalDataBytes += journal.terrain.byteLength;
     return {
       type: "snapshot",
+      economy: this.economy && {
+        ...this.economy.view(),
+        decoy: this.decoy && [...this.decoy.p],
+      },
       statueReaction: { ...this.statueReaction },
       statueRageNoticeRemaining: this.statueRageNoticeRemaining,
       population: civilianPopulation(this.civilians.states),

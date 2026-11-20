@@ -8,9 +8,13 @@ import {
   LASER,
   RAPID_FIRE_INTERVAL,
   TRUCK,
+  VEHICLE,
   WEAPONS,
 } from "../config";
 import { frameStats } from "../frame-stats";
+import { AMMO_COST, comboMultiplier, formatBucks } from "../economy/pricing";
+import type { Contract } from "../economy/contracts";
+import { updateFlashSale } from "./monetization-ui";
 import { GameRenderer } from "../render/renderer";
 import { SessionState } from "../session-state";
 import type { Preferences, SimulationSnapshot, WorldData } from "../types";
@@ -56,6 +60,16 @@ export function updateHUD(ctx: HudContext, now: number): void {
     ctx.$("deathTitle").textContent = driving ? "MIXER WRECKED" : "AIRCRAFT LOST";
     ctx.$("populationPanel").hidden = hell;
     ctx.$("speed").textContent = Math.round(p.speed).toString();
+    const health =
+      p.crashed > 0 ? 0 : Math.round(p.health ?? VEHICLE.maxHealth),
+      fraction = health / VEHICLE.maxHealth,
+      meter = ctx.$("health");
+    ctx.$("healthLabel").textContent = `${driving ? "TRUCK" : "HULL"} ${health}%`;
+    ctx.$("healthFill").style.width = `${fraction * 100}%`;
+    meter.setAttribute("aria-valuenow", String(health));
+    meter.classList.toggle("warn", fraction <= 0.6 && fraction > 0.3);
+    meter.classList.toggle("low", fraction <= 0.3);
+    meter.classList.toggle("hit", (p.hurtAge ?? Infinity) < 0.4);
     // The truck floats, so measure its airtime from the water surface too.
     const ground = ctx.view.terrain.sample(p.p[0], p.p[2]),
       water = ctx.view.terrain.waterSurface(p.p[0], p.p[2]);
@@ -105,13 +119,47 @@ export function updateHUD(ctx: HudContext, now: number): void {
             ? `GRAVITY BOMB · ${GRAVITY_BOMB.radius.toLocaleString("en-US")} M`
             : "PINEAPPLE CANNON";
     const cooldown = snapshot.cooldowns[snapshot.weapon];
+    const economy = snapshot.economy;
+    const cost = economy?.costs[snapshot.weapon] ?? AMMO_COST[snapshot.weapon];
+    const broke = !!economy && economy.balance < cost;
+    ctx.$("wallet").hidden = !economy;
+    if (economy) {
+      ctx.$("walletBalance").textContent = formatBucks(economy.balance);
+      const combo = ctx.$("walletCombo");
+      combo.hidden = economy.combo < 2;
+      combo.textContent = `COMBO ×${comboMultiplier(economy.combo)}`;
+      ctx.$("walletGold").textContent = economy.gold.total
+        ? `Golden pineapples ${economy.gold.collected}/${economy.gold.total}`
+        : "";
+      renderContracts(economy.contracts);
+      const gadget = economy.gadget;
+      ctx.$("walletGadget").textContent = gadget
+        ? `G · ${gadget.name} · ${
+            gadget.cooldown > 0.05
+              ? `${gadget.cooldown.toFixed(1)} s`
+              : economy.balance < gadget.use
+                ? `need ${formatBucks(gadget.use)}`
+                : formatBucks(gadget.use)
+          }`
+        : "";
+    }
+    if (economy)
+      updateFlashSale(
+        p.crashed > 0 && !p.falling,
+        economy.balance,
+        economy.lifetime,
+      );
+    ctx.$("ammo").textContent = !economy ? "∞" : cost ? formatBucks(cost) : "FREE";
+    ctx.$("ammo").classList.toggle("broke", broke);
     const strike =
       snapshot.weapon === "laser"
         ? (snapshot.lasers.find((l) => l.phase === "burning") ??
           snapshot.lasers.find((l) => l.phase === "charging") ??
           snapshot.lasers[0])
         : undefined;
-    ctx.$("weaponStatus").textContent = strike
+    ctx.$("weaponStatus").textContent = broke && !strike
+      ? `NEED ${formatBucks(cost)} · HAVE ${formatBucks(economy!.balance)}`
+      : strike
       ? (strike.phase === "charging"
           ? `CHARGING · ${Math.max(0, LASER.charge - strike.age).toFixed(1)} S`
           : strike.phase === "burning"
@@ -196,4 +244,33 @@ export function updateHUD(ctx: HudContext, now: number): void {
       `${Math.round(1000 / ctx.avgFrame)} FPS · ${r.width} × ${r.height}\n${snapshot.packedBodies?.count ?? snapshot.bodies.length}/${BLAST_DEBRIS_LIMIT} wreckage · ${snapshot.stats.ballistic} flying pieces\n${r.fragments}/${BLAST_COSMETIC_LIMIT} cosmetic chunks\nPhysics ${snapshot.stats.physicsMS.toFixed(1)} ms · ${r.drawCalls} draws\n${Math.round(r.triangles / 1000)}k triangles · revision ${snapshot.stats.revision}\nDestruction ${snapshot.stats.destructionMS.toFixed(1)} ms · ${snapshot.stats.pendingJobs} jobs${ctx.perfSummary}\nQuality ${ctx.view.visualProfile.name} · simulation ${ctx.view.performance.queues.simulationRatio?.toFixed(3) ?? "—"}×\nTextures ${((ctx.view.performance.queues.residentTextureBytes ?? 0) / 1048576).toFixed(1)} MiB · targets ${((ctx.view.performance.queues.renderTargetBytes ?? 0) / 1048576).toFixed(1)} MiB`;
     ctx.lastHUD = now;
   }
+}
+
+let contractsShown = "";
+/** Lists active contracts on the HUD and in the Shop, rebuilding only on change. */
+function renderContracts(contracts: Contract[]) {
+  const key = JSON.stringify(contracts);
+  if (key === contractsShown) return;
+  contractsShown = key;
+  const hud = document.getElementById("walletContracts");
+  const shop = document.getElementById("shopContracts");
+  const line = (c: Contract, detailed: boolean) => {
+    const item = document.createElement("li");
+    const text = document.createElement("span");
+    text.textContent =
+      c.goal > 1 && c.kind !== "combo"
+        ? `${c.text} · ${c.progress}/${c.goal}`
+        : c.text;
+    const reward = document.createElement("strong");
+    reward.textContent = formatBucks(c.reward);
+    item.append(text, reward);
+    if (detailed && c.goal > 1 && c.kind !== "combo") {
+      const bar = document.createElement("i");
+      bar.style.width = `${(100 * c.progress) / c.goal}%`;
+      item.append(bar);
+    }
+    return item;
+  };
+  hud?.replaceChildren(...contracts.map((c) => line(c, true)));
+  shop?.replaceChildren(...contracts.map((c) => line(c, false)));
 }

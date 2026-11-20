@@ -6,6 +6,12 @@ const CRASH = ["#ffe6ad", "#f2a44e", "#ad542c", "#85898a"] as const;
 const IMPACT = ["#c0ad8e", "#a18a68", "#766b5c", "#b7a17f"] as const;
 const NUKE = ["#fff0bd", "#ffc15e", "#e87532", "#98715c"] as const;
 
+/** Optional cosmetic recolor of weapon blasts and nuke particles. */
+let blastTheme: { particles: string[]; flash: string } | undefined;
+export function setBlastTheme(theme?: { particles: string[]; flash: string }) {
+  blastTheme = theme;
+}
+
 export interface ExplosionFlashStyle {
   color: string;
   intensity: number;
@@ -34,7 +40,7 @@ export function explosionFlashStyle(
   if (kind === "collapse")
     return { color: "#d0c5b2", intensity: 0.38, radius: 8 };
   if (kind === "impact") return { color: "#e2c9a0", intensity: 0.4, radius: 7 };
-  return { color: "#ffe198", intensity: 0.7, radius: 12 };
+  return { color: blastTheme?.flash ?? "#ffe198", intensity: 0.7, radius: 12 };
 }
 
 /** Color the shared blast particles by event so rubble, crashes, and hot blasts read differently. */
@@ -44,6 +50,8 @@ export function explosionParticleTint(
   index: number,
 ): string {
   if (water) return WATER[index % WATER.length];
+  if (blastTheme && (kind === "blast" || kind === "nuke"))
+    return blastTheme.particles[index % blastTheme.particles.length];
   if (kind === "blast")
     return index % 5 === 0
       ? "#ffd987"

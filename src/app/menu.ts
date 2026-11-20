@@ -11,6 +11,7 @@ export function bindMenu(plane: () => PlaneState | undefined) {
     { name: "home", tab: "openSettings", panel: "menuSettings" },
     { name: "map", tab: "openMap", panel: "menuMap" },
     { name: "controls", tab: "openControls", panel: "menuControls" },
+    { name: "shop", tab: "openShop", panel: "menuShop" },
   ] as const;
   type View = (typeof entries)[number]["name"];
   let current: View = "home";
@@ -115,6 +116,7 @@ export function bindMenu(plane: () => PlaneState | undefined) {
     };
   }
   element("backFromControls").onclick = () => show("home");
+  element("backFromShop").onclick = () => show("home");
   window.addEventListener(
     "keydown",
     (event) => {
@@ -205,6 +207,10 @@ export function bindMenu(plane: () => PlaneState | undefined) {
   };
   show("home", false);
   return {
+    /** The landmark chosen on the Map tab, for fast travel. */
+    waypoint() {
+      return navigation.waypoint;
+    },
     update() {
       if (!spawn) return;
       const label = element("navigationStatus"),

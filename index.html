@@ -70,6 +70,15 @@
           >
             <span class="tab-index" aria-hidden="true">03</span>Controls
           </button>
+          <button
+            id="openShop"
+            role="tab"
+            aria-controls="menuShop"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span class="tab-index" aria-hidden="true">04</span>Shop
+          </button>
         </nav>
         <footer class="menu-footer">
           <p id="status" role="status">Loading world…</p>
@@ -274,7 +283,8 @@
               ><span><kbd>ESC</kbd> Pause</span><span><kbd>C</kbd> Cinematic</span
               ><span><kbd>P</kbd> Photo</span
               ><span><kbd>V</kbd> Drive / fly</span
-              ><span><kbd>F</kbd> Pour concrete</span>
+              ><span><kbd>F</kbd> Pour concrete</span
+              ><span><kbd>G</kbd> Use gadget</span>
               <span class="touch-help"
                 >Touch: left pad steers · hold Fire, Boost, or throttle +/− · tap a
                 weapon to select it</span
@@ -284,6 +294,96 @@
               Without mouse capture, drag to steer and use Space to fire.
               Double-click to center steering.
             </p>
+          </section>
+          <section
+            id="menuShop"
+            class="menu-view shop-view"
+            hidden
+            role="tabpanel"
+            aria-labelledby="openShop"
+          >
+            <button class="menu-back" id="backFromShop">← Back to menu</button>
+            <h2 id="shopTitle" tabindex="-1">Pineapple Bucks</h2>
+            <div class="shop-balance">
+              <div><span>Balance</span><strong id="shopBalance">₱0</strong></div>
+              <div><span>Lifetime earned</span><strong id="shopLifetime">₱0</strong></div>
+              <div><span>Spent</span><strong id="shopSpent">₱0</strong></div>
+            </div>
+            <p class="help-intro">
+              Your wallet is shared by every island. Wreck things and hunt
+              monsters to earn; big weapons cost bucks per shot. The cannon is
+              always free.
+            </p>
+            <p id="shopInflation" class="shop-inflation"></p>
+            <p id="shopStatus" class="shop-status" role="status"></p>
+            <section class="shop-premium">
+              <div class="premium-head">
+                <h3>✨ Premium Store ✨</h3>
+                <strong id="shopGems">💎 0</strong>
+                <span id="shopDust">0 dust</span>
+              </div>
+              <p id="shopStreak" class="shop-streak"></p>
+              <div class="shop-columns">
+                <section>
+                  <h3>Golden Gems</h3>
+                  <ul id="shopGemBundles" class="shop-list"></ul>
+                </section>
+                <section class="crate-box">
+                  <h3>🍍 Pineapple Crates</h3>
+                  <p>
+                    Every crate could contain the
+                    <strong>LEGENDARY Diamond Pineapple</strong> jet or the
+                    <strong>Rainbow Cloud</strong>, available nowhere else!
+                  </p>
+                  <button id="openCrate" type="button">Open Pineapple Crate</button>
+                  <p id="cratePity" class="crate-pity"></p>
+                  <button id="exchangeDust" type="button" class="secondary">
+                    Dust Exchange
+                  </button>
+                  <p id="crateOdds" class="crate-odds"></p>
+                </section>
+              </div>
+            </section>
+            <div class="shop-columns">
+              <section>
+                <h3>Upgrades</h3>
+                <ul id="shopUpgrades" class="shop-list"></ul>
+              </section>
+              <section>
+                <h3>Services</h3>
+                <ul id="shopServices" class="shop-list"></ul>
+                <p class="help-note">
+                  Fast travel goes to the landmark chosen on the Map tab.
+                  Services that can't apply right now aren't charged.
+                </p>
+              </section>
+            </div>
+            <section class="shop-contracts shop-items">
+              <h3>Cosmetics, gadgets and perks</h3>
+              <p class="help-note">
+                Bought items stay yours on every island. Press
+                <kbd>G</kbd> in flight to use the equipped gadget.
+              </p>
+              <div id="shopItems"></div>
+            </section>
+            <section class="shop-contracts">
+              <h3>Contracts on this island</h3>
+              <ul id="shopContracts" class="shop-list"></ul>
+              <p class="help-note" id="shopGold">
+                Golden pineapples float above landmarks, rivers and waterfalls,
+                marked by a pale light beam. Fly through one to collect it.
+              </p>
+            </section>
+            <div class="shop-columns">
+              <section>
+                <h3>Ammunition</h3>
+                <ul id="shopAmmo" class="shop-list"></ul>
+              </section>
+              <section>
+                <h3>Earning</h3>
+                <ul id="shopEarn" class="shop-list"></ul>
+              </section>
+            </div>
           </section>
           <section
             id="menuMap"
@@ -340,6 +440,18 @@
           ><span id="altitudeLabel">HEIGHT AGL M</span>
         </div>
         <div class="throttle"><span id="throttleFill"></span></div>
+        <div
+          class="health"
+          id="health"
+          role="meter"
+          aria-label="Vehicle health"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="100"
+        >
+          <span id="healthLabel">HULL</span>
+          <div class="health-track"><i id="healthFill"></i></div>
+        </div>
       </div>
       <div class="weapon">
         <span class="weapon-icon">◈</span>
@@ -366,6 +478,14 @@
           <div class="cooldown-bar"><span id="cooldownFill"></span></div>
         </div>
       </div>
+      <aside id="wallet" class="wallet-status" aria-label="Pineapple bucks" hidden>
+        <span>Pineapple bucks</span><strong id="walletBalance">₱0</strong
+        ><em id="walletCombo" hidden>COMBO ×2</em>
+        <small id="walletGold"></small>
+        <small id="walletGadget" class="shop-gadget"></small>
+        <ol id="walletContracts" class="wallet-contracts"></ol>
+      </aside>
+      <div id="earnFeed" class="earn-feed" aria-live="polite"></div>
       <aside
         id="populationPanel"
         class="civilian-status"
@@ -404,6 +524,18 @@
     </aside>
     <section id="deathOverlay" hidden aria-label="Death camera">
       <p class="eyebrow" id="deathTitle">AIRCRAFT LOST</p>
+      <div id="flashSale" class="flash-sale" hidden>
+        <p class="flash-title">⚡ FLASH SALE · ENDS IN <span id="flashTimer">0:59</span> ⚡</p>
+        <p>
+          <strong>Revive Bundle</strong>: respawn with a 30 s shield.
+          <s id="flashWas">₱2,400</s> <strong id="flashPrice">₱1,200</strong>
+          <mark>−50%</mark>
+        </p>
+        <button id="flashBuy" type="button">Buy &amp; revive now</button>
+        <button id="flashDecline" type="button" class="flash-decline">
+          No thanks, I enjoy losing
+        </button>
+      </div>
       <button id="deathRespawn" type="button">Respawn</button>
       <p>Enter / Space / R to respawn</p>
     </section>

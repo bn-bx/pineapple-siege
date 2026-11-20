@@ -338,7 +338,8 @@ export function bind(ctx: InputControllerContext): void {
       e.preventDefault();
       return;
     }
-    if (e.repeat && ["KeyP", "KeyC", "KeyH", "KeyV"].includes(e.code)) return;
+    if (e.repeat && ["KeyP", "KeyC", "KeyH", "KeyV", "KeyG"].includes(e.code))
+      return;
     if (e.code === "KeyP" && (ctx.session.active || ctx.session.photoMode)) {
       e.preventDefault();
       ctx.togglePhoto();
@@ -362,6 +363,11 @@ export function bind(ctx: InputControllerContext): void {
     if (e.code === "KeyV") {
       e.preventDefault();
       ctx.toggleVehicle();
+      return;
+    }
+    if (e.code === "KeyG") {
+      e.preventDefault();
+      ctx.send({ type: "gadget" });
       return;
     }
     if (

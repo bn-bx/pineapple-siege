@@ -350,6 +350,32 @@ export class GameAudio {
     this.pendingStatueRage = false;
     this.monster(this.listenerPosition, "defeat");
   }
+  /** A short two-note chime for pineapple-bucks payouts, brighter when big. */
+  coin(amount: number) {
+    if (!this.ctx || this.ctx.state !== "running" || !this.mix) return;
+    const c = this.ctx,
+      now = c.currentTime,
+      big = amount >= 500;
+    const gain = c.createGain();
+    gain.connect(this.mix);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(big ? 0.07 : 0.035, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + (big ? 0.6 : 0.3));
+    const notes = big ? [988, 1319, 1976] : [1319, 1760];
+    notes.forEach((frequency, i) => {
+      const voice = c.createOscillator();
+      voice.type = "square";
+      voice.frequency.setValueAtTime(frequency, now + i * 0.07);
+      voice.connect(gain);
+      voice.start(now + i * 0.07);
+      voice.stop(now + i * 0.07 + 0.12);
+      if (i === notes.length - 1)
+        voice.onended = () => {
+          voice.disconnect();
+          gain.disconnect();
+        };
+    });
+  }
   settlement(p: Vec3, kind: "cheer" | "sad") {
     if (kind === "cheer" && this.recording("cheer", p, 0.2, 2.5)) return;
     if (!this.ctx || this.ctx.state !== "running") return;
