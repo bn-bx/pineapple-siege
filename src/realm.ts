@@ -306,6 +306,14 @@ export function realmBaseline(
     }
   }
   addPortal(world, site, baseline.heights);
+  // The original hand-built statue framed its stairs with 14 giant boulders.
+  // The textured throne model has no counterpart, so they rendered as bare
+  // lumpy blobs. Retire them like the old portal ring: ids stay reserved for
+  // saves, but they are never drawn and never collide.
+  if (god)
+    for (const e of world.entities)
+      if (e.assembly === god.id && e.visual?.role === "rock")
+        world.portal!.retired!.push(e.id);
   return { world, heights: baseline.heights };
 }
 

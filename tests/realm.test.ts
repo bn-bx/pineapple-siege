@@ -92,9 +92,11 @@ it("places clear, traversable toilets across island seeds", () => {
     const generated = realmBaseline(generateIsland(seed), "surface");
     const site = generated.world.portal!;
     expect(site.y).toBeGreaterThan(15);
-    // The yaw search avoids buildings; only the stone ring's slots and rocks are retired.
+    // The yaw search avoids buildings; only the stone ring's slots, rocks and the
+    // statue's old framing boulders are retired.
     expect(site.retired.filter((id) => generated.world.entities[id].kind === "block" &&
-      generated.world.entities[id].assembly !== "portal-retired")).toEqual([]);
+      generated.world.entities[id].assembly !== "portal-retired" &&
+      generated.world.entities[id].visual?.role !== "rock")).toEqual([]);
   }
 }, 120_000);
 
@@ -267,3 +269,24 @@ it("keeps ordinary surface flight safe at the same altitude", () => {
     expect(sim.plane.crashed).toBe(0);
   } finally { sim.dispose(); }
 });
+
+it("retires the old statue's framing boulders without shifting any ids", () => {
+  const god = world.sites.find((s) => s.kind === "pineapple-god")!;
+  const boulders = world.entities
+    .filter((e) => e.assembly === god.id && e.visual?.role === "rock")
+    .map((e) => e.id);
+  expect(boulders).toHaveLength(14);
+  for (const realm of ["surface", "hell"] as const) {
+    const derived = realmBaseline(baseline, realm).world;
+    // Same ids, same slots: saved damage still lines up with the monument.
+    for (const id of boulders) {
+      expect(derived.entities[id].id).toBe(id);
+      expect(derived.portal!.retired).toContain(id);
+    }
+    const sim = new Simulation(derived, heights, () => {}, undefined, true);
+    for (const id of boulders) expect(sim.removed.has(id)).toBe(true);
+    // Retired boulders are not counted as player damage.
+    expect(sim.snapshot().stats.removed).toBe(0);
+    sim.dispose();
+  }
+}, 120_000);
