@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { christmas } from "../christmas";
 
 /** What the grass needs from the terrain; TerrainView satisfies it. */
 export interface GrassGround {
@@ -111,6 +112,8 @@ export class GrassField {
   ) {
     const span = 2 * Math.ceil((maxRadius + GRASS_TILE) / GRASS_TILE) + 1;
     this.capacityTiles = span * span;
+    // Christmas frost whitens the blades, most at the tips.
+    const frost = christmas();
     this.material = new THREE.MeshStandardMaterial({
       roughness: 1,
       metalness: 0,
@@ -156,10 +159,12 @@ ${shader.fragmentShader}`.replace(
 // Shaded roots, sunlit straw-tinted tips.
 diffuseColor.rgb *= mix(0.5, 1.12, vBladeY);
 diffuseColor.rgb += vec3(0.05, 0.045, 0.0) * smoothstep(0.55, 1.0, vBladeY);
+${frost ? "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.98), 0.35 + 0.55 * smoothstep(0.2, 0.9, vBladeY));" : ""}
 `,
       );
     };
-    this.material.customProgramCacheKey = () => "grass-field-v1";
+    this.material.customProgramCacheKey = () =>
+      frost ? "grass-field-v1-frost" : "grass-field-v1";
     const geometry = grassClumpGeometry();
     this.mesh = new THREE.InstancedMesh(
       geometry,

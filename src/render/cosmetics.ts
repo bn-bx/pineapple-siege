@@ -2,6 +2,15 @@ import * as THREE from "three";
 import type { ItemSlot } from "../economy/pricing";
 import { setBlastTheme } from "./explosion-palette";
 import { setCloudTheme } from "./nuke-cloud";
+import { christmas, XMAS } from "../christmas";
+
+/** Christmas defaults when no bought cosmetic fills the slot. */
+const CHRISTMAS_BLAST = {
+  particles: ["#ffffff", "#e8f3ff", XMAS.red, XMAS.green, XMAS.gold, "#cfe3f5"],
+  flash: "#fff2d8",
+};
+/** The mushroom cloud grows into a Christmas tree: green, gold garland, star leaves. */
+const CHRISTMAS_CLOUD = { body: "#2f8a4a", band: "#d8b13a", leaf: "#fff1a8" };
 
 /** How each bought cosmetic looks; ids match the shop catalog. */
 const JET_PAINT: Record<string, { color: string; metalness?: number; roughness?: number }> = {
@@ -78,11 +87,16 @@ export function applyCosmetics(
   equipped: Partial<Record<ItemSlot, string>>,
 ) {
   paint(targets.jet, "#d4e0d9", JET_PAINT[equipped.jetPaint ?? ""]);
-  const truck = TRUCK_PAINT[equipped.truckPaint ?? ""];
+  const truck =
+    TRUCK_PAINT[equipped.truckPaint ?? ""] ?? (christmas() ? XMAS.red : undefined);
   paint(targets.truck, "#f2b705", truck ? { color: truck } : undefined);
   flame(targets.jet, FLAME[equipped.trail ?? ""]);
-  setBlastTheme(BLAST_THEMES[equipped.blast ?? ""]);
-  setCloudTheme(CLOUD_THEMES[equipped.cloud ?? ""]);
+  setBlastTheme(
+    BLAST_THEMES[equipped.blast ?? ""] ?? (christmas() ? CHRISTMAS_BLAST : undefined),
+  );
+  setCloudTheme(
+    CLOUD_THEMES[equipped.cloud ?? ""] ?? (christmas() ? CHRISTMAS_CLOUD : undefined),
+  );
   if (typeof document !== "undefined")
     document.body.dataset.hudTheme = equipped.hud?.replace("hud-", "") ?? "";
 }

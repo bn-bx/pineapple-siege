@@ -29,9 +29,22 @@ A failed build leaves the last successful production deployment live. Fix the bu
 
 ## Current release
 
-`pineapple-god-without-framing-boulders-2026-11-20` removes the 14 giant boulders around the Pineapple God. The original hand-built statue used them to frame its stair approach. The textured throne model has no counterpart, so they rendered as bare lumpy blobs up to 370 m across. They are now retired when an island loads, the same way the toilet retires the old portal ring. They are never drawn and never collide, and every entity id stays the same, so existing saves and their damage are unaffected. This covers all islands in both realms, with no regeneration. World generation and save compatibility are unchanged. Release validation: TypeScript and the production build passed. The realm, toilet, pineapple-god, approved-god and statue-reaction suites passed (38 tests), including a new test that the boulders are retired in both realms with unchanged ids and are not counted as player damage.
+`christmas-look-2026-11-24` adds a Christmas look, on by default. Settings → World → Christmas offers On, On with Santa's sleigh (in place of the jet), or Off; changing it reloads the page.
 
-Previous release: `ps8-islands-forests-grass-2026-11-20` introduces island generator PS8 / world 14, with more varied coasts, offshore islands, coastal palms and denser woods. It also adds 3D grass near the camera, richer tree shading and a fix for trees flashing black near fires.
+- **World.** Snow lies on upward-facing ground, roofs, tree crowns and rocks, near and distant alike, leaving craters, beaches and roads bare. Fires melt it locally, and a nuke melts a wide patch that snows back over after about 100 s. Snow falls around the camera, the sun stays low, rivers run slow and icy, lakes freeze, ice floes drift offshore, and an aurora shows at night.
+- **Decorations.** Roof eaves carry coloured lights at night that chase during the space-laser show. The largest town has a lit tree with carolers, villages have snowmen, the toilet portal has a wreath and bow, the Pineapple God wears a Santa hat beside a giant candy cane, and hell has a naughty-list banner. Blasts topple or shatter them until reload.
+- **Characters.** Monsters, flies and villagers wear Santa hats, scarves or antlers; enemy jets in hell turn Krampus black; golden pineapples are gifts; the jet gets candy-cane bands and a Rudolph nose; the truck is gift-wrapped, pours eggnog, parachutes under Santa's sack and trails tinsel. Explosions and the mushroom cloud take Christmas colours unless a bought cosmetic replaces them.
+
+**Compatibility.** Presentation only: the setting lives in its own `localStorage` key, and world generation, saves, island codes and the simulation are unchanged.
+
+**Validation.**
+- TypeScript and the production build passed.
+- The new Christmas suite (7 tests) and the graphics-recovery suite passed. In the full suite the only failures are the two pre-existing PS4/PS5 island-hash tests in `tests/island-overhaul.test.ts`.
+- Headless Chrome (software-rendered) screenshots checked the town by day and night, the Pineapple God, distant snowy trees, sleigh mode and a nuke melt patch. Frame rate was not measured on a GPU.
+
+Previous release: `pineapple-god-without-framing-boulders-2026-11-20` removes the 14 giant boulders around the Pineapple God. The original hand-built statue used them to frame its stair approach. The textured throne model has no counterpart, so they rendered as bare lumpy blobs up to 370 m across. They are now retired when an island loads, the same way the toilet retires the old portal ring. They are never drawn and never collide, and every entity id stays the same, so existing saves and their damage are unaffected. This covers all islands in both realms, with no regeneration. World generation and save compatibility are unchanged. Release validation: TypeScript and the production build passed. The realm, toilet, pineapple-god, approved-god and statue-reaction suites passed (38 tests), including a new test that the boulders are retired in both realms with unchanged ids and are not counted as player damage.
+
+Earlier release: `ps8-islands-forests-grass-2026-11-20` introduces island generator PS8 / world 14, with more varied coasts, offshore islands, coastal palms and denser woods. It also adds 3D grass near the camera, richer tree shading and a fix for trees flashing black near fires.
 
 - **Coasts.** Three coast families join the six from PS7: twin lobes, fingers and teardrop. About 70% of islands blend in a second family. Coast warping, bays and mainland size vary per seed, and on about 80% of seeds the mainland sits off-centre, opening a stretch of sea on one side.
 - **Offshore islands.** 3–7 uninhabited islands replace the four small corner islets: hilly isles of 300–660 m (up to two large ones of 760–1,180 m), sandy cays, sea stacks and atolls. They carry woods and palms but no settlements.

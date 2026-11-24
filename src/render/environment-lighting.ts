@@ -23,6 +23,15 @@ const palette = {
   sunLow: new Color("#ff8326"),
 };
 
+/** Midwinter sun declination: a low arc peaking near 45 degrees. */
+const WINTER_DECLINATION = MathUtils.degToRad(-23);
+const winter = {
+  sun: new Color("#fff6ee"),
+  horizon: new Color("#d3dde3"),
+  zenith: new Color("#6d9cc4"),
+  ground: new Color("#a7b4bf"),
+};
+
 /** Observer latitude: the sun arcs through the southern sky, peaking at 68 deg. */
 export const LATITUDE = MathUtils.degToRad(22);
 /** Game days per lunar cycle; the moon rises about 3 h later each day. */
@@ -85,11 +94,16 @@ export class EnvironmentLighting {
   night = 0;
   sunIntensity = 3;
   ambientIntensity = 1.8;
+  /**
+   * Christmas winter: the sun keeps a low December arc, the light is
+   * cooler and paler, and snow brightens the light bouncing off the ground.
+   */
+  winter = false;
 
   /** `day` counts whole game days; it advances the moon's phase and rise time. */
   update(hour: number, day = 0) {
     const hourAngle = ((hour - 12) / 24) * Math.PI * 2;
-    celestialDirection(hourAngle, 0, this.sunDirection);
+    celestialDirection(hourAngle, this.winter ? WINTER_DECLINATION : 0, this.sunDirection);
     const height = this.sunDirection.y;
     this.daylight = MathUtils.smoothstep(height, -0.18, 0.24);
     this.twilight =
@@ -150,6 +164,14 @@ export class EnvironmentLighting {
           this.moonIllumination *
           MathUtils.smoothstep(moonHeight, 0.005, 0.07);
     this.ambientIntensity = 0.72 + this.daylight * 0.23;
+    if (this.winter) {
+      const day = this.daylight * (1 - this.twilight * 0.7);
+      this.sunColor.lerp(winter.sun, 0.45 * day);
+      this.horizonColor.lerp(winter.horizon, 0.4 * day);
+      this.zenithColor.lerp(winter.zenith, 0.3 * day);
+      this.groundColor.lerp(winter.ground, 0.7);
+      this.ambientIntensity += 0.12;
+    }
   }
 }
 

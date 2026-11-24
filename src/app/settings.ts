@@ -8,6 +8,11 @@ import { COSMETIC_LIMITS, fixedDestruction } from "../destruction-settings";
 import { normalizePreferences } from "../preferences";
 import { GameRenderer } from "../render/renderer";
 import { SaveStore } from "../storage";
+import {
+  christmasMode,
+  setChristmasMode,
+  type ChristmasMode,
+} from "../christmas";
 import type { CRTMode, GameCommand, NukeYield, Preferences } from "../types";
 export interface SettingsContext {
   extras: Preferences;
@@ -119,6 +124,19 @@ export function applyDestruction(ctx: SettingsContext): void {
 }
 
 export function bind(ctx: SettingsContext): void {
+  const christmasSelect = ctx.$<HTMLSelectElement>("christmasMode");
+  christmasSelect.value = christmasMode();
+  christmasSelect.onchange = async () => {
+    // The look is built into the scene, so it applies on reload.
+    setChristmasMode(christmasSelect.value as ChristmasMode);
+    christmasSelect.disabled = true;
+    ctx.$("status").textContent = "Applying the Christmas setting…";
+    try {
+      await ctx.saveNow(true);
+    } finally {
+      location.reload();
+    }
+  };
   ctx.$<HTMLInputElement>("noCooldown").onchange = (e) => {
     ctx.destruction.noCooldown = (e.target as HTMLInputElement).checked;
     ctx.applyDestruction();

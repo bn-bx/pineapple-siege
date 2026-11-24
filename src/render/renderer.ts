@@ -95,6 +95,11 @@ import { FLIGHT_PLAYBACK_DELAY, SnapshotTimeline } from "./snapshot-timeline";
 import { TerrainView } from "./terrain-view";
 import { WorldBatches } from "./world-batches";
 import { GodDebris, type GodPiece } from "./god-debris";
+import { christmas } from "../christmas";
+import { ChristmasView } from "./christmas/christmas-view";
+
+const NUKE_MELT_HOLD = 60,
+  NUKE_MELT_REGROW = 40;
 const dummy = new THREE.Object3D(),
   up = new THREE.Vector3(0, 1, 0),
   down = new THREE.Vector3(0, -1, 0);
@@ -232,6 +237,11 @@ export class GameRenderer {
   private reducedEffects = false;
   private readonly muzzleFlashes = new MuzzleFlashes();
   private windowGlow?: WindowGlow;
+  /** Snow, lights and festive dress, when the Christmas look is on. */
+  private christmas?: ChristmasView;
+  /** Nukes melt a wide patch of snow that slowly closes back in. */
+  private nukeMelts: { p: number[]; radius: number; born: number }[] = [];
+  private snowSprayAt = new THREE.Vector3();
   private burningAircraft?: THREE.Vector3;
   private readonly burningAircraftPosition = new THREE.Vector3();
   private cpuMS = 0;
@@ -454,6 +464,15 @@ export class GameRenderer {
       // Matches the scorched hell toilet.
       this.materials.porcelain.color.set("#5a4b46");
     }
+    if (christmas() && world.realm !== "hell")
+      // Snow settles on scenery: roofs and pine crowns hold it on steep faces.
+      for (const [key, material] of Object.entries(this.materials))
+        if (key === "foliage")
+          // A dusting on the upper boughs; the needles stay green below.
+          Object.assign(material.userData, { snowSlope: 0.38, snowMax: 0.6 });
+        else if (key !== "window")
+          material.userData.snowSlope =
+            key === "roof" || key === "slate" ? 0.22 : 0.55;
     this.fragmentMaterials = fractureMaterials(this.materials);
     this.terrain = new TerrainView(
       world,
@@ -472,6 +491,13 @@ export class GameRenderer {
         material.emissive.set("#3d1710");
         material.emissiveIntensity = 0.22;
       }
+    if (christmas() && world.realm !== "hell")
+      for (const material of [
+        this.terrain.material,
+        this.terrain.transitionMaterial,
+      ])
+        if (material)
+          Object.assign(material.userData, { snowSlope: 0.5, snowEarth: true });
     this.terrain.enableStreamingUploads();
     if (world.realm !== "hell") {
       this.grass = new GrassField(
@@ -502,6 +528,10 @@ export class GameRenderer {
       this.decoy,
     );
     this.decoy.visible = false;
+    if (christmas()) {
+      this.christmas = new ChristmasView(world, this.terrain, this.jet);
+      this.scene.add(this.christmas.group);
+    }
     applyCosmetics({ jet: this.jet, truck: this.truck?.group }, this.equipped);
     if (this.truck)
       this.scene.add(
@@ -534,6 +564,11 @@ export class GameRenderer {
           this.environment.installMaterial(item);
     });
     this.actors = new ActorView(this.scene, world, this.terrain, this.effects);
+    if (this.christmas) {
+      const view = this.christmas;
+      this.actors.civilians.onSnowball = (x, y, z, yaw) =>
+        view.snowball(x, y, z, yaw);
+    }
     // Moving actors receive the cached scenery shadows (flying through a
     // castle's shadow) without the other scenery-only lighting hooks.
     this.scene.traverse((object) => {
@@ -628,6 +663,10 @@ export class GameRenderer {
       this.worldView.approvedGod.load(),
       this.worldView.toilet.load(),
     ]);
+    // The statue stays snow-free: a dusting greys its bronze skin.
+    if (this.environment?.snow)
+      for (const material of this.worldView.toilet.materials)
+        material.userData.snowSlope = 0.5;
     for (const material of [
       ...this.worldView.approvedGod.materials,
       ...this.worldView.toilet.materials,
@@ -965,6 +1004,8 @@ export class GameRenderer {
     if (waterMask) this.terrain.setWaterMask(waterMask);
     this.worldView.restore(removed);
     this.windowGlow?.invalidate();
+    this.christmas?.reset();
+    this.nukeMelts = [];
     this.jetGod?.update(this.removed);
     this.portal?.update(
       0,
@@ -1012,8 +1053,16 @@ export class GameRenderer {
   }
   fragment(e: FragmentEffect) {
     this.effects.fragment(e, this.visualProfile.cosmetics);
+    this.christmas?.fragment(e);
   }
   explosion(e: Explosion) {
+    this.christmas?.explosion(e);
+    if (e.kind === "nuke" && this.environment?.snow)
+      this.nukeMelts.push({
+        p: [...e.p],
+        radius: (e.profile?.damageRadius ?? 180) * 1.4,
+        born: this.elapsed,
+      });
     this.effects.explosion(e, this.visualProfile.cosmetics);
   }
   /** Gathers this frame's explosion, fire and muzzle light and fills the slots. */
@@ -1983,6 +2032,38 @@ export class GameRenderer {
           0.5,
         );
       }
+      // Christmas: tinsel streams from the rocket, snow from the tyres.
+      if (this.christmas && step > 0) {
+        if (rocket > 0.3) {
+          const back = new THREE.Vector3(0, -0.3, -6)
+            .multiplyScalar(TRUCK.scale)
+            .applyQuaternion(rotation);
+          this.christmas.tinsel(
+            position.clone().add(back),
+            back.normalize(),
+          );
+        }
+        if (
+          driving &&
+          alive &&
+          !p.wading &&
+          !p.chute &&
+          p.speed > 6 &&
+          this.world.realm !== "hell" &&
+          this.frame % 2 === 0
+        )
+          for (const side of [-1, 1]) {
+            this.snowSprayAt
+              .set(side * 2.4, -1.6, -3.6)
+              .multiplyScalar(TRUCK.scale)
+              .applyQuaternion(rotation)
+              .add(position);
+            this.christmas.snowSpray(
+              this.snowSprayAt,
+              this.truckVelocity.set(p.v[0], p.v[1], p.v[2]),
+            );
+          }
+      }
       // Bow wave and spray off the tyres while afloat.
       if (driving && p.wading && p.speed > 3 && step > 0 && this.frame % 3 === 0)
         for (const side of [-1, 1]) {
@@ -2353,6 +2434,42 @@ export class GameRenderer {
     );
     if (this.environment.shadowExtent !== previousShadowExtent)
       this.shadowDirty = true;
+    if (this.christmas) {
+      const ground = this.terrain.sample(position.x, position.z);
+      this.christmas.update({
+        dt: active ? dt : 0,
+        elapsed: this.elapsed,
+        time: snap.time,
+        camera: this.camera,
+        night: this.lighting.night,
+        daylight: this.lighting.daylight,
+        show: this.environment.disco.uniforms.discoStrength.value,
+        removed: this.removed,
+        viewportHeight: this.presentation?.size[1] ?? 800,
+        reduced: this.effects.reduced,
+        vehicle:
+          p.crashed <= 0 && position.y - ground < 12 ? position : undefined,
+        speed: p.speed,
+      });
+      // Fires melt the snow around them; a nuke's patch opens with the
+      // fireball, holds for a minute, then the snow creeps back over 40 s.
+      this.nukeMelts = this.nukeMelts.filter(
+        (m) => this.elapsed - m.born < NUKE_MELT_HOLD + NUKE_MELT_REGROW,
+      );
+      // Newest nukes first, so a fresh patch always holds its slot.
+      this.environment.snow?.setMelt(
+        this.nukeMelts
+          .map((m) => {
+            const age = this.elapsed - m.born;
+            const open = Math.min(1, age / 1.5),
+              close = Math.min(1, Math.max(0, (age - NUKE_MELT_HOLD) / NUKE_MELT_REGROW));
+            return { p: m.p, radius: m.radius * open * (1 - close * close * (3 - 2 * close)) };
+          })
+          .reverse(),
+        (snap.fires ?? []).map((f) => ({ p: f.p, radius: f.radius * 2.2 + 6 })),
+        this.camera.position,
+      );
+    }
     this.environment.sunMask.update(
       this.lighting.lightDirection,
       this.elapsed,
@@ -2563,6 +2680,7 @@ export class GameRenderer {
     this.buildingFire?.collectResources(resources);
     this.windowGlow?.points.removeFromParent();
     this.windowGlow?.dispose();
+    this.christmas?.dispose();
     for (const group of this.ruinGroups.values()) resources.collect(group);
     if (this.settledTrunkMaterial)
       resources.materials.add(this.settledTrunkMaterial);

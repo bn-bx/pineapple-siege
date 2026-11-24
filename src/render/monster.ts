@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { MonsterWheelView } from "./monster-wheels";
+import { christmas } from "../christmas";
+import { festiveMaterials, santaHat } from "./christmas/costumes";
 import { mergeGeometries as mergeMonsterGeometry } from "three/addons/utils/BufferGeometryUtils.js";
 import { MONSTER_FRAGMENT_CENTERS } from "../monster-fragments";
 import {
@@ -184,6 +186,7 @@ function build() {
     crown.add(blade);
   }
   g.add(crown);
+  if (christmas()) dressForChristmas(g, crown);
   const roots = new THREE.Mesh(groundingRootGeometry(), limb);
   roots.name = "roots";
   roots.castShadow = true;
@@ -245,6 +248,30 @@ function build() {
   g.add(mouthGroup);
   return g;
 }
+/** A Santa hat perched in the leaf crown and a scarf round the middle. */
+function dressForChristmas(g: THREE.Group, crown: THREE.Group) {
+  const f = festiveMaterials();
+  const hat = santaHat(3.4, 8.5);
+  hat.position.set(0, 7.2, 0);
+  hat.rotation.set(-0.12, 0, 0.18);
+  crown.add(hat);
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(7.9, 1.35, 8, 28), f.green);
+  scarf.position.y = 9.2;
+  scarf.rotation.x = Math.PI / 2;
+  scarf.scale.set(1, 0.9, 1);
+  scarf.castShadow = true;
+  g.add(scarf);
+  for (const [x, y, z, rz] of [
+    [3.2, 5.4, 7.4, 0.12],
+    [4.6, 4.6, 6.8, -0.1],
+  ]) {
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(1.9, 6.5, 0.7), f.red);
+    tail.position.set(x, y, z);
+    tail.rotation.z = rz;
+    tail.castShadow = true;
+    g.add(tail);
+  }
+}
 export function makeMonster() {
   template ??= build();
   return template.clone(true);
@@ -281,6 +308,27 @@ export function makeDistantMonster() {
     const roots = new THREE.Mesh(groundingRootGeometry(), armMat);
     roots.name = "grounding-roots";
     distantTemplate.add(roots);
+    // Parts after the roots (index 4) are plain extras.
+    if (christmas()) {
+      const hat = new THREE.Mesh(
+        new THREE.ConeGeometry(3.8, 9, 8),
+        new THREE.MeshLambertMaterial({ color: "#c8102e" }),
+      );
+      hat.position.y = 38;
+      hat.rotation.z = 0.2;
+      const pom = new THREE.Mesh(
+        new THREE.SphereGeometry(1.4, 6, 4),
+        new THREE.MeshLambertMaterial({ color: "#fbfbf7" }),
+      );
+      pom.position.set(-0.9, 42.5, 0);
+      const scarf = new THREE.Mesh(
+        new THREE.TorusGeometry(7.9, 1.4, 5, 14),
+        new THREE.MeshLambertMaterial({ color: "#1f7a3a" }),
+      );
+      scarf.position.y = 9.2;
+      scarf.rotation.x = Math.PI / 2;
+      distantTemplate.add(hat, pom, scarf);
+    }
   }
   return distantTemplate.clone(true);
 }

@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { christmas, XMAS } from "../christmas";
+import { candyStripeTexture } from "./christmas/costumes";
 
 export const WHEEL_RADIUS = 6; // Local units; monster scale 2 gives a 12 m radius.
 /** Tire and spoked-hub geometry of radius WHEEL_RADIUS, axle along X. */
@@ -27,15 +29,27 @@ export class MonsterWheelView {
   private matrix = new THREE.Matrix4();
   constructor(capacity: number) {
     const { tire, metal } = makeWheelGeometry();
+    // At Christmas: candy-cane tyres on gold hubs.
+    const festive = christmas();
+    const candy = festive ? candyStripeTexture() : undefined;
+    candy?.repeat.set(8, 1);
     this.parts = [
       new THREE.InstancedMesh(
         tire,
-        new THREE.MeshStandardMaterial({ color: "#181a19", roughness: 0.95 }),
+        new THREE.MeshStandardMaterial(
+          festive
+            ? { map: candy, roughness: 0.4 }
+            : { color: "#181a19", roughness: 0.95 },
+        ),
         capacity * 2,
       ),
       new THREE.InstancedMesh(
         metal,
-        new THREE.MeshStandardMaterial({ color: "#d9a13b", roughness: 0.65 }),
+        new THREE.MeshStandardMaterial({
+          color: festive ? XMAS.gold : "#d9a13b",
+          roughness: festive ? 0.3 : 0.65,
+          metalness: festive ? 0.6 : 0,
+        }),
         capacity * 2,
       ),
     ];

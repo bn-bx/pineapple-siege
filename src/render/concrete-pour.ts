@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { christmas } from "../christmas";
 
 const BLOBS = 160;
 const PUDDLES = 256;
@@ -35,7 +36,11 @@ export class ConcretePour {
   constructor() {
     this.blobs = new THREE.InstancedMesh(
       new THREE.IcosahedronGeometry(0.32, 1),
-      new THREE.MeshStandardMaterial({ color: "#8f8d87", roughness: 0.85 }),
+      // Christmas pours eggnog.
+      new THREE.MeshStandardMaterial({
+        color: christmas() ? "#f1dfa4" : "#8f8d87",
+        roughness: christmas() ? 0.35 : 0.85,
+      }),
       BLOBS,
     );
     this.blobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -51,8 +56,8 @@ export class ConcretePour {
     this.puddles = new THREE.InstancedMesh(
       disc,
       new THREE.MeshStandardMaterial({
-        color: "#a19e96",
-        roughness: 0.95,
+        color: christmas() ? "#f3e3b0" : "#a19e96",
+        roughness: christmas() ? 0.3 : 0.95,
         polygonOffset: true,
         polygonOffsetFactor: -2,
         polygonOffsetUnits: -2,

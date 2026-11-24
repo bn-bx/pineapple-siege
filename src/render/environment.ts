@@ -8,6 +8,9 @@ import { StaticShadows } from "./static-shadows";
 import { SkyReflection } from "./sky-reflection";
 import { DynamicLights } from "./dynamic-lights";
 import { CloudLayer } from "./clouds";
+import { christmas } from "../christmas";
+import { SnowCover } from "./christmas/snow-cover";
+import { Aurora } from "./christmas/aurora";
 import { makeOcean } from "./ocean";
 import { CoastlineView } from "./coastline";
 import { oceanHorizon } from "./ocean-horizon";
@@ -69,6 +72,10 @@ export class EnvironmentView {
   readonly rivers: THREE.Group;
   readonly coastline?: CoastlineView;
   readonly abyss?: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+  /** Christmas snow on opted-in materials (not in Hell). */
+  readonly snow?: SnowCover;
+  readonly aurora?: Aurora;
+  private iceTint = new THREE.Color("#a9cfe0");
   constructor(
     private scene: THREE.Scene,
     private terrain: TerrainView,
@@ -77,6 +84,12 @@ export class EnvironmentView {
     shadowSize: number,
   ) {
     this.hell = world.realm === "hell";
+    if (christmas() && !this.hell) {
+      this.snow = new SnowCover();
+      this.lighting.winter = true;
+      this.aurora = new Aurora();
+      this.scene.add(this.aurora.mesh);
+    }
     this.clouds = new CloudLayer(!this.hell, {
       sun: { value: this.lighting.sunDirection },
       horizonColor: { value: this.lighting.horizonColor },
@@ -142,6 +155,8 @@ export class EnvironmentView {
     if (!this.hell) {
       this.coastline = new CoastlineView(this.terrain);
       this.scene.add(this.coastline.group);
+      if (this.snow)
+        (this.coastline.rocks.material as THREE.Material).userData.snowSlope = 0.5;
       this.installMaterial(this.coastline.beach.material);
       this.installMaterial(this.coastline.rocks.material as THREE.MeshStandardMaterial);
       this.aerialFog = new AerialFog(this.lighting.horizonColor);
@@ -231,11 +246,14 @@ export class EnvironmentView {
     const riverMaterial = this.rivers.userData
       .material as THREE.MeshStandardMaterial;
     riverMaterial.color.copy(this.lighting.waterColor);
+    if (this.snow) riverMaterial.color.lerp(this.iceTint, 0.3 * this.lighting.daylight);
+    this.aurora?.update(camera, snap.time, this.sky.material.uniforms.starStrength.value);
     if (this.hell) {
       riverMaterial.emissiveIntensity = 2.1 + Math.sin(snap.time * 2) * 0.35;
       if (this.abyss) this.abyss.material.uniforms.time.value = snap.time;
     }
-    this.rivers.userData.time.value = snap.time;
+    // Rivers run slow and icy in winter.
+    this.rivers.userData.time.value = this.snow ? snap.time * 0.45 : snap.time;
     // Extending the terrain horizon must not extend detailed river residency.
     for (const child of this.rivers.children) {
       const bounds = (child as THREE.Mesh).geometry.boundingSphere!;
@@ -252,6 +270,7 @@ export class EnvironmentView {
     this.staticShadows.install(material);
     this.skyReflection.install(material);
     this.dynamicLights.install(material);
+    this.snow?.install(material);
   }
 
   /** Sizes, leads and texel-snaps the sun's shadow box for this frame. */
@@ -317,6 +336,8 @@ export class EnvironmentView {
     this.sunMask.dispose();
     this.staticShadows.dispose();
     this.clouds.dispose();
+    this.aurora?.mesh.removeFromParent();
+    this.aurora?.dispose();
     this.dynamicLights.halos.points.removeFromParent();
     this.dynamicLights.dispose();
     for (const object of [this.sky, this.water, this.rivers, this.abyss, this.disco.group, this.coastline?.group]) {

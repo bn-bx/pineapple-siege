@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { TRUCK } from "../config";
 import type { PlaneState } from "../types";
+import { christmas, XMAS } from "../christmas";
+import { festiveMaterials } from "./christmas/costumes";
 
 const smooth = (t: number) => {
   const x = Math.min(1, Math.max(0, t));
@@ -101,10 +103,18 @@ function canopyTexture() {
   canvas.width = 512;
   canvas.height = 64;
   const c = canvas.getContext("2d")!;
-  for (let i = 0; i < 12; i++) {
-    c.fillStyle = i % 2 ? "#fbf6ec" : "#f26b1d";
-    c.fillRect((i * 512) / 12, 0, 512 / 12 + 1, 64);
-  }
+  if (christmas()) {
+    // Santa's sack: red velvet with gold stars.
+    c.fillStyle = XMAS.red;
+    c.fillRect(0, 0, 512, 64);
+    c.fillStyle = XMAS.gold;
+    c.font = "bold 30px Georgia, serif";
+    for (let i = 0; i < 8; i++) c.fillText("★", i * 64 + 18, 20 + (i % 2) * 28);
+  } else
+    for (let i = 0; i < 12; i++) {
+      c.fillStyle = i % 2 ? "#fbf6ec" : "#f26b1d";
+      c.fillRect((i * 512) / 12, 0, 512 / 12 + 1, 64);
+    }
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
   return map;
@@ -165,6 +175,16 @@ export class Parachute {
     );
     this.cords.frustumCulled = false;
     this.group.add(this.canopy, this.cords);
+    if (christmas()) {
+      // White fur trim round the mouth and a gold tie at the top.
+      const f = festiveMaterials();
+      const trim = new THREE.Mesh(new THREE.TorusGeometry(rimRadius, 0.55, 8, 32), f.fur);
+      trim.rotation.x = Math.PI / 2;
+      trim.position.y = rimDrop;
+      const tie = new THREE.Mesh(new THREE.SphereGeometry(0.9, 10, 8), f.gold);
+      tie.position.y = 8.3;
+      this.canopy.add(trim, tie);
+    }
     this.group.visible = false;
   }
   /**

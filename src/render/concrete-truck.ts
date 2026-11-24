@@ -3,6 +3,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { TRUCK } from "../config";
 import { bakeMaterialGroups } from "./infernal-jet";
 import { crownLeaf, rindTexture } from "./pineapple-aircraft";
+import { christmas, XMAS } from "../christmas";
+import { bow, festiveMaterials } from "./christmas/costumes";
 
 /**
  * Monster concrete mixer, modelled at base proportions and scaled up by
@@ -63,10 +65,12 @@ function drumTexture() {
   canvas.width = 1024;
   canvas.height = 512;
   const c = canvas.getContext("2d")!;
+  const festive = christmas();
   c.fillStyle = "#f4f1ea";
   c.fillRect(0, 0, 1024, 512);
-  // Diagonal stripes become a spiral once wrapped around the drum.
-  c.fillStyle = "#f07a12";
+  // Diagonal stripes become a spiral once wrapped around the drum: a
+  // candy cane at Christmas.
+  c.fillStyle = festive ? XMAS.red : "#f07a12";
   for (let k = -4; k < 12; k++) {
     const x = k * 128;
     c.beginPath();
@@ -91,10 +95,11 @@ function drumTexture() {
     c.fillStyle = "#1d2a33";
     c.textAlign = "center";
     c.textBaseline = "middle";
+    if (festive) c.fillStyle = XMAS.green;
     c.font = "bold 50px Arial, Helvetica, sans-serif";
-    c.fillText("PINEAPPLE", 0, -26);
+    c.fillText(festive ? "SEASON'S" : "PINEAPPLE", 0, -26);
     c.font = "bold 34px Arial, Helvetica, sans-serif";
-    c.fillText("CONCRETE CO.", 0, 26);
+    c.fillText(festive ? "EGGNOG CO." : "CONCRETE CO.", 0, 26);
     c.restore();
   }
   const map = new THREE.CanvasTexture(canvas);
@@ -522,6 +527,12 @@ export function makeConcreteTruck(): ConcreteTruck {
     }),
   );
   drum.castShadow = drum.receiveShadow = true;
+  if (christmas()) {
+    // A gold bow on top of the drum (it rides with the tilt, not the spin).
+    const ribbon = bow(0.75, festiveMaterials().gold);
+    ribbon.position.set(0, 1.62, -2.4);
+    drumTilt.add(ribbon);
+  }
   // Rolled lip around the rear opening and the mixing fin inside it.
   const lip = add(
     drumSpin,

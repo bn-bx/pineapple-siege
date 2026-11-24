@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { MAX_MONSTER_SPIKES, MONSTER_SCALE } from "../config";
 import type { MonsterSpike } from "../types";
+import { christmas } from "../christmas";
 
 /** Lighting-independent enemy shots: three submissions for the entire volley. */
 export class MonsterProjectileView {
@@ -19,7 +20,8 @@ export class MonsterProjectileView {
     this.body = new THREE.InstancedMesh(
       new THREE.ConeGeometry(0.75, 5, 5),
       new THREE.MeshBasicMaterial({
-        color: "#ff7b17",
+        // Christmas: candy-cane red shells round a white core.
+        color: christmas() ? "#ff2436" : "#ff7b17",
         transparent: true,
         opacity: 0.78,
         depthWrite: false,
@@ -31,13 +33,16 @@ export class MonsterProjectileView {
     );
     this.core = new THREE.InstancedMesh(
       new THREE.ConeGeometry(0.32, 4, 5),
-      new THREE.MeshBasicMaterial({ color: "#fff2b0", toneMapped: false }),
+      new THREE.MeshBasicMaterial({
+        color: christmas() ? "#ffffff" : "#fff2b0",
+        toneMapped: false,
+      }),
       MAX_MONSTER_SPIKES,
     );
     this.tails = new THREE.InstancedMesh(
       new THREE.ConeGeometry(0.9, 1, 6).rotateZ(Math.PI),
       new THREE.MeshBasicMaterial({
-        color: "#ff8f24",
+        color: christmas() ? "#46ff7a" : "#ff8f24",
         transparent: true,
         opacity: 0.55,
         blending: THREE.AdditiveBlending,

@@ -114,6 +114,11 @@ export class IslandHorizon {
         });
       if (eye && !cachedMaterial) this.eyeMaterials.push(material);
       if (!cachedMaterial) {
+        // Distant scenery keeps the same seasonal dressing (e.g. Christmas snow).
+        if (!statue)
+          for (const name of ["snowSlope", "snowMax", "snowEarth"])
+            if (source.userData[name] !== undefined)
+              material.userData[name] = source.userData[name];
         if (forest && !dead) installFoliageMotion(material, foliageTime);
         installSceneryLOD(material, this.camera, this.detail, false);
         sharedMaterials.set(key, material);

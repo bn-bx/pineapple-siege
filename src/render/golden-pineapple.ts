@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { makePineapple } from "./assets";
 import type { Vec3 } from "../types";
+import { christmas } from "../christmas";
+import { festiveMaterials, present } from "./christmas/costumes";
 
 const SIZE = 14;
 
@@ -28,10 +30,10 @@ export class GoldenPineapples {
       this.clear();
       for (let i = 0; i < points.length; i++) {
         const item = new THREE.Group();
-        const fruit = makePineapple(SIZE);
+        const fruit = christmas() ? this.gift(i) : makePineapple(SIZE);
         fruit.traverse((o) => {
           if (o instanceof THREE.Mesh) {
-            o.material = this.gold;
+            if (!christmas()) o.material = this.gold;
             o.castShadow = false;
           }
         });
@@ -43,6 +45,17 @@ export class GoldenPineapples {
     points.forEach((p, i) => this.items[i].position.set(p[0], p[1], p[2]));
     const taken = new Set(collected);
     this.items.forEach((item, i) => (item.visible = !taken.has(i)));
+  }
+
+  /** Christmas: a wrapped present with a gold ribbon, centred like the fruit. */
+  private gift(i: number) {
+    const f = festiveMaterials();
+    const paper = [f.red, f.green, f.deepRed][i % 3];
+    const box = present(9, 8, 9, paper, this.gold);
+    box.position.y = -4;
+    const holder = new THREE.Group();
+    holder.add(box);
+    return holder;
   }
 
   update(elapsed: number) {

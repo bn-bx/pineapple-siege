@@ -2,6 +2,14 @@ import * as THREE from "three";
 import { MAX_MONSTER_COUNT, MONSTER_SCALE } from "../config";
 import type { SimulationSnapshot } from "../types";
 import { bakeMaterialGroups, makeInfernalJet } from "./infernal-jet";
+import { christmas } from "../christmas";
+
+/** Christmas recolours the hunters as Krampus: soot black with red trim. */
+const KRAMPUS: Record<string, string> = {
+  "697783": "#1a1414",
+  c4c9bb: "#9e1b1b",
+  bc8747: "#d4af37",
+};
 
 const pose = new THREE.Object3D();
 const JET_SCALE = 1.7;
@@ -11,6 +19,13 @@ export class JetMonsterView {
   private batches: THREE.InstancedMesh[];
   constructor() {
     this.batches = bakeMaterialGroups(makeInfernalJet()).map(({ geometry, material }) => {
+      if (christmas() && material instanceof THREE.MeshStandardMaterial) {
+        const krampus = KRAMPUS[material.color.getHexString()];
+        if (krampus) {
+          material = material.clone();
+          (material as THREE.MeshStandardMaterial).color.set(krampus);
+        }
+      }
       const mesh = new THREE.InstancedMesh(geometry, material, MAX_MONSTER_COUNT);
       mesh.castShadow = mesh.receiveShadow = true;
       mesh.frustumCulled = false;

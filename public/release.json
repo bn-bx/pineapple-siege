@@ -1,5 +1,5 @@
 {
-  "release": "pineapple-god-without-framing-boulders-2026-11-20",
+  "release": "christmas-look-2026-11-24",
   "worldVersion": 14,
   "saveCompatibilityVersion": 10,
   "preferenceRevision": 5,
@@ -109,7 +109,8 @@
     "stand-tinted-self-shaded-tree-crowns",
     "fire-light-nan-fix-for-distant-trees",
     "golden-pineapples-without-light-beams",
-    "pineapple-god-without-framing-boulders"
+    "pineapple-god-without-framing-boulders",
+    "christmas-look-setting"
   ],
   "generatorVersion": 8,
   "mapSizeMeters": 9216

@@ -3,6 +3,8 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { DEFAULT_RENDER_DISTANCE } from "../config";
 import { discoActive } from "../disco";
 import type { SimulationSnapshot } from "../types";
+import { christmas } from "../christmas";
+import { santaHatGeometries } from "./christmas/costumes";
 
 /** Shared geometry and instanced parts keep the whole population inexpensive. */
 export class CivilianView {
@@ -47,6 +49,14 @@ export class CivilianView {
   private hairColors = [0x433029, 0x5b4034, 0x73583d, 0x624331].map(
     (color) => new THREE.Color(color),
   );
+  /** Christmas: Santa hats and red and green scarves all round. */
+  private festive = christmas();
+  private festiveScarves = [0xc8102e, 0x1f7a3a, 0xf2efe6, 0x9e1b1b].map(
+    (color) => new THREE.Color(color),
+  );
+  private white = new THREE.Color(1, 1, 1);
+  /** Called when a celebrating villager throws a snowball (position, yaw). */
+  onSnowball?: (x: number, y: number, z: number, yaw: number) => void;
   private defeated = new Map<number, number>();
   private observedDead = new Set<number>();
   private reviewDefeated = new Set<number>();
@@ -99,7 +109,13 @@ export class CivilianView {
     };
     const hatMaterial = new THREE.MeshStandardMaterial({ roughness: 0.96 });
     this.hats = [
-      new THREE.InstancedMesh(hatGeometry(true), hatMaterial, count),
+      new THREE.InstancedMesh(
+        this.festive ? santaHatGeometry() : hatGeometry(true),
+        this.festive
+          ? new THREE.MeshStandardMaterial({ roughness: 0.96, vertexColors: true })
+          : hatMaterial,
+        count,
+      ),
       new THREE.InstancedMesh(hatGeometry(false), hatMaterial, count),
     ];
     for (const hat of this.hats) {
@@ -379,7 +395,9 @@ export class CivilianView {
         this.root.scale.set(shrink * 0.5, shrink * 0.5, shrink * 0.7);
       }
       this.root.updateMatrix();
-      const hatStyle = c.id % 4,
+      if (this.festive && cheer && this.onSnowball && Math.random() < 0.012)
+        this.onSnowball(px, py + 2, pz, c.yaw);
+      const hatStyle = this.festive ? 0 : c.id % 4,
         headY = sad ? 3.75 : 4.05,
         headZ = sad ? 0.3 : 0;
       if (hatStyle < 2) {
@@ -393,7 +411,9 @@ export class CivilianView {
         this.hats[hatStyle].setMatrixAt(hatIndex, this.dummy.matrix);
         this.hats[hatStyle].setColorAt(
           hatIndex,
-          palette[(Math.floor(c.id / 4) + c.id) % palette.length],
+          this.festive
+            ? this.white
+            : palette[(Math.floor(c.id / 4) + c.id) % palette.length],
         );
       }
       if (hatStyle >= 2) {
@@ -409,7 +429,7 @@ export class CivilianView {
           this.hairColors[(Math.floor(c.id / 4) + c.id) % this.hairColors.length],
         );
       }
-      if (c.id % 3 === 0) {
+      if (this.festive || c.id % 3 === 0) {
         const scarfIndex = scarfCount++;
         // Float the shared neck ring clear of the upper torso so it remains
         // readable with every body tint and camera angle.
@@ -421,7 +441,9 @@ export class CivilianView {
         this.scarves.setMatrixAt(scarfIndex, this.dummy.matrix);
         this.scarves.setColorAt(
           scarfIndex,
-          this.scarfColors[c.id % this.scarfColors.length],
+          this.festive
+            ? this.festiveScarves[c.id % this.festiveScarves.length]
+            : this.scarfColors[c.id % this.scarfColors.length],
         );
       }
       const place = (
@@ -648,4 +670,25 @@ export class CivilianView {
     this.fearMouths.count = 0;
     this.eyeWhites.count = 0;
   }
+}
+
+/** A Santa hat for the villager rig, red cone and white trim as vertex colours. */
+function santaHatGeometry() {
+  const { red, white } = santaHatGeometries(0.5, 1.15);
+  const paint = (list: THREE.BufferGeometry[], color: string) => {
+    const c = new THREE.Color(color);
+    for (const g of list) {
+      const n = g.getAttribute("position").count,
+        values = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) c.toArray(values, i * 3);
+      g.setAttribute("color", new THREE.BufferAttribute(values, 3));
+    }
+    return list;
+  };
+  const geometry = mergeGeometries([
+    ...paint(red, "#c8102e"),
+    ...paint(white, "#fbfbf7"),
+  ])!;
+  geometry.translate(0, -0.12, 0);
+  return geometry;
 }

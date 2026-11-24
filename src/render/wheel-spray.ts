@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { christmas } from "../christmas";
 /** Fixed pool shared by the entire horde; never allocates per splash. */
 export class WheelSpray {
   readonly capacity = 256;
@@ -18,7 +19,8 @@ export class WheelSpray {
     this.mesh = new THREE.Points(
       geometry,
       new THREE.PointsMaterial({
-        color: "#c6e8ee",
+        // Slushy snow at Christmas.
+        color: christmas() ? "#f4f8ff" : "#c6e8ee",
         size: 2.5,
         transparent: true,
         opacity: 0.7,

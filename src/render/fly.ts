@@ -2,6 +2,8 @@ import { DeathPiecePose } from "./death-pieces";
 import * as THREE from "three";
 import type { SimulationSnapshot } from "../types";
 import { FLY_COUNT } from "../config";
+import { christmas } from "../christmas";
+import { festiveMaterials, santaHat } from "./christmas/costumes";
 
 const FLY_CENTERS = [
   [0, 0, -7],
@@ -147,6 +149,32 @@ export class FlyView {
         }
         sections[1].add(hinge);
         wings.push(hinge);
+      }
+      if (christmas()) {
+        // Alternate Santa hats and reindeer antlers on the head section.
+        const head = sections[2];
+        if (id % 2 === 0) {
+          const hat = santaHat(4.2, 9);
+          hat.position.set(0, 5.6, 1);
+          hat.rotation.x = -0.25;
+          head.add(hat);
+        } else {
+          const antler = festiveMaterials().antler;
+          for (const side of [-1, 1]) {
+            const beam = new THREE.Mesh(this.leg, antler);
+            beam.position.set(side * 2.6, 8, -1);
+            beam.scale.set(0.8, 8, 0.8);
+            beam.rotation.z = side * -0.55;
+            head.add(beam);
+            for (let t = 0; t < 3; t++) {
+              const tine = new THREE.Mesh(this.leg, antler);
+              tine.position.set(side * (3.4 + t * 1.2), 9 + t * 1.6, -1 + t * 0.4);
+              tine.scale.set(0.5, 3.4, 0.5);
+              tine.rotation.x = 0.7;
+              head.add(tine);
+            }
+          }
+        }
       }
       model.visible = false;
       this.group.add(model);
